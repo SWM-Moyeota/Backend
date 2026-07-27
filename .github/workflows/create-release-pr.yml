@@ -89,6 +89,6 @@ jobs:
         run: |
           gh api repos/${{ github.repository }}/pulls/${{ steps.create.outputs.pr_number }}/requested_reviewers \
             --method POST \
-            -f "reviewers[]="KII1ua -f "reviewers[]=dupong00" -f "reviewers[]="erase-jeong || echo "Failed to add reviewers"
+            -f "reviewers[]=KII1ua" -f "reviewers[]=dupong00" -f "reviewers[]=erase-jeong" || echo "Failed to add reviewers"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
