@@ -79,3 +79,4 @@ jobs:
         run: gh release create "v${{ needs.calculate-version.outputs.version }}" --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 이후 ecr, cd 배포해야함
