@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 /**
  *  애그리거트 루트
@@ -86,17 +87,23 @@ public class Party {
             return;
         }
 
+        PartyMember tmp = null;
+
         // 방장인 경우 찾기
         for(PartyMember m : members) {
             if(m.getMemberId().equals(memberId)) {
-                flag = true;
-                members.remove(m);
+                tmp = m;
+                break;
             }
         }
 
-        if(flag) {
+        members.remove(tmp);
+
+        if(Objects.equals(this.hostId, memberId)) {
             hostId = assignNewHost();
         }
+
+        status = PartyStatus.ACTIVE;
     }
 
     /**
