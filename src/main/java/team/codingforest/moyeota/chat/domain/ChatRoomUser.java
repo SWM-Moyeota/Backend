@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.chat.domain;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
@@ -22,7 +23,9 @@ public class ChatRoomUser {
 
     private boolean notificationMuted;
 
+    @Column(nullable = false)
+    private Instant joinedAt;
+
     private Instant leftAt;
 
-    private Instant joinedAt;
 }

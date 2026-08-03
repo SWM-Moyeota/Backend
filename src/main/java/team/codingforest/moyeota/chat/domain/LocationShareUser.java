@@ -1,9 +1,6 @@
 package team.codingforest.moyeota.chat.domain;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.Getter;
 
 import java.time.Instant;
@@ -15,10 +12,13 @@ public class LocationShareUser {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private Long chatRoomId;
 
+    @Column(nullable = false)
     private Long userId;
 
+    @Column(nullable = false)
     private Instant joinedAt;
 
     private Instant leftAt;
