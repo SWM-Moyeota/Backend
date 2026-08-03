@@ -13,4 +13,8 @@ public class PartyMember {
         this.memberId = memberId;
         this.joinedAt = joinedAt;
     }
+
+    public static PartyMember restore(Long memberId, Instant joinedAt) {
+        return new PartyMember(memberId, joinedAt);
+    }
 }

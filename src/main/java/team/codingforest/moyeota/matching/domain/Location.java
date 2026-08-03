@@ -10,4 +10,5 @@ public record Location(double latitude, double longitude) {
     public Location {
         if(latitude < MIN_LAT || longitude < MIN_LNG || latitude > MAX_LAT || longitude > MAX_LNG) throw new IllegalArgumentException("한국 범위를 벗어났습니다.");
     }
+
 }
