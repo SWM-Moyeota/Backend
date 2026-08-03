@@ -14,11 +14,15 @@ public class PartyJpa implements Parties {
 
     @Override
     public Optional<Party> findById(Long id) {
-        return null;
+
+        return delegate.findById(id)
+                .map(jpa -> jpa.toDomain());
     }
 
     @Override
     public Party save(Party party) {
-        return null;
+        PartyEntity entity = PartyEntity.from(party);       // 도메인 -> 엔티티
+        delegate.save(entity);                              // 엔티티 저장
+        return entity.toDomain();                           // 엔티티 -> 도메인
     }
 }
