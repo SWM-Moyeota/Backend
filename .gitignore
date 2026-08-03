@@ -30,3 +30,6 @@ Thumbs.db
 # API 키나 DB 비밀번호가 들어간 로컬 설정파일이 있다면 주석을 해제해 무시하세요.
 # application-local.yml
 # application-secret.yml
+
+### ai (선택)
+*.ai
