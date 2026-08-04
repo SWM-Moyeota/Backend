@@ -79,8 +79,6 @@ public class Party {
     public void leave(Long memberId) {
         if(!hasMember(memberId)) throw new IllegalArgumentException("해당 방에 참여X");
 
-        boolean flag = false;
-
         // 방장 혼자 남은 경우 방 폭파
         if(members.size() == 1) {
             cancel(memberId);
