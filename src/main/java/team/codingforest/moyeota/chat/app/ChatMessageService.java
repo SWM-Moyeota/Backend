@@ -5,10 +5,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageResult;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageSlice;
+import team.codingforest.moyeota.chat.app.dto.SendMessageCommand;
 import team.codingforest.moyeota.chat.domain.ChatMessage;
 import team.codingforest.moyeota.chat.domain.ChatMessageRepository;
 
-import java.util.ArrayList;
+import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -32,4 +33,15 @@ public class ChatMessageService {
         );
     }
 
+    @Transactional
+    public ChatMessageResult sendMessage(SendMessageCommand command) {
+        ChatMessage message = ChatMessage.text(
+                command.chatRoomId(),
+                command.userId(),
+                command.content(),
+                Instant.now()
+        );
+
+        return ChatMessageResult.from(chatMessageRepository.save(message));
+    }
 }
