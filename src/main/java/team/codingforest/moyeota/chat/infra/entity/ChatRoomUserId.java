@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.chat.domain;
+package team.codingforest.moyeota.chat.infra.entity;
 
 import lombok.EqualsAndHashCode;
 
