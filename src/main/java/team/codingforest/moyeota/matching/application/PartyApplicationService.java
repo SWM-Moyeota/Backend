@@ -50,6 +50,12 @@ public class PartyApplicationService {
         log.info("매칭방에서 사용자 나감 partyId={}, memberId={}, status={}, members={}", partyId, memberId, party.getStatus(), party.getMembers().size());
     }
 
+    @Transactional(readOnly = true)
+    public PartyDetailResult getPartyDetail(Long partyId) {
+        return PartyDetailResult.from(getParty(partyId));
+    }
+
+
     // TODO 예외처리 해야함
     private Party getParty(Long partyId) {
         return parties.findById(partyId)

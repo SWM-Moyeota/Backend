@@ -3,10 +3,7 @@ package team.codingforest.moyeota.matching.interfaces;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import team.codingforest.moyeota.matching.application.OpenPartyRequest;
-import team.codingforest.moyeota.matching.application.OpenPartyResponse;
-import team.codingforest.moyeota.matching.application.PartyApplicationService;
-import team.codingforest.moyeota.matching.application.PartyResult;
+import team.codingforest.moyeota.matching.application.*;
 
 @RestController
 @RequestMapping("/api")
@@ -27,5 +24,10 @@ public class PartyController {
         service.leave(partyId, memberId);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/matching/rooms/{partyId}")
+    public ResponseEntity<PartyDetailResult> detail(@PathVariable Long partyId) {
+        return ResponseEntity.ok(service.getPartyDetail(partyId));
     }
 }
