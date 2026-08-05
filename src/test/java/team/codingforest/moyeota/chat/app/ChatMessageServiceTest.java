@@ -5,7 +5,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import team.codingforest.moyeota.chat.app.dto.ChatMessageResult;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageSlice;
+import team.codingforest.moyeota.chat.app.dto.SendMessageCommand;
 import team.codingforest.moyeota.chat.domain.ChatMessage;
 import team.codingforest.moyeota.chat.domain.ChatMessageRepository;
 import team.codingforest.moyeota.chat.domain.ChatMessageType;
@@ -14,6 +16,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,5 +56,17 @@ class ChatMessageServiceTest {
         assertThat(slice.hasNext()).isFalse();
         assertThat(slice.messages()).hasSize(2);
         assertThat(slice.nextCursor()).isEqualTo(1L);
+    }
+
+    @Test
+    void 채팅_메시지_저장_성공() {
+        ChatMessage chatMessage = message(1L);
+        given(chatMessageRepository.save(any(ChatMessage.class))).willReturn(chatMessage);
+
+        ChatMessageResult result = chatMessageService.sendMessage(new SendMessageCommand(ROOM_ID, USER_ID, "안녕"));
+
+        assertThat(result.id()).isEqualTo(1L);
+        assertThat(result.userId()).isEqualTo(USER_ID);
+        assertThat(result.chatRoomId()).isEqualTo(ROOM_ID);
     }
 }
