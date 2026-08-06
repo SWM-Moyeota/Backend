@@ -7,6 +7,7 @@ import java.time.Instant;
 
 @Entity
 @Getter
+@Table(name = "chat_room")
 public class ChatRoomEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
