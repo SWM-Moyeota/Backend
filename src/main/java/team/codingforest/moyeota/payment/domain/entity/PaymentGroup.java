@@ -5,23 +5,29 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-public class PaymentMethod {
+public class PaymentGroup {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private String billingKey;
+    private Long matchId;
 
     @Column(nullable = false)
-    private Long userId;
+    private Long partnerId;
 
     @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
-    private PaymentMethodType type;
+    private int totalFare;
+
+    @Column(nullable = false)
+    private int passengerCount;
+
+    @Column(nullable = false)
+    private Integer platformCharge;
 
     @Column(nullable = false)
     private Instant createdAt;
 
-    private Instant deletedAt;
+    @Column(nullable = false)
+    private PaymentGroupStatus status;
 }
