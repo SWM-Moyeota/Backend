@@ -1,8 +1,4 @@
-package team.codingforest.moyeota.matching.application;
-
-import ch.qos.logback.core.status.InfoStatus;
-import team.codingforest.moyeota.matching.domain.Party;
-import team.codingforest.moyeota.matching.domain.PartyStatus;
+package team.codingforest.moyeota.matching.application.dto;
 
 import java.time.Instant;
 
