@@ -1,11 +1,13 @@
 package team.codingforest.moyeota.payment.domain.entity;
 
 import jakarta.persistence.*;
+import team.codingforest.moyeota.common.BaseTimeEntity;
 
 import java.time.Instant;
 
 @Entity
-public class PaymentMethod {
+@Table(name = "payment_method")
+public class PaymentMethod extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -19,9 +21,6 @@ public class PaymentMethod {
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
     private PaymentMethodType type;
-
-    @Column(nullable = false)
-    private Instant createdAt;
 
     private Instant deletedAt;
 }

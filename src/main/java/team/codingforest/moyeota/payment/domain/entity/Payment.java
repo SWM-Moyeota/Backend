@@ -1,13 +1,14 @@
 package team.codingforest.moyeota.payment.domain.entity;
 
 import jakarta.persistence.*;
+import team.codingforest.moyeota.common.BaseTimeEntity;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Table(name="payment")
 @Entity
-public class Payment {
+public class Payment extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(nullable = false)
@@ -43,11 +44,6 @@ public class Payment {
     private String orderName;
 
     private String failCode;
-
-    @Column(nullable = false)
-    private Instant createdAt;
-
-    private Instant updateAt;
 
     private Instant cancelAt;
 
