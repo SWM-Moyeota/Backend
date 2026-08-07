@@ -16,7 +16,7 @@ import java.time.Instant;
 public abstract class BaseTimeEntity extends BaseEntity implements TimeTrackable {
 
     @CreatedDate
-    @Column(updatable = false)
+    @Column(updatable = false, nullable = false)
     private Instant createdAt;
 
     @LastModifiedDate

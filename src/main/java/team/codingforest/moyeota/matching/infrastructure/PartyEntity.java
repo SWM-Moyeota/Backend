@@ -90,7 +90,7 @@ public class PartyEntity extends BaseTimeEntity {
     }
 
     public Party toDomain() {
-        Party.restore(getId(), hostId, new Location(departureLat, departureLng), new Location(destinationLat, destinationLng),
+        return Party.restore(getId(), hostId, new Location(departureLat, departureLng), new Location(destinationLat, destinationLng),
                 new Radius(departureRadius), new Radius(destinationRadius), departure, destination, new Capacity(capacity),
                 members.stream().map(PartyMemberEntity::toDomain).toList(), getCreatedAt(), status);
     }
