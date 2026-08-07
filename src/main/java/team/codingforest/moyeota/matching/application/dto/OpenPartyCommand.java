@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.matching.application;
+package team.codingforest.moyeota.matching.application.dto;
 
 public record OpenPartyCommand(
         long hostId,

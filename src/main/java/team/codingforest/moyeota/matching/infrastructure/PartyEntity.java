@@ -4,8 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import team.codingforest.moyeota.common.BaseTimeEntity;
 import team.codingforest.moyeota.matching.domain.*;
+import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 

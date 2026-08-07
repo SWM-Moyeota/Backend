@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.matching.domain;
 
 import lombok.Getter;
+import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
 import java.time.Instant;
 import java.util.ArrayList;

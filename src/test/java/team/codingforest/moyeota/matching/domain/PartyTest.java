@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.matching.domain;
 
 import org.junit.jupiter.api.Test;
+import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
 import java.time.Instant;
 
