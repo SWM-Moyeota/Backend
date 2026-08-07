@@ -22,10 +22,13 @@ public class PaymentGroup extends BaseTimeEntity {
     private Long partnerId;
 
     @Column(nullable = false)
-    private Integer totalFare;
+    private Integer fare;
 
     @Column(nullable = false)
     private Integer passengerCount;
+
+    @Column(nullable = false)
+    private Integer remainingBalance;
 
     @Column(nullable = false)
     private Integer platformCharge;
@@ -34,16 +37,17 @@ public class PaymentGroup extends BaseTimeEntity {
     @Column(nullable = false)
     private PaymentGroupStatus status;
 
-    private PaymentGroup(Long matchId, Long partnerId, Integer totalFare, Integer passengerCount, Integer platformCharge,PaymentGroupStatus status) {
+    private PaymentGroup(Long matchId, Long partnerId, Integer fare, Integer passengerCount, Integer remainingBalance, Integer platformCharge) {
         this.matchId = matchId;
         this.partnerId = partnerId;
-        this.totalFare = totalFare;
+        this.fare = fare;
         this.passengerCount = passengerCount;
+        this.remainingBalance = remainingBalance;
         this.platformCharge = platformCharge;
         this.status = PaymentGroupStatus.PENDING;
     }
 
-    public static PaymentGroup from(Long matchId, Long partnerId, Integer totalFare, Integer passengerCount, Integer platformCharge, PaymentGroupStatus status) {
-        return new PaymentGroup(matchId, partnerId, totalFare, passengerCount, platformCharge, status);
+    public static PaymentGroup from(Long matchId, Long partnerId, Integer fare, Integer passengerCount, Integer remainingBalance, Integer platformCharge) {
+        return new PaymentGroup(matchId, partnerId, fare, passengerCount, remainingBalance, platformCharge);
     }
 }

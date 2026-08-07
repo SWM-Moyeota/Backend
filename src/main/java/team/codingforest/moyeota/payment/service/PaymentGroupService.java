@@ -2,29 +2,35 @@ package team.codingforest.moyeota.payment.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import team.codingforest.moyeota.payment.domain.entity.Payment;
 import team.codingforest.moyeota.payment.domain.entity.PaymentGroup;
-import team.codingforest.moyeota.payment.domain.entity.PaymentGroupStatus;
 import team.codingforest.moyeota.payment.dto.PaymentGroupReq;
 import team.codingforest.moyeota.payment.repository.PaymentGroupRepository;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class PaymentGroupService {
     private final PaymentGroupRepository paymentGroupRepository;
 
-    public Payment createGroup(PaymentGroupReq req) {
-        List<Long> users = req.users();
+    public PaymentGroup createGroup(PaymentGroupReq req) {
+        int fare = (req.totalFare() / req.passengerCount()) / 10 * 10;
+        int remainingBalance = req.totalFare() - (fare * req.passengerCount());
 
-        //req.partnerId(), totalFare, Integer passengerCount, Integer platformCharge, PaymentGroupStatus status
+        PaymentGroup paymentGroup = PaymentGroup.from(
+                req.matchId(),
+                req.partenrId(),
+                fare,
+                req.passengerCount(),
+                remainingBalance,
+                calculatePlatformCharge(req.totalFare())
+                );
 
-        //paymentGroup이라는 리스트를 만들어서,  그걸 람다식으로 static 메소드 활용해서 저장하기
-        List<PaymentGroup> paymentGroups=req.users().stream().map(p->PaymentGroup.from(req.matchId(), req.total_fare());
-        ))
+        return paymentGroupRepository.save(paymentGroup);
+    }
 
-
-
+    private Integer calculatePlatformCharge(Integer totalFare) {
+        if (totalFare <= 10000) {
+            return 1000;
+        }
+        else return 2000;
     }
 }
