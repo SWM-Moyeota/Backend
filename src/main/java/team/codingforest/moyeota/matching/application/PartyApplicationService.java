@@ -8,6 +8,7 @@ import team.codingforest.moyeota.matching.application.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.application.dto.PartyResult;
 import team.codingforest.moyeota.matching.domain.*;
+import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
 import java.time.Instant;
 import java.util.List;
@@ -57,6 +58,13 @@ public class PartyApplicationService {
     @Transactional(readOnly = true)
     public PartyDetailResult getPartyDetail(Long partyId) {
         return PartyDetailResult.from(getParty(partyId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PartyResult> findActiveParties() {
+        return parties.findAllByStatus(PartyStatus.ACTIVE).stream()
+                .map(PartyResult::from)
+                .toList();
     }
 
 

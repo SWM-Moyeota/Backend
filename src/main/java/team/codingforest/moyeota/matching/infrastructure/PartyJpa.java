@@ -27,4 +27,10 @@ public class PartyJpa implements Parties {
         delegate.save(entity);                              // 엔티티 저장
         return entity.toDomain();                           // 엔티티 -> 도메인
     }
+
+    @Override
+    public List<Party> findAllByStatus(PartyStatus status) {
+        return delegate.findAllByStatus(status).stream()
+                .map(PartyEntity::toDomain).toList();
+    }
 }
