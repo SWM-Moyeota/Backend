@@ -36,4 +36,10 @@ class PartyJpaTest implements Parties {
         return store.values().stream().filter(p -> p.getStatus() == status)
                 .toList();
     }
+
+    @Override
+    public boolean existsOngoingByMemberId(Long memberId) {
+        return store.values().stream()
+                .anyMatch(p -> p.getStatus().isOngoing() && p.hasMember(memberId));
+    }
 }

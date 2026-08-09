@@ -10,4 +10,5 @@ public interface Parties {
     Optional<Party> findById(Long id);
     Party save(Party party);
     List<Party> findAllByStatus(PartyStatus status);
+    boolean existsOngoingByMemberId(Long memberId);
 }

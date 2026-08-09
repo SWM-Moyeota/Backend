@@ -22,6 +22,7 @@ public class PartyApplicationService {
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
+        validateNotInOngoingParty(command.hostId());
         Party party = Party.open(command.hostId(),
                 new Location(command.departureLat(), command.departureLng()),
                 new Location(command.destinationLat(), command.destinationLng()),
@@ -37,6 +38,7 @@ public class PartyApplicationService {
 
     @Transactional
     public void join(Long partyId, Long memberId) {
+        validateNotInOngoingParty(memberId);
         Party party = getParty(partyId);
 
         party.join(memberId);
@@ -72,5 +74,11 @@ public class PartyApplicationService {
     private Party getParty(Long partyId) {
         return parties.findById(partyId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 방이 없음"));
+    }
+
+    private void validateNotInOngoingParty(Long memberId) {
+        if(parties.existsOngoingByMemberId(memberId)) {
+            throw new IllegalArgumentException("이미 참여 중인 방이 있습니다. memberId=" + memberId);
+        }
     }
 }
