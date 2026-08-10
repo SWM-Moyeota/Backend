@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.matching.application;
+package team.codingforest.moyeota.matching.application.dto;
 
 public record OpenPartyRequest(Long hostId, Double departureLat, Double departureLng,
                                Double destinationLat, Double destinationLng, String departure, String destination,

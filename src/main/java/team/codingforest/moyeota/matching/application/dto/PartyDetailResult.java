@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.matching.application;
+package team.codingforest.moyeota.matching.application.dto;
 
 import team.codingforest.moyeota.matching.domain.Party;
 
