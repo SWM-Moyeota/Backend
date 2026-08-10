@@ -13,7 +13,7 @@ public class ChatRoomEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private Long partyId;
 
     @Column(nullable = false)
@@ -34,8 +34,9 @@ public class ChatRoomEntity {
 
     protected ChatRoomEntity() {}
 
-    private ChatRoomEntity(Long partyId, String departure, String destination,
+    private ChatRoomEntity(Long id, Long partyId, String departure, String destination,
                            Instant createdAt, ChatRoomStatus status, Instant departureTime) {
+        this.id = id;
         this.partyId = partyId;
         this.departure = departure;
         this.destination = destination;
@@ -46,6 +47,7 @@ public class ChatRoomEntity {
 
     public static ChatRoomEntity from(ChatRoom chatRoom) {
         return new ChatRoomEntity(
+                chatRoom.getId(),
                 chatRoom.getPartyId(),
                 chatRoom.getDeparture(),
                 chatRoom.getDestination(),
