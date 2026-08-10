@@ -6,6 +6,9 @@ import team.codingforest.moyeota.chat.domain.ChatRoom;
 import team.codingforest.moyeota.chat.domain.ChatRoomRepository;
 import team.codingforest.moyeota.chat.infra.entity.ChatRoomEntity;
 
+import java.util.Optional;
+import java.util.OptionalInt;
+
 @Repository
 @RequiredArgsConstructor
 public class ChatRoomJpa implements ChatRoomRepository {
@@ -14,7 +17,16 @@ public class ChatRoomJpa implements ChatRoomRepository {
     @Override
     public ChatRoom save(ChatRoom chatRoom) {
         ChatRoomEntity entity = ChatRoomEntity.from(chatRoom);
-        jpaRepository.save(entity);
-        return entity.toDomain();
+        return jpaRepository.save(entity).toDomain();
+    }
+
+    @Override
+    public Optional<ChatRoom> findById(Long chatRoomId) {
+        return jpaRepository.findById(chatRoomId).map(ChatRoomEntity::toDomain);
+    }
+
+    @Override
+    public boolean existsByPartyId(Long partyId) {
+        return jpaRepository.existsByPartyId(partyId);
     }
 }
