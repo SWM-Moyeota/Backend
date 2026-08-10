@@ -17,12 +17,12 @@ class ChatRoomTest {
     private static final Instant DEPARTURE_TIME = NOW.plusSeconds(3600);
 
     private ChatRoom roomCreate(ChatRoomStatus status) {
-        return ChatRoom.restore(1L, PARTY_ID, DEPARTURE, DESTINATION, NOW, status, DEPARTURE_TIME);
+        return ChatRoom.restore(1L, PARTY_ID, DEPARTURE, DESTINATION, NOW, status);
     }
 
     @Test
     void 방_생성시_ACTIVE() {
-        ChatRoom chatRoom = ChatRoom.create(PARTY_ID, DEPARTURE, DESTINATION, NOW, DEPARTURE_TIME);
+        ChatRoom chatRoom = ChatRoom.create(PARTY_ID, DEPARTURE, DESTINATION, NOW);
 
         assertThat(chatRoom.getStatus()).isEqualTo(ChatRoomStatus.ACTIVE);
     }

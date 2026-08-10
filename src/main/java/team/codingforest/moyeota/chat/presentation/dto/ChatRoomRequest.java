@@ -14,8 +14,6 @@ public record ChatRoomRequest(
         String departure,
 
         @NotBlank
-        String destination,
-
-        Instant departureTime
+        String destination
 ) {
 }

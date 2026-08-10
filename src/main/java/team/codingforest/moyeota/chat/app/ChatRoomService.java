@@ -27,8 +27,7 @@ public class ChatRoomService {
                 command.partyId(),
                 command.departure(),
                 command.destination(),
-                Instant.now(),
-                command.departureTime()
+                Instant.now()
         );
 
         if (chatRoomRepository.existsByPartyId(command.partyId())) {

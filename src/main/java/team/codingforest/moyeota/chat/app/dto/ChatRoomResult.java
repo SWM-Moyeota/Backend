@@ -11,8 +11,7 @@ public record ChatRoomResult (
         String departure,
         String destination,
         Instant createdAt,
-        ChatRoomStatus status,
-        Instant departureTime
+        ChatRoomStatus status
 ){
     public static ChatRoomResult from(ChatRoom chatRoom){
         return new ChatRoomResult(
@@ -21,8 +20,7 @@ public record ChatRoomResult (
                 chatRoom.getDeparture(),
                 chatRoom.getDestination(),
                 chatRoom.getCreatedAt(),
-                chatRoom.getStatus(),
-                chatRoom.getDepartureTime()
+                chatRoom.getStatus()
         );
     }
 }

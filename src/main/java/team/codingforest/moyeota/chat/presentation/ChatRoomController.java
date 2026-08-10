@@ -24,7 +24,7 @@ public class ChatRoomController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ChatRoomResult createChatRoom(@Valid @RequestBody ChatRoomRequest request) {
-        return chatRoomService.createRoom(new CreateChatRoomCommand(request.partyId(), request.departure(), request.destination(), request.departureTime()));
+        return chatRoomService.createRoom(new CreateChatRoomCommand(request.partyId(), request.departure(), request.destination()));
     }
 
     @DeleteMapping("/{chatRoomId}")
