@@ -1,0 +1,44 @@
+### 일반 API — 먼저 accessToken을 받아둘 것
+# 웹 로그인: 브라우저로 http://localhost:8080/oauth2/authorization/google 접속 후
+#            리다이렉트된 주소의 # 뒤에서 accessToken을 복사해 아래 변수에 넣는다.
+#            (auth.http 맨 위 설명 참고)
+# 또는 auth.http 의 1번(앱 방식)을 실행하면 자동으로 변수에 저장된다.
+
+
+### 인증 없이 접근 가능 (SecurityConfig의 permitAll)
+GET {{baseUrl}}/
+
+
+### ROLE_USER 필요 — 헤더에 access 토큰을 실어 보낸다
+GET {{baseUrl}}/my
+Authorization: Bearer {{accessToken}}
+
+
+### 로그인한 사용자 정보 확인
+GET {{baseUrl}}/home
+Authorization: Bearer {{accessToken}}
+
+
+### [실패 케이스] 토큰 없이 호출 → 401 {"error":"unauthorized"}
+# 예전에는 구글 로그인으로 302 리다이렉트가 나갔다.
+# 프론트가 fetch로 부르면 리다이렉트를 따라가다 CORS로 실패해서 원인 파악이 어려웠으므로,
+# SecurityConfig에 authenticationEntryPoint를 등록해 401을 주도록 바꿨다.
+GET {{baseUrl}}/my
+
+
+### [실패 케이스] Bearer 접두사 없이 토큰만 → 401
+# JWTFilter가 "Bearer "로 시작하지 않는 헤더를 무시하므로 인증되지 않은 상태로 넘어간다.
+GET {{baseUrl}}/my
+Authorization: {{accessToken}}
+
+
+### [실패 케이스] refresh를 access 자리에 → 401 invalid access token
+GET {{baseUrl}}/my
+Authorization: Bearer {{refreshToken}}
+
+
+### [실패 케이스] 만료된 access → 401 access token expired
+# access는 10분이므로, 받아둔 지 10분이 지난 뒤 실행하면 이 메시지가 나온다.
+# 프론트는 이 응답을 보고 auth.http 2번(재발급)을 호출하면 된다.
+GET {{baseUrl}}/my
+Authorization: Bearer {{accessToken}}

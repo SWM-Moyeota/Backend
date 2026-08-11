@@ -1,0 +1,12 @@
+# 이 파일을 application-local.properties 로 복사한 뒤 실제 값을 채워 넣는다.
+# (application-local.properties 는 .gitignore에 등록돼 있어 커밋되지 않는다)
+#
+#   cp src/main/resources/application-local.properties.example \
+#      src/main/resources/application-local.properties
+
+# 구글 클라우드 콘솔 > API 및 서비스 > 사용자 인증 정보 에서 발급
+spring.security.oauth2.client.registration.google.client-secret=여기에-구글-client-secret
+
+# JWT 서명 키. HS256이라 32바이트(=32자) 이상이어야 한다.
+# 아무 값이나 길게 넣으면 되지만, 팀원끼리 값이 다르면 서로의 토큰을 검증하지 못한다.
+spring.jwt.secret=여기에-32자-이상의-임의-문자열

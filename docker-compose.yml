@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: moyeota-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: moyeota
+      POSTGRES_USER: moyeota
+      POSTGRES_PASSWORD: moyeota1234
+      TZ: Asia/Seoul
+    ports:
+      # 호스트 5433 -> 컨테이너 5432
+      # 5432는 로컬에 설치된 PostgreSQL 18 서비스가 사용 중이라 5433으로 띄운다.
+      - "5433:5432"
+    volumes:
+      - moyeota-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moyeota -d moyeota"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  moyeota-postgres-data:
