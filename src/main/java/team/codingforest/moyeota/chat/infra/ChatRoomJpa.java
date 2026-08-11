@@ -7,7 +7,6 @@ import team.codingforest.moyeota.chat.domain.ChatRoomRepository;
 import team.codingforest.moyeota.chat.infra.entity.ChatRoomEntity;
 
 import java.util.Optional;
-import java.util.OptionalInt;
 
 @Repository
 @RequiredArgsConstructor

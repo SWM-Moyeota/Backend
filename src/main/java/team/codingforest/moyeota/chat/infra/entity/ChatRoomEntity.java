@@ -2,7 +2,9 @@ package team.codingforest.moyeota.chat.infra.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
-import team.codingforest.moyeota.chat.domain.*;
+import team.codingforest.moyeota.chat.domain.ChatRoom;
+import team.codingforest.moyeota.chat.domain.ChatRoomStatus;
+
 import java.time.Instant;
 
 @Entity

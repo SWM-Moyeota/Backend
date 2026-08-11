@@ -5,8 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import team.codingforest.moyeota.chat.app.ChatRoomService;
-import team.codingforest.moyeota.chat.app.dto.CreateChatRoomCommand;
 import team.codingforest.moyeota.chat.app.dto.ChatRoomResult;
+import team.codingforest.moyeota.chat.app.dto.CreateChatRoomCommand;
 import team.codingforest.moyeota.chat.presentation.dto.ChatRoomRequest;
 
 @RestController
