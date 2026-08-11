@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.chat.app;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.chat.app.dto.CreateChatRoomCommand;
@@ -9,9 +10,11 @@ import team.codingforest.moyeota.chat.domain.ChatRoom;
 import team.codingforest.moyeota.chat.domain.ChatRoomRepository;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
+import team.codingforest.moyeota.chat.infra.entity.ChatRoomEntity;
 
 import java.time.Instant;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatRoomService {
@@ -34,7 +37,11 @@ public class ChatRoomService {
             throw new ChatException(ChatErrorCode.CHAT_ROOM_ALREADY_EXISTS);
         }
 
-        return ChatRoomResult.from(chatRoomRepository.save(chatRoom));
+        ChatRoom result = chatRoomRepository.save(chatRoom);
+
+        log.info("채팅방 생성 partyId={} chatRoomId={}",  result.getPartyId(), result.getId());
+
+        return ChatRoomResult.from(result);
     }
 
     /**
@@ -60,6 +67,8 @@ public class ChatRoomService {
         chatRoom.close();
 
         chatRoomRepository.save(chatRoom);
+
+        log.info("채팅방 종료 chatRoomId={}", chatRoomId);
     }
 
 }
