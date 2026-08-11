@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.payment.domain.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.common.BaseTimeEntity;
 import team.codingforest.moyeota.payment.dto.PaymentGroupReq;
@@ -10,6 +11,7 @@ import java.time.Instant;
 @Entity
 @Table(name = "payment_group")
 @NoArgsConstructor
+@Getter
 public class PaymentGroup extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,6 +47,10 @@ public class PaymentGroup extends BaseTimeEntity {
         this.remainingBalance = remainingBalance;
         this.platformCharge = platformCharge;
         this.status = PaymentGroupStatus.PENDING;
+    }
+
+    public void updateStatus() {
+        this.status = PaymentGroupStatus.COMPLETED;
     }
 
     public static PaymentGroup from(Long matchId, Long partnerId, Integer fare, Integer passengerCount, Integer remainingBalance, Integer platformCharge) {
