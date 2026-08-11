@@ -1,0 +1,34 @@
+### Gradle ###
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+### IntelliJ IDEA ###
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+### Eclipse / VS Code ###
+.classpath
+.project
+.settings/
+bin/
+.vscode/
+
+### 로그 ###
+logs/
+*.log
+*.log.*.gz
+
+### OS ###
+.DS_Store
+Thumbs.db
+
+### Claude Code ###
+.claude/
+
+### 로컬 설정 (토큰·비밀번호가 들어가는 파일) ###
+http/http-client.private.env.json
+src/main/resources/application-local.properties
