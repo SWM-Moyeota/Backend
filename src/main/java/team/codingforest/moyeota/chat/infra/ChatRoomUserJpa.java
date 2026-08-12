@@ -5,7 +5,6 @@ import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.chat.domain.ChatRoomUser;
 import team.codingforest.moyeota.chat.domain.ChatRoomUserRepository;
 import team.codingforest.moyeota.chat.infra.entity.ChatRoomUserEntity;
-import team.codingforest.moyeota.chat.infra.entity.ChatRoomUserId;
 
 import java.util.List;
 import java.util.Optional;
