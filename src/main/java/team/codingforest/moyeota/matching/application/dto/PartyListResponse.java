@@ -16,5 +16,6 @@ public record PartyListResponse(List<PartyItem> list) {
     public static PartyListResponse from(List<PartyResult> results) {
         return new PartyListResponse(results.stream().map(m -> new PartyItem(m.id(), m.departure(), m.destination(), m.currentMembers(), m.capacity(),
                 m.status())).toList());
+        return new PartyListResponse(results.stream().map(PartyItem::from).toList());
     }
 }

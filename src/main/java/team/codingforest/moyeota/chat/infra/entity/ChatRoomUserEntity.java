@@ -4,12 +4,15 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
+import jakarta.persistence.Table;
 import lombok.Getter;
+import team.codingforest.moyeota.chat.domain.ChatRoomUser;
 
 import java.time.Instant;
 
 @Entity
 @Getter
+@Table(name = "chat_room_user")
 @IdClass(ChatRoomUserId.class)
 public class ChatRoomUserEntity {
 
@@ -21,6 +24,7 @@ public class ChatRoomUserEntity {
 
     private Long lastReadMessageId;
 
+    @Column(nullable = false)
     private boolean notificationMuted;
 
     @Column(nullable = false)
@@ -28,4 +32,37 @@ public class ChatRoomUserEntity {
 
     private Instant leftAt;
 
+    protected ChatRoomUserEntity() {}
+
+    private ChatRoomUserEntity(Long userId, Long chatRoomId, Long lastReadMessageId,
+                              boolean notificationMuted, Instant joinedAt, Instant leftAt) {
+        this.userId = userId;
+        this.chatRoomId = chatRoomId;
+        this.lastReadMessageId = lastReadMessageId;
+        this.notificationMuted = notificationMuted;
+        this.joinedAt = joinedAt;
+        this.leftAt = leftAt;
+    }
+
+    public static ChatRoomUserEntity from(ChatRoomUser user) {
+        return new ChatRoomUserEntity(
+                user.getUserId(),
+                user.getChatRoomId(),
+                user.getLastReadMessageId(),
+                user.isNotificationMuted(),
+                user.getJoinedAt(),
+                user.getLeftAt()
+        );
+    }
+
+    public ChatRoomUser toDomain() {
+        return ChatRoomUser.restore(
+                userId,
+                chatRoomId,
+                lastReadMessageId,
+                notificationMuted,
+                joinedAt,
+                leftAt
+        );
+    }
 }
