@@ -6,8 +6,9 @@ import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageResult;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageSlice;
 import team.codingforest.moyeota.chat.app.dto.SendMessageCommand;
-import team.codingforest.moyeota.chat.domain.ChatMessage;
-import team.codingforest.moyeota.chat.domain.ChatMessageRepository;
+import team.codingforest.moyeota.chat.domain.*;
+import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
+import team.codingforest.moyeota.chat.domain.exception.ChatException;
 
 import java.time.Instant;
 import java.util.List;
@@ -17,6 +18,8 @@ import java.util.List;
 public class ChatMessageService {
 
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatRoomRepository chatRoomRepository;
+    private final ChatRoomUserRepository chatRoomUserRepository;
 
     @Transactional(readOnly = true)
     public ChatMessageSlice findBefore(Long chatRoomId, Long cursor, int size) {
@@ -35,6 +38,14 @@ public class ChatMessageService {
 
     @Transactional
     public ChatMessageResult sendMessage(SendMessageCommand command) {
+        ChatRoom chatRoom = chatRoomRepository.findById(command.chatRoomId())
+                .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        chatRoom.validateCanSend();
+
+        chatRoomUserRepository.findActiveByUserIdAndChatRoomId(command.userId(), command.chatRoomId())
+                .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_NOT_PARTICIPANT));
+
         ChatMessage message = ChatMessage.text(
                 command.chatRoomId(),
                 command.userId(),
