@@ -7,11 +7,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import team.codingforest.moyeota.chat.app.dto.ChatRoomCommand;
 import team.codingforest.moyeota.chat.app.dto.ChatRoomUserResult;
 import team.codingforest.moyeota.chat.app.dto.ReadChatCommand;
-import team.codingforest.moyeota.chat.domain.ChatRoom;
-import team.codingforest.moyeota.chat.domain.ChatRoomRepository;
-import team.codingforest.moyeota.chat.domain.ChatRoomStatus;
-import team.codingforest.moyeota.chat.domain.ChatRoomUser;
-import team.codingforest.moyeota.chat.domain.ChatRoomUserRepository;
+import team.codingforest.moyeota.chat.domain.*;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
 
@@ -23,9 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ChatRoomUserServiceTest {
@@ -56,7 +50,7 @@ class ChatRoomUserServiceTest {
     @Test
     void 채팅방_참여_성공() {
         given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
-        given(chatRoomUserRepository.findByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.empty());
+        given(chatRoomUserRepository.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.empty());
 
         chatRoomUserService.join(new ChatRoomCommand(ROOM_ID, USER_ID));
 
@@ -66,7 +60,7 @@ class ChatRoomUserServiceTest {
     @Test
     void 이미_참여중이면_저장하지_않음() {
         given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
-        given(chatRoomUserRepository.findByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.of(activeUser(ROOM_ID)));
+        given(chatRoomUserRepository.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.of(activeUser(ROOM_ID)));
 
         chatRoomUserService.join(new ChatRoomCommand(ROOM_ID, USER_ID));
 
@@ -96,7 +90,7 @@ class ChatRoomUserServiceTest {
     @Test
     void 채팅방_나가기_성공() {
         ChatRoomUser user = activeUser(ROOM_ID);
-        given(chatRoomUserRepository.findByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.of(user));
+        given(chatRoomUserRepository.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.of(user));
 
         chatRoomUserService.leave(new ChatRoomCommand(ROOM_ID, USER_ID));
 
@@ -106,7 +100,7 @@ class ChatRoomUserServiceTest {
 
     @Test
     void 참여자가_아니면_나가기_예외() {
-        given(chatRoomUserRepository.findByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.empty());
+        given(chatRoomUserRepository.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> chatRoomUserService.leave(new ChatRoomCommand(ROOM_ID, USER_ID)))
                 .isInstanceOf(ChatException.class)
@@ -117,7 +111,7 @@ class ChatRoomUserServiceTest {
     @Test
     void 읽음_처리_성공() {
         ChatRoomUser user = activeUser(ROOM_ID);
-        given(chatRoomUserRepository.findByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.of(user));
+        given(chatRoomUserRepository.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.of(user));
 
         chatRoomUserService.read(new ReadChatCommand(USER_ID, ROOM_ID, 5L));
 

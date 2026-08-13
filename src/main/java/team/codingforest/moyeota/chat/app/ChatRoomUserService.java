@@ -31,9 +31,8 @@ public class ChatRoomUserService {
 
         chatRoom.validateJoin();
 
-        boolean alreadyJoined = chatRoomUserRepository.findByUserIdAndChatRoomId(command.userId(), command.chatRoomId())
-                        .filter(user -> !user.hasLeft())
-                        .isPresent();
+        boolean alreadyJoined = chatRoomUserRepository.findActiveByUserIdAndChatRoomId(command.userId(), command.chatRoomId())
+                .isPresent();
 
         if (alreadyJoined) {
             return;
@@ -72,8 +71,7 @@ public class ChatRoomUserService {
     }
 
     private ChatRoomUser getActiveUser(Long userId, Long chatRoomId) {
-        return chatRoomUserRepository.findByUserIdAndChatRoomId(userId, chatRoomId)
-                .filter(user -> !user.hasLeft())
+        return chatRoomUserRepository.findActiveByUserIdAndChatRoomId(userId, chatRoomId)
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_NOT_PARTICIPANT));
     }
 }
