@@ -119,6 +119,118 @@ class PartyTest {
     @Test
     void 마감된_방도_방장은_취소할_수_있다() {
         Party party = openParty(2);
-        
+        party.join(2L);
+
+        party.cancel(1L);
+
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.CANCELED);
+    }
+
+    @Test
+    void 준비_완료를_누르면_READY_상태가_된다() {
+        Party party = openParty(2);
+        party.join(2L);
+
+        party.ready(2L);
+
+        assertThat(findMember(party, 2L).isReady()).isTrue();
+    }
+
+    @Test
+    void 준비_취소를_누르면_NOT_READY로_돌아간다() {
+        Party party = openParty(2);
+        party.join(2L);
+        party.ready(2L);
+
+        party.cancelReady(2L);
+
+        assertThat(findMember(party, 2L).isReady()).isFalse();
+    }
+
+    @Test
+    void 방에_없는_회원은_준비할_수_없다() {
+        Party party = openParty(2);
+
+        assertThatThrownBy(() -> party.ready(2L)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 정원이_차고_전원_준비되면_매칭을_시작할_수_있다() {
+        Party party = openParty(2);
+        party.join(2L);
+        party.ready(1L);
+        party.ready(2L);
+
+        party.startMatching(1L);
+
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.MATCHING);
+    }
+
+    @Test
+    void 방장이_아니면_매칭을_시작할_수_없다() {
+        Party party = openParty(2);
+        party.join(2L);
+        party.ready(1L);
+        party.ready(2L);
+
+        assertThatThrownBy(() -> party.startMatching(2L)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 정원이_차지_않으면_매칭을_시작할_수_없다() {
+        Party party = openParty(3);
+        party.join(2L);
+        party.ready(1L);
+        party.ready(2L);
+
+        assertThatThrownBy(() -> party.startMatching(1L)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 전원_준비가_아니면_매칭을_시작할_수_없다() {
+        Party party = openParty(2);
+        party.join(2L);
+        party.ready(1L);
+
+        assertThatThrownBy(() -> party.startMatching(1L)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 준비를_취소하면_매칭을_시작할_수_없다() {
+        Party party = openParty(2);
+        party.join(2L);
+        party.ready(1L);
+        party.ready(2L);
+        party.cancelReady(2L);
+
+        assertThatThrownBy(() -> party.startMatching(1L)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 매칭이_시작된_방에서는_준비_상태를_바꿀_수_없다() {
+        Party party = openParty(2);
+        party.join(2L);
+        party.ready(1L);
+        party.ready(2L);
+        party.startMatching(1L);
+
+        assertThatThrownBy(() -> party.cancelReady(2L)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.ready(2L)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 새로_참여한_회원은_준비_전_상태로_시작한다() {
+        Party party = openParty(2);
+
+        party.join(2L);
+
+        assertThat(findMember(party, 2L).isReady()).isFalse();
+    }
+
+    private PartyMember findMember(Party party, Long memberId) {
+        return party.getMembers().stream()
+                .filter(m -> m.getMemberId().equals(memberId))
+                .findFirst()
+                .orElseThrow();
     }
 }
