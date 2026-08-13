@@ -11,7 +11,7 @@ import team.codingforest.moyeota.chat.app.dto.SendMessageCommand;
 import team.codingforest.moyeota.chat.presentation.dto.SendMessageRequest;
 
 @RestController
-@RequestMapping("/api/chat-rooms/{chatRoomId}/messages")
+@RequestMapping("/api/v1/chat-rooms/{chatRoomId}/messages")
 @RequiredArgsConstructor
 public class ChatMessageController {
     private final ChatMessageService chatMessageService;

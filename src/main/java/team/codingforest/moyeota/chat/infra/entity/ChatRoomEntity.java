@@ -2,7 +2,9 @@ package team.codingforest.moyeota.chat.infra.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
-import team.codingforest.moyeota.chat.domain.*;
+import team.codingforest.moyeota.chat.domain.ChatRoom;
+import team.codingforest.moyeota.chat.domain.ChatRoomStatus;
+
 import java.time.Instant;
 
 @Entity
@@ -13,7 +15,7 @@ public class ChatRoomEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private Long partyId;
 
     @Column(nullable = false)
@@ -29,29 +31,26 @@ public class ChatRoomEntity {
     @Enumerated(EnumType.STRING)
     private ChatRoomStatus status;
 
-    @Column(nullable = false)
-    private Instant departureTime;
-
     protected ChatRoomEntity() {}
 
-    private ChatRoomEntity(Long partyId, String departure, String destination,
-                           Instant createdAt, ChatRoomStatus status, Instant departureTime) {
+    private ChatRoomEntity(Long id, Long partyId, String departure, String destination,
+                           Instant createdAt, ChatRoomStatus status) {
+        this.id = id;
         this.partyId = partyId;
         this.departure = departure;
         this.destination = destination;
         this.createdAt = createdAt;
         this.status = status;
-        this.departureTime = departureTime;
     }
 
     public static ChatRoomEntity from(ChatRoom chatRoom) {
         return new ChatRoomEntity(
+                chatRoom.getId(),
                 chatRoom.getPartyId(),
                 chatRoom.getDeparture(),
                 chatRoom.getDestination(),
                 chatRoom.getCreatedAt(),
-                chatRoom.getStatus(),
-                chatRoom.getDepartureTime()
+                chatRoom.getStatus()
         );
     }
 
@@ -62,8 +61,7 @@ public class ChatRoomEntity {
                 departure,
                 destination,
                 createdAt,
-                status,
-                departureTime
+                status
         );
     }
 }

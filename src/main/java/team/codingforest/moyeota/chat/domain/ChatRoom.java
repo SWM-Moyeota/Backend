@@ -14,24 +14,22 @@ public class ChatRoom {
     private final String destination;
     private final Instant createdAt;
     private ChatRoomStatus status;
-    private Instant departureTime;
 
-    private ChatRoom(Long id, Long partyId, String departure, String destination, Instant createdAt, ChatRoomStatus status, Instant departureTime) {
+    private ChatRoom(Long id, Long partyId, String departure, String destination, Instant createdAt, ChatRoomStatus status) {
         this.id = id;
         this.partyId = partyId;
         this.departure = departure;
         this.destination = destination;
         this.createdAt = createdAt;
         this.status = status;
-        this.departureTime = departureTime;
     }
 
-    public static ChatRoom create(Long partyId, String departure, String destination, Instant now, Instant departureTime) {
-        return new ChatRoom(null, partyId, departure, destination, now, ChatRoomStatus.ACTIVE, departureTime);
+    public static ChatRoom create(Long partyId, String departure, String destination, Instant now) {
+        return new ChatRoom(null, partyId, departure, destination, now, ChatRoomStatus.ACTIVE);
     }
 
-    public static ChatRoom restore(Long id, Long partyId, String departure, String destination, Instant createdAt, ChatRoomStatus status, Instant departureTime){
-        return new ChatRoom(id, partyId, departure, destination, createdAt, status, departureTime);
+    public static ChatRoom restore(Long id, Long partyId, String departure, String destination, Instant createdAt, ChatRoomStatus status){
+        return new ChatRoom(id, partyId, departure, destination, createdAt, status);
     }
 
     public void close() {
