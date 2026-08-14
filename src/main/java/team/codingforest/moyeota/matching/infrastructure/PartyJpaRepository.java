@@ -12,8 +12,6 @@ import java.util.List;
 
 @Repository
 public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
-//    @Query("")
-    List<Party> findAllByStatus(PartyStatus status);
     @Query("select p from PartyEntity p left join fetch p.members where p.status = :status")
     List<PartyEntity> findAllByStatus(@Param("status") PartyStatus status);
 
