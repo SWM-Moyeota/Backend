@@ -7,8 +7,7 @@ import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.common.BaseTimeEntity;
 import team.codingforest.moyeota.driver.domain.BankAccount;
 import team.codingforest.moyeota.driver.domain.Driver;
-import team.codingforest.moyeota.driver.domain.DriverStatus;
-import team.codingforest.moyeota.driver.domain.Vehicle;
+import team.codingforest.moyeota.driver.domain.enums.DriverStatus;
 
 import java.time.Instant;
 
@@ -24,7 +23,6 @@ public class DriverEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private String qualificationNumber;
 
-    @Column(nullable = false)
     private Instant verifiedAt;
 
     @Column(nullable = false)
@@ -65,5 +63,22 @@ public class DriverEntity extends BaseTimeEntity {
 
     public Driver toDomain() {
         return Driver.restore(getId(), userId, qualificationNumber, verifiedAt, new BankAccount(bankName, bankNumber), vehicle == null? null : vehicle.toDomain(), setting.toDomain(), status);
+    }
+
+    public void update(Driver driver) {
+        this.verifiedAt = driver.getVerifiedAt();
+        this.status = driver.getStatus();
+        this.bankName = driver.getBankAccount().bankName();
+        this.bankNumber = driver.getBankAccount().accountNumber();
+
+        if(driver.getVehicle() != null) {
+            if(this.vehicle == null) {
+                this.vehicle = VehicleEntity.of(this, driver.getVehicle());
+            }
+            else {
+                this.vehicle.update(driver.getVehicle());
+            }
+        }
+        this.setting.update(driver.getSetting());
     }
 }

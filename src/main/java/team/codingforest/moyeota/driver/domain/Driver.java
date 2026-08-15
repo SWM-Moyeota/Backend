@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.driver.domain;
 
 import lombok.Getter;
+import team.codingforest.moyeota.driver.domain.enums.DriverStatus;
 
 import java.time.Instant;
 
@@ -15,7 +16,7 @@ public class Driver {
     private DriverSetting setting;
     private DriverStatus status;
 
-    public Driver(Long id, Long userId, String qualificationNumber, Instant verifiedAt,
+    private Driver(Long id, Long userId, String qualificationNumber, Instant verifiedAt,
                   BankAccount bankAccount, Vehicle vehicle, DriverSetting setting, DriverStatus status) {
         this.id = id;
         this.userId = userId;
@@ -56,6 +57,14 @@ public class Driver {
      */
     public boolean canReceiveCalls() {
         return status == DriverStatus.VERIFIED && vehicle != null && setting.isCallEnabled();
+    }
+
+    public void enableCall() {
+        setting.enabledCall();
+    }
+
+    public void disableCall() {
+        setting.disableCall();
     }
 
     /**

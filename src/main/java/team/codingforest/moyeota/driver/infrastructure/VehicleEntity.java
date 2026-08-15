@@ -36,4 +36,9 @@ public class VehicleEntity extends BaseTimeEntity {
     public Vehicle toDomain() {
         return new Vehicle(seats, plateNumber);
     }
+
+    public void update(Vehicle vehicle) {
+        this.seats = vehicle.seats();
+        this.plateNumber = vehicle.plateNumber();
+    }
 }
