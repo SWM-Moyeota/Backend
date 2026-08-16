@@ -1,0 +1,37 @@
+package team.codingforest.moyeota.chat.presentation;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import team.codingforest.moyeota.chat.app.ChatMessageService;
+import team.codingforest.moyeota.chat.app.dto.ChatMessageResult;
+import team.codingforest.moyeota.chat.app.dto.ChatMessageSlice;
+import team.codingforest.moyeota.chat.app.dto.SendMessageCommand;
+import team.codingforest.moyeota.chat.presentation.dto.SendMessageRequest;
+
+@RestController
+@RequestMapping("/api/v1/chat-rooms/{chatRoomId}/messages")
+@RequiredArgsConstructor
+public class ChatMessageController {
+    private final ChatMessageService chatMessageService;
+    
+    @GetMapping
+    public ChatMessageSlice getChatMessages(
+            @PathVariable Long chatRoomId,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "30") int size
+    ) {
+        return chatMessageService.findBefore(chatRoomId, cursor, size);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ChatMessageResult sendMessage(
+            @PathVariable Long chatRoomId,
+            @RequestHeader("X-User-Id") Long userId,
+            @Valid @RequestBody SendMessageRequest request
+    ) {
+        return chatMessageService.sendMessage(new SendMessageCommand(chatRoomId, userId, request.content()));
+    }
+}

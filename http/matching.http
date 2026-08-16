@@ -1,0 +1,70 @@
+### 변수
+@host = http://localhost:8080
+
+### 1. 매칭방 생성 - 정상 (서울시청 → 강남역)
+POST {{host}}/api/matching/rooms
+Content-Type: application/json
+
+{
+  "hostId": 1,
+  "departureLat": 37.5665,
+  "departureLng": 126.9780,
+  "destinationLat": 37.4979,
+  "destinationLng": 127.0276,
+  "departure": "서울시청",
+  "destination": "강남역",
+  "capacity": 3,
+  "departureRadius": 500,
+  "destinationRadius": 500
+}
+
+### 2. 정원 초과 - Capacity 검증 실패 (허용 0~3)
+POST {{host}}/api/matching/rooms
+Content-Type: application/json
+
+{
+  "hostId": 1,
+  "departureLat": 37.5665,
+  "departureLng": 126.9780,
+  "destinationLat": 37.4979,
+  "destinationLng": 127.0276,
+  "departure": "서울시청",
+  "destination": "강남역",
+  "capacity": 4,
+  "departureRadius": 500,
+  "destinationRadius": 500
+}
+
+### 3. 반경 초과 - Radius 검증 실패 (허용 100~500)
+POST {{host}}/api/matching/rooms
+Content-Type: application/json
+
+{
+  "hostId": 1,
+  "departureLat": 37.5665,
+  "departureLng": 126.9780,
+  "destinationLat": 37.4979,
+  "destinationLng": 127.0276,
+  "departure": "서울시청",
+  "destination": "강남역",
+  "capacity": 3,
+  "departureRadius": 600,
+  "destinationRadius": 500
+}
+
+### 4. 좌표 범위 이탈 - Location 검증 실패 (한국 밖: 도쿄)
+POST {{host}}/api/matching/rooms
+Content-Type: application/json
+
+{
+  "hostId": 1,
+  "departureLat": 35.6812,
+  "departureLng": 139.7671,
+  "destinationLat": 37.4979,
+  "destinationLng": 127.0276,
+  "departure": "도쿄역",
+  "destination": "강남역",
+  "capacity": 3,
+  "departureRadius": 500,
+  "destinationRadius": 500
+}

@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.matching.domain;
 
 import lombok.Getter;
+import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -79,8 +80,6 @@ public class Party {
     public void leave(Long memberId) {
         if(!hasMember(memberId)) throw new IllegalArgumentException("해당 방에 참여X");
 
-        boolean flag = false;
-
         // 방장 혼자 남은 경우 방 폭파
         if(members.size() == 1) {
             cancel(memberId);
@@ -152,5 +151,49 @@ public class Party {
         }
 
         status = PartyStatus.CANCELED;
+    }
+
+    /**
+     *  신규 참여 멤버는 NOT_READY로 시작
+     */
+    public void ready(Long memberId) {
+        if(status == PartyStatus.MATCHING) throw new IllegalArgumentException("이미 매칭이 시작된 방입니다.");
+
+        findMember(memberId).ready();
+    }
+
+    public void cancelReady(Long memberId) {
+        if(status == PartyStatus.MATCHING) throw new IllegalArgumentException("이미 매칭이 시작된 방입니다.");
+
+        findMember(memberId).cancelReady();
+    }
+
+    public void startMatching(Long memberId) {
+        if(!memberId.equals(hostId)) throw new IllegalArgumentException("방장이 아닙니다.");
+
+        if(status != PartyStatus.COMPLETED) throw new IllegalArgumentException("정원이 다 차지 않은 방입니다.");
+
+        if(!isAllReady()) throw new IllegalArgumentException("전원 준비 완료 상태가 아닙니다.");
+
+        status = PartyStatus.MATCHING;
+    }
+
+    /**
+     *  전원 준비 완료했는지 여부 확인
+     */
+    public boolean isAllReady() {
+        for(PartyMember m : members) {
+            if(!m.isReady()) return false;
+        }
+
+        return true;
+    }
+
+    private PartyMember findMember(Long memberId) {
+        for(PartyMember m : members) {
+            if(m.getMemberId().equals(memberId)) return m;
+        }
+
+        throw new IllegalArgumentException("해당 방에 참여하지 않았습니다.");
     }
 }

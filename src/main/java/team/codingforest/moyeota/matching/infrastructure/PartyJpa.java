@@ -4,7 +4,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.matching.domain.Parties;
 import team.codingforest.moyeota.matching.domain.Party;
+import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -25,4 +28,20 @@ public class PartyJpa implements Parties {
         delegate.save(entity);                              // 엔티티 저장
         return entity.toDomain();                           // 엔티티 -> 도메인
     }
+
+    @Override
+    public List<Party> findAllByStatus(PartyStatus status) {
+        return delegate.findAllByStatus(status).stream()
+                .map(PartyEntity::toDomain).toList();
+    }
+
+    @Override
+    public boolean existsOngoingByMemberId(Long memberId) {
+        List<PartyStatus> ongoing = Arrays.stream(PartyStatus.values())
+                .filter(PartyStatus::isOngoing)
+                .toList();
+
+        return delegate.existsByMemberIdAndStatusIn(memberId, ongoing);
+    }
+
 }

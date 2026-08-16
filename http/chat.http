@@ -1,0 +1,78 @@
+### 변수
+@host = http://localhost:8080
+@userId = 1L
+@roomId = 1L
+@messageId = 20
+
+### 1. 채팅방 생성
+POST {{host}}/api/v1/chat-rooms
+Content-Type: application/json
+
+{
+  "partyId": 1,
+  "departure": "서울시청",
+  "destination": "강남역"
+}
+
+### 1.1 같은 파티로 재생성 - 실패
+POST {{host}}/api/v1/chat-rooms
+Content-Type: application/json
+
+{
+  "partyId": 1,
+  "departure": "서울시청",
+  "destination": "강남역"
+}
+
+### 1.2 필수값 누락 - 400
+POST {{host}}/api/v1/chat-rooms
+Content-Type: application/json
+
+{
+  "partyId": null,
+  "departure": "",
+  "destination": "강남역"
+}
+
+
+### 2. 채팅방 단건 조회
+GET {{host}}/api/v1/chat-rooms/{{roomId}}
+
+### 2.1 없는 방 조회 - 실패 기대
+GET {{host}}/api/v1/chat-rooms/9999
+
+
+### 3. 메시지 전송
+POST {{host}}/api/chat-rooms/{{roomId}}/messages
+Content-Type: application/json
+X-User-Id: {{userId}}
+
+{
+  "content": "안녕하세요"
+}
+
+### 3.1 빈 메시지 전송 - 400 기대
+POST {{host}}/api/chat-rooms/{{roomId}}/messages
+Content-Type: application/json
+X-User-Id: {{userId}}
+
+{
+  "content": ""
+}
+
+
+### 4 메시지 이력 조회
+GET {{host}}/api/chat-rooms/{{roomId}}/messages?size=30
+
+### 4.1 메시지 이력 조회 - 커서
+GET {{host}}/api/chat-rooms/{{roomId}}/messages?cursor={{messageId}}&size=30
+
+
+### 5. 채팅방 종료
+DELETE {{host}}/api/v1/chat-rooms/{{roomId}}
+
+### 5.1 종료 후 조회 - CLOSED 확인
+GET {{host}}/api/v1/chat-rooms/{{roomId}}
+
+### 5.2 종료된 방 재종료 - 실패 기대
+DELETE {{host}}/api/v1/chat-rooms/{{roomId}}
