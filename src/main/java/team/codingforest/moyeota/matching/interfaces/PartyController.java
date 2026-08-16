@@ -4,6 +4,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import team.codingforest.moyeota.matching.application.*;
+import team.codingforest.moyeota.matching.application.dto.OpenPartyRequest;
+import team.codingforest.moyeota.matching.application.dto.OpenPartyResponse;
+import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
+import team.codingforest.moyeota.matching.application.dto.PartyResult;
 import team.codingforest.moyeota.matching.application.dto.*;
 
 @RestController
@@ -23,6 +27,27 @@ public class PartyController {
     @DeleteMapping("/matching/leave/{partyId}/{memberId}")
     public ResponseEntity<Void> leave(@PathVariable Long partyId, @PathVariable Long memberId) {
         service.leave(partyId, memberId);
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/matching/ready/{partyId}/{memberId}")
+    public ResponseEntity<Void> ready(@PathVariable Long partyId, @PathVariable Long memberId) {
+        service.ready(partyId, memberId);
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/matching/ready/{partyId}/{memberId}")
+    public ResponseEntity<Void> cancelReady(@PathVariable Long partyId, @PathVariable Long memberId) {
+        service.cancelReady(partyId, memberId);
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/matching/start/{partyId}/{memberId}")
+    public ResponseEntity<Void> startMatching(@PathVariable Long partyId, @PathVariable Long memberId) {
+        service.startMatching(partyId, memberId);
 
         return ResponseEntity.noContent().build();
     }

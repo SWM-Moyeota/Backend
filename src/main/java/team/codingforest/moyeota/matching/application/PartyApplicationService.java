@@ -62,6 +62,34 @@ public class PartyApplicationService {
         return PartyDetailResult.from(getParty(partyId));
     }
 
+    @Transactional
+    public void ready(Long partyId, Long memberId) {
+        Party party = getParty(partyId);
+
+        party.ready(memberId);
+        parties.save(party);
+        log.info("준비 완료 partyId={}, memberId={}", partyId, memberId);
+    }
+
+    @Transactional
+    public void cancelReady(Long partyId, Long memberId) {
+        Party party = getParty(partyId);
+
+        party.cancelReady(memberId);
+        parties.save(party);
+
+        log.info("준비 취소 partyId={}, memberId={}", partyId, memberId);
+    }
+
+    @Transactional
+    public void startMatching(Long partyId, Long memberId) {
+        Party party = getParty(partyId);
+
+        party.startMatching(memberId);
+        parties.save(party);
+
+        log.info("매칭 시작 partyId={}, hostId={}, status={}", partyId, memberId, party.getStatus());
+    }
     @Transactional(readOnly = true)
     public List<PartyResult> findActiveParties() {
         return parties.findAllByStatus(PartyStatus.ACTIVE).stream()
