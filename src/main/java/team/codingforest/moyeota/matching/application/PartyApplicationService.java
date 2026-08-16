@@ -8,7 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.application.dto.PartyResult;
-import team.codingforest.moyeota.matching.application.event.MatchingStartedEvent;
+import team.codingforest.moyeota.matching.api.MatchingStartedEvent;
 import team.codingforest.moyeota.matching.domain.*;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 

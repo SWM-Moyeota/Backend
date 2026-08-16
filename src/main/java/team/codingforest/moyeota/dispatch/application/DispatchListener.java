@@ -2,10 +2,9 @@ package team.codingforest.moyeota.dispatch.application;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-import team.codingforest.moyeota.matching.application.event.MatchingStartedEvent;
+import team.codingforest.moyeota.matching.api.MatchingStartedEvent;
 
 @Component
 @RequiredArgsConstructor
@@ -15,6 +14,6 @@ public class DispatchListener {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void on(MatchingStartedEvent event) {
-        dispatchService.
+        dispatchService.dispatch(event.partyId());
     }
 }
