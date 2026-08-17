@@ -5,9 +5,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageResult;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageSlice;
 import team.codingforest.moyeota.chat.app.dto.SendMessageCommand;
+import team.codingforest.moyeota.chat.app.event.ChatMessageSentEvent;
 import team.codingforest.moyeota.chat.domain.*;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
@@ -20,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class ChatMessageServiceTest {
@@ -33,6 +36,8 @@ class ChatMessageServiceTest {
     private ChatRoomRepository chatRoomRepository;
     @Mock
     private ChatRoomUserRepository chatRoomUserRepository;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
     @InjectMocks
     private ChatMessageService chatMessageService;
 
@@ -82,8 +87,9 @@ class ChatMessageServiceTest {
 
         assertThat(result.id()).isEqualTo(1L);
         assertThat(result.userId()).isEqualTo(USER_ID);
-
         assertThat(result.chatRoomId()).isEqualTo(ROOM_ID);
+
+        verify(eventPublisher).publishEvent(new ChatMessageSentEvent(result));
     }
 
     @Test

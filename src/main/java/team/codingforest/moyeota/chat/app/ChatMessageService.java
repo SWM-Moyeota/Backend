@@ -1,11 +1,13 @@
 package team.codingforest.moyeota.chat.app;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageResult;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageSlice;
 import team.codingforest.moyeota.chat.app.dto.SendMessageCommand;
+import team.codingforest.moyeota.chat.app.event.ChatMessageSentEvent;
 import team.codingforest.moyeota.chat.domain.*;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
@@ -17,9 +19,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ChatMessageService {
 
-    private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatRoomUserRepository chatRoomUserRepository;
+    private final ChatMessageRepository chatMessageRepository;
+    private final ApplicationEventPublisher eventPublisher;
+
 
     @Transactional(readOnly = true)
     public ChatMessageSlice findBefore(Long chatRoomId, Long cursor, int size) {
@@ -53,6 +57,10 @@ public class ChatMessageService {
                 Instant.now()
         );
 
-        return ChatMessageResult.from(chatMessageRepository.save(message));
+        ChatMessageResult result = ChatMessageResult.from(chatMessageRepository.save(message));
+
+        eventPublisher.publishEvent(new ChatMessageSentEvent(result));
+
+        return result;
     }
 }
