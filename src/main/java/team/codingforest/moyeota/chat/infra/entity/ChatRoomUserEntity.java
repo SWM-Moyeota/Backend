@@ -1,10 +1,6 @@
 package team.codingforest.moyeota.chat.infra.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.IdClass;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 import team.codingforest.moyeota.chat.domain.ChatRoomUser;
 
