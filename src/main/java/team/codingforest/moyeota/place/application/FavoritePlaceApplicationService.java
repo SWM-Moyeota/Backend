@@ -29,10 +29,12 @@ public class FavoritePlaceApplicationService {
 
         if(list.size() >= 10) throw new IllegalArgumentException("자주가는 장소는 최대 10개까지만 등록가능합니다.");
 
-        int count = list.size()+1;
+        int nextSequence = list.stream()
+                .mapToInt(FavoritePlace::getPlaceSequence)
+                .max().orElse(0) + 1;
 
-        FavoritePlace place = command.toDomain(userId, count);
-        place.updateSequence(count);
+        FavoritePlace place = command.toDomain(userId, nextSequence);
+        place.updateSequence(nextSequence);
 
         log.info("자주가는 장소 등록 userId={}, placeName={}", place.getUserId(), place.getPlaceName());
         places.save(place);
