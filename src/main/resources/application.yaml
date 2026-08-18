@@ -15,4 +15,4 @@ spring:
 
 kakao:
   api:
-    key: ${KAKAO_API_KEY}
+    key: ${KAKAO_API_KEY:}
