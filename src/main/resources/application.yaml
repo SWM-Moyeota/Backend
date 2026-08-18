@@ -12,3 +12,7 @@ spring:
     redis:
       host: localhost
       port: 6379
+
+kakao:
+  api:
+    key: ${KAKAO_API_KEY}
