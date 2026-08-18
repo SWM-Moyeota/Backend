@@ -9,6 +9,7 @@ public enum ChatErrorCode {
     CHAT_ROOM_INVALID_STATUS(HttpStatus.CONFLICT, "채팅방 상태를 변경할 수 없습니다."),
     CHAT_ROOM_CLOSED(HttpStatus.CONFLICT, "종료된 채팅방입니다."),
     CHAT_ROOM_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 존재하는 채팅방입니다."),
+    CHAT_ROOM_ALREADY_JOINED(HttpStatus.CONFLICT, "이미 참여 중인 채팅방입니다."),
     CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "채팅방 참여자가 아닙니다."),
     CHAT_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "메시지가 존재하지 않습니다."),
     CHAT_NOT_MESSAGE_OWNER(HttpStatus.FORBIDDEN, "본인이 보낸 메시지만 삭제할 수 있습니다."),

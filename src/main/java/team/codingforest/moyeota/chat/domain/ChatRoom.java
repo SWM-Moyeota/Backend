@@ -53,4 +53,10 @@ public class ChatRoom {
             throw new ChatException(ChatErrorCode.CHAT_ROOM_CLOSED);
         }
     }
+
+    public void validateJoin() {
+        if (status != ChatRoomStatus.ACTIVE) {
+            throw new ChatException(ChatErrorCode.CHAT_ROOM_CLOSED);
+        }
+    }
 }

@@ -20,7 +20,7 @@ class PartyApplicationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PartyApplicationService(new PartyJpaTest());
+        service = new PartyApplicationService(new PartyJpaTest(), event -> {});
     }
 
     @Test

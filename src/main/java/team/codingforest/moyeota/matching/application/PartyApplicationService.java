@@ -2,11 +2,13 @@ package team.codingforest.moyeota.matching.application;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.application.dto.PartyResult;
+import team.codingforest.moyeota.matching.api.MatchingStartedEvent;
 import team.codingforest.moyeota.matching.domain.*;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
@@ -19,6 +21,7 @@ import java.util.List;
 public class PartyApplicationService {
 
     private final Parties parties;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
@@ -87,6 +90,8 @@ public class PartyApplicationService {
 
         party.startMatching(memberId);
         parties.save(party);
+
+        eventPublisher.publishEvent(new MatchingStartedEvent(partyId));
 
         log.info("매칭 시작 partyId={}, hostId={}, status={}", partyId, memberId, party.getStatus());
     }
