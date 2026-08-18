@@ -3,7 +3,7 @@
 @userId = 1
 
 ### 1. 장소 검색 - 정상 (한글은 HTTP Client가 자동 인코딩)
-GET {{host}}/api/places?userId={{userId}}&query=구일로4길 65
+GET {{host}}/api/v1/places?userId={{userId}}&query=구일로4길 65
 
 ### 2. 장소 검색 - 검색어 다른 케이스
 GET {{host}}/api/places?userId={{userId}}&query=판교역

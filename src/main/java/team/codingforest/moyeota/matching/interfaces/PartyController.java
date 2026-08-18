@@ -11,7 +11,7 @@ import team.codingforest.moyeota.matching.application.dto.PartyResult;
 import team.codingforest.moyeota.matching.application.dto.*;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class PartyController {
     private final PartyApplicationService service;
