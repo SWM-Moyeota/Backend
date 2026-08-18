@@ -37,3 +37,7 @@ Thumbs.db
 
 ### ai (선택)
 *.ai
+
+# 로컬 시크릿 설정
+application-local.yaml
+application-local.yml

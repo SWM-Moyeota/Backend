@@ -1,6 +1,8 @@
 spring:
   application:
     name: moyeota
+  config:
+    import: optional:classpath:application-local.yaml   # 로컬 시크릿 (git 미추적, 없으면 무시됨)
   datasource:
     url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
@@ -10,3 +12,7 @@ spring:
     redis:
       host: localhost
       port: 6379
+
+kakao:
+  api:
+    key: ${KAKAO_API_KEY:}

@@ -10,3 +10,7 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+
+kakao:
+  api:
+    key: ${KAKAO_API_KEY}

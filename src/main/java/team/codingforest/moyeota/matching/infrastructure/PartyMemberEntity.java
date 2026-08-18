@@ -7,6 +7,7 @@ import team.codingforest.moyeota.matching.domain.enums.MemberStatus;
 
 import java.time.Instant;
 
+// 생성시간, 변경 시간 컬럼이 없음
 @Entity
 @Getter
 @IdClass(PartyMemberId.class)

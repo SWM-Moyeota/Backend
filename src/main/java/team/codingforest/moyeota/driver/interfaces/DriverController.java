@@ -11,7 +11,7 @@ import team.codingforest.moyeota.driver.application.dto.RegisterVehicleRequest;
 
 // TODO 추후 인증 구현되고 토큰을 통해 유저 아이디 가져오기
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class DriverController {
     private final DriverApplicationService service;
