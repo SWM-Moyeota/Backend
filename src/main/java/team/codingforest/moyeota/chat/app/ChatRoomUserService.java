@@ -35,7 +35,7 @@ public class ChatRoomUserService {
                 .isPresent();
 
         if (alreadyJoined) {
-            return;
+            throw new ChatException(ChatErrorCode.CHAT_ROOM_ALREADY_JOINED);
         }
 
         chatRoomUserRepository.save(ChatRoomUser.join(command.userId(), command.chatRoomId(), Instant.now()));

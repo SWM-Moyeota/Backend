@@ -58,13 +58,15 @@ class ChatRoomUserServiceTest {
     }
 
     @Test
-    void 이미_참여중이면_저장하지_않음() {
+    void 이미_참여중이면_예외() {
         given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
-        given(chatRoomUserRepository.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.of(activeUser(ROOM_ID)));
+        given(chatRoomUserRepository.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID))
+                .willReturn(Optional.of(activeUser(ROOM_ID)));
 
-        chatRoomUserService.join(new ChatRoomCommand(ROOM_ID, USER_ID));
-
-        verify(chatRoomUserRepository, never()).save(any(ChatRoomUser.class));
+        assertThatThrownBy(() -> chatRoomUserService.join(new ChatRoomCommand(ROOM_ID, USER_ID)))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_ROOM_ALREADY_JOINED);
     }
 
     @Test
