@@ -24,9 +24,14 @@ public class ChatMessageService {
     private final ChatMessageRepository chatMessageRepository;
     private final ApplicationEventPublisher eventPublisher;
 
+    private static final int MIN_PAGE_SIZE = 1;
+    private static final int MAX_PAGE_SIZE = 100;
 
     @Transactional(readOnly = true)
     public ChatMessageSlice findBefore(Long chatRoomId, Long cursor, int size) {
+        validateSize(size);
+        validateCursor(cursor);
+
         List<ChatMessage> messages = chatMessageRepository.findBefore(chatRoomId, cursor, size + 1);
 
         boolean hasNext = messages.size() > size;
@@ -62,5 +67,17 @@ public class ChatMessageService {
         eventPublisher.publishEvent(new ChatMessageSentEvent(result));
 
         return result;
+    }
+
+    private void validateSize(int size) {
+        if (size < MIN_PAGE_SIZE || size > MAX_PAGE_SIZE) {
+            throw new ChatException(ChatErrorCode.CHAT_INVALID_PAGE_SIZE);
+        }
+    }
+
+    private void validateCursor(Long cursor) {
+        if (cursor != null && cursor < 1) {
+            throw new ChatException(ChatErrorCode.CHAT_INVALID_CURSOR);
+        }
     }
 }
