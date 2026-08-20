@@ -122,4 +122,28 @@ class ChatMessageServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ChatErrorCode.CHAT_NOT_PARTICIPANT);;
     }
+
+    @Test
+    void size가_범위를_벗어나면_예외() {
+        assertThatThrownBy(() -> chatMessageService.findBefore(ROOM_ID, null, 0))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_INVALID_PAGE_SIZE);
+    }
+
+    @Test
+    void size가_최대를_넘어가면_예외() {
+        assertThatThrownBy(() -> chatMessageService.findBefore(ROOM_ID, null, 101))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_INVALID_PAGE_SIZE);
+    }
+
+    @Test
+    void cursor가_음수면_예외() {
+        assertThatThrownBy(() -> chatMessageService.findBefore(ROOM_ID, -1L, 20))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_INVALID_CURSOR);
+    }
 }
