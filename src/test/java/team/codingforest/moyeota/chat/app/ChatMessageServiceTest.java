@@ -146,4 +146,24 @@ class ChatMessageServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ChatErrorCode.CHAT_INVALID_CURSOR);
     }
+
+    @Test
+    void findAfter_size보다_많이_조회시_hasNext_true() {
+        given(chatMessageRepository.findAfter(ROOM_ID, 1L, 3))
+                .willReturn(List.of(message(2L), message(3L), message(4L)));
+
+        ChatMessageSlice slice = chatMessageService.findAfter(ROOM_ID, 1L, 2);
+
+        assertThat(slice.hasNext()).isTrue();
+        assertThat(slice.messages()).hasSize(2);
+        assertThat(slice.nextCursor()).isEqualTo(3L);
+    }
+
+    @Test
+    void findAfter_cursor_없으면_예외() {
+        assertThatThrownBy(() -> chatMessageService.findAfter(ROOM_ID, null, 2))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_INVALID_CURSOR);
+    }
 }
