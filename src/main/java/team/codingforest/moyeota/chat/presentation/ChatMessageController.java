@@ -25,6 +25,15 @@ public class ChatMessageController {
         return chatMessageService.findBefore(chatRoomId, cursor, size);
     }
 
+    @GetMapping("/after")
+    public ChatMessageSlice getChatMessagesAfter(
+            @PathVariable Long chatRoomId,
+            @RequestParam Long cursor,
+            @RequestParam(defaultValue = "30") int size
+    ) {
+        return chatMessageService.findAfter(chatRoomId, cursor, size);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ChatMessageResult sendMessage(
