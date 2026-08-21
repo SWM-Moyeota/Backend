@@ -14,3 +14,7 @@ spring:
 kakao:
   api:
     key: ${KAKAO_API_KEY}
+
+chat:
+  websocket:
+    allowed-origins: ${WS_ALLOWED_ORIGINS}
