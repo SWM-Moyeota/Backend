@@ -17,7 +17,7 @@ import java.util.List;
 @ControllerAdvice(basePackages = "team.codingforest.moyeota.chat")
 public class StompExceptionHandler {
 
-    private static final String ERROR_DESTINATION = "queue/errors";
+    private static final String ERROR_DESTINATION = "/queue/errors";
     private static final String INVALID_REQUEST = "INVALID_REQUEST";
     private static final String INTERNAL_ERROR = "INTERNAL_ERROR";
 
