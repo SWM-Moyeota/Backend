@@ -2,6 +2,7 @@ package team.codingforest.moyeota.chat.app;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.chat.app.dto.ChatRoomCommand;
@@ -38,7 +39,12 @@ public class ChatRoomUserService {
             throw new ChatException(ChatErrorCode.CHAT_ROOM_ALREADY_JOINED);
         }
 
-        chatRoomUserRepository.save(ChatRoomUser.join(command.userId(), command.chatRoomId(), Instant.now()));
+        try {
+            chatRoomUserRepository.save(ChatRoomUser.join(command.userId(), command.chatRoomId(), Instant.now()));
+        } catch (DataIntegrityViolationException e) {
+            throw new ChatException(ChatErrorCode.CHAT_ROOM_ALREADY_JOINED);
+        }
+
 
         log.info("채팅방 참여 chatRoomId={} userID={}", command.chatRoomId(), command.userId());
     }
