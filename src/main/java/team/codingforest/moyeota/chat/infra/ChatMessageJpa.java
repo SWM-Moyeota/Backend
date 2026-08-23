@@ -16,6 +16,7 @@ public class ChatMessageJpa implements ChatMessageRepository {
 
     private final ChatMessageJpaRepository jpaRepository;
 
+    @Override
     public Optional<ChatMessage> findById(Long id) {
         return jpaRepository.findById(id).map(ChatMessageEntity::toDomain);
     }
