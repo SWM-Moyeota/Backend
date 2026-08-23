@@ -96,7 +96,7 @@ public class ChatMessageService {
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND));
 
         if (!message.getChatRoomId().equals(chatRoomId)) {
-            throw new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND);
+            throw new ChatException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND);
         }
 
         if (!message.getUserId().equals(userId)) {
