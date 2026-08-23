@@ -92,6 +92,8 @@ public class ChatMessageService {
      */
     @Transactional
     public void deleteMessage(Long chatRoomId, Long messageId, Long userId) {
+        chatRoomUserService.validateParticipant(userId, chatRoomId);
+
         ChatMessage message = chatMessageRepository.findById(messageId)
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND));
 
