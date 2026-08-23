@@ -18,8 +18,8 @@ public class ChatRoomUserJpa implements ChatRoomUserRepository {
     @Override
     public ChatRoomUser save(ChatRoomUser chatRoomUser) {
         ChatRoomUserEntity entity = ChatRoomUserEntity.from(chatRoomUser);
-        jpaRepository.save(entity);
-        return entity.toDomain();
+        ChatRoomUserEntity saved = jpaRepository.saveAndFlush(entity);
+        return saved.toDomain();
     }
 
     @Override
@@ -31,8 +31,8 @@ public class ChatRoomUserJpa implements ChatRoomUserRepository {
     }
 
     @Override
-    public Optional<ChatRoomUser> findByUserIdAndChatRoomId(Long userId, Long chatRoomId) {
-        Optional<ChatRoomUserEntity> entity = jpaRepository.findByUserIdAndChatRoomId(userId, chatRoomId);
+    public Optional<ChatRoomUser> findActiveByUserIdAndChatRoomId(Long userId, Long chatRoomId) {
+        Optional<ChatRoomUserEntity> entity = jpaRepository.findByUserIdAndChatRoomIdAndLeftAtIsNull(userId, chatRoomId);
         return entity.map(ChatRoomUserEntity::toDomain);
     }
 }
