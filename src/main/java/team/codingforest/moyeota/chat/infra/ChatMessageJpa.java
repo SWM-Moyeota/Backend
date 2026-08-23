@@ -5,6 +5,7 @@ import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.chat.domain.ChatMessage;
 import team.codingforest.moyeota.chat.domain.ChatMessageRepository;
+import team.codingforest.moyeota.chat.domain.ChatMessageStatus;
 import team.codingforest.moyeota.chat.infra.entity.ChatMessageEntity;
 
 import java.util.List;
@@ -46,5 +47,14 @@ public class ChatMessageJpa implements ChatMessageRepository {
                 .stream()
                 .map(ChatMessageEntity::toDomain)
                 .toList();
+    }
+
+    @Override
+    public List<ChatMessage> search(Long chatRoomId, String keyword, Long cursor, int size) {
+        return jpaRepository.search(chatRoomId, ChatMessageStatus.ACTIVE, keyword, cursor, Limit.of(size))
+                .stream()
+                .map(ChatMessageEntity::toDomain)
+                .toList();
+
     }
 }
