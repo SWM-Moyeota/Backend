@@ -180,13 +180,15 @@ class PartyTest {
     }
 
     @Test
-    void 정원이_차지_않으면_매칭을_시작할_수_없다() {
+    void 정원이_차지_않아도_전원_준비되면_매칭을_시작할_수_있다() {
         Party party = openParty(3);
         party.join(2L);
         party.ready(1L);
         party.ready(2L);
 
-        assertThatThrownBy(() -> party.startMatching(1L)).isInstanceOf(IllegalArgumentException.class);
+        party.startMatching(1L);
+
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.MATCHING);
     }
 
     @Test
