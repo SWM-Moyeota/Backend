@@ -46,4 +46,8 @@ public class PartyMemberEntity {
     public PartyMember toDomain() {
         return PartyMember.restore(memberId, joinedAt, status);
     }
+
+    void updateStatus(MemberStatus status) {
+        this.status = status;
+    }
 }

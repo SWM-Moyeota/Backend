@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.application.dto.PartyResult;
+import team.codingforest.moyeota.matching.domain.RouteEstimate;
 
 import java.util.List;
 
@@ -20,7 +21,9 @@ class PartyApplicationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PartyApplicationService(new PartyJpaTest(), event -> {});
+        service = new PartyApplicationService(new PartyJpaTest(), event -> {},
+                key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
+                new RouteCacheTest());
     }
 
     @Test

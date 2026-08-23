@@ -27,12 +27,17 @@ public class Party {
     private final List<PartyMember> members;
     private final Instant createdAt;
     private PartyStatus status;
+    private final Integer estimatedFare;
+    private final Integer estimatedTime;
+    private final String route;
+    private Long taxiDriverId;
 
     /**
      * 규칙 생성 -> 아무대서 Party 객체를 생성할 수 없게 하기
      */
     private Party(Long id, Long hostId, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius
-            ,String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status) {
+            ,String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status,
+                  Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId) {
         this.id = id;
         this.hostId = hostId;
         this.departureLocation = departureLocation;
@@ -45,14 +50,27 @@ public class Party {
         this.members = new ArrayList<>(members);
         this.createdAt = createdAt;
         this.status = status;
+        this.estimatedFare = estimatedFare;
+        this.estimatedTime = estimatedTime;
+        this.route = route;
+        this.taxiDriverId = taxiDriverId;
     }
 
     /**
      *  매칭방 생성
      */
     public static Party open(Long hostId, Location departureLocation, Location destinationLocation, String departure, String destination, Capacity capacity,
-                             Instant createdAt, Radius departureRadius, Radius destinationRadius) {
-        Party party = new Party(null, hostId, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, new ArrayList<>(), createdAt, PartyStatus.ACTIVE);
+                             Instant createdAt, Radius departureRadius, Radius destinationRadius, Integer estimatedFare, Integer estimatedTime, String route) {
+        if(departureLocation.equals(destinationLocation)) throw new IllegalArgumentException("출발지와 도착지가 같습니다.");
+
+        if(estimatedFare == null || estimatedFare < 0) throw new IllegalArgumentException("예상 요금이 올바르지 않습니다.");
+
+        if(estimatedTime == null || estimatedTime < 0) throw new IllegalArgumentException("예상 시간이 올바르지 않습니다.");
+
+        if(route == null) throw new IllegalArgumentException("경로가 존재하지 않습니다.");
+
+        Party party = new Party(null, hostId, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, new ArrayList<>(), createdAt, PartyStatus.ACTIVE,
+                estimatedFare, estimatedTime, route, null);
 
         party.members.add(new PartyMember(hostId, Instant.now()));
 
@@ -69,7 +87,7 @@ public class Party {
 
         members.add(new PartyMember(memberId, Instant.now()));
 
-        if(members.size() == capacity.value()) {
+        if(isFull()) {
             status = PartyStatus.COMPLETED;
         }
     }
@@ -79,6 +97,8 @@ public class Party {
      */
     public void leave(Long memberId) {
         if(!hasMember(memberId)) throw new IllegalArgumentException("해당 방에 참여X");
+        ensureNotClosed();
+        ensureNotMatching();
 
         // 방장 혼자 남은 경우 방 폭파
         if(members.size() == 1) {
@@ -126,8 +146,9 @@ public class Party {
     /**
      *  영속 복원용
      */
-    public static Party restore(Long id, Long hostId, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status) {
-        return new Party(id, hostId, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, createdAt, status);
+    public static Party restore(Long id, Long hostId, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status,
+                                    Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId) {
+        return new Party(id, hostId, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, createdAt, status, estimatedFare, estimatedTime, route, taxiDriverId);
     }
 
     /**
@@ -136,7 +157,7 @@ public class Party {
     public Long assignNewHost() {
         return members.stream()
                 .min(Comparator.comparing(PartyMember::getJoinedAt))
-                .get()
+                .orElseThrow(() -> new IllegalArgumentException("방장을 새롭게 할당할 수 없습니다."))
                 .getMemberId();
     }
 
@@ -144,11 +165,9 @@ public class Party {
      *  방장 혼자 남은 경우 방 폭파
      */
     public void cancel(Long memberId) {
-        if(!memberId.equals(hostId)) throw new IllegalArgumentException("방장이 아닙니다.");
-
-        if(status == PartyStatus.CANCELED || status == PartyStatus.FINISHED) {
-            throw new IllegalArgumentException("이미 출발하거나 없어진 방입니다.");
-        }
+        ensureHost(memberId);
+        ensureNotClosed();
+        ensureNotMatching();
 
         status = PartyStatus.CANCELED;
     }
@@ -157,21 +176,23 @@ public class Party {
      *  신규 참여 멤버는 NOT_READY로 시작
      */
     public void ready(Long memberId) {
-        if(status == PartyStatus.MATCHING) throw new IllegalArgumentException("이미 매칭이 시작된 방입니다.");
+        ensureNotClosed();
+        ensureNotMatching();
 
         findMember(memberId).ready();
     }
 
     public void cancelReady(Long memberId) {
-        if(status == PartyStatus.MATCHING) throw new IllegalArgumentException("이미 매칭이 시작된 방입니다.");
+        ensureNotClosed();
+        ensureNotMatching();
 
         findMember(memberId).cancelReady();
     }
 
     public void startMatching(Long memberId) {
-        if(!memberId.equals(hostId)) throw new IllegalArgumentException("방장이 아닙니다.");
-
-        if(status != PartyStatus.COMPLETED) throw new IllegalArgumentException("정원이 다 차지 않은 방입니다.");
+        ensureHost(memberId);
+        ensureNotMatching();
+        ensureNotClosed();
 
         if(!isAllReady()) throw new IllegalArgumentException("전원 준비 완료 상태가 아닙니다.");
 
@@ -195,5 +216,25 @@ public class Party {
         }
 
         throw new IllegalArgumentException("해당 방에 참여하지 않았습니다.");
+    }
+
+    public void assignDriver(Long driverId) {
+        if(status != PartyStatus.MATCHING) throw new IllegalArgumentException("매칭 중인 방이 아닙니다.");
+
+        if(taxiDriverId != null) throw new IllegalArgumentException("이미 기사가 배정된 방입니다.");
+
+        this.taxiDriverId = driverId;
+    }
+
+    private void ensureHost(Long memberId) {
+        if(!hostId.equals(memberId)) throw new IllegalArgumentException("방장이 아닙니다.");
+    }
+
+    private void ensureNotClosed() {
+        if(status.isClosed()) throw new IllegalArgumentException("이미 취소되거나 종료된 방입니다.");
+    }
+
+    private void ensureNotMatching() {
+        if(status == PartyStatus.MATCHING)  throw new IllegalArgumentException("이미 매칭이 시작된 방입니다.");
     }
 }

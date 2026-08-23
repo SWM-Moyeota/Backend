@@ -9,6 +9,7 @@ import team.codingforest.moyeota.matching.application.dto.OpenPartyResponse;
 import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.application.dto.PartyResult;
 import team.codingforest.moyeota.matching.application.dto.*;
+import team.codingforest.moyeota.matching.domain.RouteEstimate;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -60,5 +61,10 @@ public class PartyController {
     @GetMapping("/matching/rooms")
     public ResponseEntity<PartyListResponse> list() {
         return ResponseEntity.ok(PartyListResponse.from(service.findActiveParties()));
+    }
+
+    @GetMapping("/matching/routes")
+    public ResponseEntity<RouteEstimate> preView(@RequestBody RouteRequest req) {
+        return ResponseEntity.ok(service.previewRoute(req.departureLat(), req.departureLng(), req.destinationLat(), req.destinationLng()));
     }
 }

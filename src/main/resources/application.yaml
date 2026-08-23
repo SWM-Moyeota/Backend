@@ -17,6 +17,11 @@ kakao:
   api:
     key: ${KAKAO_API_KEY:}
 
+naver:
+  api:
+    key-id: ${NAVER_API_KEY_ID:}
+    key: ${NAVER_API_KEY:}
+
 chat:
   websocket:
     allowed-origins: http://localhost:*
