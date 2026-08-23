@@ -76,6 +76,11 @@ public class ChatRoomUserService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public void validateParticipant(Long userId, Long chatRoomId) {
+        getActiveUser(userId, chatRoomId);
+    }
+
     private ChatRoomUser getActiveUser(Long userId, Long chatRoomId) {
         return chatRoomUserRepository.findActiveByUserIdAndChatRoomId(userId, chatRoomId)
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_NOT_PARTICIPANT));
