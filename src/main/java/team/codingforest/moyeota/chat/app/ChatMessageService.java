@@ -1,19 +1,19 @@
 package team.codingforest.moyeota.chat.app;
 
 import lombok.RequiredArgsConstructor;
-import org.hibernate.annotations.processing.Find;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import team.codingforest.moyeota.chat.app.dto.ChatMessageResult;
-import team.codingforest.moyeota.chat.app.dto.ChatMessageSlice;
-import team.codingforest.moyeota.chat.app.dto.FindMessageCommand;
-import team.codingforest.moyeota.chat.app.dto.SendMessageCommand;
+import team.codingforest.moyeota.chat.app.dto.*;
 import team.codingforest.moyeota.chat.app.event.ChatMessageDeleteEvent;
 import team.codingforest.moyeota.chat.app.event.ChatMessageSentEvent;
-import team.codingforest.moyeota.chat.domain.*;
+import team.codingforest.moyeota.chat.domain.ChatMessage;
+import team.codingforest.moyeota.chat.domain.ChatMessageRepository;
+import team.codingforest.moyeota.chat.domain.ChatRoom;
+import team.codingforest.moyeota.chat.domain.ChatRoomRepository;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
+import team.codingforest.moyeota.chat.infra.entity.ChatMessageEntity;
 
 import java.time.Instant;
 import java.util.List;
@@ -30,6 +30,7 @@ public class ChatMessageService {
 
     private static final int MIN_PAGE_SIZE = 1;
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int MIN_KEYWORD_LENGTH = 2;
 
     /**
      * 메시지 이력 조회 (커서 이전 => 과거 기록)
@@ -85,6 +86,31 @@ public class ChatMessageService {
         eventPublisher.publishEvent(new ChatMessageSentEvent(result));
 
         return result;
+    }
+
+    /**
+     * 메시지 검색
+     */
+    @Transactional(readOnly = true)
+    public ChatMessageSlice searchMessage(SearchMessageCommand command) {
+        validateSize(command.size());
+        validateCursor(command.cursor());
+        validateKeyword(command.keyword());
+        chatRoomUserService.validateParticipant(command.userId(), command.chatRoomId());
+
+        List<ChatMessage> messages = chatMessageRepository.search(
+                command.chatRoomId(), command.keyword().trim(), command.cursor(), command.size() + 1);
+
+        return toSlice(messages, command.size());
+    }
+
+    /**
+     * 메시지 검색 검증
+     */
+    private void validateKeyword(String keyword) {
+        if (keyword == null || keyword.trim().length() < MIN_KEYWORD_LENGTH) {
+            throw new ChatException(ChatErrorCode.CHAT_INVALID_KEYWORD);
+        }
     }
 
     /**
