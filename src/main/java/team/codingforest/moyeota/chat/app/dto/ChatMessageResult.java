@@ -14,12 +14,14 @@ public record ChatMessageResult (
     Instant createdAt,
     boolean deleted
 ) {
+    private static final String DELETED_CONTENT = "삭제된 메시지입니다";
+
     public static ChatMessageResult from(ChatMessage message) {
         return new ChatMessageResult(
                 message.getId(),
                 message.getChatRoomId(),
                 message.getUserId(),
-                message.isDeleted() ? null : message.getContent(),
+                message.isDeleted() ? DELETED_CONTENT : message.getContent(),
                 message.getType(),
                 message.getCreatedAt(),
                 message.isDeleted()
