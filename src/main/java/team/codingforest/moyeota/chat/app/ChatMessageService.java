@@ -1,11 +1,13 @@
 package team.codingforest.moyeota.chat.app;
 
 import lombok.RequiredArgsConstructor;
+import org.hibernate.annotations.processing.Find;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageResult;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageSlice;
+import team.codingforest.moyeota.chat.app.dto.FindMessageCommand;
 import team.codingforest.moyeota.chat.app.dto.SendMessageCommand;
 import team.codingforest.moyeota.chat.app.event.ChatMessageSentEvent;
 import team.codingforest.moyeota.chat.domain.*;
@@ -20,8 +22,9 @@ import java.util.List;
 public class ChatMessageService {
 
     private final ChatRoomRepository chatRoomRepository;
-    private final ChatRoomUserRepository chatRoomUserRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatRoomUserService chatRoomUserService;
+
     private final ApplicationEventPublisher eventPublisher;
 
     private static final int MIN_PAGE_SIZE = 1;
@@ -32,13 +35,14 @@ public class ChatMessageService {
      * 채팅방에 들어가서 위로 스크롤 할때 사용
      */
     @Transactional(readOnly = true)
-    public ChatMessageSlice findBefore(Long chatRoomId, Long cursor, int size) {
-        validateSize(size);
-        validateCursor(cursor);
+    public ChatMessageSlice findBefore(FindMessageCommand command) {
+        validateSize(command.size());
+        validateCursor(command.cursor());
+        chatRoomUserService.validateParticipant(command.userId(), command.chatRoomId());
 
-        List<ChatMessage> messages = chatMessageRepository.findBefore(chatRoomId, cursor, size + 1);
+        List<ChatMessage> messages = chatMessageRepository.findBefore(command.chatRoomId(), command.cursor(), command.size() + 1);
 
-        return toSlice(messages, size);
+        return toSlice(messages, command.size());
     }
 
     /**
@@ -46,13 +50,14 @@ public class ChatMessageService {
      * 연락이 끊겼을때 그동안 받지 못한 메시지 한 번에 수신
      */
     @Transactional(readOnly = true)
-    public ChatMessageSlice findAfter(Long chatRoomId, Long cursor, int size) {
-        validateSize(size);
-        validateRequiredCursor(cursor);
+    public ChatMessageSlice findAfter(FindMessageCommand command) {
+        validateSize(command.size());
+        validateRequiredCursor(command.cursor());
+        chatRoomUserService.validateParticipant(command.userId(), command.chatRoomId());
 
-        List<ChatMessage> messages = chatMessageRepository.findAfter(chatRoomId, cursor, size + 1);
+        List<ChatMessage> messages = chatMessageRepository.findAfter(command.chatRoomId(), command.cursor(), command.size() + 1);
 
-        return toSlice(messages, size);
+        return toSlice(messages, command.size());
     }
 
     /**
@@ -65,8 +70,7 @@ public class ChatMessageService {
 
         chatRoom.validateCanSend();
 
-        chatRoomUserRepository.findActiveByUserIdAndChatRoomId(command.userId(), command.chatRoomId())
-                .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_NOT_PARTICIPANT));
+        chatRoomUserService.validateParticipant(command.userId(), command.chatRoomId());
 
         ChatMessage message = ChatMessage.text(
                 command.chatRoomId(),
