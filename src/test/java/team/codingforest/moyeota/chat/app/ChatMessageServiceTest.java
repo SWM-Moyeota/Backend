@@ -10,6 +10,7 @@ import team.codingforest.moyeota.chat.app.dto.ChatMessageResult;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageSlice;
 import team.codingforest.moyeota.chat.app.dto.FindMessageCommand;
 import team.codingforest.moyeota.chat.app.dto.SendMessageCommand;
+import team.codingforest.moyeota.chat.app.event.ChatMessageDeleteEvent;
 import team.codingforest.moyeota.chat.app.event.ChatMessageSentEvent;
 import team.codingforest.moyeota.chat.domain.*;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
@@ -182,5 +183,37 @@ class ChatMessageServiceTest {
                 .isInstanceOf(ChatException.class)
                 .extracting("errorCode")
                 .isEqualTo(ChatErrorCode.CHAT_INVALID_CURSOR);
+    }
+
+    @Test
+    void 메시지_삭제_성공() {
+        ChatMessage message = message(1L);
+        given(chatMessageRepository.findById(1L)).willReturn(Optional.of(message));
+        given(chatMessageRepository.save(any(ChatMessage.class))).willReturn(message);
+
+        chatMessageService.deleteMessage(ROOM_ID, 1L, USER_ID);
+
+        assertThat(message.isDeleted()).isTrue();
+        verify(eventPublisher).publishEvent(any(ChatMessageDeleteEvent.class));
+    }
+
+    @Test
+    void 메시지_삭제시_본인_메시지_아니면_예외() {
+        given(chatMessageRepository.findById(1L)).willReturn(Optional.of(message(1L)));
+
+        assertThatThrownBy(() -> chatMessageService.deleteMessage(ROOM_ID, 1L, 99L))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_NOT_MESSAGE_OWNER);
+    }
+
+    @Test
+    void 없는_메시지_삭제시_예외() {
+        given(chatMessageRepository.findById(1L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> chatMessageService.deleteMessage(ROOM_ID, 1L, USER_ID))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND);
     }
 }
