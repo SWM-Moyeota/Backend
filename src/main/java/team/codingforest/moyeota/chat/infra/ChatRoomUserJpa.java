@@ -18,8 +18,8 @@ public class ChatRoomUserJpa implements ChatRoomUserRepository {
     @Override
     public ChatRoomUser save(ChatRoomUser chatRoomUser) {
         ChatRoomUserEntity entity = ChatRoomUserEntity.from(chatRoomUser);
-        jpaRepository.save(entity);
-        return entity.toDomain();
+        ChatRoomUserEntity saved = jpaRepository.saveAndFlush(entity);
+        return saved.toDomain();
     }
 
     @Override
