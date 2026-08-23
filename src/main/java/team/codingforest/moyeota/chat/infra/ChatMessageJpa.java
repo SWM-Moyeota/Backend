@@ -8,12 +8,18 @@ import team.codingforest.moyeota.chat.domain.ChatMessageRepository;
 import team.codingforest.moyeota.chat.infra.entity.ChatMessageEntity;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
 public class ChatMessageJpa implements ChatMessageRepository {
 
     private final ChatMessageJpaRepository jpaRepository;
+
+    @Override
+    public Optional<ChatMessage> findById(Long id) {
+        return jpaRepository.findById(id).map(ChatMessageEntity::toDomain);
+    }
 
     @Override
     public ChatMessage save(ChatMessage chatMessage) {
