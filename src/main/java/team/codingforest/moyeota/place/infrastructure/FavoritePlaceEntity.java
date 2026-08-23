@@ -7,7 +7,6 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
-import team.codingforest.moyeota.common.BaseTimeEntity;
 import team.codingforest.moyeota.place.domain.FavoritePlace;
 
 import java.time.Instant;

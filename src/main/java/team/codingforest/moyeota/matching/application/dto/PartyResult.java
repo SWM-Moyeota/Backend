@@ -7,7 +7,7 @@ import java.time.Instant;
 public record PartyResult(Long id, Long hostId, Double departureLat, Double departureLng,
                           Double destinationLat, Double destinationLng, String departure, String destination,
                           Integer capacity, Integer currentMembers, Integer departureRadius, Integer destinationRadius,
-                          String status, Instant createdAt) {
+                          String status, Instant createdAt, Integer estimateFare, Integer estimateTime, String route, Long taxiDriverId) {
 
     public static PartyResult from(Party party) {
         return new PartyResult(
@@ -24,6 +24,10 @@ public record PartyResult(Long id, Long hostId, Double departureLat, Double depa
                 party.getDepartureRadius().meters(),
                 party.getDestinationRadius().meters(),
                 party.getStatus().name(),
-                party.getCreatedAt());
+                party.getCreatedAt(),
+                party.getEstimatedFare(),
+                party.getEstimatedTime(),
+                party.getRoute(),
+                party.getTaxiDriverId());
     }
 }
