@@ -9,6 +9,7 @@ import team.codingforest.moyeota.chat.app.dto.ChatMessageResult;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageSlice;
 import team.codingforest.moyeota.chat.app.dto.FindMessageCommand;
 import team.codingforest.moyeota.chat.app.dto.SendMessageCommand;
+import team.codingforest.moyeota.chat.app.event.ChatMessageDeleteEvent;
 import team.codingforest.moyeota.chat.app.event.ChatMessageSentEvent;
 import team.codingforest.moyeota.chat.domain.*;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
@@ -84,6 +85,29 @@ public class ChatMessageService {
         eventPublisher.publishEvent(new ChatMessageSentEvent(result));
 
         return result;
+    }
+
+    /**
+     *  메시지 삭제
+     */
+    @Transactional
+    public void deleteMessage(Long chatRoomId, Long messageId, Long userId) {
+        ChatMessage message = chatMessageRepository.findById(messageId)
+                .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND));
+
+        if (!message.getChatRoomId().equals(chatRoomId)) {
+            throw new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND);
+        }
+
+        if (!message.getUserId().equals(userId)) {
+            throw new ChatException(ChatErrorCode.CHAT_NOT_MESSAGE_OWNER);
+        }
+
+        message.delete(Instant.now());
+
+        ChatMessageResult result = ChatMessageResult.from(chatMessageRepository.save(message));
+
+        eventPublisher.publishEvent(new ChatMessageDeleteEvent(result));
     }
 
     /**

@@ -1,4 +1,6 @@
 package team.codingforest.moyeota.chat.app.event;
 
-public class ChatMessageDeleteEvent {
+import team.codingforest.moyeota.chat.app.dto.ChatMessageResult;
+
+public record ChatMessageDeleteEvent (ChatMessageResult result) {
 }

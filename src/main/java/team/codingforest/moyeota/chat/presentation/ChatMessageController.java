@@ -48,4 +48,14 @@ public class ChatMessageController {
     ) {
         return chatMessageService.sendMessage(new SendMessageCommand(chatRoomId, userId, request.content()));
     }
+
+    @DeleteMapping("/{messageId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteMessage(
+            @PathVariable Long chatRoomId,
+            @PathVariable Long messageId,
+            @RequestHeader("X-User-Id") Long userId
+    ) {
+        chatMessageService.deleteMessage(chatRoomId, messageId, userId);
+    }
 }
