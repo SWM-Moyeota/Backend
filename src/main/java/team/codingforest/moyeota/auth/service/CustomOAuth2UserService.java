@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.auth.service;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -14,14 +15,10 @@ import team.codingforest.moyeota.auth.entity.User;
 import team.codingforest.moyeota.auth.entity.enums.SocialType;
 
 @Service
+@RequiredArgsConstructor
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserService userService;
-
-    public CustomOAuth2UserService(UserService userService) {
-
-        this.userService = userService;
-    }
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
@@ -34,17 +31,15 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         SocialType socialType = null;
 
         if (registrationId.equals("naver")) {
-
             oAuth2Response = new NaverResponse(oAuth2User.getAttributes());
-            socialType = SocialType.Naver;
+            socialType = SocialType.NAVER;
         }
         else if (registrationId.equals("google")) {
 
             oAuth2Response = new GoogleResponse(oAuth2User.getAttributes());
-            socialType = SocialType.Google;
+            socialType = SocialType.GOOGLE;
         }
         else {
-
             return null;
         }
 

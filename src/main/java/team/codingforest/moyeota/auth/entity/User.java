@@ -3,9 +3,10 @@ package team.codingforest.moyeota.auth.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.UpdateTimestamp;
 import team.codingforest.moyeota.auth.entity.enums.LoginType;
-import team.codingforest.moyeota.auth.entity.enums.Role;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /*
@@ -43,6 +44,31 @@ public class User {
     @Enumerated(EnumType.STRING)
     private LoginType loginType;
 
-    @Enumerated(EnumType.STRING)
-    private Role role;
+    /*
+    프로필에 내걸어 둔 대표 뱃지. 가진 뱃지 중 하나를 사용자가 골라 둔 것이다.
+
+    null 이 정상값이다. 가입 직후에는 딴 뱃지가 하나도 없으니 고를 수도 없고,
+    뱃지를 가진 뒤에도 "아무것도 안 걸어둔 상태"를 고를 수 있어야 하기 때문이다.
+    그래서 이 값을 읽는 쪽은 항상 null 을 함께 다뤄야 한다.
+
+    지금은 badge 테이블이 없어서 @ManyToOne 이 아니라 id 값만 들고 있다.
+    badge 엔티티가 생기면 이 필드를 연관관계로 바꾸고 FK 제약을 걸어주는 것이 맞다.
+    (그전까지는 없는 뱃지 id 가 들어가도 DB가 막아주지 못한다)
+    */
+    private Long badgeId;
+
+    /*
+    마지막으로 이 행이 바뀐 시각. update가 나갈 때마다 Hibernate가 현재 시각으로 덮어쓴다.
+
+    insert 때도 함께 채워지므로 회원가입한 순간부터 값이 들어가 있다.
+    (@UpdateTimestamp는 "수정될 때만" 채우는 것이 아니라 insert/update 양쪽에서 채운다.
+     그래서 가입만 하고 아무것도 안 고친 사용자도 이 값이 null 이 아니다)
+
+    user 테이블에는 created_at 이 따로 없다. 가입 시각은 user_profile.createdAt 쪽에 있다.
+
+    이미 돌아가던 DB에 이 컬럼을 추가할 때 주의할 점은 LocalUser.createdAt 쪽에 적어두었다.
+    이 컬럼은 docs/schema-user-badge-updated-at.sql 로 추가하면 된다.
+    */
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
 }

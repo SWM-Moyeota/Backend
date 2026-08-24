@@ -16,6 +16,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import team.codingforest.moyeota.auth.jwt.JWTFilter;
 import team.codingforest.moyeota.auth.jwt.JWTUtil;
+import team.codingforest.moyeota.auth.jwt.TokenHeaders;
 import team.codingforest.moyeota.auth.oauth2.CustomSuccessHandler;
 import team.codingforest.moyeota.auth.service.CustomOAuth2UserService;
 
@@ -59,6 +60,22 @@ public class SecurityConfig {
                         configuration.setAllowedMethods(Collections.singletonList("*"));
                         configuration.setAllowedHeaders(Collections.singletonList("*"));
                         configuration.setMaxAge(3600L);
+
+                        /*
+                        로그인 응답이 토큰을 헤더로 실어 보내므로, 그 헤더를 프론트가 읽을 수 있게 열어준다.
+
+                        이게 없으면 브라우저는 헤더를 받아놓고도 자바스크립트에게 넘겨주지 않는다.
+                        CORS 기본 규칙상 다른 오리진의 응답에서 읽을 수 있는 헤더는
+                        Content-Type 등 정해진 몇 개뿐이고, 나머지는 서버가 여기에 적어줘야 보인다.
+                        서버 로그나 curl에는 헤더가 멀쩡히 찍히는데 프론트에서만 null이 나오는,
+                        원인을 찾기 어려운 종류의 문제라서 로그인 헤더를 바꿀 때 늘 같이 챙겨야 한다.
+
+                        allowedHeaders("*")는 요청 쪽 설정이라 이 문제와 아무 상관이 없다.
+                        노출 목록에는 와일드카드를 쓰지 않는다.
+                        credentials를 쓰는 요청에서는 "*"가 무시되기도 하고,
+                        무엇보다 어떤 헤더를 밖으로 내보내는지 눈에 보이는 편이 낫다.
+                        */
+                        configuration.setExposedHeaders(List.of(TokenHeaders.ACCESS, TokenHeaders.REFRESH));
 
                         return configuration;
                     }

@@ -2,6 +2,7 @@ package team.codingforest.moyeota.auth.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,8 +12,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import team.codingforest.moyeota.auth.CustomOAuth2User;
-import team.codingforest.moyeota.auth.dto.MeResponse;
-import team.codingforest.moyeota.auth.dto.MeUpdateRequest;
+import team.codingforest.moyeota.auth.dto.MypageResponse;
+import team.codingforest.moyeota.auth.dto.MypageUpdateRequest;
 import team.codingforest.moyeota.auth.entity.User;
 import team.codingforest.moyeota.auth.entity.UserProfile;
 import team.codingforest.moyeota.auth.repository.UserProfileRepository;
@@ -23,6 +24,7 @@ import java.util.UUID;
 
 @Tag(name = "2. 마이페이지", description = "내 정보 조회 / 수정")
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api")
 public class MypageController {
 
@@ -30,22 +32,14 @@ public class MypageController {
     private final UserProfileRepository userProfileRepository;
     private final UserService userService;
 
-    public MypageController(UserRepository userRepository, UserProfileRepository userProfileRepository,
-                            UserService userService) {
-
-        this.userRepository = userRepository;
-        this.userProfileRepository = userProfileRepository;
-        this.userService = userService;
-    }
-
     @Operation(summary = "마이페이지 조회",
             description = "accessToken이 가리키는 사용자의 정보를 돌려준다. "
                     + "앱이 저장해둔 토큰이 아직 쓸 수 있는지 확인하는 용도로도 쓴다. "
                     + "토큰이 없거나 만료됐으면 401.")
     @GetMapping("/mypage")
-    public MeResponse mypage(@AuthenticationPrincipal CustomOAuth2User principal) {
+    public MypageResponse mypage(@AuthenticationPrincipal CustomOAuth2User principal) {
 
-        User user = findMe(principal);
+        User user = findMypageUser(principal);
 
         return toResponse(user);
     }
@@ -55,10 +49,10 @@ public class MypageController {
                     + "닉네임은 1~20자여야 하며 어기면 400. "
                     + "이름과 이메일은 소셜 계정에서 가져오는 값이라 수정할 수 없다.")
     @PatchMapping("/mypage")
-    public MeResponse updateMypage(@AuthenticationPrincipal CustomOAuth2User principal,
-                               @RequestBody MeUpdateRequest request) {
+    public MypageResponse updateMypage(@AuthenticationPrincipal CustomOAuth2User principal,
+                                       @RequestBody MypageUpdateRequest request) {
 
-        User user = findMe(principal);
+        User user = findMypageUser(principal);
         User updated = userService.updateProfile(user, request.nickname());
 
         //수정된 값을 그대로 돌려줘서 프론트가 다시 조회하지 않아도 되게 한다.
@@ -78,7 +72,13 @@ public class MypageController {
     JWTFilter는 username과 role만 채우기 때문이다. 반드시 getUsername()을 쓴다.
     여기서 getUsername()이 담고 있는 값은 User.publicId(UUID) 문자열이다.
      */
-    private User findMe(CustomOAuth2User principal) {
+    private User findMypageUser(CustomOAuth2User principal) {
+
+        //UUID.fromString(null)은 IllegalArgumentException이 아니라 NullPointerException을 던진다.
+        //아래 catch로는 안 걸려서 500이 되므로 null은 여기서 먼저 막는다.
+        if (principal.getUsername() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "invalid token subject");
+        }
 
         UUID publicId;
         try {
@@ -95,12 +95,12 @@ public class MypageController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "user not found"));
     }
 
-    private MeResponse toResponse(User user) {
+    private MypageResponse toResponse(User user) {
 
         //user_profile은 user_id를 그대로 PK로 쓰므로 findById로 바로 찾는다.
         UserProfile profile = userProfileRepository.findById(user.getUserId()).orElse(null);
 
-        return new MeResponse(
+        return new MypageResponse(
                 user.getPublicId(),
                 profile != null ? profile.getName() : null,
                 profile != null ? profile.getEmail() : null,

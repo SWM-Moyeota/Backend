@@ -14,7 +14,6 @@ import team.codingforest.moyeota.auth.entity.User;
 import team.codingforest.moyeota.auth.entity.UserProfile;
 import team.codingforest.moyeota.auth.entity.enums.Gender;
 import team.codingforest.moyeota.auth.entity.enums.LoginType;
-import team.codingforest.moyeota.auth.entity.enums.Role;
 import team.codingforest.moyeota.auth.entity.enums.SocialType;
 import team.codingforest.moyeota.auth.repository.LocalUserRepository;
 import team.codingforest.moyeota.auth.repository.SocialUserRepository;
@@ -60,7 +59,8 @@ public class UserService {
 
     /*
     소셜 로그인의 입구. 조회 -> 없으면 생성.
-    웹 로그인(CustomOAuth2UserService)과 앱 로그인(AuthController)이 함께 쓴다.
+    소셜 사용자가 만들어지는 곳은 여기 하나뿐이다(CustomOAuth2UserService가 부른다).
+    AuthController의 /login/exchange는 이미 만들어진 사용자의 일회용 코드를 토큰으로 바꿔줄 뿐이다.
 
     사용자를 찾는 기준은 (socialType, socialId)다.
     이메일로 찾으면 안 된다. 구글 계정의 이메일은 바뀔 수 있고, 그러면 남남이 되어버린다.
@@ -98,8 +98,6 @@ public class UserService {
         User user = new User();
         user.setPublicId(UUID.randomUUID());
         user.setLoginType(LoginType.SOCIAL);
-        //가입 시점에는 아직 무슨 역할인지 모르므로 기본값을 준다. 나중에 사용자가 고르게 하면 된다.
-        user.setRole(Role.PASSENGER);
         //닉네임은 무작위로 만들어준다. 구글 계정 이름은 대개 실명이라 그대로 쓰면
         //다른 사용자에게 실명이 노출된다. 실명은 user_profile.name에만 둔다.
         user.setNickname(NicknameGenerator.generate());
@@ -200,8 +198,6 @@ public class UserService {
         User user = new User();
         user.setPublicId(UUID.randomUUID());
         user.setLoginType(LoginType.LOCAL);
-        //가입 시점에는 아직 무슨 역할인지 모르므로 기본값을 준다. 나중에 사용자가 고르게 하면 된다.
-        user.setRole(Role.PASSENGER);
         //닉네임은 무작위로 만들어준다. 가입할 때 받은 이름은 실명이라 그대로 쓰면
         //다른 사용자에게 실명이 노출된다. 실명은 아래 user_profile.name에만 둔다.
         user.setNickname(NicknameGenerator.generate());

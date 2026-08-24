@@ -13,7 +13,7 @@
 #   ./mint-jwt.sh access                 # 10분짜리 access
 #   ./mint-jwt.sh refresh                # 10분짜리 refresh (category만 다름)
 #   ./mint-jwt.sh access -60             # 60초 전에 이미 만료된 access  <- 만료 테스트용
-#   ./mint-jwt.sh access 600 "google 123" ROLE_ADMIN
+#   ./mint-jwt.sh access 600 "3f1b0c9e-9a1f-4a1e-8f3a-2b7c5d6e7f80" ROLE_ADMIN
 #
 # 참고: 여기서 만든 refresh로는 /api/auth/reissue가 통과하지 않는다.
 #       서버가 DB(RefreshEntity)에 저장된 값인지 대조하기 때문이다. 그게 정상 동작이다.
@@ -22,7 +22,7 @@ set -euo pipefail
 
 CATEGORY="${1:-access}"
 TTL="${2:-600}"
-USERNAME="${3:-google 000000000000000000000}"
+USERNAME="${3:-00000000-0000-0000-0000-000000000000}"
 ROLE="${4:-ROLE_USER}"
 
 # 서명 키는 저장소에 올리지 않는 application-local.properties 에 있다.
@@ -47,7 +47,7 @@ HEADER=$(printf '{"alg":"HS256"}' | b64url)
 
 # 클레임 구성은 JWTUtil.createJwt() 와 똑같이 맞춘다.
 # iat/exp는 JWT 표준상 "초" 단위다. (JJWT가 밀리초 Date를 초로 바꿔 넣는다)
-PAYLOAD=$(printf '{"category":"%s","username":"%s","role":"%s","iat":%d,"exp":%d}' \
+PAYLOAD=$(printf '{"category":"%s","sub":"%s","role":"%s","iat":%d,"exp":%d}' \
   "$CATEGORY" "$USERNAME" "$ROLE" "$NOW" "$EXP" | b64url)
 
 SIGNING_INPUT="${HEADER}.${PAYLOAD}"

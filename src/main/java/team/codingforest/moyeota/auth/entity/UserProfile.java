@@ -3,9 +3,12 @@ package team.codingforest.moyeota.auth.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import team.codingforest.moyeota.auth.entity.enums.Gender;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /*
@@ -44,12 +47,25 @@ public class UserProfile {
     //소셜 로그인에서 받은 이메일
     private String email;
 
-    private String age;
-
     private LocalDate birthDate;
 
     private String phoneNumber;
 
     @Enumerated(EnumType.STRING)
     private Gender gender;
+
+    /*
+    이 프로필이 만들어진 시각 = 가입한 시각. insert가 나갈 때 Hibernate가 현재 시각을 넣어준다.
+    updatable = false 라서 이후 어떤 수정에도 값이 바뀌지 않는다.
+
+    이미 돌아가던 DB에 이 컬럼을 추가할 때 주의할 점은 LocalUser.createdAt 쪽에 적어두었다.
+    */
+    @CreationTimestamp
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
+
+    //마지막으로 이 행이 바뀐 시각. update가 나갈 때마다 Hibernate가 현재 시각으로 덮어쓴다.
+    //소셜 로그인은 로그인할 때마다 name/email을 덮어쓰므로 그때도 이 값이 갱신된다.
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
 }

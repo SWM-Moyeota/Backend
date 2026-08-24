@@ -10,5 +10,5 @@ PATCH라서 보내지 않은 항목(=null)은 그대로 둔다.
 bio(자기소개)는 새 구조(user/user_profile)에 컬럼이 없어서 뺐다.
 살리려면 UserProfile에 bio 컬럼을 추가하고 이 record에 필드를 늘리면 된다.
 */
-public record MeUpdateRequest(String nickname) {
+public record MypageUpdateRequest(String nickname) {
 }

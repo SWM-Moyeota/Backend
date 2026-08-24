@@ -9,7 +9,7 @@ import java.time.LocalDate;
 /*
 로컬 회원가입 요청.
 이 요청 하나로 세 테이블이 만들어진다.
-- user         : 본체(publicId, nickname, loginType=LOCAL, role)
+- user         : 본체(publicId, nickname, loginType=LOCAL)
 - local_user   : loginId, password(해시)
 - user_profile : name, birthDate, phoneNumber, email, gender
 */
