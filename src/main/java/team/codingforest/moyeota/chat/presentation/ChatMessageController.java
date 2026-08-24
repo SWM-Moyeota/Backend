@@ -2,12 +2,10 @@ package team.codingforest.moyeota.chat.presentation;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import team.codingforest.moyeota.chat.app.ChatMessageService;
 import team.codingforest.moyeota.chat.app.dto.*;
-import team.codingforest.moyeota.chat.domain.ChatMessage;
 import team.codingforest.moyeota.chat.presentation.dto.SendMessageRequest;
 
 @RestController

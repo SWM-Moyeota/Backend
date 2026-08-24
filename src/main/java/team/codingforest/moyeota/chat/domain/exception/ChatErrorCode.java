@@ -3,8 +3,6 @@ package team.codingforest.moyeota.chat.domain.exception;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
-import javax.net.ssl.HttpsURLConnection;
-
 @Getter
 public enum ChatErrorCode {
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "채팅방이 존재하지 않습니다."),

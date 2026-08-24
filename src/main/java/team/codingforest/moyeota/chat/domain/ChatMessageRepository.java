@@ -1,8 +1,5 @@
 package team.codingforest.moyeota.chat.domain;
 
-import org.springframework.data.domain.Limit;
-import team.codingforest.moyeota.chat.app.dto.SearchMessageCommand;
-
 import java.util.List;
 import java.util.Optional;
 
