@@ -30,6 +30,7 @@ public class ChatMessageService {
     private static final int MIN_PAGE_SIZE = 1;
     private static final int MAX_PAGE_SIZE = 100;
     private static final int MIN_KEYWORD_LENGTH = 2;
+    private static final int MAX_KEYWORD_LENGTH = 1000;
 
     /**
      * 메시지 이력 조회 (커서 이전 => 과거 기록)
@@ -107,7 +108,7 @@ public class ChatMessageService {
      * 메시지 검색 검증
      */
     private void validateKeyword(String keyword) {
-        if (keyword == null || keyword.trim().length() < MIN_KEYWORD_LENGTH) {
+        if (keyword == null || keyword.trim().length() < MIN_KEYWORD_LENGTH || keyword.length() > MAX_KEYWORD_LENGTH) {
             throw new ChatException(ChatErrorCode.CHAT_INVALID_KEYWORD);
         }
     }
