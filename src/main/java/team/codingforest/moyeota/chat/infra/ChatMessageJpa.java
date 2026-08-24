@@ -51,10 +51,16 @@ public class ChatMessageJpa implements ChatMessageRepository {
 
     @Override
     public List<ChatMessage> search(Long chatRoomId, String keyword, Long cursor, int size) {
-        return jpaRepository.search(chatRoomId, ChatMessageStatus.ACTIVE, keyword, cursor, Limit.of(size))
+        return jpaRepository.search(chatRoomId, ChatMessageStatus.ACTIVE, escapeLike(keyword), cursor, Limit.of(size))
                 .stream()
                 .map(ChatMessageEntity::toDomain)
                 .toList();
 
+    }
+
+    private String escapeLike(String keyword) {
+        return keyword.replace("!", "!!")   // 반드시 첫 줄
+                .replace("%", "!%")
+                .replace("_", "!_");
     }
 }

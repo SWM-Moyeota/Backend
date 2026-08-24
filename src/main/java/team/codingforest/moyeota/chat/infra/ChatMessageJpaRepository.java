@@ -20,7 +20,7 @@ public interface ChatMessageJpaRepository extends JpaRepository<ChatMessageEntit
             SELECT m FROM ChatMessageEntity m
             WHERE m.chatRoomId = :chatRoomId
             AND m.status = :status
-            AND m.content LIKE %:keyword%
+            AND m.content LIKE %:keyword% ESCAPE '!'
             AND (:cursor IS NULL OR m.id < :cursor)
             ORDER BY m.id DESC
             """)
