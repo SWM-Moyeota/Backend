@@ -24,6 +24,11 @@ public class PartyController {
         return ResponseEntity.ok(OpenPartyResponse.from(party));
     }
 
+    @PostMapping("/matching/rooms/{partyId}/{memberId}/join")
+    public ResponseEntity<PartyDetailResult> join(@PathVariable Long partyId, @PathVariable Long memberId) {
+        return ResponseEntity.ok(service.join(partyId, memberId));
+    }
+
     // TODO 추후 인증 관련 JWT 헤더에서 memberId 추출
     @DeleteMapping("/matching/leave/{partyId}/{memberId}")
     public ResponseEntity<Void> leave(@PathVariable Long partyId, @PathVariable Long memberId) {

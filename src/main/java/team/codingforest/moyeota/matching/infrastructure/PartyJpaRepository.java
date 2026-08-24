@@ -1,12 +1,16 @@
 package team.codingforest.moyeota.matching.infrastructure;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     @Query("select p from PartyEntity p left join fetch p.members where p.status = :status")
@@ -14,4 +18,11 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 
     @Query("select count(m) > 0 from PartyMemberEntity m where m.memberId = :memberId and m.party.status in :statuses")
     boolean existsByMemberIdAndStatusIn(@Param("memberId") Long memberId, @Param("statuses") Collection<PartyStatus> statuses);
+
+    @Query("select p.id from PartyEntity p where p.status = :status and p.taxiDriverId is null and p.updatedAt < :cutoff")
+    List<Long> findStaleIdsByStatus(@Param("status") PartyStatus status, @Param("cutoff") Instant cutoff);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from PartyEntity p where p.id = :id")
+    Optional<PartyEntity> findByForUpdate(@Param("id") Long id);
 }

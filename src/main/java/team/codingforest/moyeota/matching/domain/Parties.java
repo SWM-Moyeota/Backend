@@ -3,6 +3,7 @@ package team.codingforest.moyeota.matching.domain;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -11,4 +12,6 @@ public interface Parties {
     Party save(Party party);
     List<Party> findAllByStatus(PartyStatus status);
     boolean existsOngoingByMemberId(Long memberId);
+    Optional<Party> findByIdForUpdate(Long id);
+    List<Long> findStaleMatchingIds(Instant cutoff);
 }

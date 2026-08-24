@@ -25,3 +25,6 @@ naver:
 chat:
   websocket:
     allowed-origins: http://localhost:*
+
+fcm:
+  service-account-path: ${FCM_SERVICE_ACCOUNT_PATH:}

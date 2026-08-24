@@ -43,4 +43,18 @@ class PartyJpaTest implements Parties {
         return store.values().stream()
                 .anyMatch(p -> p.getStatus().isOngoing() && p.hasMember(memberId));
     }
+
+    @Override
+    public Optional<Party> findByIdForUpdate(Long id) {
+        return findById(id);
+    }
+
+    @Override
+    public List<Long> findStaleMatchingIds(java.time.Instant cutoff) {
+        // 인메모리는 updatedAt 이 없으므로 "미배정 MATCHING 방 전부" 로 단순화
+        return store.values().stream()
+                .filter(p -> p.getStatus() == PartyStatus.MATCHING && p.getTaxiDriverId() == null)
+                .map(Party::getId)
+                .toList();
+    }
 }

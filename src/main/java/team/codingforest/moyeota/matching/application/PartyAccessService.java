@@ -2,11 +2,14 @@ package team.codingforest.moyeota.matching.application;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.PartySummary;
 import team.codingforest.moyeota.matching.domain.Parties;
 import team.codingforest.moyeota.matching.domain.Party;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -18,6 +21,40 @@ class PartyAccessService implements PartyAccess {
     public Optional<PartySummary> findSummary(Long partyId) {
         return parties.findById(partyId)
                 .map(this::toSummary);
+    }
+
+    @Transactional
+    @Override
+    public void assignDriver(Long partyId, Long driverId) {
+        Party party = getForUpdate(partyId);
+
+        party.assignDriver(driverId);
+
+        parties.save(party);
+    }
+
+    @Transactional
+    @Override
+    public void cancelMatching(Long partyId) {
+        Party party = getForUpdate(partyId);
+
+        party.cancelMatching();
+
+        parties.save(party);
+    }
+
+    /**
+     *
+     *  TTL 만료시간 이후 아직 MATCHING인 방 찾기
+     */
+    @Override
+    public List<Long> findStaleMatchingIds(Instant cutoff) {
+        return parties.findStaleMatchingIds(cutoff);
+    }
+
+    private Party getForUpdate(Long partyId) {
+        return parties.findByIdForUpdate(partyId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 방입니다."));
     }
 
     private PartySummary toSummary(Party party) {
