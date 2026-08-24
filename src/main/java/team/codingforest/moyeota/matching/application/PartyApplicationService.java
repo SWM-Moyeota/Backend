@@ -46,7 +46,7 @@ public class PartyApplicationService {
     }
 
     @Transactional
-    public void join(Long partyId, Long memberId) {
+    public PartyDetailResult join(Long partyId, Long memberId) {
         validateNotInOngoingParty(memberId);
         Party party = getParty(partyId);
 
@@ -54,6 +54,8 @@ public class PartyApplicationService {
         parties.save(party);
 
         log.info("매칭방에 사용자 참가됨 partyId={}, memberId={}, status={}", partyId, memberId, party.getStatus());
+
+        return getPartyDetail(partyId);
     }
 
     @Transactional

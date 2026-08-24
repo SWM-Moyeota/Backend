@@ -189,6 +189,10 @@ public class Party {
         findMember(memberId).cancelReady();
     }
 
+    /**
+     *
+     *  추후 결제 쪽 완료되면 기사 배정 하기 전 테스트 결제 필요함
+     */
     public void startMatching(Long memberId) {
         ensureHost(memberId);
         ensureNotMatching();
@@ -224,6 +228,17 @@ public class Party {
         if(taxiDriverId != null) throw new IllegalArgumentException("이미 기사가 배정된 방입니다.");
 
         this.taxiDriverId = driverId;
+    }
+
+    /**
+     *      기사를 못 구한 경우만 매칭 되돌리기 - 기사 배정 전에만 가능
+     */
+    public void cancelMatching() {
+        if(status != PartyStatus.MATCHING) throw new IllegalArgumentException("매칭 중인 방이 아닙니다.");
+
+        if(taxiDriverId != null) throw new IllegalArgumentException("이미 기사가 배정된 방입니다.");
+
+        status = PartyStatus.COMPLETED;
     }
 
     private void ensureHost(Long memberId) {
