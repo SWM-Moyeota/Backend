@@ -9,6 +9,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageResult;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageSlice;
 import team.codingforest.moyeota.chat.app.dto.FindMessageCommand;
+import team.codingforest.moyeota.chat.app.dto.SearchMessageCommand;
 import team.codingforest.moyeota.chat.app.dto.SendMessageCommand;
 import team.codingforest.moyeota.chat.app.event.ChatMessageDeleteEvent;
 import team.codingforest.moyeota.chat.app.event.ChatMessageSentEvent;
@@ -58,6 +59,10 @@ class ChatMessageServiceTest {
 
     private FindMessageCommand findMessageCommand(Long cursor, int size) {
         return new FindMessageCommand(USER_ID, ROOM_ID, cursor, size);
+    }
+
+    private SearchMessageCommand searchMessageCommand(String keyword, Long cursor, int size) {
+        return new SearchMessageCommand(USER_ID, ROOM_ID, keyword, cursor, size);
     }
 
     @Test
@@ -215,5 +220,44 @@ class ChatMessageServiceTest {
                 .isInstanceOf(ChatException.class)
                 .extracting("errorCode")
                 .isEqualTo(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND);
+    }
+
+    @Test
+    void 검색_결과가_size보다_많으면_hasNext_true() {
+        given(chatMessageRepository.search(ROOM_ID, "안녕", null, 3))
+                .willReturn(List.of(message(3L), message(2L), message(1L)));
+
+        ChatMessageSlice slice = chatMessageService.searchMessage(searchMessageCommand("안녕", null, 2));
+
+        assertThat(slice.hasNext()).isTrue();
+        assertThat(slice.messages()).hasSize(2);
+        assertThat(slice.nextCursor()).isEqualTo(2L);
+    }
+
+    @Test
+    void 검색어가_짧으면_예외() {
+        assertThatThrownBy(() -> chatMessageService.searchMessage(searchMessageCommand("안", null, 30)))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_INVALID_KEYWORD);
+    }
+
+    @Test
+    void 검색어가_공백뿐이면_예외() {
+        assertThatThrownBy(() -> chatMessageService.searchMessage(searchMessageCommand("   ", null, 30)))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_INVALID_KEYWORD);
+    }
+
+    @Test
+    void 참여자가_아니면_검색_예외() {
+        willThrow(new ChatException(ChatErrorCode.CHAT_NOT_PARTICIPANT))
+                .given(chatRoomUserService).validateParticipant(USER_ID, ROOM_ID);
+
+        assertThatThrownBy(() -> chatMessageService.searchMessage(searchMessageCommand("안녕", null, 30)))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_NOT_PARTICIPANT);
     }
 }
