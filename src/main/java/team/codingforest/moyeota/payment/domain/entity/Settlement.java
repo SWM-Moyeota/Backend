@@ -1,14 +1,12 @@
 package team.codingforest.moyeota.payment.domain.entity;
 
 import jakarta.persistence.*;
+import team.codingforest.moyeota.common.BaseTimeEntity;
 
 import java.math.BigDecimal;
 
 @Entity
-public class Settlement {
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private Long id;
+public class Settlement extends BaseTimeEntity {
 
     @Column(nullable = false)
     private Long partnerId;
