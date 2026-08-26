@@ -63,6 +63,27 @@ public class DriverApplicationService {
     }
 
     @Transactional
+    public void registerFcmToken(Long driverId, String token) {
+        Driver driver = getDriver(driverId);
+
+        driver.registerFcmToken(token);
+        service.save(driver);
+
+        log.info("FCM 토큰 등록 driverId={}", driverId);
+    }
+
+    @Transactional
+    public void removeFcmToken(Long driverId) {
+        Driver driver = getDriver(driverId);
+
+        driver.clearFcmToken();
+
+        service.save(driver);
+
+        log.info("FCM 토큰 삭제 driverId={}", driverId);
+    }
+
+    @Transactional
     public void disableCall(Long driverId) {
         Driver driver = getDriver(driverId);
 

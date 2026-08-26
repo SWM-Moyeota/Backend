@@ -41,6 +41,8 @@ public class DriverEntity extends BaseTimeEntity {
     @OneToOne(mappedBy = "driver", cascade = CascadeType.ALL, orphanRemoval = true)
     private DriverSettingEntity setting;
 
+    private String fcmToken;
+
     private DriverEntity(Long userId, String qualificationNumber, Instant verifiedAt, String bankName, String bankNumber, DriverStatus status) {
         this.userId = userId;
         this.qualificationNumber = qualificationNumber;
@@ -62,7 +64,7 @@ public class DriverEntity extends BaseTimeEntity {
     }
 
     public Driver toDomain() {
-        return Driver.restore(getId(), userId, qualificationNumber, verifiedAt, new BankAccount(bankName, bankNumber), vehicle == null? null : vehicle.toDomain(), setting.toDomain(), status);
+        return Driver.restore(getId(), userId, qualificationNumber, verifiedAt, new BankAccount(bankName, bankNumber), vehicle == null? null : vehicle.toDomain(), setting.toDomain(), status, fcmToken);
     }
 
     public void update(Driver driver) {
