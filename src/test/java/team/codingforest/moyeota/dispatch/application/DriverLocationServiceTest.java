@@ -24,7 +24,7 @@ class DriverLocationServiceTest {
     }
 
     private DriverLocationService serviceWith(Set<Long> 콜가능기사들) {
-        return new DriverLocationService(locations, 콜가능기사들::contains);
+        return new DriverLocationService(locations, new FakeDriverAccess(콜가능기사들));
     }
 
     @Test

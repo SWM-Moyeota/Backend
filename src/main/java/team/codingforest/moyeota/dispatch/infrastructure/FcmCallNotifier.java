@@ -74,7 +74,7 @@ public class FcmCallNotifier implements CallNotifier {
 
             @Override
             public void onSuccess(BatchResponse result) {
-                log.info("[{}] 전송완료 partyId={}, 성공={}, 실패={}", label, partyId, result.getResponses(), result.getFailureCount());
+                log.info("[{}] 전송완료 partyId={}, 성공={}, 실패={}", label, partyId, result.getSuccessCount(), result.getFailureCount());
             }
         }, MoreExecutors.directExecutor());
     }
