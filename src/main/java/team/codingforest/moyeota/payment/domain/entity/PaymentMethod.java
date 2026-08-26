@@ -28,14 +28,17 @@ public class PaymentMethod extends BaseTimeEntity {
 
     private Instant deletedAt;
 
-    private PaymentMethod(String billingKey, Long userId, PaymentMethodType type, Instant deletedAt) {
+    private PaymentMethod(String billingKey, Long userId, PaymentMethodType type) {
         this.billingKey = billingKey;
         this.userId = userId;
         this.type = type;
-        this.deletedAt = deletedAt;
     }
 
-    public static PaymentMethod from(String billingKey, Long userId, PaymentMethodType type, Instant deletedAt) {
-        return new PaymentMethod(billingKey, userId, type, deletedAt);
+    public static PaymentMethod from(String billingKey, Long userId, PaymentMethodType type) {
+        return new PaymentMethod(billingKey, userId, type);
+    }
+
+    public void delete() {
+        this.deletedAt = Instant.now();
     }
 }
