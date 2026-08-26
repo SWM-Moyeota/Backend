@@ -9,3 +9,23 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: moyeota-postgres
+    environment:
+      POSTGRES_DB: moyeota
+      POSTGRES_USER: moyeota
+      POSTGRES_PASSWORD: moyeota
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U moyeota" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres_data:
