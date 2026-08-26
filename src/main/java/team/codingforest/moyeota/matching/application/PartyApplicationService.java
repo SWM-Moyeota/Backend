@@ -22,15 +22,21 @@ public class PartyApplicationService {
 
     private final Parties parties;
     private final ApplicationEventPublisher eventPublisher;
+    private final RouteFinder routefinder;
+    private final RouteCache routeCache;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
         validateNotInOngoingParty(command.hostId());
+
+        RouteEstimate estimate = estimateRoute(command.departureLat(), command.departureLng(), command.destinationLat(), command.destinationLng());
+
         Party party = Party.open(command.hostId(),
                 new Location(command.departureLat(), command.departureLng()),
                 new Location(command.destinationLat(), command.destinationLng()),
                 command.departure(), command.destination(), new Capacity(command.capacity()),
-                Instant.now(), new Radius(command.departureRadius()), new Radius(command.destinationRadius()));
+                Instant.now(), new Radius(command.departureRadius()), new Radius(command.destinationRadius()),
+                estimate.estimateFare(), estimate.estimateTime(), estimate.path());
 
         PartyResult result = PartyResult.from(parties.save(party));
 
@@ -102,6 +108,10 @@ public class PartyApplicationService {
                 .toList();
     }
 
+    public RouteEstimate previewRoute(double departureLat, double departureLng, double destinationLat, double destinationLng) {
+        return estimateRoute(departureLat, departureLng, destinationLat, destinationLng);
+    }
+
 
     // TODO 예외처리 해야함
     private Party getParty(Long partyId) {
@@ -113,5 +123,17 @@ public class PartyApplicationService {
         if(parties.existsOngoingByMemberId(memberId)) {
             throw new IllegalArgumentException("이미 참여 중인 방이 있습니다. memberId=" + memberId);
         }
+    }
+
+    // 출발지 위도, 경도, 도착지 위도 경도, 최단 거리 캐싱
+    private RouteEstimate estimateRoute(double departureLat, double departureLng, double destinationLat, double destinationLng) {
+        RouteKey key = RouteKey.of(departureLat, departureLng, destinationLat, destinationLng);
+
+        return routeCache.find(key).orElseGet(() -> {
+            RouteEstimate estimate = routefinder.find(key);
+            routeCache.save(key, estimate);
+            log.info("경로 산출(네이버) key={}, fare={}, minutes={}", key.value(), estimate.estimateFare(), estimate.estimateTime());
+            return estimate;
+        });
     }
 }

@@ -12,7 +12,7 @@ public record PartyDetailResult(Long id, Long hostId,
                                Integer capacity, Integer currentMembers,
                                Integer departureRadius, Integer destinationRadius,
                                String status, Instant createdAt,
-                               List<MemberInfo> members) {
+                               List<MemberInfo> members, Integer estimateFare, Integer estimateTime, String route, Long taxiDriverId) {
 
     public record MemberInfo(Long memberId, boolean isHost, Instant joinedAt) {}
 
@@ -27,7 +27,11 @@ public record PartyDetailResult(Long id, Long hostId,
                 party.getDestinationLocation().latitude(), party.getDestinationLocation().longitude(),
                 party.getDeparture(), party.getDestination(), party.getCapacity().value(),
                 party.getMembers().size(), party.getDepartureRadius().meters(), party.getDestinationRadius().meters(),
-                party.getStatus().name(), party.getCreatedAt(), members
+                party.getStatus().name(), party.getCreatedAt(), members,
+                party.getEstimatedFare(),
+                party.getEstimatedTime(),
+                party.getRoute(),
+                party.getTaxiDriverId()
         );
     }
 }

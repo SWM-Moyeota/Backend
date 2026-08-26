@@ -24,8 +24,18 @@ public class PartyJpa implements Parties {
 
     @Override
     public Party save(Party party) {
-        PartyEntity entity = PartyEntity.from(party);       // 도메인 -> 엔티티
-        delegate.save(entity);                              // 엔티티 저장
+        PartyEntity entity;
+
+        if(party.getId() == null) {
+            entity = PartyEntity.from(party);
+            delegate.save(entity);
+        }
+        else {
+            entity = delegate.findById(party.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("해당 방이 존재하지 않습니다."));
+            entity.update(party);                           // 더티체킹
+        }
+
         return entity.toDomain();                           // 엔티티 -> 도메인
     }
 
