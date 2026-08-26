@@ -1,0 +1,77 @@
+==========================================
+방 카디널리티에 따른 인덱스 선택 변화
+측정일: 2026-08-26
+==========================================
+
+[목적]
+(chat_room_id, id) 복합 인덱스의 필요성 검증.
+커서 페이징 벤치마크(pagination-bench.txt)에서 커서 쿼리가 복합 인덱스가
+아닌 PK 인덱스를 사용한 것이 관찰되어, 방 개수를 늘렸을 때 옵티마이저의
+인덱스 선택이 바뀌는지 확인한다.
+
+[측정 조건]
+- 로컬 Docker PostgreSQL 16.15, 단일 인스턴스 (Apple Silicon)
+- 총 100만 건 고정, 방 개수만 변경 (id는 방 간 라운드로빈 분산)
+  - 실험 A: 방 20개 × 각 5만 건    — seed.sql 기본값 (i % 20) + 1
+  - 실험 B: 방 2000개 × 각 500건   — seed.sql 을 (i % 2000) + 1 로 변경 후 재시드
+- 쿼리 (findBefore 커서 페이징과 동일 패턴):
+    SELECT id, content FROM chat_message
+    WHERE chat_room_id = 1 AND id < 500000
+    ORDER BY id DESC LIMIT 21;
+- 각 시드 후 ANALYZE 실행
+
+==========================================
+[실험 A] 방 20개 × 5만 건 — PK 인덱스 선택
+==========================================
+
+                                                                        QUERY PLAN
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.42..19.33 rows=21 width=32) (actual time=0.021..0.043 rows=21 loops=1)
+   Buffers: shared hit=16
+   ->  Index Scan Backward using chat_message_pkey on chat_message  (cost=0.42..22102.58 rows=24557 width=32) (actual time=0.021..0.042 rows=21 loops=1)
+         Index Cond: (id < 500000)
+         Filter: (chat_room_id = 1)
+         Rows Removed by Filter: 399
+         Buffers: shared hit=16
+ Planning:
+   Buffers: shared hit=94 read=4
+ Planning Time: 0.260 ms
+ Execution Time: 0.066 ms
+
+- PK 인덱스를 id 역순으로 걸으며 방 조건은 Filter 로 후처리
+- 21행 반환을 위해 약 420개 항목을 훑고 399개 폐기 (적중률 1/20 = 방 개수의 역수)
+
+==========================================
+[실험 B] 방 2000개 × 500건 — 복합 인덱스로 전환
+==========================================
+
+                                                                          QUERY PLAN
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=0.42..84.84 rows=21 width=32) (actual time=0.019..0.051 rows=21 loops=1)
+   Buffers: shared hit=27
+   ->  Index Scan Backward using idx_chat_message_room_id on chat_message  (cost=0.42..997.35 rows=248 width=32) (actual time=0.018..0.049 rows=21 loops=1)
+         Index Cond: ((chat_room_id = 1) AND (id < 500000))
+         Buffers: shared hit=27
+ Planning:
+   Buffers: shared hit=87 read=9
+ Planning Time: 0.218 ms
+ Execution Time: 0.065 ms
+
+- 방 조건이 Filter 가 아닌 Index Cond 로 흡수됨
+- Rows Removed 없음 — 필요한 행만 정확히 읽음
+
+==========================================
+[결론]
+==========================================
+
+- 방이 적을 때는 PK 스캔 + 필터의 폐기 비용(방 개수에 비례)이 낮아
+  옵티마이저가 PK 인덱스를 선택한다.
+- 방 카디널리티가 커지면 PK 방식의 폐기 행이 방 개수에 비례해 증가하므로
+  옵티마이저가 복합 인덱스로 전환하며, 이때 폐기 행은 0이 된다.
+- 이 서비스는 합승 파티 생성마다 방이 누적되고 종료된 방의 메시지도
+  유지(소프트 삭제)되므로 방 카디널리티는 계속 증가한다.
+  복합 인덱스는 방 개수와 무관하게 조회 비용의 상한을 보장한다.
+
+[주의]
+- 절대 수치(ms)는 로컬 단일 인스턴스 기준. 추세·구조 비교 목적으로만 사용.
+- pagination-bench.txt 의 측정은 실험 A(방 20개) 시드 기준이다.
