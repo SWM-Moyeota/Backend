@@ -38,7 +38,7 @@ class DispatchServiceTest {
     }
 
     private DispatchService serviceWith(Set<Long> 콜가능기사들) {
-        return new DispatchService(partyAccess, 콜가능기사들::contains, locations, notifier, candidates);
+        return new DispatchService(partyAccess, new FakeDriverAccess(콜가능기사들), locations, notifier, candidates);
     }
 
     // ───────────────────────── dispatch ─────────────────────────
@@ -162,7 +162,7 @@ class DispatchServiceTest {
     void 콜을_받은_후_오프라인이_된_기사는_수락할_수_없다() {
         locations.nearby = List.of(1L, 2L);
         Set<Long> 콜가능 = new HashSet<>(Set.of(1L, 2L));
-        DispatchService service = new DispatchService(partyAccess, 콜가능::contains, locations, notifier, candidates);
+        DispatchService service = new DispatchService(partyAccess, new FakeDriverAccess(콜가능), locations, notifier, candidates);
         service.dispatch(방번호);
 
         콜가능.remove(1L);   // 콜을 받은 뒤 콜 OFF / 오프라인 전환

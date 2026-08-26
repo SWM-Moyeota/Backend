@@ -59,6 +59,7 @@ public class DriverEntity extends BaseTimeEntity {
             entity.vehicle = VehicleEntity.of(entity, driver.getVehicle());
         }
         entity.setting = DriverSettingEntity.of(entity, driver.getSetting());
+        entity.fcmToken = driver.getFcmToken();
 
         return entity;
     }
@@ -72,6 +73,7 @@ public class DriverEntity extends BaseTimeEntity {
         this.status = driver.getStatus();
         this.bankName = driver.getBankAccount().bankName();
         this.bankNumber = driver.getBankAccount().accountNumber();
+        this.fcmToken = driver.getFcmToken();
 
         if(driver.getVehicle() != null) {
             if(this.vehicle == null) {
