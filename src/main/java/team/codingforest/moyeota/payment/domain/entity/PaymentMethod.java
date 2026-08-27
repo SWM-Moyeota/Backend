@@ -12,9 +12,6 @@ import java.time.Instant;
 @NoArgsConstructor
 @Table(name = "payment_method")
 public class PaymentMethod extends BaseTimeEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
 
     @Column(nullable = false)
     private String billingKey;

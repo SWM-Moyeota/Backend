@@ -5,11 +5,12 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.payment.domain.entity.Payment;
+import team.codingforest.moyeota.payment.domain.entity.PaymentType;
 
 import java.util.List;
 
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
-    @Query("select p from Payment p where p.paymentGroupId = :id and p.type == PaymentType.MAIN and p.cancelAt != null")
-    List<Payment> findByPaymentGroupId(@Param("id") Long id);
+    @Query("select p from Payment p where p.paymentGroupId = :id and p.type = :type and p.cancelAt is not null")
+    List<Payment> findByPaymentGroupId(@Param("id") Long id, @Param("type") PaymentType type);
 }

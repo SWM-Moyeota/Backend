@@ -1,11 +1,11 @@
 package team.codingforest.moyeota.payment.domain.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.payment.dto.PortOneBillingKeyResponse;
-
-import java.time.LocalDateTime;
 
 @Entity
 @Getter

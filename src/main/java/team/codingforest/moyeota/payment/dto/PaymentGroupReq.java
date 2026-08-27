@@ -1,4 +1,6 @@
 package team.codingforest.moyeota.payment.dto;
 
-public record PaymentGroupReq(Long matchId, int totalFare, Long partenrId, int passengerCount) {
+import java.util.List;
+
+public record PaymentGroupReq(Long matchId, int totalFare, Long partnerId, int passengerCount, List<Long> userIds) {
 }

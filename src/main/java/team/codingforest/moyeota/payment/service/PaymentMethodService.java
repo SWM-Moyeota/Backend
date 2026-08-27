@@ -13,8 +13,6 @@ import team.codingforest.moyeota.payment.dto.RegisterPaymentResponse;
 import team.codingforest.moyeota.payment.repository.CardRepository;
 import team.codingforest.moyeota.payment.repository.PaymentMethodRepository;
 
-import java.time.Instant;
-
 @Service
 @Slf4j
 @RequiredArgsConstructor

@@ -1,21 +1,17 @@
 package team.codingforest.moyeota.payment.domain.entity;
 
 import jakarta.persistence.*;
+import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.common.BaseTimeEntity;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 
 @Table(name="payment")
 @Entity
+@NoArgsConstructor
 public class Payment extends BaseTimeEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(nullable = false)
-    private Long id;
 
-    @Column(nullable = false)
-    private String pgPaymentId;
+    private String pgTxId;
 
     @Column(nullable = false)
     private Long userId;
@@ -48,4 +44,29 @@ public class Payment extends BaseTimeEntity {
     private Instant cancelAt;
 
     private String cancelReason;
+
+    private Payment(Long userId, String pgTxId, Long paymentGroupId, Long paymentMethodId,
+                    int amount, PaymentStatus status, PaymentType type,
+                    Currency currency, String orderName) {
+        this.userId = userId;
+        this.pgTxId = pgTxId;
+        this.paymentGroupId = paymentGroupId;
+        this.paymentMethodId = paymentMethodId;
+        this.amount = amount;
+        this.status = status;
+        this.type = type;
+        this.currency = currency;
+        this.orderName = orderName;
+    }
+
+    public static Payment of(Long userId, String pgTxId, Long paymentGroupId, Long paymentMethodId,
+                             int amount, PaymentStatus status, PaymentType type,
+                             Currency currency, String orderName) {
+        return new Payment(userId, pgTxId, paymentGroupId, paymentMethodId, amount, status, type, currency, orderName);
+    }
+
+    public static Payment pending(Long userId, Long paymentGroupId, Long paymentMethodId, PaymentType type, int amount, String orderName) {
+        return new Payment(userId, null, paymentGroupId, paymentMethodId, amount, PaymentStatus.PENDING, type, Currency.KRW, orderName);
+    }
+
 }

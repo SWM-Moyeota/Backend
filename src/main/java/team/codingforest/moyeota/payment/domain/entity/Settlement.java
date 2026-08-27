@@ -1,9 +1,8 @@
 package team.codingforest.moyeota.payment.domain.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
 import team.codingforest.moyeota.common.BaseTimeEntity;
-
-import java.math.BigDecimal;
 
 @Entity
 public class Settlement extends BaseTimeEntity {

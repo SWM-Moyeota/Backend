@@ -4,18 +4,12 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.common.BaseTimeEntity;
-import team.codingforest.moyeota.payment.dto.PaymentGroupReq;
-
-import java.time.Instant;
 
 @Entity
 @Table(name = "payment_group")
 @NoArgsConstructor
 @Getter
 public class PaymentGroup extends BaseTimeEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
 
     @Column(nullable = false)
     private Long matchId;

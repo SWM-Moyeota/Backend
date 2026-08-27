@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.payment.domain.entity.Payment;
 import team.codingforest.moyeota.payment.domain.entity.PaymentGroup;
+import team.codingforest.moyeota.payment.domain.entity.PaymentType;
 import team.codingforest.moyeota.payment.dto.PaymentGroupReq;
 import team.codingforest.moyeota.payment.repository.PaymentGroupRepository;
 import team.codingforest.moyeota.payment.repository.PaymentRepository;
@@ -21,12 +22,22 @@ public class PaymentGroupService {
     public PaymentGroup createGroup(PaymentGroupReq req) {
         PaymentGroup paymentGroup = PaymentGroup.from(
                 req.matchId(),
-                req.partenrId(),
+                req.partnerId(),
                 calculateFare(req.totalFare(), req.passengerCount()),
                 req.passengerCount(),
                 calculateBalance(req.totalFare(), req.passengerCount()),
                 calculatePlatformCharge(req.totalFare())
                 );
+
+        paymentGroupRepository.save(paymentGroup);
+
+//        List<Payment> payments = req.userIds().stream()
+//                    .map(userId -> Payment.pendingMain(
+//                            userId,
+//                            paymentGroup.getId(),
+//
+//                    ))
+//                ;
 
         return paymentGroupRepository.save(paymentGroup);
     }
@@ -41,7 +52,7 @@ public class PaymentGroupService {
     // TODO 배치 처리 고려 현재는 COMPLETE만 했음
     @Transactional
     public void updateStatus(Long id) {
-        List<Payment> payments = paymentRepository.findByPaymentGroupId(id);
+        List<Payment> payments = paymentRepository.findByPaymentGroupId(id, PaymentType.MAIN);
         PaymentGroup payment = paymentGroupRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 그룹입니다."));
 

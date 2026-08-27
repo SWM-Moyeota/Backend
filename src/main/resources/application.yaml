@@ -25,3 +25,7 @@ naver:
 chat:
   websocket:
     allowed-origins: http://localhost:*
+
+portone:
+  api:
+    secret: ${PORTONE_API_SECRET:}

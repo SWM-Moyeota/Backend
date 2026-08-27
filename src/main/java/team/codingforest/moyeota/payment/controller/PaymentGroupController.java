@@ -6,7 +6,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import team.codingforest.moyeota.payment.dto.PaymentGroupReq;
-import team.codingforest.moyeota.payment.dto.PaymentGroupRes;
 import team.codingforest.moyeota.payment.service.PaymentGroupService;
 
 @RestController
