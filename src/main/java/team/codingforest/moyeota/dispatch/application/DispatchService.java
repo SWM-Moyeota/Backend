@@ -10,8 +10,10 @@ import team.codingforest.moyeota.dispatch.domain.DriverLocations;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.PartySummary;
+import team.codingforest.moyeota.matching.domain.Party;
 
 import java.util.List;
+import java.util.Optional;
 
 // TODO 예외처리 작성해야함
 @Service
@@ -82,6 +84,13 @@ public class DispatchService {
 
             log.warn("전원 거절로 매칭 복귀 partyId={}", partyId);
         }
+    }
+
+    public PartySummary getDetailRoom(Long driverId, Long partyId) {
+        if(!isCallOpen(partyId, driverId)) throw new IllegalArgumentException("해당 콜을 받지 못했습니다.");
+
+        return partyAccess.findSummary(partyId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않은 방입니다."));
     }
 
     public boolean isCallOpen(Long partyId, Long driverId) {

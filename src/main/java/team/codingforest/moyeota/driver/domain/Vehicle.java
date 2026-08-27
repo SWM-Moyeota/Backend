@@ -1,7 +1,7 @@
 package team.codingforest.moyeota.driver.domain;
 
 // TODO 예외처리 재작성
-public record Vehicle(Integer seats, String plateNumber) {
+public record Vehicle(Integer seats, String plateNumber, String type) {
     public Vehicle {
         if(plateNumber == null || plateNumber.isBlank()) throw new IllegalArgumentException("차량 번호는 필수입니다.");
 

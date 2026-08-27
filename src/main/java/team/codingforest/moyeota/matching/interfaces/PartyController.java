@@ -3,6 +3,8 @@ package team.codingforest.moyeota.matching.interfaces;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import team.codingforest.moyeota.driver.api.DriverSummary;
+import team.codingforest.moyeota.matching.api.PartySummary;
 import team.codingforest.moyeota.matching.application.*;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyRequest;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyResponse;
@@ -71,5 +73,10 @@ public class PartyController {
     @GetMapping("/matching/routes")
     public ResponseEntity<RouteEstimate> preView(@RequestBody RouteRequest req) {
         return ResponseEntity.ok(service.previewRoute(req.departureLat(), req.departureLng(), req.destinationLat(), req.destinationLng()));
+    }
+
+    @GetMapping("/matching/rooms/{partyId}/driver")
+    public ResponseEntity<DriverSummary> findDriverSummary(@PathVariable Long partyId) {
+        return ResponseEntity.ok(service.getAssignDriver(partyId));
     }
 }

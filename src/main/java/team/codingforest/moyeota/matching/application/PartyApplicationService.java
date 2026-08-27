@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import team.codingforest.moyeota.driver.api.DriverAccess;
+import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.application.dto.PartyResult;
@@ -24,6 +26,7 @@ public class PartyApplicationService {
     private final ApplicationEventPublisher eventPublisher;
     private final RouteFinder routefinder;
     private final RouteCache routeCache;
+    private final DriverAccess driverAccess;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
@@ -103,6 +106,7 @@ public class PartyApplicationService {
 
         log.info("매칭 시작 partyId={}, hostId={}, status={}", partyId, memberId, party.getStatus());
     }
+
     @Transactional(readOnly = true)
     public List<PartyResult> findActiveParties() {
         return parties.findAllByStatus(PartyStatus.ACTIVE).stream()
@@ -112,6 +116,17 @@ public class PartyApplicationService {
 
     public RouteEstimate previewRoute(double departureLat, double departureLng, double destinationLat, double destinationLng) {
         return estimateRoute(departureLat, departureLng, destinationLat, destinationLng);
+    }
+
+    @Transactional(readOnly = true)
+    public DriverSummary getAssignDriver(Long partyId) {
+        Party party = getParty(partyId);
+
+        Long driverId = party.getTaxiDriverId();
+        if(driverId == null) throw new IllegalArgumentException("아직 기사가 배정되지 않았습니다.");
+
+        return driverAccess.findSummary(driverId)
+                .orElseThrow(() -> new IllegalArgumentException("기사 정보를 찾을 수 없습니다."));
     }
 
 

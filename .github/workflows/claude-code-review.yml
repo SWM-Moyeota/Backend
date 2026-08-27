@@ -6,7 +6,8 @@ on:
 
 jobs:
   claude-review:
-
+    # 봇이 만든 PR(릴리즈 PR 등)은 리뷰하지 않음 - 커밋들이 이미 feature PR에서 리뷰됨
+    if: ${{ github.event.pull_request.user.type != 'Bot' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

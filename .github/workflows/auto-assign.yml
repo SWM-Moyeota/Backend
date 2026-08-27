@@ -6,6 +6,8 @@ on:
 
 jobs:
   auto-assign:
+    # 봇은 담당자로 지정할 수 없어(403 Forbidden) 봇이 만든 PR은 건너뜀
+    if: ${{ github.event.pull_request.user.type != 'Bot' }}
     runs-on: ubuntu-latest
     permissions:
       issues: write
