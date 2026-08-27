@@ -1,9 +1,11 @@
 package team.codingforest.moyeota.dispatch.application;
 
 import team.codingforest.moyeota.driver.api.DriverAccess;
+import team.codingforest.moyeota.driver.api.DriverSummary;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -24,5 +26,10 @@ class FakeDriverAccess implements DriverAccess {
     @Override
     public Map<Long, String> findFcmTokens(List<Long> driverIds) {
         return Map.of();
+    }
+
+    @Override
+    public Optional<DriverSummary> findSummary(Long driverId) {
+        return Optional.empty();
     }
 }

@@ -8,16 +8,16 @@ class VehicleTest {
 
     @Test
     void 차량번호가_없으면_생성할_수_없다() {
-        assertThatThrownBy(() -> new Vehicle(4, null))
+        assertThatThrownBy(() -> new Vehicle(4, null, "중형"))
                 .isInstanceOf(IllegalArgumentException.class);
 
-        assertThatThrownBy(() -> new Vehicle(4, "  "))
+        assertThatThrownBy(() -> new Vehicle(4, "  ", "중형"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void 좌석수가_1보다_작으면_생성할_수_없다() {
-        assertThatThrownBy(() -> new Vehicle(0, "12가3456"))
+        assertThatThrownBy(() -> new Vehicle(0, "12가3456", "중형"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

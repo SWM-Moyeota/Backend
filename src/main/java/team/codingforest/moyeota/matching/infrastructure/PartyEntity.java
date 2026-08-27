@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import team.codingforest.moyeota.common.BaseTimeEntity;
 import team.codingforest.moyeota.matching.domain.*;
-import team.codingforest.moyeota.matching.domain.enums.MemberStatus;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
 import java.util.ArrayList;
@@ -132,10 +131,6 @@ public class PartyEntity extends BaseTimeEntity {
                 .collect(Collectors.toMap(PartyMember::getMemberId, m->m));
 
         members.removeIf(e -> !byId.containsKey(e.getMemberId()));
-
-        for(PartyMemberEntity e : members) {
-            e.updateStatus(byId.get(e.getMemberId()).getStatus());
-        }
 
         Set<Long> existing = members.stream()
                 .map(PartyMemberEntity::getMemberId)

@@ -39,23 +39,9 @@ public class PartyController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/matching/ready/{partyId}/{memberId}")
-    public ResponseEntity<Void> ready(@PathVariable Long partyId, @PathVariable Long memberId) {
-        service.ready(partyId, memberId);
-
-        return ResponseEntity.noContent().build();
-    }
-
-    @DeleteMapping("/matching/ready/{partyId}/{memberId}")
-    public ResponseEntity<Void> cancelReady(@PathVariable Long partyId, @PathVariable Long memberId) {
-        service.cancelReady(partyId, memberId);
-
-        return ResponseEntity.noContent().build();
-    }
-
-    @PostMapping("/matching/start/{partyId}/{memberId}")
-    public ResponseEntity<Void> startMatching(@PathVariable Long partyId, @PathVariable Long memberId) {
-        service.startMatching(partyId, memberId);
+    @PostMapping("/matching/start/{partyId}")
+    public ResponseEntity<Void> startMatching(@PathVariable Long partyId) {
+        service.startMatching(partyId);
 
         return ResponseEntity.noContent().build();
     }

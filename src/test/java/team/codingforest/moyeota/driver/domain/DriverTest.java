@@ -11,7 +11,7 @@ class DriverTest {
     private static final Long 유저 = 1L;
     private static final String 자격번호 = "서울-1234-5678";
     private static final BankAccount 계좌 = new BankAccount("국민은행", "123-456-789012");
-    private static final Vehicle 소나타 = new Vehicle(4, "12가3456");
+    private static final Vehicle 소나타 = new Vehicle(4, "12가3456", "중형");
     private static final Instant 지금 = Instant.now();
 
     private Driver 등록된기사() {

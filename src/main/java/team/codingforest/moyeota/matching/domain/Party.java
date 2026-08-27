@@ -74,6 +74,10 @@ public class Party {
 
         party.members.add(new PartyMember(hostId, Instant.now()));
 
+        if(party.isFull()) {
+            party.status = PartyStatus.COMPLETED;
+        }
+
         return party;
     }
 
@@ -97,8 +101,7 @@ public class Party {
      */
     public void leave(Long memberId) {
         if(!hasMember(memberId)) throw new IllegalArgumentException("해당 방에 참여X");
-        ensureNotClosed();
-        ensureNotMatching();
+        ensureRecruiting();
 
         // 방장 혼자 남은 경우 방 폭파
         if(members.size() == 1) {
@@ -166,60 +169,9 @@ public class Party {
      */
     public void cancel(Long memberId) {
         ensureHost(memberId);
-        ensureNotClosed();
-        ensureNotMatching();
+        ensureRecruiting();
 
         status = PartyStatus.CANCELED;
-    }
-
-    /**
-     *  신규 참여 멤버는 NOT_READY로 시작
-     */
-    public void ready(Long memberId) {
-        ensureNotClosed();
-        ensureNotMatching();
-
-        findMember(memberId).ready();
-    }
-
-    public void cancelReady(Long memberId) {
-        ensureNotClosed();
-        ensureNotMatching();
-
-        findMember(memberId).cancelReady();
-    }
-
-    /**
-     *
-     *  추후 결제 쪽 완료되면 기사 배정 하기 전 테스트 결제 필요함
-     */
-    public void startMatching(Long memberId) {
-        ensureHost(memberId);
-        ensureNotMatching();
-        ensureNotClosed();
-
-        if(!isAllReady()) throw new IllegalArgumentException("전원 준비 완료 상태가 아닙니다.");
-
-        status = PartyStatus.MATCHING;
-    }
-
-    /**
-     *  전원 준비 완료했는지 여부 확인
-     */
-    public boolean isAllReady() {
-        for(PartyMember m : members) {
-            if(!m.isReady()) return false;
-        }
-
-        return true;
-    }
-
-    private PartyMember findMember(Long memberId) {
-        for(PartyMember m : members) {
-            if(m.getMemberId().equals(memberId)) return m;
-        }
-
-        throw new IllegalArgumentException("해당 방에 참여하지 않았습니다.");
     }
 
     public void assignDriver(Long driverId) {
@@ -228,6 +180,29 @@ public class Party {
         if(taxiDriverId != null) throw new IllegalArgumentException("이미 기사가 배정된 방입니다.");
 
         this.taxiDriverId = driverId;
+        this.status = PartyStatus.DRIVER_ASSIGNED;
+    }
+
+    public void startMatching() {
+        if(status != PartyStatus.COMPLETED) throw new IllegalArgumentException("정원이 다 차지 않은 방입니다.");
+
+        status = PartyStatus.MATCHING;
+    }
+
+    public void startRide(Long driverId) {
+        ensureAssignDriver(driverId);
+        if(status != PartyStatus.DRIVER_ASSIGNED) throw new IllegalArgumentException("탑승 대기 상태가 아닙니다");
+
+        status = PartyStatus.IN_RIDE;
+    }
+
+    public void completeRide(Long driverId, int fare) {
+        ensureAssignDriver(driverId);
+        if(status != PartyStatus.IN_RIDE) throw new IllegalArgumentException("운행중이 아닙니다.");
+
+        // TODO 결제쪽이 완료된 후 완성
+
+        status = PartyStatus.FINISHED;
     }
 
     /**
@@ -245,11 +220,11 @@ public class Party {
         if(!hostId.equals(memberId)) throw new IllegalArgumentException("방장이 아닙니다.");
     }
 
-    private void ensureNotClosed() {
-        if(status.isClosed()) throw new IllegalArgumentException("이미 취소되거나 종료된 방입니다.");
+    private void ensureAssignDriver(Long driverId) {
+        if(taxiDriverId == null || !taxiDriverId.equals(driverId)) throw new IllegalArgumentException("이 방에 배정된 기사가 아닙니다.");
     }
 
-    private void ensureNotMatching() {
-        if(status == PartyStatus.MATCHING)  throw new IllegalArgumentException("이미 매칭이 시작된 방입니다.");
+    private void ensureRecruiting() {
+        if(!status.isRecruiting()) throw new IllegalArgumentException("모집 중인 방이 아닙니다.");
     }
 }

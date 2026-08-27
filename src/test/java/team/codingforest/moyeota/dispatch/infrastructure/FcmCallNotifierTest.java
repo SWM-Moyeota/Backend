@@ -23,6 +23,9 @@ class FcmCallNotifierTest {
 
         @Override
         public Map<Long, String> findFcmTokens(List<Long> driverIds) { return Map.of(); }
+
+        @Override
+        public java.util.Optional<team.codingforest.moyeota.driver.api.DriverSummary> findSummary(Long driverId) { return java.util.Optional.empty(); }
     };
 
     // FirebaseMessaging 자리에 null을 주입 - 가드를 통과해 전송을 시도하면 NPE로 실패한다
