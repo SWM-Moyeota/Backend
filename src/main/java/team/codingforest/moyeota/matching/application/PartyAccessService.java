@@ -83,6 +83,11 @@ class PartyAccessService implements PartyAccess {
         return new PartyChatSummary(party.getId(), members, party.getDeparture(), party.getDestination());
     }
 
+    @Override
+    public boolean hasOngoingRide(Long driverId) {
+        return parties.hasOngoingRide(driverId);
+    }
+
     private Party getForUpdate(Long partyId) {
         return parties.findByIdForUpdate(partyId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 방입니다."));

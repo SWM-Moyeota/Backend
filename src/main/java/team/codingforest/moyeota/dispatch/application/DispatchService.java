@@ -44,6 +44,8 @@ public class DispatchService {
 
         if(!driverAccess.canReceiveCalls(driverId)) throw new IllegalArgumentException("콜을 받을 수 없는 기사입니다.");
 
+        if(partyAccess.hasOngoingRide(driverId)) throw new IllegalArgumentException("이미 운행중인 기사입니다.");
+
         partyAccess.assignDriver(partyId, driverId);
 
         List<Long> losers = callCandidates.findAll(partyId).stream()

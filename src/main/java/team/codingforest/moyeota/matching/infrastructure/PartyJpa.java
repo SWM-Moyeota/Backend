@@ -67,4 +67,9 @@ public class PartyJpa implements Parties {
         return delegate.findTargetsByStatus(PartyStatus.MATCHING)
                 .stream().map(PartyEntity::toMatchTarget).toList();
     }
+
+    @Override
+    public boolean hasOngoingRide(Long driverId) {
+        return delegate.existsByTaxiDriverIdStatus(driverId, List.of(PartyStatus.DRIVER_ASSIGNED, PartyStatus.IN_RIDE));
+    }
 }

@@ -14,4 +14,5 @@ public interface Parties {
     boolean existsOngoingByMemberId(Long memberId);
     Optional<Party> findByIdForUpdate(Long id);
     List<MatchingTarget> findMatchingTargets();
+    boolean hasOngoingRide(Long driverId);
 }

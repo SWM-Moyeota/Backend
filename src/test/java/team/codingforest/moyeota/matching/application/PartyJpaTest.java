@@ -51,6 +51,13 @@ class PartyJpaTest implements Parties {
     }
 
     @Override
+    public boolean hasOngoingRide(Long driverId) {
+        return store.values().stream()
+                .anyMatch(p -> (p.getStatus() == PartyStatus.DRIVER_ASSIGNED || p.getStatus() == PartyStatus.IN_RIDE)
+                        && driverId.equals(p.getTaxiDriverId()));
+    }
+
+    @Override
     public List<MatchingTarget> findMatchingTargets() {
         return store.values().stream()
                 .filter(p -> p.getStatus() == PartyStatus.MATCHING)

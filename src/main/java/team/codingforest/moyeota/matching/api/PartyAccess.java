@@ -12,4 +12,5 @@ public interface PartyAccess {
     void completeRide(Long partyId, Long driverId, int fare);
     boolean isAwaitingPickup(Long partyId, Long driverId);
     PartyChatSummary findChatSummary(Long partyId);
+    boolean hasOngoingRide(Long driverId);
 }

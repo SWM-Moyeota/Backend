@@ -24,4 +24,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 
     @Query("select p from PartyEntity p where p.status = :status")
     List<PartyEntity> findTargetsByStatus(@Param("status") PartyStatus status);
+
+    @Query("select count(p) > 0 from PartyEntity p where p.taxiDriverId = :driverId and p.status in :statuses")
+    boolean existsByTaxiDriverIdStatus(@Param("driverId") Long driverId, @Param("statuses") Collection<PartyStatus> statuses);
 }

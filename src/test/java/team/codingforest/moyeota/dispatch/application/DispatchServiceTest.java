@@ -220,6 +220,21 @@ class DispatchServiceTest {
     }
 
     @Test
+    void 운행_중인_기사는_다른_방의_콜을_수락할_수_없다() {
+        // 기사 이중 배정 차단: 이전 방을 운행 중인 기사가 (online 재호출 등으로) 새 콜을 받아 수락하는 경우
+        locations.nearby = List.of(1L, 2L);
+        DispatchService service = serviceWith(Set.of(1L, 2L));
+        service.dispatch(방번호);
+
+        partyAccess.assignedDriverId = 1L;   // 기사 1은 이미 다른 방에 배정되어 운행 중
+
+        assertThatThrownBy(() -> service.acceptCall(방번호, 1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("이미 운행중인 기사입니다.");
+        assertThat(service.isCallOpen(방번호, 2L)).isTrue();   // 콜 자체는 살아서 다른 기사가 수락 가능해야 함
+    }
+
+    @Test
     void 동시_수락_경합에서_늦은_기사는_배정_예외를_받고_배정은_유지된다() {
         locations.nearby = List.of(1L, 2L);
         DispatchService service = serviceWith(Set.of(1L, 2L));
