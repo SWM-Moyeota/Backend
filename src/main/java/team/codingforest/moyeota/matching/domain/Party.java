@@ -245,9 +245,6 @@ public class Party {
         if(!hostId.equals(memberId)) throw new IllegalArgumentException("방장이 아닙니다.");
     }
 
-    private void ensureNotClosed() {
-        if(status.isClosed()) throw new IllegalArgumentException("이미 취소되거나 종료된 방입니다.");
-    }
 
     private void ensureNotMatching() {
         if(status == PartyStatus.MATCHING)  throw new IllegalArgumentException("이미 매칭이 시작된 방입니다.");
