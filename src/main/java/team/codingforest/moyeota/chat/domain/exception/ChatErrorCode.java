@@ -17,7 +17,10 @@ public enum ChatErrorCode {
     CHAT_MESSAGE_TOO_LONG(HttpStatus.BAD_REQUEST, "메시지는 1000자를 넘을 수 없습니다."),
     CHAT_MESSAGE_BLANK(HttpStatus.BAD_REQUEST, "메시지 내용이 비어 있습니다."),
     CHAT_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "조회 개수가 허용 범위를 벗어났습니다."),
-    CHAT_INVALID_CURSOR(HttpStatus.BAD_REQUEST, "커서 값이 올바르지 않습니다.");
+    CHAT_INVALID_CURSOR(HttpStatus.BAD_REQUEST, "커서 값이 올바르지 않습니다."),
+    CHAT_INVALID_KEYWORD(HttpStatus.BAD_REQUEST, "검색어는 2글자 이상이어야 합니다."),
+    CHAT_UNAUTHORIZED(HttpStatus.UNAUTHORIZED,"인증 정보가 올바르지 않습니다."),
+    CHAT_INVALID_DESTINATION(HttpStatus.FORBIDDEN, "허용되지 않은 경로입니다.");
 
     private final HttpStatus httpStatus;
     private final String message;

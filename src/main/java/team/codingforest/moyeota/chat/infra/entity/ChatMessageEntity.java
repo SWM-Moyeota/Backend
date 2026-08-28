@@ -5,14 +5,17 @@ import lombok.Getter;
 import team.codingforest.moyeota.chat.domain.ChatMessage;
 import team.codingforest.moyeota.chat.domain.ChatMessageStatus;
 import team.codingforest.moyeota.chat.domain.ChatMessageType;
-import team.codingforest.moyeota.common.BaseEntity;
 
 import java.time.Instant;
 
 @Entity
 @Getter
 @Table(name = "chat_message")
-public class ChatMessageEntity extends BaseEntity {
+public class ChatMessageEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(nullable = false)
     private Long chatRoomId;
@@ -38,9 +41,10 @@ public class ChatMessageEntity extends BaseEntity {
 
     protected ChatMessageEntity() {}
 
-    private ChatMessageEntity(Long chatRoomId, Long userId, String content,
+    private ChatMessageEntity(Long id, Long chatRoomId, Long userId, String content,
                               ChatMessageType type, ChatMessageStatus status,
                               Instant createdAt, Instant deletedAt) {
+        this.id = id;
         this.chatRoomId = chatRoomId;
         this.userId = userId;
         this.content = content;
@@ -52,6 +56,7 @@ public class ChatMessageEntity extends BaseEntity {
 
     public static ChatMessageEntity from(ChatMessage message) {
         return new ChatMessageEntity(
+                message.getId(),
                 message.getChatRoomId(),
                 message.getUserId(),
                 message.getContent(),

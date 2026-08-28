@@ -8,7 +8,7 @@ import team.codingforest.moyeota.dispatch.application.DriverLocationService;
 import team.codingforest.moyeota.dispatch.application.dto.LocationReportRequest;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class DriverLocationController {
     private final DriverLocationService service;

@@ -1,0 +1,60 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+# 같은 PR에 연속 push 시 낡은 diff 기준 리뷰가 중복 완주하지 않도록 이전 실행을 취소
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  claude-review:
+    # 드래프트 PR은 리뷰하지 않음
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # git diff로 베이스 브랜치와 비교하려면 전체 히스토리 필요 (얕은 클론이면 실패)
+          fetch-depth: 0
+
+      - name: Run Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # track_progress는 넣지 말 것: tag 모드(@claude 멘션 대기)로 강제되어 자동 리뷰가 실행되지 않음
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            이 PR을 코드 리뷰해줘. 리뷰는 한국어로.
+            DDD 기반 모듈러 모놀리스(Spring Boot + Modulith)야. 모듈: matching, chat, driver, dispatch, place, common
+
+            리뷰 관점:
+            1. **버그** - 로직 오류, null/엣지 케이스, 동시성, 트랜잭션 경계(@Transactional 안의 외부 API 호출)
+            2. **모듈 경계** - 타 모듈은 api 패키지와 이벤트로만 접근. domain/application 직접 import 금지
+            3. **애그리거트 경계** - 타 애그리거트 참조는 ID로만(JPA 연관관계 금지), 리포지토리는 루트당 하나,
+               자식 조작은 루트의 위임 메서드 경유(예: driver.disableCall())
+            4. **도메인 규칙 위치** - 검증·상태 전이는 도메인 행위 메서드에(서비스에 새면 지적),
+               public 생성자/setter 금지(정적 팩토리 + restore), domain 패키지에 JPA/Spring 의존 금지
+            5. **영속성** - 도메인 변경 후 save 누락(이 구조는 더티체킹이 자동 적용 안 됨 - 변경이 조용히 유실됨),
+               수정 시 중복 INSERT(id 분기), N+1, restore 경로의 Instant.now() 시간 오염
+            6. **보안** - 시크릿 하드코딩, 소유자 검증 누락, 도메인 객체가 API 응답에 직접 노출
+
+            리뷰 방법:
+            - diff만 보지 말고 Read로 주변 코드 확인 후 판단
+            - 문제 라인에 mcp__github_inline_comment__create_inline_comment로 인라인 코멘트, 심각도 표시(🔴/🟡/🟢), 수정 예시 포함
+            - 마지막 전체 요약은 반드시 `gh pr comment`로 게시(최종 응답으로만 쓰면 아무도 못 봄)
+            - 불확실하면 추측이라고 명시
+
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Read,Grep,Glob,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git diff:*),Bash(git log:*)"

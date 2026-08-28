@@ -10,3 +10,11 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+
+kakao:
+  api:
+    key: ${KAKAO_API_KEY}
+
+chat:
+  websocket:
+    allowed-origins: ${WS_ALLOWED_ORIGINS}

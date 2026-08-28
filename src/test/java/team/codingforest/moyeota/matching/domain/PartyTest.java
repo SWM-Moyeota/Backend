@@ -15,9 +15,12 @@ class PartyTest {
     private static final String 판교역도착 = new String("판교역");
     private static final Radius 기본반경 = new Radius(100);
     private static final Instant 지금 = Instant.now();
+    private static final Integer 예상요금 = 12000;
+    private static final Integer 예상시간 = 25;
+    private static final String 경로 = "_p~iF~ps|U_ulLnnqC";
 
     private Party openParty(int capacity) {
-        return Party.open(방장, 강남역, 판교역, 강남역출발, 판교역도착, new Capacity(capacity), 지금, 기본반경, 기본반경);
+        return Party.open(방장, 강남역, 판교역, 강남역출발, 판교역도착, new Capacity(capacity), 지금, 기본반경, 기본반경, 예상요금, 예상시간, 경로);
     }
 
     @Test
@@ -177,13 +180,15 @@ class PartyTest {
     }
 
     @Test
-    void 정원이_차지_않으면_매칭을_시작할_수_없다() {
+    void 정원이_차지_않아도_전원_준비되면_매칭을_시작할_수_있다() {
         Party party = openParty(3);
         party.join(2L);
         party.ready(1L);
         party.ready(2L);
 
-        assertThatThrownBy(() -> party.startMatching(1L)).isInstanceOf(IllegalArgumentException.class);
+        party.startMatching(1L);
+
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.MATCHING);
     }
 
     @Test
