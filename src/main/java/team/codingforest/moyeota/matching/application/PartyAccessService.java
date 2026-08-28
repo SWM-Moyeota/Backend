@@ -43,13 +43,9 @@ class PartyAccessService implements PartyAccess {
         parties.save(party);
     }
 
-    /**
-     *
-     *  TTL 만료시간 이후 아직 MATCHING인 방 찾기
-     */
     @Override
-    public List<Long> findStaleMatchingIds(Instant cutoff) {
-        return parties.findStaleMatchingIds(cutoff);
+    public List<Long> findMatchingIds() {
+        return parties.findMatchingIds();
     }
 
     private Party getForUpdate(Long partyId) {
@@ -59,6 +55,7 @@ class PartyAccessService implements PartyAccess {
 
     private PartySummary toSummary(Party party) {
         return new PartySummary(party.getId(), party.getDepartureLocation().latitude(), party.getDepartureLocation().longitude(),
-                party.getDeparture(), party.getDestination());
+                party.getDestinationLocation().latitude(), party.getDestinationLocation().longitude(), party.getDeparture(), party.getDestination(),
+                party.getMembers().size(), party.getEstimatedFare(), party.getEstimatedTime());
     }
 }

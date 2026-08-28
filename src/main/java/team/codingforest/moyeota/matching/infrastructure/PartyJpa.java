@@ -6,7 +6,6 @@ import team.codingforest.moyeota.matching.domain.Parties;
 import team.codingforest.moyeota.matching.domain.Party;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -63,7 +62,7 @@ public class PartyJpa implements Parties {
     }
 
     @Override
-    public List<Long> findStaleMatchingIds(Instant cutoff) {
-        return delegate.findStaleIdsByStatus(PartyStatus.MATCHING, cutoff);
+    public List<Long> findMatchingIds() {
+        return delegate.findIdsByStatus(PartyStatus.MATCHING);
     }
 }

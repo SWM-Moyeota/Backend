@@ -8,5 +8,5 @@ public interface PartyAccess {
     Optional<PartySummary> findSummary(Long partyId);
     void assignDriver(Long partyId, Long driverId);
     void cancelMatching(Long partyId);
-    List<Long> findStaleMatchingIds(Instant cutoff);
+    List<Long> findMatchingIds();
 }

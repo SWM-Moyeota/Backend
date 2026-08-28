@@ -12,7 +12,7 @@ import static org.assertj.core.api.Assertions.*;
 class FcmCallNotifierTest {
 
     private static final PartySummary 강남출발방 =
-            new PartySummary(1L, 37.4979, 127.0276, "강남역", "판교역");
+            new PartySummary(1L, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 2, 12000, 25);
 
     /**
      *  토큰이 등록된 기사가 한 명도 없는 DriverAccess

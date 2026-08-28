@@ -10,47 +10,35 @@ import team.codingforest.moyeota.dispatch.domain.DriverLocations;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.PartySummary;
-import team.codingforest.moyeota.matching.domain.Party;
+import team.codingforest.moyeota.dispatch.domain.MatchingTimers;
 
+import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 
 // TODO 예외처리 작성해야함
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class DispatchService {
+    private final MatchingTimers matchingTimers;
+
     private final PartyAccess partyAccess;
     private final DriverAccess driverAccess;
     private final DriverLocations driverLocations;
     private final CallNotifier callNotifier;
     private final CallCandidates callCandidates;
 
-    private static final int searchRadiusMeters = 3000;
+    private static final int INITIAL_RADIUS_METERS = 1000;
+    private static final int RADIUS_STEP_METERS = 500;
+    private static final int MAX_RADIUS_METERS = 3000;
+    public static final Duration MATCHING_TIMEOUT = Duration.ofMinutes(3);
 
     /**
      *      매칭방을 기준으로 3km 이내의 기사들을 찾고 콜 뿌리기
      */
     public void dispatch(Long partyId) {
-        PartySummary party = partyAccess.findSummary(partyId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 방이 없음"));
-
-        List<Long> nearbyIds = driverLocations.findNearby(party.departureLatitude(), party.departureLongitude(), searchRadiusMeters);
-
-        List<Long> candidates = nearbyIds.stream()
-                .filter(driverAccess::canReceiveCalls)
-                .toList();
-
-        if(candidates.isEmpty()) {
-            log.warn("호출 가능한 기사 없음 partyId={}, radius={}m", partyId, searchRadiusMeters);
-            partyAccess.cancelMatching(partyId);
-            return;
-        }
-
-        callCandidates.register(partyId, candidates);
-        callNotifier.notifyCall(candidates, party);
-
-        log.info("기사 호출 완료 partyId={}, 후보={}명", partyId, candidates.size());
+        matchingTimers.start(partyId);
+        attempt(partyId, INITIAL_RADIUS_METERS);
     }
 
     @Transactional
@@ -66,6 +54,7 @@ public class DispatchService {
                 .toList();
 
         callCandidates.clear(partyId);
+        matchingTimers.clear(partyId);
         driverLocations.remove(driverId);
         callNotifier.notifyCallClosed(losers, partyId);
 
@@ -76,14 +65,40 @@ public class DispatchService {
         if(!callCandidates.contains(partyId, driverId)) throw new IllegalArgumentException("호출받지 않은 콜입니다.");
 
         long remaining = callCandidates.remove(partyId, driverId);
+        callCandidates.markRejected(partyId, driverId);
 
         log.info("콜 거절 partyId={}, driverId={}, 남은 후보={}명", partyId, driverId, remaining);
+    }
 
-        if(remaining == 0) {
-            partyAccess.cancelMatching(partyId);
+    public void attempt(Long partyId, int radiusMeters) {
+        PartySummary party = partyAccess.findSummary(partyId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 방이 없음"));
 
-            log.warn("전원 거절로 매칭 복귀 partyId={}", partyId);
+        List<Long> nearbyIds = driverLocations.findNearby(party.departureLatitude(), party.departureLongitude(), radiusMeters);
+
+        List<Long> already = callCandidates.findAll(partyId);
+        List<Long> rejected = callCandidates.findRejected(partyId);
+
+        List<Long> fresh = nearbyIds.stream()
+                .filter(id -> !already.contains(id))
+                .filter(id -> !rejected.contains(id))   // 거절한 기사에게 콜을 다시 보내지 않는다
+                .filter(driverAccess::canReceiveCalls)
+                .toList();
+
+        if(fresh.isEmpty()) {
+            log.info("신규 후보 없음 partyId={}, radius={}m, 기존 후보={}명", partyId, radiusMeters, already.size());
+            return;
         }
+
+        callCandidates.add(partyId, fresh);
+        callNotifier.notifyCall(fresh, party);
+
+        log.info("기사 호출 partyId={}, radius={}m, 신규={}명, 누적={}명", partyId, radiusMeters, fresh.size(), already.size() + fresh.size());
+    }
+
+    public int radiusFor(Duration elapsed) {
+        long steps = elapsed.getSeconds() / 30;
+        return (int) Math.min(MAX_RADIUS_METERS, INITIAL_RADIUS_METERS + steps * RADIUS_STEP_METERS);
     }
 
     public PartySummary getDetailRoom(Long driverId, Long partyId) {

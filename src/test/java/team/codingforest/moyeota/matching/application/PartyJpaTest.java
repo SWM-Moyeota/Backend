@@ -50,10 +50,9 @@ class PartyJpaTest implements Parties {
     }
 
     @Override
-    public List<Long> findStaleMatchingIds(java.time.Instant cutoff) {
-        // 인메모리는 updatedAt 이 없으므로 "미배정 MATCHING 방 전부" 로 단순화
+    public List<Long> findMatchingIds() {
         return store.values().stream()
-                .filter(p -> p.getStatus() == PartyStatus.MATCHING && p.getTaxiDriverId() == null)
+                .filter(p -> p.getStatus() == PartyStatus.MATCHING)
                 .map(Party::getId)
                 .toList();
     }

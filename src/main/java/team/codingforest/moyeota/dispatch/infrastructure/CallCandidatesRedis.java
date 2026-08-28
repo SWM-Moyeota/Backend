@@ -13,19 +13,10 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class CallCandidatesRedis implements CallCandidates {
     private static final String PREFIX = "dispatch:candidates:";
+    private static final String REJECTED_PREFIX = "dispatch:rejected:";
     private static final Duration TTL = Duration.ofMinutes(5);
 
     private final StringRedisTemplate redisTemplate;
-
-
-    @Override
-    public void register(Long partyId, List<Long> driverIds) {
-        String key = PREFIX + partyId;
-
-        redisTemplate.delete(key);
-        redisTemplate.opsForSet().add(key, driverIds.stream().map(String::valueOf).toArray(String[]::new));
-        redisTemplate.expire(key, TTL);
-    }
 
     @Override
     public boolean contains(Long partyId, Long driverId) {
@@ -56,8 +47,32 @@ public class CallCandidatesRedis implements CallCandidates {
 
     @Override
     public void clear(Long partyId) {
+        redisTemplate.delete(PREFIX + partyId);
+        redisTemplate.delete(REJECTED_PREFIX + partyId);
+    }
+
+    @Override
+    public void markRejected(Long partyId, Long driverId) {
+        String key = REJECTED_PREFIX + partyId;
+
+        redisTemplate.opsForSet().add(key, driverId.toString());
+        redisTemplate.expire(key, TTL);
+    }
+
+    @Override
+    public List<Long> findRejected(Long partyId) {
+        Set<String> members = redisTemplate.opsForSet().members(REJECTED_PREFIX + partyId);
+
+        if(members == null) return List.of();
+
+        return members.stream().map(Long::valueOf).toList();
+    }
+
+    @Override
+    public void add(Long partyId, List<Long> driverIds) {
         String key = PREFIX + partyId;
 
-        redisTemplate.delete(key);
+        redisTemplate.opsForSet().add(key, driverIds.stream().map(String::valueOf).toArray(String[]::new));
+        redisTemplate.expire(key, TTL);   // 탐색이 이어지는 동안 TTL 연장
     }
 }

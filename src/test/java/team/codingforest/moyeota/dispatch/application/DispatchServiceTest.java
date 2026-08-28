@@ -2,18 +2,11 @@ package team.codingforest.moyeota.dispatch.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import team.codingforest.moyeota.dispatch.domain.CallCandidates;
-import team.codingforest.moyeota.dispatch.domain.CallNotifier;
-import team.codingforest.moyeota.dispatch.domain.DriverLocations;
-import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.PartySummary;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
@@ -22,12 +15,13 @@ class DispatchServiceTest {
 
     private static final Long 방번호 = 1L;
     private static final PartySummary 강남출발방 =
-            new PartySummary(방번호, 37.4979, 127.0276, "강남역", "판교역");
+            new PartySummary(방번호, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 2, 12000, 25);
 
     private FakeDriverLocations locations;
     private RecordingNotifier notifier;
     private InMemoryCallCandidates candidates;
     private FakePartyAccess partyAccess;
+    private FakeMatchingTimers timers;
 
     @BeforeEach
     void setUp() {
@@ -35,13 +29,14 @@ class DispatchServiceTest {
         notifier = new RecordingNotifier();
         candidates = new InMemoryCallCandidates();
         partyAccess = new FakePartyAccess(강남출발방);
+        timers = new FakeMatchingTimers();
     }
 
     private DispatchService serviceWith(Set<Long> 콜가능기사들) {
-        return new DispatchService(partyAccess, new FakeDriverAccess(콜가능기사들), locations, notifier, candidates);
+        return new DispatchService(timers, partyAccess, new FakeDriverAccess(콜가능기사들), locations, notifier, candidates);
     }
 
-    // ───────────────────────── dispatch ─────────────────────────
+    // ───────────────────────── dispatch (첫 탐색) ─────────────────────────
 
     @Test
     void 반경_내_콜_가능한_기사에게만_알림을_보내고_후보로_기록한다() {
@@ -55,35 +50,46 @@ class DispatchServiceTest {
     }
 
     @Test
-    void 콜_알림은_한_번만_발송된다() {
-        locations.nearby = List.of(1L, 2L);
-        DispatchService service = serviceWith(Set.of(1L, 2L));
+    void 매칭을_시작하면_타이머가_걸린다() {
+        locations.nearby = List.of(1L);
+        DispatchService service = serviceWith(Set.of(1L));
 
         service.dispatch(방번호);
 
-        assertThat(notifier.callCount).isEqualTo(1);   // 중복 발송이면 기사에게 콜 카드가 두 번 뜬다
+        assertThat(timers.started).containsExactly(방번호);   // 타이머가 없으면 스위퍼가 즉시 타임아웃 처리해버린다
     }
 
     @Test
-    void 콜_가능한_기사가_없으면_알림_없이_매칭을_되돌린다() {
+    void 첫_탐색은_초기_반경으로_수행된다() {
+        locations.nearby = List.of(1L);
+        DispatchService service = serviceWith(Set.of(1L));
+
+        service.dispatch(방번호);
+
+        assertThat(locations.lastRadiusMeters).isEqualTo(1000);   // 처음부터 3km를 뒤지면 가까운 기사 우선이 안 된다
+    }
+
+    @Test
+    void 콜_가능한_기사가_없어도_매칭을_되돌리지_않는다() {
+        // 새 정책: 포기 판정은 스위퍼의 타임아웃 하나로 일원화 - 반경을 넓히면 나올 수 있다
         locations.nearby = List.of(1L, 2L);
         DispatchService service = serviceWith(Set.of());
 
         service.dispatch(방번호);
 
         assertThat(notifier.callCount).isZero();
-        assertThat(partyAccess.matchingCanceled).containsExactly(방번호);   // 방이 MATCHING 에 갇히면 안 됨
+        assertThat(partyAccess.matchingCanceled).isEmpty();
     }
 
     @Test
-    void 반경_내_기사가_없으면_알림_없이_매칭을_되돌린다() {
+    void 반경_내_기사가_없어도_매칭을_되돌리지_않는다() {
         locations.nearby = List.of();
         DispatchService service = serviceWith(Set.of(1L));
 
         service.dispatch(방번호);
 
         assertThat(notifier.callCount).isZero();
-        assertThat(partyAccess.matchingCanceled).containsExactly(방번호);
+        assertThat(partyAccess.matchingCanceled).isEmpty();
     }
 
     @Test
@@ -92,6 +98,58 @@ class DispatchServiceTest {
 
         assertThatThrownBy(() -> service.dispatch(999L))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // ───────────────────────── attempt (재탐색) ─────────────────────────
+
+    @Test
+    void 재탐색은_새로_발견된_기사에게만_알림을_보낸다() {
+        locations.nearby = List.of(1L, 2L);
+        DispatchService service = serviceWith(Set.of(1L, 2L, 3L));
+        service.dispatch(방번호);
+
+        locations.nearby = List.of(1L, 2L, 3L);   // 반경이 넓어져 3번이 새로 잡힘
+        service.attempt(방번호, 2000);
+
+        assertThat(notifier.notifiedDrivers).containsExactly(1L, 2L, 3L);   // 1,2번에게 중복 콜이 가면 콜 카드가 두 번 뜬다
+        assertThat(candidates.findAll(방번호)).containsExactlyInAnyOrder(1L, 2L, 3L);
+    }
+
+    @Test
+    void 재탐색에서_신규_기사가_없으면_알림을_보내지_않는다() {
+        locations.nearby = List.of(1L);
+        DispatchService service = serviceWith(Set.of(1L));
+        service.dispatch(방번호);
+
+        service.attempt(방번호, 2000);
+
+        assertThat(notifier.callCount).isEqualTo(1);   // 첫 탐색 1번뿐
+    }
+
+    @Test
+    void 탐색_도중_새로_온라인이_된_기사도_다음_탐색에서_포함된다() {
+        locations.nearby = List.of();
+        DispatchService service = serviceWith(Set.of(1L));
+        service.dispatch(방번호);
+
+        locations.nearby = List.of(1L);   // 같은 반경이라도 새로 운행을 시작한 기사
+        service.attempt(방번호, 1000);
+
+        assertThat(notifier.notifiedDrivers).containsExactly(1L);
+    }
+
+    // ───────────────────────── radiusFor ─────────────────────────
+
+    @Test
+    void 반경은_30초마다_500m씩_넓어지고_3km에서_멈춘다() {
+        DispatchService service = serviceWith(Set.of());
+
+        assertThat(service.radiusFor(Duration.ofSeconds(0))).isEqualTo(1000);
+        assertThat(service.radiusFor(Duration.ofSeconds(29))).isEqualTo(1000);
+        assertThat(service.radiusFor(Duration.ofSeconds(30))).isEqualTo(1500);
+        assertThat(service.radiusFor(Duration.ofSeconds(60))).isEqualTo(2000);
+        assertThat(service.radiusFor(Duration.ofSeconds(120))).isEqualTo(3000);
+        assertThat(service.radiusFor(Duration.ofMinutes(10))).isEqualTo(3000);   // 상한 고정
     }
 
     // ───────────────────────── acceptCall ─────────────────────────
@@ -107,6 +165,17 @@ class DispatchServiceTest {
         assertThat(partyAccess.assignedDriverId).isEqualTo(2L);
         assertThat(service.isCallOpen(방번호, 1L)).isFalse();   // 마감 — 폴링하던 앱이 카드를 닫는 근거
         assertThat(service.isCallOpen(방번호, 3L)).isFalse();
+    }
+
+    @Test
+    void 수락하면_매칭_타이머가_정리된다() {
+        locations.nearby = List.of(1L);
+        DispatchService service = serviceWith(Set.of(1L));
+        service.dispatch(방번호);
+
+        service.acceptCall(방번호, 1L);
+
+        assertThat(timers.cleared).containsExactly(방번호);   // 안 지우면 스위퍼가 배정된 방을 계속 들여다본다
     }
 
     @Test
@@ -162,7 +231,7 @@ class DispatchServiceTest {
     void 콜을_받은_후_오프라인이_된_기사는_수락할_수_없다() {
         locations.nearby = List.of(1L, 2L);
         Set<Long> 콜가능 = new HashSet<>(Set.of(1L, 2L));
-        DispatchService service = new DispatchService(partyAccess, new FakeDriverAccess(콜가능), locations, notifier, candidates);
+        DispatchService service = new DispatchService(timers, partyAccess, new FakeDriverAccess(콜가능), locations, notifier, candidates);
         service.dispatch(방번호);
 
         콜가능.remove(1L);   // 콜을 받은 뒤 콜 OFF / 오프라인 전환
@@ -200,11 +269,12 @@ class DispatchServiceTest {
 
         assertThat(service.isCallOpen(방번호, 1L)).isFalse();
         assertThat(service.isCallOpen(방번호, 2L)).isTrue();
-        assertThat(partyAccess.matchingCanceled).isEmpty();   // 아직 후보가 남아 있으니 되돌리면 안 됨
+        assertThat(partyAccess.matchingCanceled).isEmpty();
     }
 
     @Test
-    void 전원이_거절하면_매칭을_되돌린다() {
+    void 전원이_거절해도_매칭을_되돌리지_않는다() {
+        // 새 정책: 반경이 넓어지면 새 기사가 나올 수 있으므로 포기는 타임아웃 하나로 판정
         locations.nearby = List.of(1L, 2L);
         DispatchService service = serviceWith(Set.of(1L, 2L));
         service.dispatch(방번호);
@@ -212,7 +282,7 @@ class DispatchServiceTest {
         service.rejectCall(방번호, 1L);
         service.rejectCall(방번호, 2L);
 
-        assertThat(partyAccess.matchingCanceled).containsExactly(방번호);
+        assertThat(partyAccess.matchingCanceled).isEmpty();
     }
 
     @Test
@@ -222,15 +292,29 @@ class DispatchServiceTest {
         service.dispatch(방번호);
         service.rejectCall(방번호, 1L);
 
-        // 이중 탭 — 이미 명단에서 빠졌으므로 남은 후보 수를 또 줄이면 안 된다
+        // 이중 탭 — 이미 명단에서 빠졌으므로
         assertThatThrownBy(() -> service.rejectCall(방번호, 1L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("호출받지 않은 콜입니다.");
-        assertThat(partyAccess.matchingCanceled).isEmpty();   // 2번이 남아 있는데 되돌아가면 안 됨
     }
 
     @Test
-    void 마감된_콜을_거절해도_매칭이_되돌아가지_않는다() {
+    void 거절한_기사는_재탐색에서_다시_호출되지_않는다() {
+        locations.nearby = List.of(1L, 2L);
+        DispatchService service = serviceWith(Set.of(1L, 2L, 3L));
+        service.dispatch(방번호);
+        service.rejectCall(방번호, 1L);
+
+        locations.nearby = List.of(1L, 2L, 3L);
+        service.attempt(방번호, 2000);
+
+        // 1번은 첫 콜 한 번만 - 거절한 콜이 다시 오면 안 된다
+        assertThat(notifier.notifiedDrivers).containsExactly(1L, 2L, 3L);
+        assertThat(service.isCallOpen(방번호, 1L)).isFalse();   // 재탐색 후에도 수락 자격은 없어야 함
+    }
+
+    @Test
+    void 마감된_콜을_거절해도_예외만_나고_배정은_유지된다() {
         locations.nearby = List.of(1L, 2L);
         DispatchService service = serviceWith(Set.of(1L, 2L));
         service.dispatch(방번호);
@@ -240,7 +324,7 @@ class DispatchServiceTest {
         assertThatThrownBy(() -> service.rejectCall(방번호, 2L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("호출받지 않은 콜입니다.");
-        assertThat(partyAccess.matchingCanceled).isEmpty();   // 이미 배정된 방을 되돌리려 하면 안 됨
+        assertThat(partyAccess.assignedDriverId).isEqualTo(1L);
     }
 
     @Test
@@ -264,119 +348,5 @@ class DispatchServiceTest {
 
         assertThat(service.isCallOpen(방번호, 99L)).isFalse();
         assertThat(service.isCallOpen(999L, 1L)).isFalse();   // 없는 방도 예외가 아니라 닫힘
-    }
-
-    // ───────────────────────── 가짜들 ─────────────────────────
-
-    /**
-     *  방 요약을 돌려주고 배정/되돌림을 기록하는 가짜.
-     *  assignDriver 는 실제 도메인 가드(중복 배정 불가)를 흉내낸다.
-     */
-    static class FakePartyAccess implements PartyAccess {
-        private final PartySummary summary;
-        Long assignedDriverId;
-        List<Long> matchingCanceled = new ArrayList<>();
-        List<Long> staleIds = new ArrayList<>();
-
-        FakePartyAccess(PartySummary summary) {
-            this.summary = summary;
-        }
-
-        @Override
-        public Optional<PartySummary> findSummary(Long partyId) {
-            return summary != null && summary.id().equals(partyId) ? Optional.of(summary) : Optional.empty();
-        }
-
-        @Override
-        public void assignDriver(Long partyId, Long driverId) {
-            if(assignedDriverId != null) throw new IllegalArgumentException("이미 기사가 배정된 방입니다.");
-            assignedDriverId = driverId;
-        }
-
-        @Override
-        public void cancelMatching(Long partyId) {
-            if(assignedDriverId != null) throw new IllegalArgumentException("이미 기사가 배정된 방입니다.");
-            matchingCanceled.add(partyId);
-        }
-
-        @Override
-        public List<Long> findStaleMatchingIds(java.time.Instant cutoff) {
-            return List.copyOf(staleIds);
-        }
-    }
-
-    /**
-     *  인메모리 후보 명단 (CallCandidatesRedis 대응)
-     */
-    static class InMemoryCallCandidates implements CallCandidates {
-        private final Map<Long, Set<Long>> store = new HashMap<>();
-
-        @Override
-        public void register(Long partyId, List<Long> driverIds) {
-            store.put(partyId, new HashSet<>(driverIds));
-        }
-
-        @Override
-        public boolean contains(Long partyId, Long driverId) {
-            return store.getOrDefault(partyId, Set.of()).contains(driverId);
-        }
-
-        @Override
-        public long remove(Long partyId, Long driverId) {
-            Set<Long> set = store.getOrDefault(partyId, new HashSet<>());
-            set.remove(driverId);
-            return set.size();
-        }
-
-        @Override
-        public List<Long> findAll(Long partyId) {
-            return List.copyOf(store.getOrDefault(partyId, Set.of()));
-        }
-
-        @Override
-        public void clear(Long partyId) {
-            store.remove(partyId);
-        }
-    }
-
-    /**
-     *  누구에게 몇 번 알림/마감이 갔는지 기록만 하는 가짜
-     */
-    static class RecordingNotifier implements CallNotifier {
-        List<Long> notifiedDrivers = new ArrayList<>();
-        List<Long> closedDrivers = new ArrayList<>();
-        int callCount = 0;
-
-        @Override
-        public void notifyCall(List<Long> driverIds, PartySummary party) {
-            callCount++;
-            notifiedDrivers.addAll(driverIds);
-        }
-
-        @Override
-        public void notifyCallClosed(List<Long> driverIds, Long partyId) {
-            closedDrivers.addAll(driverIds);
-        }
-    }
-
-    /**
-     *  정해준 목록을 그대로 돌려주고 제거를 기록하는 가짜 위치 저장소
-     */
-    static class FakeDriverLocations implements DriverLocations {
-        List<Long> nearby = new ArrayList<>();
-        List<Long> removed = new ArrayList<>();
-
-        @Override
-        public void update(Long driverId, double latitude, double longitude) {}
-
-        @Override
-        public void remove(Long driverId) {
-            removed.add(driverId);
-        }
-
-        @Override
-        public List<Long> findNearby(double latitude, double longitude, int radiusMeters) {
-            return nearby;
-        }
     }
 }
