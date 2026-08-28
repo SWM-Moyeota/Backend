@@ -3,12 +3,13 @@ package team.codingforest.moyeota.matching.application;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import team.codingforest.moyeota.matching.api.MatchingTarget;
 import team.codingforest.moyeota.matching.api.PartyAccess;
+import team.codingforest.moyeota.matching.api.PartyChatSummary;
 import team.codingforest.moyeota.matching.api.PartySummary;
 import team.codingforest.moyeota.matching.domain.Parties;
 import team.codingforest.moyeota.matching.domain.Party;
-
-import java.time.Instant;
+import team.codingforest.moyeota.matching.domain.PartyMember;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,17 +36,51 @@ class PartyAccessService implements PartyAccess {
 
     @Transactional
     @Override
-    public void cancelMatching(Long partyId) {
+    public void failMatching(Long partyId) {
         Party party = getForUpdate(partyId);
 
-        party.cancelMatching();
+        party.failMatching();
 
         parties.save(party);
     }
 
     @Override
-    public List<Long> findMatchingIds() {
-        return parties.findMatchingIds();
+    public List<MatchingTarget> findMatchingTargets() {
+        return parties.findMatchingTargets();
+    }
+
+    @Override
+    public void startRide(Long partyId, Long driverId) {
+        Party party = getForUpdate(partyId);
+
+        party.startRide(driverId);
+    }
+
+    @Override
+    public void completeRide(Long partyId, Long driverId, int fare) {
+        Party party = getForUpdate(partyId);
+
+        party.completeRide(driverId, fare);
+    }
+
+    @Override
+    public boolean isAwaitingPickup(Long partyId, Long driverId) {
+        return parties.findById(partyId)
+                .map(party -> party.isAwaitingPickup(driverId))
+                .orElse(false);
+    }
+
+    @Override
+    public PartyChatSummary findChatSummary(Long partyId) {
+        Party party = parties.findById(partyId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 방입니다."));
+
+        if(!party.isFull()) throw new IllegalArgumentException("매칭할 수 없습니다.");
+
+        List<Long> members = party.getMembers().stream()
+                .map(PartyMember::getMemberId).toList();
+
+        return new PartyChatSummary(party.getId(), members, party.getDeparture(), party.getDestination());
     }
 
     private Party getForUpdate(Long partyId) {

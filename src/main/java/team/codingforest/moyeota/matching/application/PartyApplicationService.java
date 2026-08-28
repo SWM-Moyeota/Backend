@@ -30,11 +30,11 @@ public class PartyApplicationService {
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
-        validateNotInOngoingParty(command.hostId());
+        validateNotInOngoingParty(command.creatorId());
 
         RouteEstimate estimate = estimateRoute(command.departureLat(), command.departureLng(), command.destinationLat(), command.destinationLng());
 
-        Party party = Party.open(command.hostId(),
+        Party party = Party.open(command.creatorId(),
                 new Location(command.departureLat(), command.departureLng()),
                 new Location(command.destinationLat(), command.destinationLng()),
                 command.departure(), command.destination(), new Capacity(command.capacity()),
@@ -45,14 +45,16 @@ public class PartyApplicationService {
 
         // 최대 정원이 1명인 방은 바로 매칭 시작
         if(saved.isFull()) {
-            saved.startMatching();
+            saved.startMatching(Instant.now());
             parties.save(saved);
             eventPublisher.publishEvent(new MatchingStartedEvent(saved.getId()));
+
+            log.info("매칭 시작 partyId={}, status={}", saved.getId(), saved.getStatus());
         }
 
         PartyResult result = PartyResult.from(saved);
 
-        log.info("매칭방 활성화. partyId={}, hostId={}, capacity={}, status={}", result.id(), result.hostId(), result.capacity(), result.status());
+        log.info("매칭방 활성화. partyId={}, creatorId={}, capacity={}, status={}", result.id(), command.creatorId(), result.capacity(), result.status());
 
         return result;
     }
@@ -65,8 +67,9 @@ public class PartyApplicationService {
         party.join(memberId);
 
         if(party.isFull()) {
-            party.startMatching();
+            party.startMatching(Instant.now());
             eventPublisher.publishEvent(new MatchingStartedEvent(partyId));
+            log.info("매칭시작 partyId={}, status={}", party.getId(), party.getStatus());
         }
 
         log.info("매칭방에 사용자 참가됨 partyId={}, memberId={}, status={}", partyId, memberId, party.getStatus());
@@ -88,19 +91,6 @@ public class PartyApplicationService {
     @Transactional(readOnly = true)
     public PartyDetailResult getPartyDetail(Long partyId) {
         return PartyDetailResult.from(getParty(partyId));
-    }
-
-    @Transactional
-    public void startMatching(Long partyId) {
-        Party party = getParty(partyId);
-
-        party.startMatching();
-
-        parties.save(party);
-
-        eventPublisher.publishEvent(new MatchingStartedEvent(partyId));
-
-        log.info("매칭 시작 partyId={}, status={}", partyId, party.getStatus());
     }
 
     @Transactional(readOnly = true)

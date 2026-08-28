@@ -10,7 +10,6 @@ import team.codingforest.moyeota.dispatch.domain.DriverLocations;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.PartySummary;
-import team.codingforest.moyeota.dispatch.domain.MatchingTimers;
 
 import java.time.Duration;
 import java.util.List;
@@ -20,7 +19,6 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 public class DispatchService {
-    private final MatchingTimers matchingTimers;
 
     private final PartyAccess partyAccess;
     private final DriverAccess driverAccess;
@@ -37,7 +35,6 @@ public class DispatchService {
      *      매칭방을 기준으로 3km 이내의 기사들을 찾고 콜 뿌리기
      */
     public void dispatch(Long partyId) {
-        matchingTimers.start(partyId);
         attempt(partyId, INITIAL_RADIUS_METERS);
     }
 
@@ -54,7 +51,6 @@ public class DispatchService {
                 .toList();
 
         callCandidates.clear(partyId);
-        matchingTimers.clear(partyId);
         driverLocations.remove(driverId);
         callNotifier.notifyCallClosed(losers, partyId);
 

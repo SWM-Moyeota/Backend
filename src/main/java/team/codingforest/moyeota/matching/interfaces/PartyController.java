@@ -39,13 +39,6 @@ public class PartyController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/matching/start/{partyId}")
-    public ResponseEntity<Void> startMatching(@PathVariable Long partyId) {
-        service.startMatching(partyId);
-
-        return ResponseEntity.noContent().build();
-    }
-
     @GetMapping("/matching/rooms/{partyId}")
     public ResponseEntity<PartyDetailResult> detail(@PathVariable Long partyId) {
         return ResponseEntity.ok(service.getPartyDetail(partyId));

@@ -2,6 +2,7 @@ package team.codingforest.moyeota.matching.infrastructure;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+import team.codingforest.moyeota.matching.api.MatchingTarget;
 import team.codingforest.moyeota.matching.domain.Parties;
 import team.codingforest.moyeota.matching.domain.Party;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
@@ -62,7 +63,8 @@ public class PartyJpa implements Parties {
     }
 
     @Override
-    public List<Long> findMatchingIds() {
-        return delegate.findIdsByStatus(PartyStatus.MATCHING);
+    public List<MatchingTarget> findMatchingTargets() {
+        return delegate.findTargetsByStatus(PartyStatus.MATCHING)
+                .stream().map(PartyEntity::toMatchTarget).toList();
     }
 }

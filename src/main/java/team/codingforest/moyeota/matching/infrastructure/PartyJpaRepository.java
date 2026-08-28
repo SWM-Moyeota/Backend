@@ -18,11 +18,10 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     @Query("select count(m) > 0 from PartyMemberEntity m where m.memberId = :memberId and m.party.status in :statuses")
     boolean existsByMemberIdAndStatusIn(@Param("memberId") Long memberId, @Param("statuses") Collection<PartyStatus> statuses);
 
-
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from PartyEntity p where p.id = :id")
     Optional<PartyEntity> findByForUpdate(@Param("id") Long id);
 
-    @Query("select p.id from PartyEntity p where p.status = :status")
-    List<Long> findIdsByStatus(@Param("status") PartyStatus status);
+    @Query("select p from PartyEntity p where p.status = :status")
+    List<PartyEntity> findTargetsByStatus(@Param("status") PartyStatus status);
 }

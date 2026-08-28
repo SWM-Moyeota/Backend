@@ -103,6 +103,8 @@ public class DriverApplicationService {
                 .orElseThrow(() -> new IllegalArgumentException("기사로 등록되지 않은 유저입니다."));
     }
 
+
+
     private Driver getDriver(Long driverId) {
         return service.findById(driverId)
                 .orElseThrow(() -> new IllegalArgumentException("등록되지 않은 기사입니다."));

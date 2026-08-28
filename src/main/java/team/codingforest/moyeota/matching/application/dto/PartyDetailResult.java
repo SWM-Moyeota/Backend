@@ -5,7 +5,7 @@ import team.codingforest.moyeota.matching.domain.Party;
 import java.time.Instant;
 import java.util.List;
 
-public record PartyDetailResult(Long id, Long hostId,
+public record PartyDetailResult(Long id,
                                Double departureLat, Double departureLng,
                                Double destinationLat, Double destinationLng,
                                String departure, String destination,
@@ -14,15 +14,14 @@ public record PartyDetailResult(Long id, Long hostId,
                                String status, Instant createdAt,
                                List<MemberInfo> members, Integer estimateFare, Integer estimateTime, String route, Long taxiDriverId) {
 
-    public record MemberInfo(Long memberId, boolean isHost, Instant joinedAt) {}
+    public record MemberInfo(Long memberId, Instant joinedAt) {}
 
     public static PartyDetailResult from(Party party) {
         List<MemberInfo> members = party.getMembers().stream()
-                .map(m -> new MemberInfo(m.getMemberId(), m.getMemberId().equals(party.getHostId()),
-                        m.getJoinedAt())).toList();
+                .map(m -> new MemberInfo(m.getMemberId(), m.getJoinedAt())).toList();
 
         return new PartyDetailResult(
-                party.getId(), party.getHostId(), party.getDepartureLocation().latitude(),
+                party.getId(), party.getDepartureLocation().latitude(),
                 party.getDepartureLocation().longitude(),
                 party.getDestinationLocation().latitude(), party.getDestinationLocation().longitude(),
                 party.getDeparture(), party.getDestination(), party.getCapacity().value(),

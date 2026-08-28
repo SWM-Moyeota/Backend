@@ -21,7 +21,6 @@ class DispatchServiceTest {
     private RecordingNotifier notifier;
     private InMemoryCallCandidates candidates;
     private FakePartyAccess partyAccess;
-    private FakeMatchingTimers timers;
 
     @BeforeEach
     void setUp() {
@@ -29,11 +28,10 @@ class DispatchServiceTest {
         notifier = new RecordingNotifier();
         candidates = new InMemoryCallCandidates();
         partyAccess = new FakePartyAccess(강남출발방);
-        timers = new FakeMatchingTimers();
     }
 
     private DispatchService serviceWith(Set<Long> 콜가능기사들) {
-        return new DispatchService(timers, partyAccess, new FakeDriverAccess(콜가능기사들), locations, notifier, candidates);
+        return new DispatchService(partyAccess, new FakeDriverAccess(콜가능기사들), locations, notifier, candidates);
     }
 
     // ───────────────────────── dispatch (첫 탐색) ─────────────────────────
@@ -47,16 +45,6 @@ class DispatchServiceTest {
 
         assertThat(notifier.notifiedDrivers).containsExactly(1L, 3L);
         assertThat(candidates.findAll(방번호)).containsExactlyInAnyOrder(1L, 3L);   // 기록이 없으면 수락이 불가능
-    }
-
-    @Test
-    void 매칭을_시작하면_타이머가_걸린다() {
-        locations.nearby = List.of(1L);
-        DispatchService service = serviceWith(Set.of(1L));
-
-        service.dispatch(방번호);
-
-        assertThat(timers.started).containsExactly(방번호);   // 타이머가 없으면 스위퍼가 즉시 타임아웃 처리해버린다
     }
 
     @Test
@@ -168,17 +156,6 @@ class DispatchServiceTest {
     }
 
     @Test
-    void 수락하면_매칭_타이머가_정리된다() {
-        locations.nearby = List.of(1L);
-        DispatchService service = serviceWith(Set.of(1L));
-        service.dispatch(방번호);
-
-        service.acceptCall(방번호, 1L);
-
-        assertThat(timers.cleared).containsExactly(방번호);   // 안 지우면 스위퍼가 배정된 방을 계속 들여다본다
-    }
-
-    @Test
     void 수락한_기사는_기사_검색_풀에서_제외된다() {
         locations.nearby = List.of(1L, 2L);
         DispatchService service = serviceWith(Set.of(1L, 2L));
@@ -231,7 +208,7 @@ class DispatchServiceTest {
     void 콜을_받은_후_오프라인이_된_기사는_수락할_수_없다() {
         locations.nearby = List.of(1L, 2L);
         Set<Long> 콜가능 = new HashSet<>(Set.of(1L, 2L));
-        DispatchService service = new DispatchService(timers, partyAccess, new FakeDriverAccess(콜가능), locations, notifier, candidates);
+        DispatchService service = new DispatchService(partyAccess, new FakeDriverAccess(콜가능), locations, notifier, candidates);
         service.dispatch(방번호);
 
         콜가능.remove(1L);   // 콜을 받은 뒤 콜 OFF / 오프라인 전환

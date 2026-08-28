@@ -42,7 +42,7 @@ class PartyApplicationServiceTest {
     }
 
     @Test
-    void 방을_생성하면_방장이_멤버로_포함된_ACTIVE_방이_된다() {
+    void 방을_생성하면_생성자가_멤버로_포함된_ACTIVE_방이_된다() {
         PartyResult result = service.open(createParty(host, 3));
 
         assertThat(result.id()).isNotNull();
@@ -80,7 +80,7 @@ class PartyApplicationServiceTest {
     }
 
     @Test
-    void 혼자_남은_방장이_나가면_방이_취소된다() {
+    void 혼자_남은_사람이_나가면_방이_취소된다() {
         PartyResult party = service.open(createParty(host, 3));
 
         service.leave(party.id(), host);
@@ -169,6 +169,21 @@ class PartyApplicationServiceTest {
     }
 
     @Test
+    void 해산된_방의_멤버는_즉시_새_방을_만들_수_있다() {
+        // 3분 매칭 실패로 해산되면 유저가 방에 묶여 있으면 안 된다
+        PartyResult party = service.open(createParty(host, 2));
+        service.join(party.id(), participant);   // 정원 충족 → MATCHING
+
+        Party failed = parties.findById(party.id()).orElseThrow();
+        failed.failMatching();                   // 스위퍼의 3분 타임아웃 해산 재현
+        parties.save(failed);
+
+        PartyResult newParty = service.open(createParty(host, 2));
+
+        assertThat(newParty.id()).isNotEqualTo(party.id());
+    }
+
+    @Test
     void 운행이_끝난_유저는_새_방을_만들_수_있다() {
         PartyResult party = service.open(createParty(host, 2));
         service.join(party.id(), participant);
@@ -210,8 +225,8 @@ class PartyApplicationServiceTest {
         assertThat(summary.plateNumber()).isEqualTo("12가3456");
     }
 
-    private OpenPartyCommand createParty(Long hostId, int capacity) {
-        return new OpenPartyCommand(hostId, 37.4979, 127.0276, 37.3948, 127.1112,
+    private OpenPartyCommand createParty(Long creatorId, int capacity) {
+        return new OpenPartyCommand(creatorId, 37.4979, 127.0276, 37.3948, 127.1112,
                 "강남역", "판교역", capacity, 100, 100);
     }
 
