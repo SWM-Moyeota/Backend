@@ -23,6 +23,7 @@ class FakePartyAccess implements PartyAccess {
     Long assignedDriverId;
     final List<Long> matchingCanceled = new ArrayList<>();
     final Set<Long> cancelRejected = new HashSet<>();   // cancelMatching 이 예외를 던질 방 (스윕 중 수락 경합 재현)
+    final Set<Long> members = new HashSet<>();          // 방 승객 명단 (단일 방 시나리오용)
 
     FakePartyAccess(PartySummary... summaries) {
         for(PartySummary s : summaries) {
@@ -32,7 +33,18 @@ class FakePartyAccess implements PartyAccess {
 
     @Override
     public Optional<PartySummary> findSummary(Long partyId) {
-        return Optional.ofNullable(summaries.get(partyId));
+        PartySummary s = summaries.get(partyId);
+        if(s == null) return Optional.empty();
+        // 배정 상태를 요약에 반영 (실제 toSummary가 taxiDriverId를 싣는 것과 동일)
+        return Optional.of(new PartySummary(s.id(), s.departureLatitude(), s.departureLongitude(),
+                s.destinationLatitude(), s.destinationLongitude(), s.departure(), s.destination(),
+                s.memberCount(), s.estimatedFare(), s.estimatedTime(), assignedDriverId));
+    }
+
+    @Override
+    public boolean hasMemberOnParty(Long memberId, Long partyId) {
+        if(!summaries.containsKey(partyId)) throw new IllegalArgumentException("존재하지 않는 방입니다.");
+        return members.contains(memberId);
     }
 
     @Override

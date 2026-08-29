@@ -15,7 +15,7 @@ class DispatchServiceTest {
 
     private static final Long 방번호 = 1L;
     private static final PartySummary 강남출발방 =
-            new PartySummary(방번호, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 2, 12000, 25);
+            new PartySummary(방번호, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 2, 12000, 25, null);
 
     private FakeDriverLocations locations;
     private RecordingNotifier notifier;

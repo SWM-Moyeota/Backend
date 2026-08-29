@@ -9,10 +9,12 @@ import org.springframework.data.redis.connection.RedisGeoCommands;
 import org.springframework.data.redis.domain.geo.GeoReference;
 import org.springframework.data.redis.domain.geo.Metrics;
 import org.springframework.stereotype.Repository;
+import team.codingforest.moyeota.dispatch.domain.DriverPosition;
 import team.codingforest.moyeota.dispatch.domain.DriverLocations;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
@@ -51,6 +53,20 @@ public class DriverLocationRedis implements DriverLocations {
                 .map(r -> Long.valueOf(r.getContent().getName()))
                 .filter(this::isAlive)
                 .toList();
+    }
+
+    @Override
+    public Optional<DriverPosition> getLocationDriver(Long driverId) {
+        if(!isAlive(driverId)) return Optional.empty();   // 30초 넘게 신호 없는 기사의 낡은 위치는 신뢰 불가 - findNearby와 동일 기준
+
+        // position 메서드 다건 조회이기에 list로 받아야함
+        List<Point> positions = redisTemplate.opsForGeo().position(GEO_KEY, driverId.toString());
+
+        if(positions == null || positions.isEmpty() || positions.get(0) == null) return Optional.empty();
+
+        Point point = positions.getFirst();
+
+        return Optional.of(new DriverPosition(point.getX(), point.getY()));
     }
 
     private boolean isAlive(Long driverId) {

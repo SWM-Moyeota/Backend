@@ -88,6 +88,18 @@ class PartyAccessService implements PartyAccess {
         return parties.hasOngoingRide(driverId);
     }
 
+    @Override
+    public boolean hasMemberOnParty(Long memberId, Long partyId) {
+        Party party = parties.findById(partyId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 방입니다."));
+
+        for(PartyMember partyMember : party.getMembers()) {
+            if(partyMember.getMemberId().equals(memberId)) return true;
+        }
+
+        return false;
+    }
+
     private Party getForUpdate(Long partyId) {
         return parties.findByIdForUpdate(partyId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 방입니다."));
@@ -96,6 +108,6 @@ class PartyAccessService implements PartyAccess {
     private PartySummary toSummary(Party party) {
         return new PartySummary(party.getId(), party.getDepartureLocation().latitude(), party.getDepartureLocation().longitude(),
                 party.getDestinationLocation().latitude(), party.getDestinationLocation().longitude(), party.getDeparture(), party.getDestination(),
-                party.getMembers().size(), party.getEstimatedFare(), party.getEstimatedTime());
+                party.getMembers().size(), party.getEstimatedFare(), party.getEstimatedTime(), party.getTaxiDriverId());
     }
 }

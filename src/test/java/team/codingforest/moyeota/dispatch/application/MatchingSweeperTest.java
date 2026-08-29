@@ -17,9 +17,9 @@ class MatchingSweeperTest {
     private static final Long 방번호 = 1L;
     private static final Long 다른방번호 = 2L;
     private static final PartySummary 강남출발방 =
-            new PartySummary(방번호, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 2, 12000, 25);
+            new PartySummary(방번호, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 2, 12000, 25, null);
     private static final PartySummary 판교출발방 =
-            new PartySummary(다른방번호, 37.3948, 127.1112, 37.4979, 127.0276, "판교역", "강남역", 3, 15000, 30);
+            new PartySummary(다른방번호, 37.3948, 127.1112, 37.4979, 127.0276, "판교역", "강남역", 3, 15000, 30, null);
 
     private FakeDriverLocations locations;
     private RecordingNotifier notifier;

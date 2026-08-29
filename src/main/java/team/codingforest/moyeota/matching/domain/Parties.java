@@ -3,7 +3,6 @@ package team.codingforest.moyeota.matching.domain;
 import team.codingforest.moyeota.matching.api.MatchingTarget;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 

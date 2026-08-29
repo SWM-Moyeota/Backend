@@ -6,6 +6,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import team.codingforest.moyeota.dispatch.application.RideService;
 import team.codingforest.moyeota.dispatch.application.dto.CompleteRideRequest;
+import team.codingforest.moyeota.dispatch.application.dto.DriverLocationResponse;
+import team.codingforest.moyeota.dispatch.domain.DriverLocations;
 
 // TODO 인증 도입 후 driverId는 토큰에서 추출
 @RestController
@@ -34,5 +36,10 @@ public class RideController {
         rideService.complete(partyId, driverId, request.fare());
 
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/rides/{partyId}/{memberId}")
+    public ResponseEntity<DriverLocationResponse> getLocation(@PathVariable Long partyId, @PathVariable Long memberId) {
+        return ResponseEntity.ok(rideService.driverLocation(partyId, memberId));
     }
 }

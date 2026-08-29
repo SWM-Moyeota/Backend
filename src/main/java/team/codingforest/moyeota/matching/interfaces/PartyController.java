@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import team.codingforest.moyeota.driver.api.DriverSummary;
-import team.codingforest.moyeota.matching.api.PartySummary;
 import team.codingforest.moyeota.matching.application.*;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyRequest;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyResponse;

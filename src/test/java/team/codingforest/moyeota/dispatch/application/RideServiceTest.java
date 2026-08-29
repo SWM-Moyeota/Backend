@@ -2,6 +2,8 @@ package team.codingforest.moyeota.dispatch.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import team.codingforest.moyeota.dispatch.application.dto.DriverLocationResponse;
+import team.codingforest.moyeota.dispatch.domain.DriverPosition;
 import team.codingforest.moyeota.dispatch.domain.PassengerNotifier;
 import team.codingforest.moyeota.matching.api.PartySummary;
 
@@ -16,17 +18,21 @@ class RideServiceTest {
     private static final Long 기사 = 9L;
     private static final Long 다른기사 = 10L;
     private static final PartySummary 강남출발방 =
-            new PartySummary(방번호, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 2, 12000, 25);
+            new PartySummary(방번호, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 2, 12000, 25, null);
+
+    private static final Long 승객 = 5L;
 
     private FakePartyAccess partyAccess;
     private RecordingPassengerNotifier passengers;
+    private FakeDriverLocations locations;
     private RideService service;
 
     @BeforeEach
     void setUp() {
         partyAccess = new FakePartyAccess(강남출발방);
         passengers = new RecordingPassengerNotifier();
-        service = new RideService(partyAccess, passengers);
+        locations = new FakeDriverLocations();
+        service = new RideService(partyAccess, passengers, locations);
     }
 
     private void 기사배정됨() {
@@ -130,6 +136,53 @@ class RideServiceTest {
         기사배정됨();
 
         assertThatCode(() -> service.board(방번호, 기사)).doesNotThrowAnyException();
+    }
+
+    // ───────────────────────── 기사 위치 조회 (승객용) ─────────────────────────
+
+    @Test
+    void 승객이_오는_기사의_위치를_조회한다() {
+        기사배정됨();
+        partyAccess.members.add(승객);
+        locations.position = new DriverPosition(37.4979, 127.0276);
+
+        DriverLocationResponse response = service.driverLocation(방번호, 승객);
+
+        // 위경도가 뒤바뀌면 지도에서 기사가 바다에 뜬다 - 필드별로 정확히 검증
+        assertThat(response.latitude()).isEqualTo(37.4979);
+        assertThat(response.longitude()).isEqualTo(127.0276);
+    }
+
+    @Test
+    void 방에_참여하지_않은_사람은_기사_위치를_조회할_수_없다() {
+        // partyId를 바꿔가며 남의 방 기사 위치를 훔쳐보는 시나리오 차단
+        기사배정됨();
+        locations.position = new DriverPosition(37.4979, 127.0276);
+
+        assertThatThrownBy(() -> service.driverLocation(방번호, 승객))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("해당 방에 참여하고 있지 않습니다.");
+    }
+
+    @Test
+    void 기사_배정_전에는_위치를_조회할_수_없다() {
+        // 매칭 중인 방 - driverId가 null이라 NPE가 아니라 도메인 예외가 나야 한다
+        partyAccess.members.add(승객);
+
+        assertThatThrownBy(() -> service.driverLocation(방번호, 승객))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("아직 기사가 배정되지 않았습니다.");
+    }
+
+    @Test
+    void 기사_위치_신호가_없으면_확인할_수_없다는_안내가_나간다() {
+        // 기사 앱이 죽어 heartbeat가 만료된 경우 - 낡은 위치를 실시간처럼 보여주면 안 된다
+        기사배정됨();
+        partyAccess.members.add(승객);
+
+        assertThatThrownBy(() -> service.driverLocation(방번호, 승객))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("현재 기사님의 위치를 확인할 수 없습니다.");
     }
 
     /** 어느 방에 도착 알림이 갔는지 기록하는 가짜 */
