@@ -140,7 +140,7 @@ class ReportApplicationServiceTest {
         public Report save(Report report) {
             Long id = report.getId() != null ? report.getId() : ++sequence;
             Report saved = Report.restore(id, report.getReporterId(), report.getPartyId(), report.getDriverId(),
-                    report.getReporterLatitude(), report.getReporterLongitude(), report.getReportedAt(), report.getStatus());
+                    report.getReporterLatitude(), report.getReporterLongitude(), report.getStatus());
 
             store.put(id, saved);
             return saved;

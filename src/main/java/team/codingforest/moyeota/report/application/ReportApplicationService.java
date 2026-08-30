@@ -8,8 +8,6 @@ import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.report.domain.Report;
 import team.codingforest.moyeota.report.domain.Reports;
 
-import java.time.Instant;
-
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -35,7 +33,7 @@ public class ReportApplicationService {
             log.warn("신고 스냅샷 조회 실패 - 스냅샷 없이 저장 진행 partyId={}", partyId, e);
         }
 
-        Report saved = reports.save(Report.create(reporterId, partyId, driverId, latitude, longitude, Instant.now()));
+        Report saved = reports.save(Report.create(reporterId, partyId, driverId, latitude, longitude));
 
         log.warn("긴급 신고 접수 reportId={}, reporterId={}, partyId={}, driverId={}", saved.getId(), reporterId, partyId, driverId);
 
