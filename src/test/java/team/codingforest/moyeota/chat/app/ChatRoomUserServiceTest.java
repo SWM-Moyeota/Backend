@@ -4,9 +4,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import team.codingforest.moyeota.chat.app.dto.ChatRoomCommand;
 import team.codingforest.moyeota.chat.app.dto.ChatRoomUserResult;
 import team.codingforest.moyeota.chat.app.dto.ReadChatCommand;
+import team.codingforest.moyeota.chat.app.event.ChatRoomLeftEvent;
 import team.codingforest.moyeota.chat.domain.*;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
@@ -31,12 +33,14 @@ class ChatRoomUserServiceTest {
     private ChatRoomUserRepository chatRoomUserRepository;
     private ChatRoomRepository chatRoomRepository;
     private ChatRoomUserService chatRoomUserService;
+    private ApplicationEventPublisher eventPublisher;
 
     @BeforeEach
     void setUp() {
         chatRoomUserRepository = mock(ChatRoomUserRepository.class);
         chatRoomRepository = mock(ChatRoomRepository.class);
-        chatRoomUserService = new ChatRoomUserService(chatRoomUserRepository, chatRoomRepository);
+        eventPublisher = mock(ApplicationEventPublisher.class);
+        chatRoomUserService = new ChatRoomUserService(eventPublisher, chatRoomUserRepository, chatRoomRepository);
     }
 
     private ChatRoom room(ChatRoomStatus status) {
@@ -139,5 +143,15 @@ class ChatRoomUserServiceTest {
         List<ChatRoomUserResult> results = chatRoomUserService.findMyActiveRooms(USER_ID);
 
         assertThat(results).isEmpty();
+    }
+
+    @Test
+    void 나가기_시_퇴장_이벤트를_발행한다() {
+        given(chatRoomUserRepository.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID))
+                .willReturn(Optional.of(activeUser(ROOM_ID)));
+
+        chatRoomUserService.leave(new ChatRoomCommand(ROOM_ID, USER_ID));
+
+        verify(eventPublisher).publishEvent(new ChatRoomLeftEvent(USER_ID, ROOM_ID));
     }
 }
