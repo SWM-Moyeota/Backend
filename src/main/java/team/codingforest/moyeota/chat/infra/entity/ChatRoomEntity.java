@@ -31,7 +31,8 @@ public class ChatRoomEntity {
     @Enumerated(EnumType.STRING)
     private ChatRoomStatus status;
 
-    protected ChatRoomEntity() {}
+    protected ChatRoomEntity() {
+    }
 
     private ChatRoomEntity(Long id, Long partyId, String departure, String destination,
                            Instant createdAt, ChatRoomStatus status) {
@@ -54,7 +55,7 @@ public class ChatRoomEntity {
         );
     }
 
-    public ChatRoom toDomain(){
+    public ChatRoom toDomain() {
         return ChatRoom.restore(
                 id,
                 partyId,

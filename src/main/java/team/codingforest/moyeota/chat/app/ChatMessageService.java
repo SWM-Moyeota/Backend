@@ -114,7 +114,7 @@ public class ChatMessageService {
     }
 
     /**
-     *  메시지 삭제
+     * 메시지 삭제
      */
     @Transactional
     public void deleteMessage(Long chatRoomId, Long messageId, Long userId) {
@@ -152,6 +152,7 @@ public class ChatMessageService {
                 hasNext
         );
     }
+
     /**
      * 요청 사이즈가 MIN과 MAX사이에 있는지 검증
      */

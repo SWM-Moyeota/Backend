@@ -102,6 +102,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
             throw new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND);
         }
     }
+
     private Long parseUserId(String header) {
         if (header == null || header.isBlank()) {
             throw new ChatException(ChatErrorCode.CHAT_UNAUTHORIZED);
@@ -109,7 +110,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
 
         try {
             return Long.parseLong(header.trim());
-        }catch (NumberFormatException e) {
+        } catch (NumberFormatException e) {
             throw new ChatException(ChatErrorCode.CHAT_UNAUTHORIZED);
         }
     }

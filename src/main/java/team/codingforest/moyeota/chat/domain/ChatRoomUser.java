@@ -35,7 +35,6 @@ public class ChatRoomUser {
     }
 
 
-
     public void leave(Instant now) {
         if (hasLeft()) {
             throw new ChatException(ChatErrorCode.CHAT_NOT_PARTICIPANT);

@@ -8,7 +8,6 @@ import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import team.codingforest.moyeota.chat.app.dto.ChatMessageResult;
-import team.codingforest.moyeota.chat.app.event.ChatRoomLeftEvent;
 import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
@@ -33,7 +32,7 @@ public class ChatRedisSubscriber implements MessageListener {
                 default -> log.warn("알 수 없는 이벤트 타입 type={}", envelope.type());
             }
         } catch (Exception e) {
-            log.error("Redis 메시지 처리 실패" , e);
+            log.error("Redis 메시지 처리 실패", e);
         }
     }
 
@@ -43,8 +42,8 @@ public class ChatRedisSubscriber implements MessageListener {
     }
 
     private void handleRoomLeft(String payload) {
-        ChatRoomLeftEvent event = objectMapper.readValue(payload, ChatRoomLeftEvent.class);
+        ChatRoomLeftResult result = objectMapper.readValue(payload, ChatRoomLeftResult.class);
         messagingTemplate.convertAndSendToUser(
-                String.valueOf(event.userId()), ROOM_LEFT_DESTINATION, event.chatRoomId());
+                String.valueOf(result.userId()), ROOM_LEFT_DESTINATION, result);
     }
 }

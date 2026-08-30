@@ -5,6 +5,8 @@ import java.util.Optional;
 
 public interface ChatRoomUserRepository {
     ChatRoomUser save(ChatRoomUser chatRoomUser);
+
     List<ChatRoomUser> findActiveByUserId(Long userId);
+
     Optional<ChatRoomUser> findActiveByUserIdAndChatRoomId(Long userId, Long chatRoomId);
 }
