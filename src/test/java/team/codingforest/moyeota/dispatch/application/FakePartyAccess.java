@@ -89,6 +89,11 @@ class FakePartyAccess implements PartyAccess {
     }
 
     @Override
+    public boolean isRidingMember(Long partyId, Long memberId) {
+        return summaries.containsKey(partyId) && members.contains(memberId) && rideStarted && completedFare == null;
+    }
+
+    @Override
     public boolean hasOngoingRide(Long driverId) {
         // 배정~운행 구간만 true, 운행이 끝나면(FINISHED) 자동으로 자유 - 실제 쿼리 의미 그대로
         return driverId.equals(assignedDriverId) && completedFare == null;
