@@ -16,7 +16,7 @@ class DriverJpaTest implements Drivers {
         Long id = driver.getId() != null ? driver.getId() : ++sequence;
         Driver saved = Driver.restore(id, driver.getUserId(), driver.getQualificationNumber(),
                 driver.getVerifiedAt(), driver.getBankAccount(), driver.getVehicle(),
-                driver.getSetting(), driver.getStatus());
+                driver.getSetting(), driver.getStatus(), driver.getFcmToken());
 
         store.put(id, saved);
         return saved;

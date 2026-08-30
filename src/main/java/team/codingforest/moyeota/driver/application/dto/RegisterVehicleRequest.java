@@ -6,5 +6,6 @@ import jakarta.validation.constraints.NotNull;
 
 public record RegisterVehicleRequest(
         @Min(2) @NotNull Integer seats,
-        @NotBlank String plateNumber
-) {}
+        @NotBlank String plateNumber,
+        @NotBlank String type) {
+}

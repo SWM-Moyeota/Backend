@@ -24,7 +24,7 @@ class DriverLocationServiceTest {
     }
 
     private DriverLocationService serviceWith(Set<Long> 콜가능기사들) {
-        return new DriverLocationService(locations, 콜가능기사들::contains);
+        return new DriverLocationService(locations, new FakeDriverAccess(콜가능기사들));
     }
 
     @Test
@@ -69,6 +69,11 @@ class DriverLocationServiceTest {
      *  update/remove 호출을 기록만 하는 가짜 위치 저장소
      */
     static class RecordingDriverLocations implements DriverLocations {
+        @Override
+        public java.util.Optional<team.codingforest.moyeota.dispatch.domain.DriverPosition> getLocationDriver(Long driverId) {
+            return java.util.Optional.empty();
+        }
+
         List<Long> updatedDrivers = new ArrayList<>();
         List<Long> removedDrivers = new ArrayList<>();
 

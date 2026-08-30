@@ -6,10 +6,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.driver.application.dto.DriverResult;
 import team.codingforest.moyeota.driver.application.dto.RegisterDriverCommand;
+import team.codingforest.moyeota.driver.application.dto.RegisterVehicleCommand;
 import team.codingforest.moyeota.driver.domain.BankAccount;
 import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Drivers;
 import team.codingforest.moyeota.driver.domain.Vehicle;
+import team.codingforest.moyeota.matching.api.PartyAccess;
+import team.codingforest.moyeota.matching.api.PartySummary;
 
 import java.time.Instant;
 
@@ -43,13 +46,13 @@ public class DriverApplicationService {
     }
 
     @Transactional
-    public void registerVehicle(Long driverId, Integer seats, String plateNumber) {
-        Driver driver = getDriver(driverId);
+    public void registerVehicle(RegisterVehicleCommand command) {
+        Driver driver = getDriver(command.id());
 
-        driver.registerVehicle(new Vehicle(seats, plateNumber));
+        driver.registerVehicle(new Vehicle(command.seats(), command.plateNumber(), command.type()));
         service.save(driver);
 
-        log.info("차량 등록 driverId={}, plateNumber={}", driverId, plateNumber);
+        log.info("차량 등록 driverId={}, plateNumber={}", command.id(), command.plateNumber());
     }
 
     @Transactional
@@ -60,6 +63,27 @@ public class DriverApplicationService {
         service.save(driver);
 
         log.info("콜 수신 켬 driverId={}", driverId);
+    }
+
+    @Transactional
+    public void registerFcmToken(Long driverId, String token) {
+        Driver driver = getDriver(driverId);
+
+        driver.registerFcmToken(token);
+        service.save(driver);
+
+        log.info("FCM 토큰 등록 driverId={}", driverId);
+    }
+
+    @Transactional
+    public void removeFcmToken(Long driverId) {
+        Driver driver = getDriver(driverId);
+
+        driver.clearFcmToken();
+
+        service.save(driver);
+
+        log.info("FCM 토큰 삭제 driverId={}", driverId);
     }
 
     @Transactional
@@ -78,6 +102,8 @@ public class DriverApplicationService {
                 .map(DriverResult::from)
                 .orElseThrow(() -> new IllegalArgumentException("기사로 등록되지 않은 유저입니다."));
     }
+
+
 
     private Driver getDriver(Long driverId) {
         return service.findById(driverId)

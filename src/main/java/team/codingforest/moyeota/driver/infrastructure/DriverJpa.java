@@ -14,6 +14,15 @@ public class DriverJpa implements Drivers {
 
     @Override
     public Driver save(Driver driver) {
+        if(driver.getId() != null) {
+            DriverEntity entity = delegate.findById(driver.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 기사입니다."));
+
+            entity.update(driver);
+            delegate.save(entity);
+            return entity.toDomain();
+        }
+
         DriverEntity entity = DriverEntity.from(driver);
         delegate.save(entity);
         return entity.toDomain();

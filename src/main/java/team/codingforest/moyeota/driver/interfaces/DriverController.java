@@ -5,9 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import team.codingforest.moyeota.driver.application.DriverApplicationService;
-import team.codingforest.moyeota.driver.application.dto.DriverResult;
-import team.codingforest.moyeota.driver.application.dto.RegisterDriverRequest;
-import team.codingforest.moyeota.driver.application.dto.RegisterVehicleRequest;
+import team.codingforest.moyeota.driver.application.dto.*;
 
 // TODO 추후 인증 구현되고 토큰을 통해 유저 아이디 가져오기
 @RestController
@@ -32,7 +30,7 @@ public class DriverController {
 
     @PostMapping("/drivers/{driverId}/vehicle")
     public ResponseEntity<Void> registerVehicle(@PathVariable Long driverId, @Valid @RequestBody RegisterVehicleRequest request) {
-        service.registerVehicle(driverId, request.seats(), request.plateNumber());
+        service.registerVehicle(new RegisterVehicleCommand(driverId, request.seats(), request.plateNumber(), request.type()));
 
         return ResponseEntity.noContent().build();
     }
@@ -54,5 +52,19 @@ public class DriverController {
     @GetMapping("/drivers/users/{userId}")
     public ResponseEntity<DriverResult> getByUserId(@PathVariable Long userId) {
         return ResponseEntity.ok(service.getByUserId(userId));
+    }
+
+    @PutMapping("/drivers/{driverId}/fcm-token")
+    public ResponseEntity<Void> registerFcmToken(@PathVariable Long driverId, @Valid @RequestBody RegisterFcmTokenRequest request) {
+        service.registerFcmToken(driverId, request.token());
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/drivers/{driverId}/fcm-token")
+    public ResponseEntity<Void> removeFcmToken(@PathVariable Long driverId) {
+        service.removeFcmToken(driverId);
+
+        return ResponseEntity.noContent().build();
     }
 }

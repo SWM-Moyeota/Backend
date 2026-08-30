@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.matching.application;
 
+import team.codingforest.moyeota.matching.api.MatchingTarget;
 import team.codingforest.moyeota.matching.domain.Parties;
 import team.codingforest.moyeota.matching.domain.Party;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
@@ -21,12 +22,12 @@ class PartyJpaTest implements Parties {
     @Override
     public Party save(Party party) {
         Long id = party.getId() != null ? party.getId() : ++sequence;
-        Party saved = Party.restore(id, party.getHostId(),
+        Party saved = Party.restore(id,
                 party.getDepartureLocation(), party.getDestinationLocation(),
                 party.getDepartureRadius(), party.getDestinationRadius(),
                 party.getDeparture(), party.getDestination(), party.getCapacity(),
                 party.getMembers(), party.getCreatedAt(), party.getStatus(),
-                party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getTaxiDriverId());
+                party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getTaxiDriverId(), party.getMatchingStartedAt());
 
         store.put(id, saved);
         return saved;
@@ -42,5 +43,25 @@ class PartyJpaTest implements Parties {
     public boolean existsOngoingByMemberId(Long memberId) {
         return store.values().stream()
                 .anyMatch(p -> p.getStatus().isOngoing() && p.hasMember(memberId));
+    }
+
+    @Override
+    public Optional<Party> findByIdForUpdate(Long id) {
+        return findById(id);
+    }
+
+    @Override
+    public boolean hasOngoingRide(Long driverId) {
+        return store.values().stream()
+                .anyMatch(p -> (p.getStatus() == PartyStatus.DRIVER_ASSIGNED || p.getStatus() == PartyStatus.IN_RIDE)
+                        && driverId.equals(p.getTaxiDriverId()));
+    }
+
+    @Override
+    public List<MatchingTarget> findMatchingTargets() {
+        return store.values().stream()
+                .filter(p -> p.getStatus() == PartyStatus.MATCHING)
+                .map(p -> new MatchingTarget(p.getId(), p.getMatchingStartedAt()))
+                .toList();
     }
 }

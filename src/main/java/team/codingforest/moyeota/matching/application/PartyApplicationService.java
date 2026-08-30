@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import team.codingforest.moyeota.driver.api.DriverAccess;
+import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.application.dto.PartyResult;
@@ -24,36 +26,56 @@ public class PartyApplicationService {
     private final ApplicationEventPublisher eventPublisher;
     private final RouteFinder routefinder;
     private final RouteCache routeCache;
+    private final DriverAccess driverAccess;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
-        validateNotInOngoingParty(command.hostId());
+        validateNotInOngoingParty(command.creatorId());
 
         RouteEstimate estimate = estimateRoute(command.departureLat(), command.departureLng(), command.destinationLat(), command.destinationLng());
 
-        Party party = Party.open(command.hostId(),
+        Party party = Party.open(command.creatorId(),
                 new Location(command.departureLat(), command.departureLng()),
                 new Location(command.destinationLat(), command.destinationLng()),
                 command.departure(), command.destination(), new Capacity(command.capacity()),
                 Instant.now(), new Radius(command.departureRadius()), new Radius(command.destinationRadius()),
                 estimate.estimateFare(), estimate.estimateTime(), estimate.path());
 
-        PartyResult result = PartyResult.from(parties.save(party));
+        Party saved = parties.save(party);
 
-        log.info("매칭방 활성화. partyId={}, hostId={}, capacity={}", result.id(), result.hostId(), result.capacity());
+        // 최대 정원이 1명인 방은 바로 매칭 시작
+        if(saved.isFull()) {
+            saved.startMatching(Instant.now());
+            parties.save(saved);
+            eventPublisher.publishEvent(new MatchingStartedEvent(saved.getId()));
+
+            log.info("매칭 시작 partyId={}, status={}", saved.getId(), saved.getStatus());
+        }
+
+        PartyResult result = PartyResult.from(saved);
+
+        log.info("매칭방 활성화. partyId={}, creatorId={}, capacity={}, status={}", result.id(), command.creatorId(), result.capacity(), result.status());
 
         return result;
     }
 
     @Transactional
-    public void join(Long partyId, Long memberId) {
+    public PartyDetailResult join(Long partyId, Long memberId) {
         validateNotInOngoingParty(memberId);
         Party party = getParty(partyId);
 
         party.join(memberId);
-        parties.save(party);
+
+        if(party.isFull()) {
+            party.startMatching(Instant.now());
+            eventPublisher.publishEvent(new MatchingStartedEvent(partyId));
+            log.info("매칭시작 partyId={}, status={}", party.getId(), party.getStatus());
+        }
 
         log.info("매칭방에 사용자 참가됨 partyId={}, memberId={}, status={}", partyId, memberId, party.getStatus());
+        parties.save(party);
+
+        return getPartyDetail(partyId);
     }
 
     @Transactional
@@ -71,36 +93,6 @@ public class PartyApplicationService {
         return PartyDetailResult.from(getParty(partyId));
     }
 
-    @Transactional
-    public void ready(Long partyId, Long memberId) {
-        Party party = getParty(partyId);
-
-        party.ready(memberId);
-        parties.save(party);
-        log.info("준비 완료 partyId={}, memberId={}", partyId, memberId);
-    }
-
-    @Transactional
-    public void cancelReady(Long partyId, Long memberId) {
-        Party party = getParty(partyId);
-
-        party.cancelReady(memberId);
-        parties.save(party);
-
-        log.info("준비 취소 partyId={}, memberId={}", partyId, memberId);
-    }
-
-    @Transactional
-    public void startMatching(Long partyId, Long memberId) {
-        Party party = getParty(partyId);
-
-        party.startMatching(memberId);
-        parties.save(party);
-
-        eventPublisher.publishEvent(new MatchingStartedEvent(partyId));
-
-        log.info("매칭 시작 partyId={}, hostId={}, status={}", partyId, memberId, party.getStatus());
-    }
     @Transactional(readOnly = true)
     public List<PartyResult> findActiveParties() {
         return parties.findAllByStatus(PartyStatus.ACTIVE).stream()
@@ -110,6 +102,17 @@ public class PartyApplicationService {
 
     public RouteEstimate previewRoute(double departureLat, double departureLng, double destinationLat, double destinationLng) {
         return estimateRoute(departureLat, departureLng, destinationLat, destinationLng);
+    }
+
+    @Transactional(readOnly = true)
+    public DriverSummary getAssignDriver(Long partyId) {
+        Party party = getParty(partyId);
+
+        Long driverId = party.getTaxiDriverId();
+        if(driverId == null) throw new IllegalArgumentException("아직 기사가 배정되지 않았습니다.");
+
+        return driverAccess.findSummary(driverId)
+                .orElseThrow(() -> new IllegalArgumentException("기사 정보를 찾을 수 없습니다."));
     }
 
 

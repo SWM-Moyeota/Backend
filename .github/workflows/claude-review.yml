@@ -11,8 +11,8 @@ concurrency:
 
 jobs:
   claude-review:
-    # 드래프트 PR은 리뷰하지 않음
-    if: ${{ !github.event.pull_request.draft }}
+    # 드래프트 PR과 봇이 만든 PR(릴리즈 PR 등)은 리뷰하지 않음
+    if: ${{ !github.event.pull_request.draft && github.event.pull_request.user.type != 'Bot' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

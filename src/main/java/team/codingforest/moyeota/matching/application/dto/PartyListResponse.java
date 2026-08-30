@@ -1,7 +1,5 @@
 package team.codingforest.moyeota.matching.application.dto;
 
-import team.codingforest.moyeota.matching.domain.Party;
-
 import java.util.List;
 
 public record PartyListResponse(List<PartyItem> list) {

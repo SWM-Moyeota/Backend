@@ -2,6 +2,7 @@ package team.codingforest.moyeota.matching.infrastructure;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+import team.codingforest.moyeota.matching.api.MatchingTarget;
 import team.codingforest.moyeota.matching.domain.Parties;
 import team.codingforest.moyeota.matching.domain.Party;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
@@ -13,6 +14,7 @@ import java.util.Optional;
 @Repository
 @RequiredArgsConstructor
 public class PartyJpa implements Parties {
+
     private final PartyJpaRepository delegate;
 
     @Override
@@ -54,4 +56,20 @@ public class PartyJpa implements Parties {
         return delegate.existsByMemberIdAndStatusIn(memberId, ongoing);
     }
 
+    @Override
+    public Optional<Party> findByIdForUpdate(Long id) {
+        return delegate.findByForUpdate(id)
+                .map(PartyEntity::toDomain);
+    }
+
+    @Override
+    public List<MatchingTarget> findMatchingTargets() {
+        return delegate.findTargetsByStatus(PartyStatus.MATCHING)
+                .stream().map(PartyEntity::toMatchTarget).toList();
+    }
+
+    @Override
+    public boolean hasOngoingRide(Long driverId) {
+        return delegate.existsByTaxiDriverIdStatus(driverId, List.of(PartyStatus.DRIVER_ASSIGNED, PartyStatus.IN_RIDE));
+    }
 }

@@ -1,6 +1,6 @@
 package team.codingforest.moyeota.matching.domain;
 
-import org.springframework.stereotype.Repository;
+import team.codingforest.moyeota.matching.api.MatchingTarget;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
 import java.util.List;
@@ -11,4 +11,7 @@ public interface Parties {
     Party save(Party party);
     List<Party> findAllByStatus(PartyStatus status);
     boolean existsOngoingByMemberId(Long memberId);
+    Optional<Party> findByIdForUpdate(Long id);
+    List<MatchingTarget> findMatchingTargets();
+    boolean hasOngoingRide(Long driverId);
 }

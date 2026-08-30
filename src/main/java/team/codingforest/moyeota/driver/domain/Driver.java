@@ -15,9 +15,10 @@ public class Driver {
     private Vehicle vehicle;
     private DriverSetting setting;
     private DriverStatus status;
+    private String fcmToken;
 
     private Driver(Long id, Long userId, String qualificationNumber, Instant verifiedAt,
-                  BankAccount bankAccount, Vehicle vehicle, DriverSetting setting, DriverStatus status) {
+                  BankAccount bankAccount, Vehicle vehicle, DriverSetting setting, DriverStatus status, String fcmToken) {
         this.id = id;
         this.userId = userId;
         this.qualificationNumber = qualificationNumber;
@@ -26,13 +27,14 @@ public class Driver {
         this.vehicle = vehicle;
         this.setting = setting;
         this.status = status;
+        this.fcmToken = fcmToken;
     }
 
     /**
      *  기사 등록 신청 PENDING으로 시작
      */
     public static Driver register(Long userId, String qualificationNumber, BankAccount bankAccount) {
-        return new Driver(null, userId, qualificationNumber, null, bankAccount, null, DriverSetting.defaults(), DriverStatus.PENDING);
+        return new Driver(null, userId, qualificationNumber, null, bankAccount, null, DriverSetting.defaults(), DriverStatus.PENDING, null);
     }
 
     /**
@@ -68,10 +70,26 @@ public class Driver {
     }
 
     /**
+     *  Fcm 토큰 관련
+     */
+    public void registerFcmToken(String token) {
+        if(token == null || token.isBlank()) throw new IllegalArgumentException("FCM 토큰이 비어있습니다.");
+
+        this.fcmToken = token;
+    }
+    public boolean hasFcmToken() {
+        return fcmToken != null;
+    }
+
+    public void clearFcmToken() {
+        this.fcmToken = null;
+    }
+
+    /**
      *  영속 복원용
      */
     public static Driver restore(Long id, Long userId, String qualificationNumber, Instant verifiedAt,
-                                 BankAccount account, Vehicle vehicle, DriverSetting setting, DriverStatus status) {
-        return new Driver(id, userId, qualificationNumber, verifiedAt, account, vehicle, setting, status);
+                                 BankAccount account, Vehicle vehicle, DriverSetting setting, DriverStatus status, String fcmToken) {
+        return new Driver(id, userId, qualificationNumber, verifiedAt, account, vehicle, setting, status, fcmToken);
     }
 }
