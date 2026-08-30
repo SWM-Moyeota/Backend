@@ -3,6 +3,7 @@ package team.codingforest.moyeota.driver.infrastructure;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import team.codingforest.moyeota.driver.api.DriverInfo;
 
 import java.util.Optional;
 

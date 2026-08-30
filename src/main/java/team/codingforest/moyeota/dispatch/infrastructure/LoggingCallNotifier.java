@@ -19,4 +19,9 @@ public class LoggingCallNotifier implements CallNotifier {
     public void notifyCall(List<Long> driverIds, PartySummary party) {
         log.info("[콜 알림] 기사들={}, 출발={}, 도착={}", driverIds, party.departure(), party.destination());
     }
+
+    @Override
+    public void notifyCallClosed(List<Long> driverIds, Long partyId) {
+        log.info("[콜 마감] 기사들={}, partyId={}", driverIds, partyId);
+    }
 }

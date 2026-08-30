@@ -12,11 +12,13 @@ class DriverApplicationServiceTest {
     private static final Long 유저 = 1L;
     private static final Long 다른유저 = 2L;
 
+    private DriverJpaTest drivers;
     private DriverApplicationService service;
 
     @BeforeEach
     void setUp() {
-        service = new DriverApplicationService(new DriverJpaTest());
+        drivers = new DriverJpaTest();
+        service = new DriverApplicationService(drivers);
     }
 
     private RegisterDriverCommand 등록명령(Long userId) {
@@ -76,6 +78,58 @@ class DriverApplicationServiceTest {
     @Test
     void 기사로_등록되지_않은_유저를_조회하면_예외가_발생한다() {
         assertThatThrownBy(() -> service.getByUserId(999L))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // ───────────────────────── FCM 토큰 ─────────────────────────
+
+    @Test
+    void 토큰을_등록하면_저장_후에도_유지된다() {
+        DriverResult registered = service.register(등록명령(유저));
+
+        service.registerFcmToken(registered.id(), "token-abc");
+
+        // 저장→복원 왕복에서 토큰이 유실되는 버그를 잡는 테스트
+        assertThat(drivers.findById(registered.id()).orElseThrow().getFcmToken()).isEqualTo("token-abc");
+    }
+
+    @Test
+    void 없는_기사의_토큰은_등록할_수_없다() {
+        assertThatThrownBy(() -> service.registerFcmToken(999L, "token-abc"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 빈_토큰은_등록할_수_없다() {
+        DriverResult registered = service.register(등록명령(유저));
+
+        assertThatThrownBy(() -> service.registerFcmToken(registered.id(), "  "))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 토큰을_갱신하면_마지막_토큰만_남는다() {
+        DriverResult registered = service.register(등록명령(유저));
+        service.registerFcmToken(registered.id(), "old-token");
+
+        service.registerFcmToken(registered.id(), "new-token");
+
+        assertThat(drivers.findById(registered.id()).orElseThrow().getFcmToken()).isEqualTo("new-token");
+    }
+
+    @Test
+    void 토큰을_제거하면_저장소에서도_사라진다() {
+        DriverResult registered = service.register(등록명령(유저));
+        service.registerFcmToken(registered.id(), "token-abc");
+
+        service.removeFcmToken(registered.id());
+
+        assertThat(drivers.findById(registered.id()).orElseThrow().hasFcmToken()).isFalse();
+    }
+
+    @Test
+    void 없는_기사의_토큰은_제거할_수_없다() {
+        assertThatThrownBy(() -> service.removeFcmToken(999L))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }
