@@ -57,4 +57,12 @@ public class PartyController {
     public ResponseEntity<DriverSummary> findDriverSummary(@PathVariable Long partyId) {
         return ResponseEntity.ok(service.getAssignDriver(partyId));
     }
+
+    @GetMapping("/matching/rooms")
+    public ResponseEntity<PartyListResponse> listWithin(@RequestParam Double swLat,
+                                                        @RequestParam Double swLng,
+                                                        @RequestParam Double neLat,
+                                                        @RequestParam Double neLng) {
+        return ResponseEntity.ok(PartyListResponse.from(service.findActivePartiesWithin(swLat, swLng, neLat, neLng)));
+    }
 }

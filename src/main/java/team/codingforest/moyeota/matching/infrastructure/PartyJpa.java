@@ -72,4 +72,11 @@ public class PartyJpa implements Parties {
     public boolean hasOngoingRide(Long driverId) {
         return delegate.existsByTaxiDriverIdStatus(driverId, List.of(PartyStatus.DRIVER_ASSIGNED, PartyStatus.IN_RIDE));
     }
+
+    @Override
+    public List<Party> findAllByStatusWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng) {
+        return delegate.findAllByStatusWithinBounds(status, swLat, neLat, swLng, neLng)
+                .stream().map(PartyEntity::toDomain)
+                .toList();
+    }
 }

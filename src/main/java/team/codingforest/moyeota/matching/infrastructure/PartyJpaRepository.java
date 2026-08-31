@@ -27,4 +27,12 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 
     @Query("select count(p) > 0 from PartyEntity p where p.taxiDriverId = :driverId and p.status in :statuses")
     boolean existsByTaxiDriverIdStatus(@Param("driverId") Long driverId, @Param("statuses") Collection<PartyStatus> statuses);
+
+    @Query("""
+        select p from PartyEntity p left join fetch p.members where p.status = :status
+            and p.departureLat between :swLat and :neLat
+            and p.destinationLng between :swLng and :neLng
+""")
+    List<PartyEntity> findAllByStatusWithinBounds(@Param("status") PartyStatus status, @Param("swLat") double swLat, @Param("neLat") double neLat,
+                                                  @Param("swLng") double swLng, @Param("neLng") double neLng);
 }
