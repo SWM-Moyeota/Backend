@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.place.application;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.place.domain.exception.PlaceErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.place.application.dto.FavoritePlaceCommand;
@@ -56,7 +58,9 @@ class FavoritePlaceApplicationServiceTest {
         service.save(장소("집"), 유저);
 
         assertThatThrownBy(() -> service.save(장소("집"), 유저))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(PlaceErrorCode.FAVORITE_PLACE_DUPLICATED);
     }
 
     @Test
@@ -75,7 +79,20 @@ class FavoritePlaceApplicationServiceTest {
         }
 
         assertThatThrownBy(() -> service.save(장소("열한번째"), 유저))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(PlaceErrorCode.FAVORITE_PLACE_LIMIT_EXCEEDED);
+        assertThat(service.getList(유저).places()).hasSize(10);   // 초과분이 저장되면 안 된다
+    }
+
+    @Test
+    void 이름_없는_장소는_등록할_수_없다() {
+        // 지도에서 이름 파싱에 실패한 채로 등록 버튼이 눌린 경우 - 목록에 무명 항목이 남으면 안 된다
+        assertThatThrownBy(() -> service.save(장소("  "), 유저))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(PlaceErrorCode.INVALID_PLACE_NAME);
+        assertThat(service.getList(유저).places()).isEmpty();
     }
 
     @Test
