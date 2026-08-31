@@ -13,7 +13,7 @@ import team.codingforest.moyeota.chat.presentation.dto.SendMessageRequest;
 @RequiredArgsConstructor
 public class ChatMessageController {
     private final ChatMessageService chatMessageService;
-    
+
     @GetMapping
     public ChatMessageSlice getChatMessages(
             @RequestHeader("X-User-Id") Long userId,

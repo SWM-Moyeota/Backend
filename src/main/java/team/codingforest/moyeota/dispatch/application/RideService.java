@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.dispatch.application;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.dispatch.domain.exception.DispatchErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,7 +24,7 @@ public class RideService {
      *      기사 도착 - 승객 알림
      */
     public void arrive(Long partyId, Long driverId) {
-        if(!partyAccess.isAwaitingPickup(partyId, driverId)) throw new IllegalArgumentException("픽업 대기 중인 방이 아닙니다.");
+        if(!partyAccess.isAwaitingPickup(partyId, driverId)) throw new BusinessException(DispatchErrorCode.NOT_AWAITING_PICKUP);
 
         passengerNotifier.notifyDriverArrived(partyId);
 
@@ -51,15 +53,15 @@ public class RideService {
      *      승객이 오는 기사의 현재 위치를 조회
      */
     public DriverLocationResponse driverLocation(Long partyId, Long memberId) {
-        if(!partyAccess.hasMemberOnParty(memberId, partyId)) throw new IllegalArgumentException("해당 방에 참여하고 있지 않습니다.");
+        if(!partyAccess.hasMemberOnParty(memberId, partyId)) throw new BusinessException(DispatchErrorCode.NOT_PARTY_MEMBER);
 
         PartySummary summary = partyAccess.findSummary(partyId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 방입니다."));
+                .orElseThrow(() -> new BusinessException(DispatchErrorCode.PARTY_NOT_FOUND));
 
-        if(summary.driverId() == null) throw new IllegalArgumentException("아직 기사가 배정되지 않았습니다.");
+        if(summary.driverId() == null) throw new BusinessException(DispatchErrorCode.DRIVER_NOT_ASSIGNED);
 
         DriverPosition position = driverLocations.getLocationDriver(summary.driverId())
-                .orElseThrow(() -> new IllegalArgumentException("현재 기사님의 위치를 확인할 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(DispatchErrorCode.DRIVER_LOCATION_UNAVAILABLE));
 
         return new DriverLocationResponse(position.longitude(), position.latitude());
     }

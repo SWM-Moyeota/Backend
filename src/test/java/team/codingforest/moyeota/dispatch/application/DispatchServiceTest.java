@@ -2,6 +2,8 @@ package team.codingforest.moyeota.dispatch.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.dispatch.domain.exception.DispatchErrorCode;
 import team.codingforest.moyeota.matching.api.PartySummary;
 
 import java.time.Duration;
@@ -85,7 +87,9 @@ class DispatchServiceTest {
         DispatchService service = serviceWith(Set.of(1L));
 
         assertThatThrownBy(() -> service.dispatch(999L))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.PARTY_NOT_FOUND);
     }
 
     // ───────────────────────── attempt (재탐색) ─────────────────────────
@@ -185,8 +189,9 @@ class DispatchServiceTest {
 
         // 99번은 콜 가능하지만 반경 밖이라 호출 안 됨 — URL 조작 시나리오
         assertThatThrownBy(() -> service.acceptCall(방번호, 99L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("호출받지 않은 콜입니다.");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.CALL_CLOSED);
         assertThat(partyAccess.assignedDriverId).isNull();
     }
 
@@ -199,8 +204,9 @@ class DispatchServiceTest {
 
         // 기사 2가 마감 통지를 못 받고 수락 버튼을 누른 경우
         assertThatThrownBy(() -> service.acceptCall(방번호, 2L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("호출받지 않은 콜입니다.");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.CALL_CLOSED);
         assertThat(partyAccess.assignedDriverId).isEqualTo(1L);   // 배정은 그대로 1번
     }
 
@@ -214,8 +220,9 @@ class DispatchServiceTest {
         콜가능.remove(1L);   // 콜을 받은 뒤 콜 OFF / 오프라인 전환
 
         assertThatThrownBy(() -> service.acceptCall(방번호, 1L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("콜을 받을 수 없는 기사입니다.");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.DRIVER_CANNOT_RECEIVE);
         assertThat(service.isCallOpen(방번호, 2L)).isTrue();   // 콜 자체는 살아 있어야 함
     }
 
@@ -229,8 +236,9 @@ class DispatchServiceTest {
         partyAccess.assignedDriverId = 1L;   // 기사 1은 이미 다른 방에 배정되어 운행 중
 
         assertThatThrownBy(() -> service.acceptCall(방번호, 1L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("이미 운행중인 기사입니다.");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.DRIVER_ALREADY_RIDING);
         assertThat(service.isCallOpen(방번호, 2L)).isTrue();   // 콜 자체는 살아서 다른 기사가 수락 가능해야 함
     }
 
@@ -286,8 +294,9 @@ class DispatchServiceTest {
 
         // 이중 탭 — 이미 명단에서 빠졌으므로
         assertThatThrownBy(() -> service.rejectCall(방번호, 1L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("호출받지 않은 콜입니다.");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.CALL_CLOSED);
     }
 
     @Test
@@ -314,8 +323,9 @@ class DispatchServiceTest {
 
         // 기사 2가 마감 통지 전에 거절 버튼을 누른 경우
         assertThatThrownBy(() -> service.rejectCall(방번호, 2L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("호출받지 않은 콜입니다.");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.CALL_CLOSED);
         assertThat(partyAccess.assignedDriverId).isEqualTo(1L);
     }
 
@@ -326,8 +336,9 @@ class DispatchServiceTest {
         service.dispatch(방번호);
 
         assertThatThrownBy(() -> service.rejectCall(방번호, 99L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("호출받지 않은 콜입니다.");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.CALL_CLOSED);
     }
 
     // ───────────────────────── isCallOpen ─────────────────────────

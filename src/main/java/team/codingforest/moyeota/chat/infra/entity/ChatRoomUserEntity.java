@@ -28,10 +28,11 @@ public class ChatRoomUserEntity {
 
     private Instant leftAt;
 
-    protected ChatRoomUserEntity() {}
+    protected ChatRoomUserEntity() {
+    }
 
     private ChatRoomUserEntity(Long userId, Long chatRoomId, Long lastReadMessageId,
-                              boolean notificationMuted, Instant joinedAt, Instant leftAt) {
+                               boolean notificationMuted, Instant joinedAt, Instant leftAt) {
         this.userId = userId;
         this.chatRoomId = chatRoomId;
         this.lastReadMessageId = lastReadMessageId;

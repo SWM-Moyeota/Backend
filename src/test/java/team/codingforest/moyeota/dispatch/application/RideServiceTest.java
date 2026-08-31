@@ -2,6 +2,8 @@ package team.codingforest.moyeota.dispatch.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.dispatch.domain.exception.DispatchErrorCode;
 import team.codingforest.moyeota.dispatch.application.dto.DriverLocationResponse;
 import team.codingforest.moyeota.dispatch.domain.DriverPosition;
 import team.codingforest.moyeota.dispatch.domain.PassengerNotifier;
@@ -56,7 +58,9 @@ class RideServiceTest {
         기사배정됨();
 
         assertThatThrownBy(() -> service.arrive(방번호, 다른기사))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.NOT_AWAITING_PICKUP);
         assertThat(passengers.arrivedParties).isEmpty();
     }
 
@@ -64,7 +68,9 @@ class RideServiceTest {
     void 기사_배정_전에는_도착을_통보할_수_없다() {
         // 매칭 중인 방 - 배정 전이라 도착이 성립하지 않는다 (NPE가 아니라 도메인 예외)
         assertThatThrownBy(() -> service.arrive(방번호, 기사))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.NOT_AWAITING_PICKUP);
         assertThat(passengers.arrivedParties).isEmpty();
     }
 
@@ -75,7 +81,9 @@ class RideServiceTest {
         service.board(방번호, 기사);
 
         assertThatThrownBy(() -> service.arrive(방번호, 기사))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.NOT_AWAITING_PICKUP);
         assertThat(passengers.arrivedParties).isEmpty();
     }
 
@@ -160,8 +168,9 @@ class RideServiceTest {
         locations.position = new DriverPosition(37.4979, 127.0276);
 
         assertThatThrownBy(() -> service.driverLocation(방번호, 승객))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("해당 방에 참여하고 있지 않습니다.");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.NOT_PARTY_MEMBER);
     }
 
     @Test
@@ -170,8 +179,9 @@ class RideServiceTest {
         partyAccess.members.add(승객);
 
         assertThatThrownBy(() -> service.driverLocation(방번호, 승객))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("아직 기사가 배정되지 않았습니다.");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.DRIVER_NOT_ASSIGNED);
     }
 
     @Test
@@ -181,8 +191,9 @@ class RideServiceTest {
         partyAccess.members.add(승객);
 
         assertThatThrownBy(() -> service.driverLocation(방번호, 승객))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("현재 기사님의 위치를 확인할 수 없습니다.");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.DRIVER_LOCATION_UNAVAILABLE);
     }
 
     /** 어느 방에 도착 알림이 갔는지 기록하는 가짜 */

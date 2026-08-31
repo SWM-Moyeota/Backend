@@ -44,7 +44,8 @@ public class ChatMessageEntity {
 
     private Instant deletedAt;
 
-    protected ChatMessageEntity() {}
+    protected ChatMessageEntity() {
+    }
 
     private ChatMessageEntity(Long id, Long chatRoomId, Long userId, String content,
                               ChatMessageType type, ChatMessageStatus status,

@@ -28,7 +28,7 @@ public class ChatRoom {
         return new ChatRoom(null, partyId, departure, destination, now, ChatRoomStatus.ACTIVE);
     }
 
-    public static ChatRoom restore(Long id, Long partyId, String departure, String destination, Instant createdAt, ChatRoomStatus status){
+    public static ChatRoom restore(Long id, Long partyId, String departure, String destination, Instant createdAt, ChatRoomStatus status) {
         return new ChatRoom(id, partyId, departure, destination, createdAt, status);
     }
 

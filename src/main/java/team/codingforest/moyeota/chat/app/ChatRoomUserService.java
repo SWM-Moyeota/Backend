@@ -2,12 +2,14 @@ package team.codingforest.moyeota.chat.app;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.chat.app.dto.ChatRoomCommand;
 import team.codingforest.moyeota.chat.app.dto.ChatRoomUserResult;
 import team.codingforest.moyeota.chat.app.dto.ReadChatCommand;
+import team.codingforest.moyeota.chat.app.event.ChatRoomLeftEvent;
 import team.codingforest.moyeota.chat.domain.ChatRoom;
 import team.codingforest.moyeota.chat.domain.ChatRoomRepository;
 import team.codingforest.moyeota.chat.domain.ChatRoomUser;
@@ -22,6 +24,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ChatRoomUserService {
+    private final ApplicationEventPublisher eventPublisher;
     private final ChatRoomUserRepository chatRoomUserRepository;
     private final ChatRoomRepository chatRoomRepository;
 
@@ -56,6 +59,8 @@ public class ChatRoomUserService {
         chatRoomUser.leave(Instant.now());
 
         chatRoomUserRepository.save(chatRoomUser);
+
+        eventPublisher.publishEvent(new ChatRoomLeftEvent(command.userId(), command.chatRoomId()));
 
         log.info("채팅방 나감 chatRoomId={} userID={}", command.chatRoomId(), command.userId());
     }
