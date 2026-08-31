@@ -100,6 +100,13 @@ class PartyAccessService implements PartyAccess {
         return false;
     }
 
+    @Override
+    public boolean isRidingMember(Long partyId, Long memberId) {
+        return parties.findById(partyId)
+                .map(party -> party.hasMember(memberId) && party.getStatus().isRiding())
+                .orElse(false);
+    }
+
     private Party getForUpdate(Long partyId) {
         return parties.findByIdForUpdate(partyId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 방입니다."));

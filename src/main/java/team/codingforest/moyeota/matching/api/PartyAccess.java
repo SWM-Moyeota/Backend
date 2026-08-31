@@ -14,4 +14,5 @@ public interface PartyAccess {
     PartyChatSummary findChatSummary(Long partyId);
     boolean hasOngoingRide(Long driverId);
     boolean hasMemberOnParty(Long memberId, Long partyId);
+    boolean isRidingMember(Long partyId, Long memberId);
 }
