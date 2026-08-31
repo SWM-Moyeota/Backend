@@ -66,7 +66,7 @@ public class DriverLocationRedis implements DriverLocations {
 
         Point point = positions.getFirst();
 
-        return Optional.of(new DriverPosition(point.getX(), point.getY()));
+        return Optional.of(new DriverPosition(point.getY(), point.getX()));
     }
 
     private boolean isAlive(Long driverId) {
