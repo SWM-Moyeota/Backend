@@ -1,7 +1,9 @@
 package team.codingforest.moyeota.driver.domain;
 
 import lombok.Getter;
+import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.domain.enums.DriverStatus;
+import team.codingforest.moyeota.driver.domain.exception.DriverErrorCode;
 
 import java.time.Instant;
 
@@ -41,7 +43,7 @@ public class Driver {
      *  자격 검증 완료
      */
     public void verify(Instant verifiedAt) {
-        if(status != DriverStatus.PENDING) throw new IllegalArgumentException("검증 대기 상태가 아닙니다.");
+        if(status != DriverStatus.PENDING) throw new BusinessException(DriverErrorCode.DRIVER_NOT_PENDING);
 
         this.verifiedAt = verifiedAt;
         this.status = DriverStatus.VERIFIED;
@@ -73,7 +75,7 @@ public class Driver {
      *  Fcm 토큰 관련
      */
     public void registerFcmToken(String token) {
-        if(token == null || token.isBlank()) throw new IllegalArgumentException("FCM 토큰이 비어있습니다.");
+        if(token == null || token.isBlank()) throw new BusinessException(DriverErrorCode.DRIVER_EMPTY_FCM_TOKEN);
 
         this.fcmToken = token;
     }

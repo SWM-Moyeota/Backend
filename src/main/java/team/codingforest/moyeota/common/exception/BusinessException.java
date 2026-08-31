@@ -1,6 +1,5 @@
 package team.codingforest.moyeota.common.exception;
 
-import ch.qos.logback.core.spi.ErrorCodes;
 import lombok.Getter;
 
 @Getter
