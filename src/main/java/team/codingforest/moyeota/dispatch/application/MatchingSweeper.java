@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.dispatch.domain.CallCandidates;
 import team.codingforest.moyeota.dispatch.domain.CallNotifier;
 import team.codingforest.moyeota.matching.api.MatchingTarget;
@@ -40,8 +41,8 @@ public class MatchingSweeper {
                 }
 
                 dispatchService.attempt(target.partyId(), dispatchService.radiusFor(elapsed));
-            } catch (IllegalArgumentException e) {
-                // 스윕 도중 수락되어 상태가 바뀐 경우 등
+            } catch (BusinessException | IllegalArgumentException e) {
+                // 스윕 도중 수락되어 상태가 바뀐 경우 등 - 한 방의 문제가 전체 스윕을 멈추면 안 된다
                 log.info("스윕 건너뜀 partyId={}, 사유={}", target.partyId(), e.getMessage());
             }
         }

@@ -2,6 +2,8 @@ package team.codingforest.moyeota.dispatch.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.dispatch.domain.exception.DispatchErrorCode;
 import team.codingforest.moyeota.dispatch.domain.DriverLocations;
 
 import java.util.ArrayList;
@@ -41,7 +43,9 @@ class DriverLocationServiceTest {
         DriverLocationService service = serviceWith(Set.of());
 
         assertThatThrownBy(() -> service.goOnline(기사, 강남역_위도, 강남역_경도))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.DRIVER_CANNOT_RECEIVE);
 
         assertThat(locations.updatedDrivers).isEmpty();
     }

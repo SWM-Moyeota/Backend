@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.dispatch.application;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.dispatch.domain.exception.DispatchErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,11 +42,11 @@ public class DispatchService {
 
     @Transactional
     public void acceptCall(Long partyId, Long driverId) {
-        if(!callCandidates.contains(partyId, driverId)) throw new IllegalArgumentException("호출받지 않은 콜입니다.");
+        if(!callCandidates.contains(partyId, driverId)) throw new BusinessException(DispatchErrorCode.CALL_CLOSED);
 
-        if(!driverAccess.canReceiveCalls(driverId)) throw new IllegalArgumentException("콜을 받을 수 없는 기사입니다.");
+        if(!driverAccess.canReceiveCalls(driverId)) throw new BusinessException(DispatchErrorCode.DRIVER_CANNOT_RECEIVE);
 
-        if(partyAccess.hasOngoingRide(driverId)) throw new IllegalArgumentException("이미 운행중인 기사입니다.");
+        if(partyAccess.hasOngoingRide(driverId)) throw new BusinessException(DispatchErrorCode.DRIVER_ALREADY_RIDING);
 
         partyAccess.assignDriver(partyId, driverId);
 
@@ -60,7 +62,7 @@ public class DispatchService {
     }
 
     public void rejectCall(Long partyId, Long driverId) {
-        if(!callCandidates.contains(partyId, driverId)) throw new IllegalArgumentException("호출받지 않은 콜입니다.");
+        if(!callCandidates.contains(partyId, driverId)) throw new BusinessException(DispatchErrorCode.CALL_CLOSED);
 
         long remaining = callCandidates.remove(partyId, driverId);
         callCandidates.markRejected(partyId, driverId);
@@ -70,7 +72,7 @@ public class DispatchService {
 
     public void attempt(Long partyId, int radiusMeters) {
         PartySummary party = partyAccess.findSummary(partyId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 방이 없음"));
+                .orElseThrow(() -> new BusinessException(DispatchErrorCode.PARTY_NOT_FOUND));
 
         List<Long> nearbyIds = driverLocations.findNearby(party.departureLatitude(), party.departureLongitude(), radiusMeters);
 
@@ -100,10 +102,10 @@ public class DispatchService {
     }
 
     public PartySummary getDetailRoom(Long driverId, Long partyId) {
-        if(!isCallOpen(partyId, driverId)) throw new IllegalArgumentException("해당 콜을 받지 못했습니다.");
+        if(!isCallOpen(partyId, driverId)) throw new BusinessException(DispatchErrorCode.CALL_CLOSED);
 
         return partyAccess.findSummary(partyId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않은 방입니다."));
+                .orElseThrow(() -> new BusinessException(DispatchErrorCode.PARTY_NOT_FOUND));
     }
 
     public boolean isCallOpen(Long partyId, Long driverId) {

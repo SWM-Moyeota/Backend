@@ -4,6 +4,7 @@ import lombok.Getter;
 import org.springframework.http.HttpStatus;
 import team.codingforest.moyeota.common.exception.ErrorCode;
 
+
 @Getter
 public enum DriverErrorCode implements ErrorCode {
     DRIVER_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 기사입니다."),

@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.dispatch.application;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.dispatch.domain.exception.DispatchErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,7 +21,7 @@ public class DriverLocationService {
      */
     public void goOnline(Long driverId, double latitude, double longitude) {
         if(!driverAccess.canReceiveCalls(driverId)) {
-            throw new IllegalArgumentException("현재 콜을 받을 수 없는 상태입니다.");
+            throw new BusinessException(DispatchErrorCode.DRIVER_CANNOT_RECEIVE);
         }
 
         driverLocations.update(driverId, latitude, longitude);
