@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.application.dto.DriverResult;
 import team.codingforest.moyeota.driver.application.dto.RegisterDriverCommand;
 import team.codingforest.moyeota.driver.application.dto.RegisterVehicleCommand;
@@ -11,6 +12,7 @@ import team.codingforest.moyeota.driver.domain.BankAccount;
 import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Drivers;
 import team.codingforest.moyeota.driver.domain.Vehicle;
+import team.codingforest.moyeota.driver.domain.exception.DriverErrorCode;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.PartySummary;
 
@@ -100,19 +102,19 @@ public class DriverApplicationService {
     public DriverResult getByUserId(Long userId) {
         return service.findByUserId(userId)
                 .map(DriverResult::from)
-                .orElseThrow(() -> new IllegalArgumentException("기사로 등록되지 않은 유저입니다."));
+                .orElseThrow(() -> new BusinessException(DriverErrorCode.DRIVER_NOT_REGISTERED));
     }
 
 
 
     private Driver getDriver(Long driverId) {
         return service.findById(driverId)
-                .orElseThrow(() -> new IllegalArgumentException("등록되지 않은 기사입니다."));
+                .orElseThrow(() -> new BusinessException(DriverErrorCode.DRIVER_NOT_FOUND));
     }
 
     private void validateNotRegistered(Long userId) {
         if(service.findByUserId(userId).isPresent()) {
-            throw new IllegalArgumentException("이미 기사로 등록된 유저입니다. userId=" + userId);
+            throw new BusinessException(DriverErrorCode.DRIVER_ALREADY_REGISTERED);
         }
     }
 }

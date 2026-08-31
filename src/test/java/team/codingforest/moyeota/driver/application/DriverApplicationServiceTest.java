@@ -2,7 +2,9 @@ package team.codingforest.moyeota.driver.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.application.dto.DriverResult;
+import team.codingforest.moyeota.driver.domain.exception.DriverErrorCode;
 import team.codingforest.moyeota.driver.application.dto.RegisterDriverCommand;
 import team.codingforest.moyeota.driver.domain.enums.DriverStatus;
 
@@ -39,7 +41,9 @@ class DriverApplicationServiceTest {
         service.register(등록명령(유저));
 
         assertThatThrownBy(() -> service.register(등록명령(유저)))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DriverErrorCode.DRIVER_ALREADY_REGISTERED);
     }
 
     @Test
@@ -63,7 +67,9 @@ class DriverApplicationServiceTest {
     @Test
     void 존재하지_않는_기사를_검증하면_예외가_발생한다() {
         assertThatThrownBy(() -> service.verify(999L))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DriverErrorCode.DRIVER_NOT_FOUND);
     }
 
     @Test
@@ -78,7 +84,9 @@ class DriverApplicationServiceTest {
     @Test
     void 기사로_등록되지_않은_유저를_조회하면_예외가_발생한다() {
         assertThatThrownBy(() -> service.getByUserId(999L))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DriverErrorCode.DRIVER_NOT_REGISTERED);
     }
 
     // ───────────────────────── FCM 토큰 ─────────────────────────
@@ -96,7 +104,9 @@ class DriverApplicationServiceTest {
     @Test
     void 없는_기사의_토큰은_등록할_수_없다() {
         assertThatThrownBy(() -> service.registerFcmToken(999L, "token-abc"))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DriverErrorCode.DRIVER_NOT_FOUND);
     }
 
     @Test
@@ -104,7 +114,9 @@ class DriverApplicationServiceTest {
         DriverResult registered = service.register(등록명령(유저));
 
         assertThatThrownBy(() -> service.registerFcmToken(registered.id(), "  "))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DriverErrorCode.DRIVER_EMPTY_FCM_TOKEN);
     }
 
     @Test
@@ -130,6 +142,8 @@ class DriverApplicationServiceTest {
     @Test
     void 없는_기사의_토큰은_제거할_수_없다() {
         assertThatThrownBy(() -> service.removeFcmToken(999L))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DriverErrorCode.DRIVER_NOT_FOUND);
     }
 }

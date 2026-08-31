@@ -1,7 +1,9 @@
 package team.codingforest.moyeota.driver.domain;
 
 import org.junit.jupiter.api.Test;
+import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.domain.enums.DriverStatus;
+import team.codingforest.moyeota.driver.domain.exception.DriverErrorCode;
 
 import java.time.Instant;
 
@@ -49,7 +51,9 @@ class DriverTest {
         driver.verify(지금);
 
         assertThatThrownBy(() -> driver.verify(지금))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DriverErrorCode.DRIVER_NOT_PENDING);
     }
 
     @Test
@@ -111,7 +115,9 @@ class DriverTest {
         Driver driver = 등록된기사();
 
         assertThatThrownBy(() -> driver.registerFcmToken(null))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DriverErrorCode.DRIVER_EMPTY_FCM_TOKEN);
     }
 
     @Test
@@ -119,10 +125,10 @@ class DriverTest {
         Driver driver = 등록된기사();
 
         assertThatThrownBy(() -> driver.registerFcmToken(""))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class);
 
         assertThatThrownBy(() -> driver.registerFcmToken("   "))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test
