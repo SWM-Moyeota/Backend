@@ -2,8 +2,10 @@ package team.codingforest.moyeota.driver.infrastructure;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Drivers;
+import team.codingforest.moyeota.driver.domain.exception.DriverErrorCode;
 
 import java.util.Optional;
 
@@ -16,7 +18,7 @@ public class DriverJpa implements Drivers {
     public Driver save(Driver driver) {
         if(driver.getId() != null) {
             DriverEntity entity = delegate.findById(driver.getId())
-                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 기사입니다."));
+                    .orElseThrow(() -> new BusinessException(DriverErrorCode.DRIVER_NOT_FOUND));
 
             entity.update(driver);
             delegate.save(entity);
