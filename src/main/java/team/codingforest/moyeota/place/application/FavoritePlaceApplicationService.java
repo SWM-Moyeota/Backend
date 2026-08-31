@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.place.application;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.place.domain.exception.PlaceErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -12,7 +14,7 @@ import team.codingforest.moyeota.place.domain.FavoritePlaces;
 
 import java.util.List;
 
-// TODO 예외처리 추후 작성, 순서 업데이트 로직 추가해야함
+// TODO 순서 업데이트 로직 추가해야함
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -24,10 +26,10 @@ public class FavoritePlaceApplicationService {
         List<FavoritePlace> list = places.findByUserId(userId);
 
         if(places.existsByUserIdAndPlace(userId, command.placeName())) {
-            throw new IllegalArgumentException("이미 등록된 장소입니다.");
+            throw new BusinessException(PlaceErrorCode.FAVORITE_PLACE_DUPLICATED);
         }
 
-        if(list.size() >= 10) throw new IllegalArgumentException("자주가는 장소는 최대 10개까지만 등록가능합니다.");
+        if(list.size() >= 10) throw new BusinessException(PlaceErrorCode.FAVORITE_PLACE_LIMIT_EXCEEDED);
 
         int nextSequence = list.stream()
                 .mapToInt(FavoritePlace::getPlaceSequence)
