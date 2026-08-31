@@ -23,7 +23,7 @@ public class ChatRoomUserJpa implements ChatRoomUserRepository {
     }
 
     @Override
-    public List<ChatRoomUser> findActiveByUserId(Long userId){
+    public List<ChatRoomUser> findActiveByUserId(Long userId) {
         List<ChatRoomUserEntity> entities = jpaRepository.findByUserIdAndLeftAtIsNull(userId);
         return entities.stream()
                 .map(ChatRoomUserEntity::toDomain)

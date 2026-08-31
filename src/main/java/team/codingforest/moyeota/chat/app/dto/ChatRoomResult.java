@@ -5,15 +5,15 @@ import team.codingforest.moyeota.chat.domain.ChatRoomStatus;
 
 import java.time.Instant;
 
-public record ChatRoomResult (
+public record ChatRoomResult(
         Long id,
         Long partyId,
         String departure,
         String destination,
         Instant createdAt,
         ChatRoomStatus status
-){
-    public static ChatRoomResult from(ChatRoom chatRoom){
+) {
+    public static ChatRoomResult from(ChatRoom chatRoom) {
         return new ChatRoomResult(
                 chatRoom.getId(),
                 chatRoom.getPartyId(),

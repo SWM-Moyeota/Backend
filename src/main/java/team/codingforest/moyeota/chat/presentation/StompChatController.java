@@ -23,7 +23,7 @@ public class StompChatController {
             @DestinationVariable Long chatRoomId,
             @Valid @Payload SendMessageRequest request,
             Principal principal
-            ) {
+    ) {
         Long userId = Long.parseLong(principal.getName());
 
         chatMessageService.sendMessage(

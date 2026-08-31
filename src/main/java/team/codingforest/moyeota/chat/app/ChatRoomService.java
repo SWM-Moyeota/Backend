@@ -21,8 +21,8 @@ public class ChatRoomService {
     private final ChatRoomRepository chatRoomRepository;
 
     /**
-    * 채팅방 만들기
-    */
+     * 채팅방 만들기
+     */
     @Transactional
     public ChatRoomResult createRoom(CreateChatRoomCommand command) {
         ChatRoom chatRoom = ChatRoom.create(
@@ -38,7 +38,7 @@ public class ChatRoomService {
 
         ChatRoom result = chatRoomRepository.save(chatRoom);
 
-        log.info("채팅방 생성 partyId={} chatRoomId={}",  result.getPartyId(), result.getId());
+        log.info("채팅방 생성 partyId={} chatRoomId={}", result.getPartyId(), result.getId());
 
         return ChatRoomResult.from(result);
     }

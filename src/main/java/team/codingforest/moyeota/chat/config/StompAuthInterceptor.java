@@ -22,6 +22,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     private static final String APP_DESTINATION_PREFIX = "/pub/";
     private static final String ROOM_DESTINATION_PREFIX = "/sub/chat-rooms/";
     private static final String ERROR_DESTINATION = "/user/queue/errors";
+    private static final String ROOM_LEFT_DESTINATION = "/user/queue/room-left";
 
     private final ChatRoomUserRepository chatRoomUserRepository;
 
@@ -67,7 +68,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     }
 
     private void validateSubscribe(Long userId, String destination) {
-        if (ERROR_DESTINATION.equals(destination)) {
+        if (ERROR_DESTINATION.equals(destination) || ROOM_LEFT_DESTINATION.equals(destination)) {
             return;
         }
         Long chatRoomId = parseChatRoomId(destination);
@@ -101,6 +102,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
             throw new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND);
         }
     }
+
     private Long parseUserId(String header) {
         if (header == null || header.isBlank()) {
             throw new ChatException(ChatErrorCode.CHAT_UNAUTHORIZED);
@@ -108,7 +110,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
 
         try {
             return Long.parseLong(header.trim());
-        }catch (NumberFormatException e) {
+        } catch (NumberFormatException e) {
             throw new ChatException(ChatErrorCode.CHAT_UNAUTHORIZED);
         }
     }
