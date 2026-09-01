@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.dispatch.application;
 
+import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.common.exception.BusinessException;
@@ -114,7 +115,9 @@ class RideServiceTest {
         기사배정됨();
 
         assertThatThrownBy(() -> service.board(방번호, 다른기사))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.NOT_ASSIGNED_DRIVER);
         assertThat(partyAccess.rideStarted).isFalse();
     }
 
@@ -135,7 +138,9 @@ class RideServiceTest {
         service.arrive(방번호, 기사);
 
         assertThatThrownBy(() -> service.complete(방번호, 기사, 15000))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.NOT_RIDING);
     }
 
     @Test

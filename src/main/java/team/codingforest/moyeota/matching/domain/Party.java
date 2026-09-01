@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.matching.domain;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 import lombok.Getter;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
@@ -59,13 +61,13 @@ public class Party {
      */
     public static Party open(Long creatorId, Location departureLocation, Location destinationLocation, String departure, String destination, Capacity capacity,
                              Instant createdAt, Radius departureRadius, Radius destinationRadius, Integer estimatedFare, Integer estimatedTime, String route) {
-        if(departureLocation.equals(destinationLocation)) throw new IllegalArgumentException("출발지와 도착지가 같습니다.");
+        if(departureLocation.equals(destinationLocation)) throw new BusinessException(MatchingErrorCode.SAME_DEPARTURE_DESTINATION);
 
-        if(estimatedFare == null || estimatedFare < 0) throw new IllegalArgumentException("예상 요금이 올바르지 않습니다.");
+        if(estimatedFare == null || estimatedFare < 0) throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
 
-        if(estimatedTime == null || estimatedTime < 0) throw new IllegalArgumentException("예상 시간이 올바르지 않습니다.");
+        if(estimatedTime == null || estimatedTime < 0) throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
 
-        if(route == null) throw new IllegalArgumentException("경로가 존재하지 않습니다.");
+        if(route == null) throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
 
         Party party = new Party(null, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, new ArrayList<>(), createdAt, PartyStatus.ACTIVE,
                 estimatedFare, estimatedTime, route, null, null);
@@ -83,9 +85,9 @@ public class Party {
      *  매칭방 참여
      */
     public void join(Long memberId) {
-        if(status != PartyStatus.ACTIVE) throw new IllegalArgumentException("마감된 방임");
-        if(members.size() >= capacity.value()) throw new IllegalArgumentException("이미 꽉찬 방임");
-        if(hasMember(memberId)) throw new IllegalArgumentException("이미 참여한 방임");
+        if(status != PartyStatus.ACTIVE) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+        if(members.size() >= capacity.value()) throw new BusinessException(MatchingErrorCode.PARTY_FULL);
+        if(hasMember(memberId)) throw new BusinessException(MatchingErrorCode.ALREADY_JOINED_PARTY);
 
         members.add(new PartyMember(memberId, Instant.now()));
 
@@ -98,7 +100,7 @@ public class Party {
      *  매칭방 나가기
      */
     public void leave(Long memberId) {
-        if(!hasMember(memberId)) throw new IllegalArgumentException("해당 방에 참여X");
+        if(!hasMember(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
         ensureRecruiting();
 
         PartyMember tmp = null;
@@ -158,16 +160,16 @@ public class Party {
     }
 
     public void assignDriver(Long driverId) {
-        if(status != PartyStatus.MATCHING) throw new IllegalArgumentException("매칭 중인 방이 아닙니다.");
+        if(status != PartyStatus.MATCHING) throw new BusinessException(MatchingErrorCode.PARTY_NOT_MATCHING);
 
-        if(taxiDriverId != null) throw new IllegalArgumentException("이미 기사가 배정된 방입니다.");
+        if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
 
         this.taxiDriverId = driverId;
         this.status = PartyStatus.DRIVER_ASSIGNED;
     }
 
     public void startMatching(Instant now) {
-        if(status != PartyStatus.COMPLETED) throw new IllegalArgumentException("정원이 다 차지 않은 방입니다.");
+        if(status != PartyStatus.COMPLETED) throw new BusinessException(MatchingErrorCode.PARTY_NOT_COMPLETED);
 
         status = PartyStatus.MATCHING;
         matchingStartedAt = now;
@@ -175,14 +177,14 @@ public class Party {
 
     public void startRide(Long driverId) {
         ensureAssignDriver(driverId);
-        if(status != PartyStatus.DRIVER_ASSIGNED) throw new IllegalArgumentException("탑승 대기 상태가 아닙니다");
+        if(status != PartyStatus.DRIVER_ASSIGNED) throw new BusinessException(MatchingErrorCode.NOT_AWAITING_PICKUP);
 
         status = PartyStatus.IN_RIDE;
     }
 
     public void completeRide(Long driverId, int fare) {
         ensureAssignDriver(driverId);
-        if(status != PartyStatus.IN_RIDE) throw new IllegalArgumentException("운행중이 아닙니다.");
+        if(status != PartyStatus.IN_RIDE) throw new BusinessException(MatchingErrorCode.NOT_RIDING);
 
         // TODO 결제쪽이 완료된 후 완성
 
@@ -193,9 +195,9 @@ public class Party {
      *      기사를 못 구한 방 폭파
      */
     public void failMatching() {
-        if(status != PartyStatus.MATCHING) throw new IllegalArgumentException("매칭 중인 방이 아닙니다.");
+        if(status != PartyStatus.MATCHING) throw new BusinessException(MatchingErrorCode.PARTY_NOT_MATCHING);
 
-        if(taxiDriverId != null) throw new IllegalArgumentException("이미 기사가 배정된 방입니다.");
+        if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
 
         status = PartyStatus.CANCELED;
     }
@@ -208,10 +210,10 @@ public class Party {
     }
 
     private void ensureAssignDriver(Long driverId) {
-        if(taxiDriverId == null || !taxiDriverId.equals(driverId)) throw new IllegalArgumentException("이 방에 배정된 기사가 아닙니다.");
+        if(taxiDriverId == null || !taxiDriverId.equals(driverId)) throw new BusinessException(MatchingErrorCode.NOT_ASSIGNED_DRIVER);
     }
 
     private void ensureRecruiting() {
-        if(!status.isRecruiting()) throw new IllegalArgumentException("모집 중인 방이 아닙니다.");
+        if(!status.isRecruiting()) throw new BusinessException(MatchingErrorCode.PARTY_NOT_RECRUITING);
     }
 }

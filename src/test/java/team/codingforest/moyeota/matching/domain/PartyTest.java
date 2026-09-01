@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.matching.domain;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
@@ -64,14 +66,20 @@ class PartyTest {
         Party party = openParty(2);
         party.join(참여자);
 
-        assertThatThrownBy(() -> party.join(3L)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.join(3L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_CLOSED);
     }
 
     @Test
     void 같은_회원은_중복_참여할_수_없다() {
         Party party = openParty(2);
 
-        assertThatThrownBy(() -> party.join(생성자)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.join(생성자))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.ALREADY_JOINED_PARTY);
     }
 
     @Test
@@ -126,7 +134,10 @@ class PartyTest {
     void 참여하지_않은_회원은_나갈_수_없다() {
         Party party = openParty(2);
 
-        assertThatThrownBy(() -> party.leave(참여자)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.leave(참여자))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.NOT_PARTY_MEMBER);
     }
 
     @Test
@@ -135,7 +146,10 @@ class PartyTest {
         Party party = openParty(2);
         party.leave(생성자);   // 혼자 나가며 방 취소 + 명단에서 제거됨
 
-        assertThatThrownBy(() -> party.leave(생성자)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.leave(생성자))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.NOT_PARTY_MEMBER);
     }
 
 
@@ -156,14 +170,20 @@ class PartyTest {
         Party party = openParty(3);
         party.join(참여자);
 
-        assertThatThrownBy(() -> party.startMatching(지금)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.startMatching(지금))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
     }
 
     @Test
     void 이미_매칭중인_방은_다시_시작할_수_없다() {
         Party party = matchingParty();
 
-        assertThatThrownBy(() -> party.startMatching(지금)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.startMatching(지금))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
     }
 
     @Test
@@ -181,7 +201,10 @@ class PartyTest {
     void 매칭중인_방은_나갈_수_없다() {
         Party party = matchingParty();
 
-        assertThatThrownBy(() -> party.leave(참여자)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.leave(참여자))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_RECRUITING);
     }
 
     // ───────────────────────── 기사 배정 ─────────────────────────
@@ -201,14 +224,20 @@ class PartyTest {
         Party party = openParty(2);
         party.join(참여자);   // COMPLETED
 
-        assertThatThrownBy(() -> party.assignDriver(기사)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.assignDriver(기사))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_MATCHING);
     }
 
     @Test
     void 이미_기사가_배정된_방에는_다시_배정할_수_없다() {
         Party party = assignedParty();
 
-        assertThatThrownBy(() -> party.assignDriver(다른기사)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.assignDriver(다른기사))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_MATCHING);
         assertThat(party.getTaxiDriverId()).isEqualTo(기사);   // 먼저 수락한 기사가 유지된다
     }
 
@@ -216,14 +245,20 @@ class PartyTest {
     void 기사가_배정된_방은_나갈_수_없다() {
         Party party = assignedParty();
 
-        assertThatThrownBy(() -> party.leave(참여자)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.leave(참여자))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_RECRUITING);
     }
 
     @Test
     void 기사가_배정된_방은_해산할_수_없다() {
         Party party = assignedParty();
 
-        assertThatThrownBy(party::failMatching).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(party::failMatching)
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_MATCHING);
     }
 
     // ───────────────────────── 픽업 대기 (도착 통보 가능 구간) ─────────────────────────
@@ -282,7 +317,10 @@ class PartyTest {
     void 배정되지_않은_기사는_탑승을_확정할_수_없다() {
         Party party = assignedParty();
 
-        assertThatThrownBy(() -> party.startRide(다른기사)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.startRide(다른기사))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.NOT_ASSIGNED_DRIVER);
     }
 
     @Test
@@ -290,14 +328,20 @@ class PartyTest {
         // 배정 전 taxiDriverId가 null - NPE가 아니라 도메인 예외가 나야 한다
         Party party = matchingParty();
 
-        assertThatThrownBy(() -> party.startRide(기사)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.startRide(기사))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.NOT_ASSIGNED_DRIVER);
     }
 
     @Test
     void 운행중인_방은_나갈_수_없다() {
         Party party = ridingParty();
 
-        assertThatThrownBy(() -> party.leave(참여자)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.leave(참여자))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_RECRUITING);
     }
 
     @Test
@@ -313,14 +357,20 @@ class PartyTest {
     void 배정되지_않은_기사는_운행을_종료할_수_없다() {
         Party party = ridingParty();
 
-        assertThatThrownBy(() -> party.completeRide(다른기사, 15000)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.completeRide(다른기사, 15000))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.NOT_ASSIGNED_DRIVER);
     }
 
     @Test
     void 탑승_확정_전에는_운행을_종료할_수_없다() {
         Party party = assignedParty();
 
-        assertThatThrownBy(() -> party.completeRide(기사, 15000)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.completeRide(기사, 15000))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.NOT_RIDING);
     }
 
     @Test
@@ -329,7 +379,10 @@ class PartyTest {
         Party party = ridingParty();
         party.completeRide(기사, 15000);
 
-        assertThatThrownBy(() -> party.startMatching(지금)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.startMatching(지금))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
     }
 
     // ───────────────────────── 매칭 실패 (해산) ─────────────────────────
@@ -349,6 +402,9 @@ class PartyTest {
         Party party = matchingParty();
         party.failMatching();
 
-        assertThatThrownBy(() -> party.startMatching(지금)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> party.startMatching(지금))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
     }
 }

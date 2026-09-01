@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.matching.infrastructure;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.matching.api.MatchingTarget;
@@ -34,7 +36,7 @@ public class PartyJpa implements Parties {
         }
         else {
             entity = delegate.findById(party.getId())
-                    .orElseThrow(() -> new IllegalArgumentException("해당 방이 존재하지 않습니다."));
+                    .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
             entity.update(party);                           // 더티체킹
         }
 

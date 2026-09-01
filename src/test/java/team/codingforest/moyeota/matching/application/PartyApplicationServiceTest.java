@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.matching.application;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
@@ -65,7 +67,9 @@ class PartyApplicationServiceTest {
     @Test
     void 존재하지_않는_방에_참여하면_예외가_발생한다() {
         assertThatThrownBy(() -> service.join(999L, participant))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_FOUND);
     }
 
     @Test
@@ -106,7 +110,9 @@ class PartyApplicationServiceTest {
         service.open(createParty(host, 3));
 
         assertThatThrownBy(() -> service.open(createParty(host, 3)))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
     }
 
     @Test
@@ -115,7 +121,9 @@ class PartyApplicationServiceTest {
         PartyResult party = service.open(createParty(anotherHost, 3));
 
         assertThatThrownBy(() -> service.join(party.id(), host))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
     }
 
     @Test
@@ -165,7 +173,9 @@ class PartyApplicationServiceTest {
         service.join(party.id(), participant);   // MATCHING 진입
 
         assertThatThrownBy(() -> service.open(createParty(participant, 2)))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
     }
 
     @Test
@@ -207,7 +217,9 @@ class PartyApplicationServiceTest {
         service.join(party.id(), participant);
 
         assertThatThrownBy(() -> service.getAssignDriver(party.id()))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.DRIVER_NOT_ASSIGNED);
     }
 
     @Test
