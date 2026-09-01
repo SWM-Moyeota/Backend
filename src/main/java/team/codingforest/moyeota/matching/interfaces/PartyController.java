@@ -58,7 +58,8 @@ public class PartyController {
         return ResponseEntity.ok(service.getAssignDriver(partyId));
     }
 
-    @GetMapping("/matching/rooms")
+    // 같은 경로의 전체 목록 조회와 쿼리 파라미터 유무로 구분한다 (params 없이 두 개면 Ambiguous mapping으로 기동 실패)
+    @GetMapping(value = "/matching/rooms", params = {"swLat", "swLng", "neLat", "neLng"})
     public ResponseEntity<PartyListResponse> listWithin(@RequestParam Double swLat,
                                                         @RequestParam Double swLng,
                                                         @RequestParam Double neLat,
