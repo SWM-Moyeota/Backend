@@ -14,4 +14,5 @@ public interface Parties {
     Optional<Party> findByIdForUpdate(Long id);
     List<MatchingTarget> findMatchingTargets();
     boolean hasOngoingRide(Long driverId);
+    List<Party> findAllByStatusWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng);
 }

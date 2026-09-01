@@ -225,6 +225,41 @@ class PartyApplicationServiceTest {
         assertThat(summary.plateNumber()).isEqualTo("12가3456");
     }
 
+    // ───────────────────────── 지도 영역(뷰포트) 조회 ─────────────────────────
+
+    @Test
+    void 영역_안에서_출발하는_방만_조회된다() {
+        service.open(createPartyAt(host, 37.4979, 127.0276, 3));        // 강남역 - 영역 안
+        service.open(createPartyAt(anotherHost, 37.5665, 126.9780, 3)); // 시청 - 영역 밖
+
+        List<PartyResult> result = service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).departure()).isEqualTo("강남역");
+    }
+
+    @Test
+    void 영역_모서리에_정확히_걸친_방도_조회된다() {
+        // between은 양끝 포함 - 경계 좌표가 빠지면 화면 가장자리의 마커가 사라진다
+        service.open(createPartyAt(host, 37.49, 127.02, 3));
+
+        assertThat(service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06)).hasSize(1);
+    }
+
+    @Test
+    void 영역_안이어도_모집이_끝난_방은_조회되지_않는다() {
+        // 정원이 차서 매칭으로 넘어간 방 - 지도에 마커가 남아 있으면 못 타는 방을 탭하게 된다
+        PartyResult party = service.open(createPartyAt(host, 37.4979, 127.0276, 2));
+        service.join(party.id(), participant);   // 정원 충족 → COMPLETED + 자동 매칭
+
+        assertThat(service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06)).isEmpty();
+    }
+
+    private OpenPartyCommand createPartyAt(Long creatorId, double lat, double lng, int capacity) {
+        return new OpenPartyCommand(creatorId, lat, lng, 37.3948, 127.1112,
+                "강남역", "판교역", capacity, 100, 100);
+    }
+
     private OpenPartyCommand createParty(Long creatorId, int capacity) {
         return new OpenPartyCommand(creatorId, 37.4979, 127.0276, 37.3948, 127.1112,
                 "강남역", "판교역", capacity, 100, 100);

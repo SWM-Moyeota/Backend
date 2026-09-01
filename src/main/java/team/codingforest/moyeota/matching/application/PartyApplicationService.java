@@ -115,6 +115,13 @@ public class PartyApplicationService {
                 .orElseThrow(() -> new IllegalArgumentException("기사 정보를 찾을 수 없습니다."));
     }
 
+    @Transactional(readOnly = true)
+    public List<PartyResult> findActivePartiesWithin(double swLat, double swLng, double neLat, double neLng) {
+
+        return parties.findAllByStatusWithinBounds(PartyStatus.ACTIVE, swLat, neLat, swLng, neLng)
+                .stream().map(PartyResult::from)
+                .toList();
+    }
 
     // TODO 예외처리 해야함
     private Party getParty(Long partyId) {
