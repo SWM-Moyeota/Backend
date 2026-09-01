@@ -48,7 +48,7 @@ public class PartyController {
         return ResponseEntity.ok(PartyListResponse.from(service.findActiveParties()));
     }
 
-    @GetMapping("/matching/routes")
+    @PostMapping("/matching/routes")
     public ResponseEntity<RouteEstimate> preView(@RequestBody RouteRequest req) {
         return ResponseEntity.ok(service.previewRoute(req.departureLat(), req.departureLng(), req.destinationLat(), req.destinationLng()));
     }
