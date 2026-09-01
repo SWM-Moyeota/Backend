@@ -117,15 +117,20 @@ public class PartyApplicationService {
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.ASSIGNED_DRIVER_NOT_FOUND));
     }
 
+    // 위경도 폭 상한(약 50km) - 전국 줌아웃 수준의 사실상 전체 조회를 차단한다
+    private static final double MAX_BOUNDS_SPAN = 0.5;
+
     @Transactional(readOnly = true)
     public List<PartyResult> findActivePartiesWithin(double swLat, double swLng, double neLat, double neLng) {
+        if(swLat >= neLat || swLng >= neLng) throw new BusinessException(MatchingErrorCode.INVALID_MAP_BOUNDS);
+
+        if(neLat - swLat > MAX_BOUNDS_SPAN || neLng - swLng > MAX_BOUNDS_SPAN) throw new BusinessException(MatchingErrorCode.MAP_BOUNDS_TOO_LARGE);
 
         return parties.findAllByStatusWithinBounds(PartyStatus.ACTIVE, swLat, neLat, swLng, neLng)
                 .stream().map(PartyResult::from)
                 .toList();
     }
 
-    // TODO 예외처리 해야함
     private Party getParty(Long partyId) {
         return parties.findById(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));

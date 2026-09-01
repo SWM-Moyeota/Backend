@@ -267,6 +267,24 @@ class PartyApplicationServiceTest {
         assertThat(service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06)).isEmpty();
     }
 
+    @Test
+    void 뒤집힌_영역_좌표로는_조회할_수_없다() {
+        // 남서가 북동보다 크면 between 결과가 항상 빈 목록 - 프론트 좌표 순서 실수를 조용히 삼키지 않고 알려준다
+        assertThatThrownBy(() -> service.findActivePartiesWithin(37.51, 127.06, 37.49, 127.02))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.INVALID_MAP_BOUNDS);
+    }
+
+    @Test
+    void 너무_넓은_영역은_조회할_수_없다() {
+        // 전국 줌아웃 - 사실상 전체 조회가 되는 요청 차단, 프론트는 이 코드로 "지도를 확대해주세요" 분기
+        assertThatThrownBy(() -> service.findActivePartiesWithin(33.0, 126.0, 38.0, 130.0))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.MAP_BOUNDS_TOO_LARGE);
+    }
+
     private OpenPartyCommand createPartyAt(Long creatorId, double lat, double lng, int capacity) {
         return new OpenPartyCommand(creatorId, lat, lng, 37.3948, 127.1112,
                 "강남역", "판교역", capacity, 100, 100);
