@@ -15,4 +15,9 @@ public class UserJpa implements Users {
     public User save(User user) {
         return userRepository.save(UserEntity.from(user)).toDomain();
     }
+
+    @Override
+    public User findById(Long id) {
+        return userRepository.findById(id).map(UserEntity::toDomain).orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+    }
 }

@@ -31,6 +31,7 @@ public class LocalUserEntity {
         this.id = userId;
         this.loginId = loginId;
         this.password = password;
+        this.createdAt = Instant.now();
     }
 
     public static LocalUserEntity from(Long userId, String loginId, String password) {

@@ -8,7 +8,7 @@ import team.codingforest.moyeota.user.domain.UserProfiles;
 @Repository
 @RequiredArgsConstructor
 public class UserProfileJpa implements UserProfiles {
-    private UserProfileRepository userProfileRepository;
+    private final UserProfileRepository userProfileRepository;
 
     @Override
     public void save(UserProfile user) {

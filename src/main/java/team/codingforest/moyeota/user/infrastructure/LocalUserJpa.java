@@ -10,11 +10,10 @@ import team.codingforest.moyeota.user.domain.PasswordHasher;
 @RequiredArgsConstructor
 public class LocalUserJpa implements LocalUsers {
     private final LocalUserRepository localUserRepository;
-    private final PasswordHasher passwordHasher;
 
     @Override
-    public void register(Long userId, String loginId, String password) {
-        localUserRepository.save(LocalUserEntity.from(userId, loginId, passwordHasher.hash(password)));
+    public void register(Long userId, String loginId, String hashedPassword) {
+        localUserRepository.save(LocalUserEntity.from(userId, loginId, hashedPassword));
     }
 
     @Override
@@ -26,12 +25,5 @@ public class LocalUserJpa implements LocalUsers {
     @Override
     public boolean existsByLoginId(String loginId) {
         return localUserRepository.existsByLoginId(loginId);
-    }
-
-    @Override
-    public boolean validatePassword(String loginId, String rawPassword) {
-        LocalUser localUser = findByLoginId(loginId);
-
-        return passwordHasher.matches(rawPassword, localUser.getPassword());
     }
 }
