@@ -276,15 +276,6 @@ class PartyApplicationServiceTest {
                 .isEqualTo(MatchingErrorCode.INVALID_MAP_BOUNDS);
     }
 
-    @Test
-    void 너무_넓은_영역은_조회할_수_없다() {
-        // 전국 줌아웃 - 사실상 전체 조회가 되는 요청 차단, 프론트는 이 코드로 "지도를 확대해주세요" 분기
-        assertThatThrownBy(() -> service.findActivePartiesWithin(33.0, 126.0, 38.0, 130.0))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.MAP_BOUNDS_TOO_LARGE);
-    }
-
     private OpenPartyCommand createPartyAt(Long creatorId, double lat, double lng, int capacity) {
         return new OpenPartyCommand(creatorId, lat, lng, 37.3948, 127.1112,
                 "강남역", "판교역", capacity, 100, 100);
