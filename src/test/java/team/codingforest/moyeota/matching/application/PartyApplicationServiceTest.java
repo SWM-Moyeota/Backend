@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.matching.application;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
@@ -65,7 +67,9 @@ class PartyApplicationServiceTest {
     @Test
     void 존재하지_않는_방에_참여하면_예외가_발생한다() {
         assertThatThrownBy(() -> service.join(999L, participant))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_FOUND);
     }
 
     @Test
@@ -106,7 +110,9 @@ class PartyApplicationServiceTest {
         service.open(createParty(host, 3));
 
         assertThatThrownBy(() -> service.open(createParty(host, 3)))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
     }
 
     @Test
@@ -115,7 +121,9 @@ class PartyApplicationServiceTest {
         PartyResult party = service.open(createParty(anotherHost, 3));
 
         assertThatThrownBy(() -> service.join(party.id(), host))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
     }
 
     @Test
@@ -165,7 +173,9 @@ class PartyApplicationServiceTest {
         service.join(party.id(), participant);   // MATCHING 진입
 
         assertThatThrownBy(() -> service.open(createParty(participant, 2)))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
     }
 
     @Test
@@ -207,7 +217,9 @@ class PartyApplicationServiceTest {
         service.join(party.id(), participant);
 
         assertThatThrownBy(() -> service.getAssignDriver(party.id()))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.DRIVER_NOT_ASSIGNED);
     }
 
     @Test
@@ -253,6 +265,15 @@ class PartyApplicationServiceTest {
         service.join(party.id(), participant);   // 정원 충족 → COMPLETED + 자동 매칭
 
         assertThat(service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06)).isEmpty();
+    }
+
+    @Test
+    void 뒤집힌_영역_좌표로는_조회할_수_없다() {
+        // 남서가 북동보다 크면 between 결과가 항상 빈 목록 - 프론트 좌표 순서 실수를 조용히 삼키지 않고 알려준다
+        assertThatThrownBy(() -> service.findActivePartiesWithin(37.51, 127.06, 37.49, 127.02))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.INVALID_MAP_BOUNDS);
     }
 
     private OpenPartyCommand createPartyAt(Long creatorId, double lat, double lng, int capacity) {

@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.matching.application;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,9 +75,9 @@ class PartyAccessService implements PartyAccess {
     @Override
     public PartyChatSummary findChatSummary(Long partyId) {
         Party party = parties.findById(partyId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 방입니다."));
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
-        if(!party.isFull()) throw new IllegalArgumentException("매칭할 수 없습니다.");
+        if(!party.isFull()) throw new BusinessException(MatchingErrorCode.PARTY_NOT_COMPLETED);
 
         List<Long> members = party.getMembers().stream()
                 .map(PartyMember::getMemberId).toList();
@@ -91,7 +93,7 @@ class PartyAccessService implements PartyAccess {
     @Override
     public boolean hasMemberOnParty(Long memberId, Long partyId) {
         Party party = parties.findById(partyId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 방입니다."));
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
         for(PartyMember partyMember : party.getMembers()) {
             if(partyMember.getMemberId().equals(memberId)) return true;
@@ -109,7 +111,7 @@ class PartyAccessService implements PartyAccess {
 
     private Party getForUpdate(Long partyId) {
         return parties.findByIdForUpdate(partyId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 방입니다."));
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
     }
 
     private PartySummary toSummary(Party party) {
