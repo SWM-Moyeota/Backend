@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.report.application;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.report.domain.exception.ReportErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,7 +23,7 @@ public class ReportApplicationService {
      */
     @Transactional
     public Long report(Long reporterId, Long partyId, Double latitude, Double longitude) {
-        if(partyId == null || !partyAccess.isRidingMember(partyId, reporterId)) throw new IllegalArgumentException("운행 중에만 신고할 수 있습니다.");
+        if(partyId == null || !partyAccess.isRidingMember(partyId, reporterId)) throw new BusinessException(ReportErrorCode.REPORT_NOT_ALLOWED);
 
         Long driverId = null;
 
@@ -46,7 +48,7 @@ public class ReportApplicationService {
     @Transactional
     public void confirmCall(Long reportId, boolean called) {
         Report report = reports.findById(reportId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 신고입니다."));
+                .orElseThrow(() -> new BusinessException(ReportErrorCode.REPORT_NOT_FOUND));
 
         report.confirmCall(called);
         reports.save(report);

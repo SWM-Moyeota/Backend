@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.report.domain;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.report.domain.exception.ReportErrorCode;
 import lombok.Getter;
 import team.codingforest.moyeota.report.domain.enums.ReportStatus;
 
@@ -29,7 +31,7 @@ public class Report {
      */
     public static Report create(Long reporterId, Long partyId, Long driverId,
                                 Double reporterLatitude, Double reporterLongitude) {
-        if(reporterId == null) throw new IllegalArgumentException("신고자 정보가 없습니다.");
+        if(reporterId == null) throw new BusinessException(ReportErrorCode.REPORTER_REQUIRED);
 
         return new Report(null, reporterId, partyId, driverId,
                 reporterLatitude, reporterLongitude, ReportStatus.REPORTED);
@@ -39,7 +41,7 @@ public class Report {
      *  복귀 후 통화 여부 보강 - 미확정(REPORTED) 상태에서 한 번만 가능
      */
     public void confirmCall(boolean called) {
-        if(status != ReportStatus.REPORTED) throw new IllegalArgumentException("이미 통화 여부가 확정된 신고입니다.");
+        if(status != ReportStatus.REPORTED) throw new BusinessException(ReportErrorCode.REPORT_ALREADY_CONFIRMED);
 
         this.status = called ? ReportStatus.CALL_CONFIRMED : ReportStatus.CALL_NOT_MADE;
     }

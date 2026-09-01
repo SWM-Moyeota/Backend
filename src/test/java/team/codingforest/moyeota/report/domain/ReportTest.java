@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.report.domain;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.report.domain.exception.ReportErrorCode;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.report.domain.enums.ReportStatus;
 
@@ -22,7 +24,9 @@ class ReportTest {
     void 신고자_없이는_생성할_수_없다() {
         // 유일한 필수값 - 나머지는 위급상황에서 못 실을 수 있다
         assertThatThrownBy(() -> Report.create(null, 방번호, 기사, 37.4979, 127.0276))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ReportErrorCode.REPORTER_REQUIRED);
     }
 
     @Test
@@ -60,7 +64,9 @@ class ReportTest {
         report.confirmCall(true);
 
         assertThatThrownBy(() -> report.confirmCall(false))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ReportErrorCode.REPORT_ALREADY_CONFIRMED);
         assertThat(report.getStatus()).isEqualTo(ReportStatus.CALL_CONFIRMED);
     }
 
@@ -70,6 +76,8 @@ class ReportTest {
         report.confirmCall(false);
 
         assertThatThrownBy(() -> report.confirmCall(true))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ReportErrorCode.REPORT_ALREADY_CONFIRMED);
     }
 }
