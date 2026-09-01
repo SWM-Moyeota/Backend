@@ -29,7 +29,6 @@ public enum MatchingErrorCode implements ErrorCode {
 
     // 지도 영역 조회 검증
     INVALID_MAP_BOUNDS(HttpStatus.BAD_REQUEST, "영역 좌표가 올바르지 않습니다."),
-    MAP_BOUNDS_TOO_LARGE(HttpStatus.BAD_REQUEST, "조회 영역이 너무 넓습니다. 지도를 확대해주세요."),
 
     // 방 생성 입력 검증
     SAME_DEPARTURE_DESTINATION(HttpStatus.BAD_REQUEST, "출발지와 도착지가 같습니다."),
