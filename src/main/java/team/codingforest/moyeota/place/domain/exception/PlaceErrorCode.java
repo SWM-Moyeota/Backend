@@ -10,7 +10,10 @@ public enum PlaceErrorCode implements ErrorCode {
     FAVORITE_PLACE_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "자주가는 장소는 최대 10개까지만 등록할 수 있습니다."),
     INVALID_PLACE_NAME(HttpStatus.BAD_REQUEST, "장소 이름은 필수입니다."),
     SEARCH_QUERY_EMPTY(HttpStatus.BAD_REQUEST, "검색어를 입력해주세요."),
-    PLACE_SEARCH_FAILED(HttpStatus.BAD_GATEWAY, "장소 검색에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    PLACE_SEARCH_FAILED(HttpStatus.BAD_GATEWAY, "장소 검색에 실패했습니다. 잠시 후 다시 시도해주세요."),
+    INVALID_COORDINATES(HttpStatus.BAD_REQUEST, "좌표가 올바르지 않습니다."),
+    ADDRESS_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 좌표의 주소를 찾을 수 없습니다."),
+    REVERSE_GEOCODE_FAILED(HttpStatus.BAD_GATEWAY, "주소 조회에 실패했습니다. 잠시 후 다시 시도해주세요.");
 
     private final HttpStatus httpStatus;
     private final String message;
