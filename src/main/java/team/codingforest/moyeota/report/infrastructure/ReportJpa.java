@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.report.infrastructure;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.report.domain.exception.ReportErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.report.domain.Report;
@@ -16,7 +18,7 @@ public class ReportJpa implements Reports {
     public Report save(Report report) {
         if(report.getId() != null) {
             ReportEntity entity = delegate.findById(report.getId())
-                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 신고입니다."));
+                    .orElseThrow(() -> new BusinessException(ReportErrorCode.REPORT_NOT_FOUND));
 
             entity.update(report);
             delegate.save(entity);

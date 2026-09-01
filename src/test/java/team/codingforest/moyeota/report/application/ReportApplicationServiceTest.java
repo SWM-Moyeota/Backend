@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.report.application;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.report.domain.exception.ReportErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.matching.api.MatchingTarget;
@@ -80,8 +82,9 @@ class ReportApplicationServiceTest {
         // 차단 정책(A): 신고 버튼은 운행 화면에만 있으므로 그 외 호출은 비정상
         // 주의: 현재 isRiding()은 IN_RIDE만 - 픽업 대기(DRIVER_ASSIGNED) 중 신고도 차단됨 (알려진 사각지대)
         assertThatThrownBy(() -> service.report(신고자, 방번호, null, null))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("운행 중에만 신고할 수 있습니다.");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ReportErrorCode.REPORT_NOT_ALLOWED);
         assertThat(reports.count()).isZero();
     }
 
@@ -91,7 +94,9 @@ class ReportApplicationServiceTest {
         운행중();
 
         assertThatThrownBy(() -> service.report(신고자, 999L, null, null))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ReportErrorCode.REPORT_NOT_ALLOWED);
         assertThat(reports.count()).isZero();
     }
 
@@ -101,7 +106,9 @@ class ReportApplicationServiceTest {
         운행중();
 
         assertThatThrownBy(() -> service.report(신고자, null, null, null))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ReportErrorCode.REPORT_NOT_ALLOWED);
     }
 
     @Test
@@ -117,7 +124,9 @@ class ReportApplicationServiceTest {
     @Test
     void 없는_신고는_확정할_수_없다() {
         assertThatThrownBy(() -> service.confirmCall(999L, true))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ReportErrorCode.REPORT_NOT_FOUND);
     }
 
     @Test
@@ -127,7 +136,9 @@ class ReportApplicationServiceTest {
         service.confirmCall(reportId, true);
 
         assertThatThrownBy(() -> service.confirmCall(reportId, false))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ReportErrorCode.REPORT_ALREADY_CONFIRMED);
         assertThat(reports.findById(reportId).orElseThrow().getStatus()).isEqualTo(ReportStatus.CALL_CONFIRMED);
     }
 

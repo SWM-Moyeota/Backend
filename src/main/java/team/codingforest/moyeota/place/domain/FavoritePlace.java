@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.place.domain;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.place.domain.exception.PlaceErrorCode;
 import lombok.Getter;
 
 import java.time.Instant;
@@ -27,6 +29,8 @@ public class FavoritePlace {
     }
 
     public static FavoritePlace from(Long userId, String placeName, String roadName, Double latitude, Double longitude, Integer placeSequence) {
+        if(placeName == null || placeName.isBlank()) throw new BusinessException(PlaceErrorCode.INVALID_PLACE_NAME);
+
         return new FavoritePlace(userId, placeName, roadName, latitude, longitude, placeSequence, Instant.now(), Instant.now());
     }
 

@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.place.application;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.place.domain.exception.PlaceErrorCode;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.place.application.dto.PlaceSearchListResponse;
 import team.codingforest.moyeota.place.application.dto.PlaceSearchResponse;
@@ -25,6 +27,20 @@ class PlaceSearchApplicationServiceTest {
         assertThat(result.list())
                 .extracting(PlaceSearchResponse::name)
                 .containsExactly("강남역 2호선", "교보문고 강남점");
+    }
+
+    @Test
+    void 빈_검색어로는_검색할_수_없다() {
+        // 검색창이 비어있는데 호출되면 카카오 API 호출량만 낭비된다 - 외부 호출 전에 차단
+        PlaceSearchApplicationService service =
+                new PlaceSearchApplicationService(query -> { throw new AssertionError("외부 검색이 호출되면 안 된다"); });
+
+        assertThatThrownBy(() -> service.search("   "))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(PlaceErrorCode.SEARCH_QUERY_EMPTY);
+        assertThatThrownBy(() -> service.search(null))
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test
