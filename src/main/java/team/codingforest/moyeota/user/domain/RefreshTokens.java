@@ -1,9 +1,6 @@
-package team.codingforest.moyeota.user.domain.enums;
-
-import team.codingforest.moyeota.user.domain.RefreshToken;
+package team.codingforest.moyeota.user.domain;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 

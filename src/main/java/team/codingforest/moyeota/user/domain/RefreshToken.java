@@ -28,6 +28,10 @@ public class RefreshToken {
         return new RefreshToken(jti, userId, expiresAt, cancelledAt, createdAt, updatedAt);
     }
 
+    public static RefreshToken create(UUID jti, Long userId, Instant expiresAt, Instant now) {
+        return new RefreshToken(jti, userId, expiresAt, null, now, now);
+    }
+
     public boolean isCancelled() {
         return cancelledAt != null;
     }
