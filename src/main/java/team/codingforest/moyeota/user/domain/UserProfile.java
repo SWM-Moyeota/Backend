@@ -1,6 +1,5 @@
 package team.codingforest.moyeota.user.domain;
 
-import lombok.Generated;
 import lombok.Getter;
 import team.codingforest.moyeota.user.domain.enums.Gender;
 

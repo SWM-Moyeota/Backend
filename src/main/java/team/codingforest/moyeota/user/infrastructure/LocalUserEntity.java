@@ -1,10 +1,11 @@
 package team.codingforest.moyeota.user.infrastructure;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import team.codingforest.moyeota.common.BaseTimeEntity;
 import team.codingforest.moyeota.user.domain.LocalUser;
 
 import java.time.Instant;
@@ -16,7 +17,7 @@ public class LocalUserEntity {
     @Id
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false,  unique = true)
     private String loginId;
 
     @Column(nullable = false)

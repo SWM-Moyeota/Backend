@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 import team.codingforest.moyeota.user.application.dto.TokenClaims;
 import team.codingforest.moyeota.user.application.dto.TokenPair;
 import team.codingforest.moyeota.user.domain.enums.TokenType;
+import team.codingforest.moyeota.user.domain.exception.UserErrorCode;
+import team.codingforest.moyeota.user.domain.exception.UserException;
 
 import javax.crypto.SecretKey;
 import java.time.Duration;
@@ -24,14 +26,14 @@ public class JwtProvider {
 
     private final SecretKey key;
     private final JwtParser parser;
-    private final Map<TokenType, Duration> validities;
+    private final Map<TokenType, Duration> validates;
 
     public JwtProvider(@Value("${jwt.secret}") String secret,
                        @Value("${jwt.access-token-validity}") Duration accessValidity,
                        @Value("${jwt.refresh-token-validity}") Duration refreshValidity) {
         this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
         this.parser = Jwts.parser().verifyWith(key).build();
-        this.validities = new EnumMap<>(Map.of(
+        this.validates = new EnumMap<>(Map.of(
                 TokenType.ACCESS, accessValidity,
                 TokenType.REFRESH, refreshValidity));
     }
@@ -40,7 +42,7 @@ public class JwtProvider {
         return new TokenPair(
                 build(publicId, TokenType.ACCESS, now, null),
                 build(publicId, TokenType.REFRESH, now, jti),
-                now.plus(validities.get(TokenType.REFRESH))
+                now.plus(validates.get(TokenType.REFRESH))
         );
     }
 
@@ -49,7 +51,7 @@ public class JwtProvider {
                 .subject(publicId.toString())
                 .claim(TOKEN_TYPE_CLAIM, type.name())
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plus(validities.get(type))))
+                .expiration(Date.from(now.plus(validates.get(type))))
                 .signWith(key);
 
         if (jti != null) {
@@ -67,7 +69,7 @@ public class JwtProvider {
         TokenClaims claims = parse(token, TokenType.REFRESH);
 
         if (claims.jti() == null) {
-            throw new IllegalArgumentException("Invalid token");
+            throw new UserException(UserErrorCode.TOKEN_INVALID);
         }
 
         return claims;
@@ -78,7 +80,7 @@ public class JwtProvider {
             Claims claims = parser.parseSignedClaims(token).getPayload();
 
             if (!expectedType.name().equals(claims.get(TOKEN_TYPE_CLAIM))) {
-                throw new IllegalArgumentException("Invalid token type");
+                throw new UserException(UserErrorCode.TOKEN_INVALID);
             }
 
             String jti = claims.getId();
@@ -89,9 +91,9 @@ public class JwtProvider {
             );
 
         } catch (ExpiredJwtException e) {
-            throw new IllegalArgumentException("Expired JWT Token");
+            throw new UserException(UserErrorCode.TOKEN_EXPIRED);
         } catch (JwtException | IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid JWT Token");
+            throw new UserException(UserErrorCode.TOKEN_INVALID);
         }
     }
 }

@@ -2,9 +2,15 @@ package team.codingforest.moyeota.user.application;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import team.codingforest.moyeota.user.application.dto.*;
+import org.springframework.transaction.annotation.Transactional;
+import team.codingforest.moyeota.user.application.dto.AuthenticatedUser;
+import team.codingforest.moyeota.user.application.dto.UserLoginCommand;
+import team.codingforest.moyeota.user.application.dto.UserRegisterCommand;
+import team.codingforest.moyeota.user.application.dto.UserResponse;
 import team.codingforest.moyeota.user.domain.*;
 import team.codingforest.moyeota.user.domain.enums.LoginType;
+import team.codingforest.moyeota.user.domain.exception.UserErrorCode;
+import team.codingforest.moyeota.user.domain.exception.UserException;
 
 @Service
 @RequiredArgsConstructor
@@ -13,13 +19,15 @@ public class LocalUserService {
     private final LocalUsers localUsers;
     private final UserProfiles userProfiles;
     private final PasswordHasher passwordHasher;
+    private final IdGenerator idGenerator;
 
+    @Transactional // users / local_user / profile 3개 테이블 원자 저장
     public UserResponse register(UserRegisterCommand command) {
         if(localUsers.existsByLoginId(command.loginId())) {
-            throw new IllegalArgumentException("이미 존재하는 아이디입니다.");
+            throw new UserException(UserErrorCode.LOGIN_ID_DUPLICATED);
         }
 
-        User user = users.save(User.from(LoginType.LOCAL));
+        User user = users.save(User.from(idGenerator.generate(), LoginType.LOCAL));
 
         localUsers.register(user.getId(), command.loginId(), passwordHasher.hash(command.password()));
 
@@ -33,7 +41,7 @@ public class LocalUserService {
     public AuthenticatedUser authenticate(UserLoginCommand command) {
         LocalUser localUser = localUsers.findByLoginId(command.loginId());
         if (!passwordHasher.matches(command.password(), localUser.getPassword())) {
-            throw new IllegalArgumentException("아이디나 비밀번호가 다릅니다.");
+            throw new UserException(UserErrorCode.LOGIN_FAILED);
         }
 
         User user = users.findById(localUser.getUserId());

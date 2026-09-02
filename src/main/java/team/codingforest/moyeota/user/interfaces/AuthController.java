@@ -23,12 +23,12 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public RefreshTokenResponse login(@Valid @RequestBody UserLoginRequest request) {
+    public TokenResponse login(@Valid @RequestBody UserLoginRequest request) {
         return authService.login(request.toCommand());
     }
 
     @PostMapping("/reissue")
-    public RefreshTokenResponse reissue(@Valid @RequestBody TokenRequest request) {
+    public TokenResponse reissue(@Valid @RequestBody TokenRequest request) {
         return authService.reissue(request.refreshToken());
     }
 

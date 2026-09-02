@@ -1,6 +1,5 @@
 package team.codingforest.moyeota.user.domain;
 
-import jakarta.persistence.criteria.CriteriaBuilder;
 import lombok.Getter;
 
 import java.time.Instant;

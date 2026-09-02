@@ -2,6 +2,8 @@ package team.codingforest.moyeota.user.infrastructure;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.user.domain.UserProfile;
@@ -28,6 +30,7 @@ public class UserProfileEntity {
     @Column(nullable = false)
     private String phoneNumber;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Gender gender;
 
