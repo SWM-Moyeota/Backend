@@ -1,16 +1,15 @@
 package team.codingforest.moyeota.user.infrastructure;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.JwtParser;
-import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import team.codingforest.moyeota.user.application.dto.TokenClaims;
+import team.codingforest.moyeota.user.application.dto.TokenPair;
 import team.codingforest.moyeota.user.domain.enums.TokenType;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
@@ -20,6 +19,9 @@ import java.util.UUID;
 
 @Component
 public class JwtProvider {
+
+    private static final String TOKEN_TYPE_CLAIM = "tokenType";
+
     private final SecretKey key;
     private final JwtParser parser;
     private final Map<TokenType, Duration> validities;
@@ -27,37 +29,69 @@ public class JwtProvider {
     public JwtProvider(@Value("${jwt.secret}") String secret,
                        @Value("${jwt.access-token-validity}") Duration accessValidity,
                        @Value("${jwt.refresh-token-validity}") Duration refreshValidity) {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
         this.parser = Jwts.parser().verifyWith(key).build();
-        this.validities = new EnumMap<>(Map.of(TokenType.ACCESS, accessValidity, TokenType.REFRESH, refreshValidity));
+        this.validities = new EnumMap<>(Map.of(
+                TokenType.ACCESS, accessValidity,
+                TokenType.REFRESH, refreshValidity));
     }
 
-    public String issue(UUID publicId, TokenType type) {
-        Instant now = Instant.now();
+    public TokenPair issuePair(UUID publicId, UUID jti, Instant now) {
+        return new TokenPair(
+                build(publicId, TokenType.ACCESS, now, null),
+                build(publicId, TokenType.REFRESH, now, jti),
+                now.plus(validities.get(TokenType.REFRESH))
+        );
+    }
 
-        return Jwts.builder()
+    private String build(UUID publicId, TokenType type, Instant now, UUID jti) {
+        JwtBuilder builder = Jwts.builder()
                 .subject(publicId.toString())
-                .claim("typ", type.name())
+                .claim(TOKEN_TYPE_CLAIM, type.name())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(validities.get(type))))
-                .signWith(key)
-                .compact();
+                .signWith(key);
+
+        if (jti != null) {
+            builder.id(jti.toString());
+        }
+
+        return builder.compact();
     }
 
-    public UUID parse(String token, TokenType expectedType) {
-        Claims claims = parser.parseSignedClaims(token).getPayload();
-
-        if(!expectedType.name().equals(claims.get("typ"))) throw new JwtException("토큰 용도가 다릅니다.");
-
-        return UUID.fromString(claims.getSubject());
+    public UUID parseAccess(String token) {
+        return parse(token, TokenType.ACCESS).publicId();
     }
 
-    public boolean isValid(String token, TokenType expectedType) {
+    public TokenClaims parseRefresh(String token) {
+        TokenClaims claims = parse(token, TokenType.REFRESH);
+
+        if (claims.jti() == null) {
+            throw new IllegalArgumentException("Invalid token");
+        }
+
+        return claims;
+    }
+
+    private TokenClaims parse(String token, TokenType expectedType) {
         try {
-            parse(token, expectedType);
-            return true;
+            Claims claims = parser.parseSignedClaims(token).getPayload();
+
+            if (!expectedType.name().equals(claims.get(TOKEN_TYPE_CLAIM))) {
+                throw new IllegalArgumentException("Invalid token type");
+            }
+
+            String jti = claims.getId();
+
+            return new TokenClaims(
+                    UUID.fromString(claims.getSubject()),
+                    jti == null ? null : UUID.fromString(jti)
+            );
+
+        } catch (ExpiredJwtException e) {
+            throw new IllegalArgumentException("Expired JWT Token");
         } catch (JwtException | IllegalArgumentException e) {
-            return false;
+            throw new IllegalArgumentException("Invalid JWT Token");
         }
     }
 }
