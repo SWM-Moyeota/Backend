@@ -3,10 +3,7 @@ package team.codingforest.moyeota.user.application;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import team.codingforest.moyeota.user.application.dto.AuthenticatedUser;
-import team.codingforest.moyeota.user.application.dto.UserLoginCommand;
-import team.codingforest.moyeota.user.application.dto.UserRegisterCommand;
-import team.codingforest.moyeota.user.application.dto.UserResponse;
+import team.codingforest.moyeota.user.application.dto.*;
 import team.codingforest.moyeota.user.domain.*;
 import team.codingforest.moyeota.user.domain.enums.LoginType;
 import team.codingforest.moyeota.user.domain.exception.UserErrorCode;
@@ -35,7 +32,7 @@ public class LocalUserService {
 
         userProfiles.save(userProfile);
 
-        return new UserResponse(user.getPublicId());
+        return new UserResponse(user.getPublicId(), user.getNickname());
     }
 
     public AuthenticatedUser authenticate(UserLoginCommand command) {
@@ -47,5 +44,10 @@ public class LocalUserService {
         User user = users.findById(localUser.getUserId());
 
         return new AuthenticatedUser(user.getId(), user.getPublicId());
+    }
+
+    public UserResponse getProfile(Long userId) {
+        User user = users.findById(userId);
+        return new UserResponse(user.getPublicId(), user.getNickname());
     }
 }

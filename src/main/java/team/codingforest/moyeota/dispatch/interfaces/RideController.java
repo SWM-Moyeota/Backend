@@ -8,6 +8,7 @@ import team.codingforest.moyeota.dispatch.application.RideService;
 import team.codingforest.moyeota.dispatch.application.dto.CompleteRideRequest;
 import team.codingforest.moyeota.dispatch.application.dto.DriverLocationResponse;
 import team.codingforest.moyeota.dispatch.domain.DriverLocations;
+import team.codingforest.moyeota.user.api.CurrentUser;
 
 // TODO 인증 도입 후 driverId는 토큰에서 추출
 @RestController
@@ -38,8 +39,8 @@ public class RideController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/rides/{partyId}/{memberId}")
-    public ResponseEntity<DriverLocationResponse> getLocation(@PathVariable Long partyId, @PathVariable Long memberId) {
+    @GetMapping("/rides/{partyId}")
+    public ResponseEntity<DriverLocationResponse> getLocation(@PathVariable Long partyId, @CurrentUser Long memberId) {
         return ResponseEntity.ok(rideService.driverLocation(partyId, memberId));
     }
 }
