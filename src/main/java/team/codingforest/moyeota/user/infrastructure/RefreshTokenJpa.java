@@ -5,7 +5,7 @@ import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.user.domain.RefreshToken;
 import team.codingforest.moyeota.user.domain.enums.RefreshTokens;
 
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -20,9 +20,7 @@ public class RefreshTokenJpa implements RefreshTokens {
     }
 
     @Override
-    public List<RefreshToken> findByPublicId(UUID publicId) {
-        return delegate.findByPublicId(publicId)
-                .stream().map(RefreshTokenEntity::toDomain)
-                .toList();
+    public Optional<RefreshToken> findByJti(UUID jti) {
+        return delegate.findByJti(jti).map(RefreshTokenEntity::toDomain);
     }
 }

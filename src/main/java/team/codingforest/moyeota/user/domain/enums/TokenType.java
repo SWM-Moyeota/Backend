@@ -1,5 +1,5 @@
 package team.codingforest.moyeota.user.domain.enums;
 
-public enum Token {
+public enum TokenType {
     ACCESS, REFRESH
 }

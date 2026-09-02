@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.user.domain;
 
+import jakarta.persistence.criteria.CriteriaBuilder;
 import lombok.Getter;
 
 import java.time.Instant;
@@ -7,28 +8,31 @@ import java.util.UUID;
 
 @Getter
 public class RefreshToken {
-    private final Long id;
+    private final UUID jti;
     private final Long userId;
-    private final UUID publicId;
-    private final String refreshToken;
-    private final Instant expiredAt;
+    private final Instant expiresAt;
+    private final Instant cancelledAt;
     private final Instant createdAt;
     private final Instant updatedAt;
 
-    private RefreshToken(Long id, Long userId, UUID publicId, String refreshToken, Instant expiredAt, Instant createdAt, Instant updatedAt) {
-        this.id = id;
+    private RefreshToken(UUID jti, Long userId, Instant expiresAt, Instant cancelledAt, Instant createdAt, Instant updatedAt) {
+        this.jti = jti;
         this.userId = userId;
-        this.publicId = publicId;
-        this.refreshToken = refreshToken;
+        this.expiresAt = expiresAt;
+        this.cancelledAt = cancelledAt;
         this.createdAt = createdAt;
-        this.expiredAt = expiredAt;
         this.updatedAt = updatedAt;
     }
 
-    public static RefreshToken from(Long id, Long userId, UUID publicId, String refreshToken, Instant expiredAt, Instant createdAt, Instant updatedAt) {
-        return new RefreshToken(id, userId, publicId, refreshToken, expiredAt, createdAt, updatedAt);
+    public static RefreshToken of(UUID jti, Long userId, Instant expiresAt, Instant cancelledAt, Instant createdAt, Instant updatedAt) {
+        return new RefreshToken(jti, userId, expiresAt, cancelledAt, createdAt, updatedAt);
     }
 
-    public static RefreshToken create(Long userId, UUID publicId, String refreshToken, Instant expiredAt) {
-        return new RefreshToken(null, userId, publicId, refreshToken, expiredAt, Instant.now(), Instant.now()); }
+    public boolean isCancelled() {
+        return cancelledAt != null;
+    }
+
+    public boolean isUsable(Instant now) {
+        return !isCancelled() && expiresAt.isAfter(now);
+    }
 }
