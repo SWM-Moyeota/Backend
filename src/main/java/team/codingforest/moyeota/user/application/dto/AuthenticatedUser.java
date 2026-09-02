@@ -1,4 +1,9 @@
 package team.codingforest.moyeota.user.application.dto;
 
-public class AuthenticatedUser {
+import java.util.UUID;
+
+public record AuthenticatedUser(
+        Long userId,
+        UUID publicId
+) {
 }

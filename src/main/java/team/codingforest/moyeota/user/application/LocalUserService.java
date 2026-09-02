@@ -2,10 +2,7 @@ package team.codingforest.moyeota.user.application;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import team.codingforest.moyeota.user.application.dto.UserRegisterCommand;
-import team.codingforest.moyeota.user.application.dto.UserRegisterRequest;
-import team.codingforest.moyeota.user.application.dto.UserLoginCommand;
-import team.codingforest.moyeota.user.application.dto.UserResponse;
+import team.codingforest.moyeota.user.application.dto.*;
 import team.codingforest.moyeota.user.domain.*;
 import team.codingforest.moyeota.user.domain.enums.LoginType;
 
@@ -33,7 +30,7 @@ public class LocalUserService {
         return new UserResponse(user.getPublicId());
     }
 
-    public UserResponse login(UserLoginCommand command) {
+    public AuthenticatedUser authenticate(UserLoginCommand command) {
         LocalUser localUser = localUsers.findByLoginId(command.loginId());
         if (!passwordHasher.matches(command.password(), localUser.getPassword())) {
             throw new IllegalArgumentException("아이디나 비밀번호가 다릅니다.");
@@ -41,6 +38,6 @@ public class LocalUserService {
 
         User user = users.findById(localUser.getUserId());
 
-        return new UserResponse(user.getPublicId());
+        return new AuthenticatedUser(user.getId(), user.getPublicId());
     }
 }

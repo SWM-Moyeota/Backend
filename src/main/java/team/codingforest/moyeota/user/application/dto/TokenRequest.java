@@ -1,4 +1,7 @@
 package team.codingforest.moyeota.user.application.dto;
 
-public record TokenRequest() {
-}
+import jakarta.validation.constraints.NotBlank;
+
+public record TokenRequest(
+        @NotBlank String refreshToken
+) {}
