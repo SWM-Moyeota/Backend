@@ -41,7 +41,7 @@ public class MatchingChatRoomService {
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_PARTY_NOT_FOUND));
 
         if (!party.needsChatRoom()) {
-            log.info("파티원이 1명이라 채팅방을 만들지 않음 partyId={}", partyId);
+            log.info("파티원이 부족해 채팅방을 만들지 않음 partyId={} userCount={}", partyId, party.userIds().size());
             throw new ChatException(ChatErrorCode.CHAT_ROOM_NOT_REQUIRED);
         }
 
