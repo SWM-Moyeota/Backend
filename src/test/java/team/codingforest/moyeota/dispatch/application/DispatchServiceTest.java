@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.dispatch.application;
 
+import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.common.exception.BusinessException;
@@ -252,8 +253,9 @@ class DispatchServiceTest {
         partyAccess.assignDriver(방번호, 1L);
 
         assertThatThrownBy(() -> service.acceptCall(방번호, 2L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("이미 기사가 배정된 방입니다.");
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
         assertThat(partyAccess.assignedDriverId).isEqualTo(1L);
     }
 

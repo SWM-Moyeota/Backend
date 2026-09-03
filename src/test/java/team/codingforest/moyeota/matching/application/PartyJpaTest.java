@@ -40,6 +40,16 @@ class PartyJpaTest implements Parties {
     }
 
     @Override
+    public List<Party> findAllByStatusWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng) {
+        // 실제 쿼리(between: 양끝 포함)와 같은 규칙 - 출발지 좌표 기준
+        return store.values().stream()
+                .filter(p -> p.getStatus() == status)
+                .filter(p -> p.getDepartureLocation().latitude() >= swLat && p.getDepartureLocation().latitude() <= neLat)
+                .filter(p -> p.getDepartureLocation().longitude() >= swLng && p.getDepartureLocation().longitude() <= neLng)
+                .toList();
+    }
+
+    @Override
     public boolean existsOngoingByMemberId(Long memberId) {
         return store.values().stream()
                 .anyMatch(p -> p.getStatus().isOngoing() && p.hasMember(memberId));

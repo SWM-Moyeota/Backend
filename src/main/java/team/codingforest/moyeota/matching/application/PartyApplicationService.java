@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.matching.application;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -109,22 +111,29 @@ public class PartyApplicationService {
         Party party = getParty(partyId);
 
         Long driverId = party.getTaxiDriverId();
-        if(driverId == null) throw new IllegalArgumentException("아직 기사가 배정되지 않았습니다.");
+        if(driverId == null) throw new BusinessException(MatchingErrorCode.DRIVER_NOT_ASSIGNED);
 
         return driverAccess.findSummary(driverId)
-                .orElseThrow(() -> new IllegalArgumentException("기사 정보를 찾을 수 없습니다."));
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.ASSIGNED_DRIVER_NOT_FOUND));
     }
 
+    @Transactional(readOnly = true)
+    public List<PartyResult> findActivePartiesWithin(double swLat, double swLng, double neLat, double neLng) {
+        if(swLat >= neLat || swLng >= neLng) throw new BusinessException(MatchingErrorCode.INVALID_MAP_BOUNDS);
 
-    // TODO 예외처리 해야함
+        return parties.findAllByStatusWithinBounds(PartyStatus.ACTIVE, swLat, neLat, swLng, neLng)
+                .stream().map(PartyResult::from)
+                .toList();
+    }
+
     private Party getParty(Long partyId) {
         return parties.findById(partyId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 방이 없음"));
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
     }
 
     private void validateNotInOngoingParty(Long memberId) {
         if(parties.existsOngoingByMemberId(memberId)) {
-            throw new IllegalArgumentException("이미 참여 중인 방이 있습니다. memberId=" + memberId);
+            throw new BusinessException(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
         }
     }
 

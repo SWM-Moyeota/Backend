@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.matching.application;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
@@ -65,7 +67,9 @@ class PartyApplicationServiceTest {
     @Test
     void 존재하지_않는_방에_참여하면_예외가_발생한다() {
         assertThatThrownBy(() -> service.join(999L, participant))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_FOUND);
     }
 
     @Test
@@ -106,7 +110,9 @@ class PartyApplicationServiceTest {
         service.open(createParty(host, 3));
 
         assertThatThrownBy(() -> service.open(createParty(host, 3)))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
     }
 
     @Test
@@ -115,7 +121,9 @@ class PartyApplicationServiceTest {
         PartyResult party = service.open(createParty(anotherHost, 3));
 
         assertThatThrownBy(() -> service.join(party.id(), host))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
     }
 
     @Test
@@ -165,7 +173,9 @@ class PartyApplicationServiceTest {
         service.join(party.id(), participant);   // MATCHING 진입
 
         assertThatThrownBy(() -> service.open(createParty(participant, 2)))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
     }
 
     @Test
@@ -207,7 +217,9 @@ class PartyApplicationServiceTest {
         service.join(party.id(), participant);
 
         assertThatThrownBy(() -> service.getAssignDriver(party.id()))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.DRIVER_NOT_ASSIGNED);
     }
 
     @Test
@@ -223,6 +235,50 @@ class PartyApplicationServiceTest {
         DriverSummary summary = service.getAssignDriver(party.id());
 
         assertThat(summary.plateNumber()).isEqualTo("12가3456");
+    }
+
+    // ───────────────────────── 지도 영역(뷰포트) 조회 ─────────────────────────
+
+    @Test
+    void 영역_안에서_출발하는_방만_조회된다() {
+        service.open(createPartyAt(host, 37.4979, 127.0276, 3));        // 강남역 - 영역 안
+        service.open(createPartyAt(anotherHost, 37.5665, 126.9780, 3)); // 시청 - 영역 밖
+
+        List<PartyResult> result = service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).departure()).isEqualTo("강남역");
+    }
+
+    @Test
+    void 영역_모서리에_정확히_걸친_방도_조회된다() {
+        // between은 양끝 포함 - 경계 좌표가 빠지면 화면 가장자리의 마커가 사라진다
+        service.open(createPartyAt(host, 37.49, 127.02, 3));
+
+        assertThat(service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06)).hasSize(1);
+    }
+
+    @Test
+    void 영역_안이어도_모집이_끝난_방은_조회되지_않는다() {
+        // 정원이 차서 매칭으로 넘어간 방 - 지도에 마커가 남아 있으면 못 타는 방을 탭하게 된다
+        PartyResult party = service.open(createPartyAt(host, 37.4979, 127.0276, 2));
+        service.join(party.id(), participant);   // 정원 충족 → COMPLETED + 자동 매칭
+
+        assertThat(service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06)).isEmpty();
+    }
+
+    @Test
+    void 뒤집힌_영역_좌표로는_조회할_수_없다() {
+        // 남서가 북동보다 크면 between 결과가 항상 빈 목록 - 프론트 좌표 순서 실수를 조용히 삼키지 않고 알려준다
+        assertThatThrownBy(() -> service.findActivePartiesWithin(37.51, 127.06, 37.49, 127.02))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.INVALID_MAP_BOUNDS);
+    }
+
+    private OpenPartyCommand createPartyAt(Long creatorId, double lat, double lng, int capacity) {
+        return new OpenPartyCommand(creatorId, lat, lng, 37.3948, 127.1112,
+                "강남역", "판교역", capacity, 100, 100);
     }
 
     private OpenPartyCommand createParty(Long creatorId, int capacity) {

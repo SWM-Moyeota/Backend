@@ -48,7 +48,7 @@ public class PartyController {
         return ResponseEntity.ok(PartyListResponse.from(service.findActiveParties()));
     }
 
-    @GetMapping("/matching/routes")
+    @PostMapping("/matching/routes")
     public ResponseEntity<RouteEstimate> preView(@RequestBody RouteRequest req) {
         return ResponseEntity.ok(service.previewRoute(req.departureLat(), req.departureLng(), req.destinationLat(), req.destinationLng()));
     }
@@ -56,5 +56,14 @@ public class PartyController {
     @GetMapping("/matching/rooms/{partyId}/driver")
     public ResponseEntity<DriverSummary> findDriverSummary(@PathVariable Long partyId) {
         return ResponseEntity.ok(service.getAssignDriver(partyId));
+    }
+
+    // 같은 경로의 전체 목록 조회와 쿼리 파라미터 유무로 구분한다 (params 없이 두 개면 Ambiguous mapping으로 기동 실패)
+    @GetMapping(value = "/matching/rooms", params = {"swLat", "swLng", "neLat", "neLng"})
+    public ResponseEntity<PartyListResponse> listWithin(@RequestParam Double swLat,
+                                                        @RequestParam Double swLng,
+                                                        @RequestParam Double neLat,
+                                                        @RequestParam Double neLng) {
+        return ResponseEntity.ok(PartyListResponse.from(service.findActivePartiesWithin(swLat, swLng, neLat, neLng)));
     }
 }
