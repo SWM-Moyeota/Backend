@@ -27,7 +27,7 @@ public class UserProfileEntity {
     @Column(nullable = false)
     private Instant birthDate;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String phoneNumber;
 
     @Enumerated(EnumType.STRING)

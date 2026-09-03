@@ -7,38 +7,38 @@ import org.springframework.web.bind.annotation.*;
 import team.codingforest.moyeota.dispatch.application.RideService;
 import team.codingforest.moyeota.dispatch.application.dto.CompleteRideRequest;
 import team.codingforest.moyeota.dispatch.application.dto.DriverLocationResponse;
-import team.codingforest.moyeota.dispatch.domain.DriverLocations;
+import team.codingforest.moyeota.driver.api.CurrentDriver;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
-// TODO 인증 도입 후 driverId는 토큰에서 추출
 @RestController
 @RequestMapping("/api/v1/dispatch")
 @RequiredArgsConstructor
 public class RideController {
     private final RideService rideService;
 
-    @PostMapping("/rides/{partyId}/arrive/{driverId}")
-    public ResponseEntity<Void> arrive(@PathVariable Long partyId, @PathVariable Long driverId) {
+    @PostMapping("/rides/{partyId}/arrive")
+    public ResponseEntity<Void> arrive(@PathVariable Long partyId, @CurrentDriver Long driverId) {
         rideService.arrive(partyId, driverId);
 
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/rides/{partyId}/board/{driverId}")
-    public ResponseEntity<Void> board(@PathVariable Long partyId, @PathVariable Long driverId) {
+    @PostMapping("/rides/{partyId}/board")
+    public ResponseEntity<Void> board(@PathVariable Long partyId, @CurrentDriver Long driverId) {
         rideService.board(partyId, driverId);
 
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/rides/{partyId}/complete/{driverId}")
-    public ResponseEntity<Void> complete(@PathVariable Long partyId, @PathVariable Long driverId,
+    @PostMapping("/rides/{partyId}/complete")
+    public ResponseEntity<Void> complete(@PathVariable Long partyId, @CurrentDriver Long driverId,
                                          @Valid @RequestBody CompleteRideRequest request) {
         rideService.complete(partyId, driverId, request.fare());
 
         return ResponseEntity.noContent().build();
     }
 
+    /** 승객이 배정 기사의 현재 위치를 폴링 조회 - 방 멤버만 */
     @GetMapping("/rides/{partyId}")
     public ResponseEntity<DriverLocationResponse> getLocation(@PathVariable Long partyId, @CurrentUser Long memberId) {
         return ResponseEntity.ok(rideService.driverLocation(partyId, memberId));

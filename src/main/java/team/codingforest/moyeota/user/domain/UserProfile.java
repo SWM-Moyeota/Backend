@@ -30,7 +30,7 @@ public class UserProfile {
     }
 
     public static UserProfile of(Long userId, String name, Instant birthDate, String phoneNumber, Gender gender, String email) {
-        return new UserProfile(userId, null, name, birthDate, phoneNumber, gender, email, Instant.now(), Instant.now());
+        return new UserProfile(userId, null, name, birthDate, new PhoneNumber(phoneNumber).value(), gender, email, Instant.now(), Instant.now());
     }
 
     public static UserProfile restore(Long userId, String passCi, String name, Instant birthDate, String phoneNumber, Gender gender, String email, Instant createdAt, Instant updatedAt) {

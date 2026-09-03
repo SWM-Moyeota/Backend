@@ -37,4 +37,9 @@ public class AuthController {
     public void logout(@Valid @RequestBody TokenRequest request) {
         authService.logout(request.refreshToken());
     }
+
+    @PostMapping("/phone/check")
+    public PhoneCheckResponse checkPhone(@Valid @RequestBody PhoneCheckRequest request) {
+        return new PhoneCheckResponse(localUserService.existsByPhoneNumber(request.phoneNumber()));
+    }
 }

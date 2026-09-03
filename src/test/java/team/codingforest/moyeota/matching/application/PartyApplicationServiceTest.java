@@ -320,5 +320,10 @@ class PartyApplicationServiceTest {
         public Optional<DriverSummary> findSummary(Long driverId) {
             return Optional.ofNullable(summary);
         }
+
+        @Override
+        public Optional<Long> findUserId(Long driverId) {
+            return Optional.empty();
+        }
     }
 }

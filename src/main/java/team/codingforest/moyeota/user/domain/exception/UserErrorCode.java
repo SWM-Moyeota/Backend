@@ -12,7 +12,9 @@ public enum UserErrorCode implements ErrorCode {
 
     LOGIN_ID_DUPLICATED(HttpStatus.CONFLICT, "USER101", "이미 존재하는 아이디입니다."),
     LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "USER102", "아이디나 비밀번호가 다릅니다."),
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER103", "존재하지 않는 사용자입니다.");
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER103", "존재하지 않는 사용자입니다."),
+    PHONE_NUMBER_DUPLICATED(HttpStatus.CONFLICT, "USER104", "이미 가입된 전화번호입니다."),
+    INVALID_PHONE_NUMBER(HttpStatus.BAD_REQUEST, "USER105", "전화번호 형식이 올바르지 않습니다.");
 
     private final HttpStatus httpStatus;
     private final String customCode;

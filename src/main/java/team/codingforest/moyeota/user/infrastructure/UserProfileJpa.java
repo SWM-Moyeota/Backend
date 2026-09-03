@@ -15,6 +15,13 @@ public class UserProfileJpa implements UserProfiles {
         userProfileRepository.save(UserProfileEntity.from(user));
     }
 
+    @Override
+    public java.util.Optional<UserProfile> findByUserId(Long userId) {
+        return userProfileRepository.findById(userId).map(UserProfileEntity::toDomain);
+    }
 
-
+    @Override
+    public boolean existsByPhoneNumber(String phoneNumber) {
+        return userProfileRepository.existsByPhoneNumber(phoneNumber);
+    }
 }

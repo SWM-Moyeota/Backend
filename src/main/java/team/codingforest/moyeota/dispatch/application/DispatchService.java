@@ -48,6 +48,11 @@ public class DispatchService {
 
         if(partyAccess.hasOngoingRide(driverId)) throw new BusinessException(DispatchErrorCode.DRIVER_ALREADY_RIDING);
 
+        // 현재 모델에서 계정을 하나로 공유하기 때문에 기사가 기사의 매칭방에 있는 예외 방어
+        driverAccess.findUserId(driverId)
+                .filter(userId -> partyAccess.hasMemberOnParty(userId, partyId))
+                .ifPresent(userId -> { throw new BusinessException(DispatchErrorCode.SELF_DISPATCH_NOT_ALLOWED); });
+
         partyAccess.assignDriver(partyId, driverId);
 
         List<Long> losers = callCandidates.findAll(partyId).stream()

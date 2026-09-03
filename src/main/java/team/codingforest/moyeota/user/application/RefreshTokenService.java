@@ -47,11 +47,14 @@ public class RefreshTokenService {
         return issuePair(userId, claims.publicId());
     }
 
-    @Transactional
+    @Transactional   // consume 이 @Modifying UPDATE 라 트랜잭션 필수 - 없으면 TransactionRequiredException
     public void logout(String refreshToken) {
-        TokenClaims claims = jwtProvider.parseRefresh(refreshToken);
-
-        refreshTokens.consume(claims.jti(), Instant.now());
+        try {
+            TokenClaims claims = jwtProvider.parseRefresh(refreshToken);
+            refreshTokens.consume(claims.jti(), Instant.now());
+        } catch (UserException e) {
+            log.info("로그아웃 - 이미 무효한 리프레시, 처리할 것 없음");
+        }
     }
 
     private TokenResponse issuePair(Long userId, UUID publicId) {

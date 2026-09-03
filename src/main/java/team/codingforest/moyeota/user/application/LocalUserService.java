@@ -24,6 +24,11 @@ public class LocalUserService {
             throw new UserException(UserErrorCode.LOGIN_ID_DUPLICATED);
         }
 
+        //
+        if(existsByPhoneNumber(command.phoneNumber())) {
+            throw new UserException(UserErrorCode.PHONE_NUMBER_DUPLICATED);
+        }
+
         User user = users.save(User.from(idGenerator.generate(), LoginType.LOCAL));
 
         localUsers.register(user.getId(), command.loginId(), passwordHasher.hash(command.password()));
@@ -48,6 +53,14 @@ public class LocalUserService {
 
     public UserResponse getProfile(Long userId) {
         User user = users.findById(userId);
-        return new UserResponse(user.getPublicId(), user.getNickname());
+        // 닉네임 미설정(가입 직후 기본 상태)이면 실명으로 폴백한다
+        String name = user.getNickname() != null ? user.getNickname()
+                : userProfiles.findByUserId(userId).map(UserProfile::getName).orElse(null);
+        return new UserResponse(user.getPublicId(), name);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean existsByPhoneNumber(String rawPhoneNumber) {
+        return userProfiles.existsByPhoneNumber(new PhoneNumber(rawPhoneNumber).value());
     }
 }
