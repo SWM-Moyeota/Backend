@@ -24,6 +24,7 @@ class ReportApplicationServiceTest {
     private static final Long 신고자 = 5L;
     private static final Long 방번호 = 1L;
     private static final Long 기사 = 9L;
+    private static final Long 다른사용자 = 6L;
 
     private InMemoryReports reports;
     private FakePartyAccess partyAccess;
@@ -116,13 +117,13 @@ class ReportApplicationServiceTest {
         운행중();
         Long reportId = service.report(신고자, 방번호, null, null);
 
-        service.confirmCall(reportId, true);
+        service.confirmCall(신고자, true);   // 컨트롤러가 @CurrentUser의 id를 넘긴다
 
         assertThat(reports.findById(reportId).orElseThrow().getStatus()).isEqualTo(ReportStatus.CALL_CONFIRMED);
     }
 
     @Test
-    void 없는_신고는_확정할_수_없다() {
+    void 신고한_적_없는_사용자는_확정할_수_없다() {
         assertThatThrownBy(() -> service.confirmCall(999L, true))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
@@ -133,13 +134,39 @@ class ReportApplicationServiceTest {
     void 이미_확정된_신고를_다시_확정하면_예외가_나고_기존_값이_유지된다() {
         운행중();
         Long reportId = service.report(신고자, 방번호, null, null);
-        service.confirmCall(reportId, true);
+        service.confirmCall(신고자, true);
 
-        assertThatThrownBy(() -> service.confirmCall(reportId, false))
+        assertThatThrownBy(() -> service.confirmCall(신고자, false))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ReportErrorCode.REPORT_ALREADY_CONFIRMED);
         assertThat(reports.findById(reportId).orElseThrow().getStatus()).isEqualTo(ReportStatus.CALL_CONFIRMED);
+    }
+
+    @Test
+    void 다른_사용자는_남의_신고를_확정할_수_없다() {
+        // reportId를 받던 시절엔 번호만 알면 남의 신고를 조작할 수 있었다 - 이제 본인 신고만 대상
+        운행중();
+        Long reportId = service.report(신고자, 방번호, null, null);
+
+        assertThatThrownBy(() -> service.confirmCall(다른사용자, true))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ReportErrorCode.REPORT_NOT_FOUND);
+        assertThat(reports.findById(reportId).orElseThrow().getStatus()).isEqualTo(ReportStatus.REPORTED);
+    }
+
+    @Test
+    void 여러_번_신고했으면_가장_최근_신고만_확정된다() {
+        // 앱 복귀 다이얼로그는 직전 신고에 대한 답 - 이전 신고까지 덮어쓰면 기록이 왜곡된다
+        운행중();
+        Long 첫신고 = service.report(신고자, 방번호, null, null);
+        Long 둘째신고 = service.report(신고자, 방번호, null, null);
+
+        service.confirmCall(신고자, true);
+
+        assertThat(reports.findById(둘째신고).orElseThrow().getStatus()).isEqualTo(ReportStatus.CALL_CONFIRMED);
+        assertThat(reports.findById(첫신고).orElseThrow().getStatus()).isEqualTo(ReportStatus.REPORTED);
     }
 
     /** 인메모리 신고 저장소 - save가 id를 부여하고 restore로 복사본을 보관 */
@@ -155,6 +182,14 @@ class ReportApplicationServiceTest {
 
             store.put(id, saved);
             return saved;
+        }
+
+        @Override
+        public Optional<Report> findLatestByReporterId(Long reporterId) {
+            // id가 커질수록 나중 신고 - 실제 쿼리(createdAt desc limit 1)와 같은 의미
+            return store.values().stream()
+                    .filter(r -> reporterId.equals(r.getReporterId()))
+                    .max(java.util.Comparator.comparing(Report::getId));
         }
 
         @Override

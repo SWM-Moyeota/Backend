@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import team.codingforest.moyeota.dispatch.application.DriverLocationService;
 import team.codingforest.moyeota.dispatch.application.dto.LocationReportRequest;
+import team.codingforest.moyeota.driver.api.CurrentDriver;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -13,23 +14,22 @@ import team.codingforest.moyeota.dispatch.application.dto.LocationReportRequest;
 public class DriverLocationController {
     private final DriverLocationService service;
 
-    // TODO 추후 토큰에서 유저 아이디 추출
-    @PostMapping("/dispatch/online/{driverId}")
-    public ResponseEntity<Void> goOnline(@PathVariable Long driverId, @Valid @RequestBody LocationReportRequest request) {
+    @PostMapping("/dispatch/online")
+    public ResponseEntity<Void> goOnline(@CurrentDriver Long driverId, @Valid @RequestBody LocationReportRequest request) {
         service.goOnline(driverId, request.latitude(), request.longitude());
 
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/dispatch/location/{driverId}")
-    public ResponseEntity<Void> report(@PathVariable Long driverId, @Valid @RequestBody LocationReportRequest request) {
+    @PostMapping("/dispatch/location")
+    public ResponseEntity<Void> report(@CurrentDriver Long driverId, @Valid @RequestBody LocationReportRequest request) {
         service.report(driverId, request.latitude(), request.longitude());
 
         return ResponseEntity.noContent().build();
     }
 
-    @DeleteMapping("/dispatch/online/{driverId}")
-    public ResponseEntity<Void> goOffline(@PathVariable Long driverId) {
+    @DeleteMapping("/dispatch/online")
+    public ResponseEntity<Void> goOffline(@CurrentDriver Long driverId) {
         service.goOffline(driverId);
 
         return ResponseEntity.noContent().build();

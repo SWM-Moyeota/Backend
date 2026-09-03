@@ -10,6 +10,7 @@ public enum DispatchErrorCode implements ErrorCode {
     CALL_CLOSED(HttpStatus.CONFLICT, "호출받지 않았거나 이미 마감된 콜입니다."),
     DRIVER_CANNOT_RECEIVE(HttpStatus.CONFLICT, "현재 콜을 받을 수 없는 상태입니다."),
     DRIVER_ALREADY_RIDING(HttpStatus.CONFLICT, "이미 운행중인 기사입니다."),
+    SELF_DISPATCH_NOT_ALLOWED(HttpStatus.CONFLICT, "본인이 참여한 방의 콜은 수락할 수 없습니다."),
     DRIVER_NOT_ASSIGNED(HttpStatus.CONFLICT, "아직 기사가 배정되지 않았습니다."),
     NOT_AWAITING_PICKUP(HttpStatus.CONFLICT, "픽업 대기 중인 방이 아닙니다."),
     NOT_PARTY_MEMBER(HttpStatus.FORBIDDEN, "해당 방에 참여하고 있지 않습니다."),
