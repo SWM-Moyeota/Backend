@@ -8,6 +8,7 @@ import team.codingforest.moyeota.common.exception.ErrorCode;
 @Getter
 public enum DriverErrorCode implements ErrorCode {
     DRIVER_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 기사입니다."),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."),
     DRIVER_NOT_REGISTERED(HttpStatus.NOT_FOUND, "기사로 등록되지 않은 유저입니다."),
     DRIVER_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 기사로 등록된 유저입니다."),
     DRIVER_NOT_PENDING(HttpStatus.CONFLICT, "검증 대기 상태가 아닙니다."),

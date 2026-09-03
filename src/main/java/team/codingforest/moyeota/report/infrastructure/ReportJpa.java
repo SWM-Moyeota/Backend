@@ -34,4 +34,9 @@ public class ReportJpa implements Reports {
     public Optional<Report> findById(Long id) {
         return delegate.findById(id).map(ReportEntity::toDomain);
     }
+
+    @Override
+    public Optional<Report> findLatestByReporterId(Long reporterId) {
+        return delegate.findTopByReporterIdOrderByIdDesc(reporterId).map(ReportEntity::toDomain);
+    }
 }

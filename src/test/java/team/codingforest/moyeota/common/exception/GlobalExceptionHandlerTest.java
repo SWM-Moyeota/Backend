@@ -5,7 +5,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.core.MethodParameter;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.support.WebDataBinderFactory;
+import org.springframework.web.context.request.NativeWebRequest;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.method.support.ModelAndViewContainer;
+import team.codingforest.moyeota.driver.api.CurrentDriver;
+import team.codingforest.moyeota.user.api.CurrentUser;
 import org.springframework.web.bind.annotation.RestController;
 import team.codingforest.moyeota.driver.application.DriverApplicationService;
 import team.codingforest.moyeota.driver.domain.Driver;
@@ -32,13 +39,14 @@ class GlobalExceptionHandlerTest {
         DriverApplicationService service = new DriverApplicationService(new InMemoryDrivers());
 
         mvc = MockMvcBuilders.standaloneSetup(new DriverController(service), new IllegalArgumentThrowingController())
+                .setCustomArgumentResolvers(new StubAuthResolver())   // 인증 없이 @CurrentUser=1, @CurrentDriver=1 주입
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
     @Test
     void 없는_기사_조회는_404와_에러코드로_내려간다() throws Exception {
-        mvc.perform(get("/api/v1/drivers/users/999"))
+        mvc.perform(get("/api/v1/drivers/me"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("DRIVER_NOT_REGISTERED"))
                 .andExpect(jsonPath("$.message").value("기사로 등록되지 않은 유저입니다."));
@@ -47,7 +55,7 @@ class GlobalExceptionHandlerTest {
     @Test
     void 중복_기사_등록은_409와_에러코드로_내려간다() throws Exception {
         String body = """
-                {"userId": 1, "qualificationNumber": "서울-1234", "bankName": "국민은행", "accountNumber": "123-456"}
+                {"qualificationNumber": "서울-1234", "bankName": "국민은행", "accountNumber": "123-456", "vehicle": {"seats": 4, "plateNumber": "12가3456", "type": "중형"}}
                 """;
         mvc.perform(post("/api/v1/drivers").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk());
@@ -77,15 +85,29 @@ class GlobalExceptionHandlerTest {
     @Test
     void 검증_전_기사를_다시_검증하면_409가_내려간다() throws Exception {
         String body = """
-                {"userId": 1, "qualificationNumber": "서울-1234", "bankName": "국민은행", "accountNumber": "123-456"}
+                {"qualificationNumber": "서울-1234", "bankName": "국민은행", "accountNumber": "123-456", "vehicle": {"seats": 4, "plateNumber": "12가3456", "type": "중형"}}
                 """;
         mvc.perform(post("/api/v1/drivers").contentType(MediaType.APPLICATION_JSON).content(body));
-        mvc.perform(post("/api/v1/drivers/1/verify")).andExpect(status().isNoContent());
+        mvc.perform(post("/api/v1/drivers/verify")).andExpect(status().isNoContent());
 
         // 검증 API 이중 탭 - 도메인(Driver.verify)이 던진 예외도 같은 JSON 계약으로 나가야 한다
-        mvc.perform(post("/api/v1/drivers/1/verify"))
+        mvc.perform(post("/api/v1/drivers/verify"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("DRIVER_NOT_PENDING"));
+    }
+
+    /** 인증 스텁 - 필터 없이 로그인 유저/기사를 1번으로 고정. 첫 등록 기사의 id가 1이라 driverId=1과 맞아떨어진다 */
+    static class StubAuthResolver implements HandlerMethodArgumentResolver {
+        @Override
+        public boolean supportsParameter(MethodParameter parameter) {
+            return parameter.hasParameterAnnotation(CurrentUser.class) || parameter.hasParameterAnnotation(CurrentDriver.class);
+        }
+
+        @Override
+        public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mav,
+                                      NativeWebRequest request, WebDataBinderFactory binderFactory) {
+            return 1L;
+        }
     }
 
     /** IllegalArgumentException 폴백 검증용 - driver 모듈엔 IAE가 남아있지 않아 스텁으로 재현 */

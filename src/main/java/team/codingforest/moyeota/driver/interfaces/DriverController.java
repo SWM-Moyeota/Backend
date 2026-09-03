@@ -4,67 +4,68 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import team.codingforest.moyeota.driver.api.CurrentDriver;
 import team.codingforest.moyeota.driver.application.DriverApplicationService;
 import team.codingforest.moyeota.driver.application.dto.*;
+import team.codingforest.moyeota.user.api.CurrentUser;
 
-// TODO 추후 인증 구현되고 토큰을 통해 유저 아이디 가져오기
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class DriverController {
     private final DriverApplicationService service;
 
-    // TODO 추후 기사 등록시 검증해야 되는 정보들 처리해야함 ex(번호판, 기사 면허증등)
-    @PostMapping("/drivers")
-    public ResponseEntity<DriverResult> register(@Valid @RequestBody RegisterDriverRequest request) {
-        return ResponseEntity.ok(service.register(request.toCommand()));
-    }
-
-    // TODO 추후 기사 등록시 검증해야 되는 정보들 처리해야함 ex(번호판, 기사 면허증등)
-    @PostMapping("/drivers/{driverId}/verify")
-    public ResponseEntity<Void> verify(@PathVariable Long driverId) {
+    // TODO 관리자 권한 도입 시 admin 전용으로 전환 - 현재는 관리자 화면이 없어 기사 본인의 셀프 승인을 허용한다(PoC)
+    @PostMapping("/drivers/verify")
+    public ResponseEntity<Void> verify(@CurrentDriver Long driverId) {
         service.verify(driverId);
 
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/drivers/{driverId}/vehicle")
-    public ResponseEntity<Void> registerVehicle(@PathVariable Long driverId, @Valid @RequestBody RegisterVehicleRequest request) {
+    @PostMapping("/drivers/vehicle")
+    public ResponseEntity<Void> registerVehicle(@CurrentDriver Long driverId, @Valid @RequestBody RegisterVehicleRequest request) {
         service.registerVehicle(new RegisterVehicleCommand(driverId, request.seats(), request.plateNumber(), request.type()));
 
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/drivers/{driverId}/call")
-    public ResponseEntity<Void> enableCall(@PathVariable Long driverId) {
+    @PostMapping("/drivers/call")
+    public ResponseEntity<Void> enableCall(@CurrentDriver Long driverId) {
         service.enableCall(driverId);
 
         return ResponseEntity.noContent().build();
     }
 
-    @DeleteMapping("/drivers/{driverId}/call")
-    public ResponseEntity<Void> disableCall(@PathVariable Long driverId) {
+    @DeleteMapping("/drivers/call")
+    public ResponseEntity<Void> disableCall(@CurrentDriver Long driverId) {
         service.disableCall(driverId);
 
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/drivers/users/{userId}")
-    public ResponseEntity<DriverResult> getByUserId(@PathVariable Long userId) {
+    /** 기사 앱 진입 분기용 - 등록 전이면 404(DRIVER_NOT_REGISTERED), 등록됐으면 PENDING/VERIFIED 상태 반환 */
+    @GetMapping("/drivers/me")
+    public ResponseEntity<DriverResult> me(@CurrentUser Long userId) {
         return ResponseEntity.ok(service.getByUserId(userId));
     }
 
-    @PutMapping("/drivers/{driverId}/fcm-token")
-    public ResponseEntity<Void> registerFcmToken(@PathVariable Long driverId, @Valid @RequestBody RegisterFcmTokenRequest request) {
+    @PutMapping("/drivers/fcm-token")
+    public ResponseEntity<Void> registerFcmToken(@CurrentDriver Long driverId, @Valid @RequestBody RegisterFcmTokenRequest request) {
         service.registerFcmToken(driverId, request.token());
 
         return ResponseEntity.noContent().build();
     }
 
-    @DeleteMapping("/drivers/{driverId}/fcm-token")
-    public ResponseEntity<Void> removeFcmToken(@PathVariable Long driverId) {
+    @DeleteMapping("/drivers/fcm-token")
+    public ResponseEntity<Void> removeFcmToken(@CurrentDriver Long driverId) {
         service.removeFcmToken(driverId);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/drivers")
+    public ResponseEntity<DriverResult> register(@CurrentUser Long userId, @Valid @RequestBody RegisterDriverRequest request) {
+        return ResponseEntity.ok(service.register(request.toCommand(userId)));
     }
 }
