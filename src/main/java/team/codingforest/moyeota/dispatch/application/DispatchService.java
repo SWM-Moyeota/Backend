@@ -36,6 +36,7 @@ public class DispatchService {
     /**
      *      매칭방을 기준으로 3km 이내의 기사들을 찾고 콜 뿌리기
      */
+    @Transactional
     public void dispatch(Long partyId) {
         attempt(partyId, INITIAL_RADIUS_METERS);
     }
@@ -66,6 +67,7 @@ public class DispatchService {
         log.info("콜 수락 partyId={}, driverId={}, 콜 알림 취소된 사람 = {}명", partyId, driverId, losers.size());
     }
 
+    @Transactional
     public void rejectCall(Long partyId, Long driverId) {
         if(!callCandidates.contains(partyId, driverId)) throw new BusinessException(DispatchErrorCode.CALL_CLOSED);
 
@@ -75,6 +77,7 @@ public class DispatchService {
         log.info("콜 거절 partyId={}, driverId={}, 남은 후보={}명", partyId, driverId, remaining);
     }
 
+    @Transactional
     public void attempt(Long partyId, int radiusMeters) {
         PartySummary party = partyAccess.findSummary(partyId)
                 .orElseThrow(() -> new BusinessException(DispatchErrorCode.PARTY_NOT_FOUND));

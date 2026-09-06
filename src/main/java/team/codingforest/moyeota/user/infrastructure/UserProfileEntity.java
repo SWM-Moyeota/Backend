@@ -1,10 +1,8 @@
 package team.codingforest.moyeota.user.infrastructure;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.user.domain.UserProfile;
 import team.codingforest.moyeota.user.domain.enums.Gender;
@@ -12,7 +10,9 @@ import team.codingforest.moyeota.user.domain.enums.Gender;
 import java.time.Instant;
 
 @Entity
-@NoArgsConstructor
+@Getter
+@Table(name = "user_profile")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserProfileEntity {
 
     @Id

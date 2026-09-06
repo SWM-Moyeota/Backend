@@ -106,4 +106,34 @@ class PartyJpaPersistenceTest {
         assertThat(parties.findById(saved.getId()).orElseThrow().getMembers()).isEmpty();   // 멤버 행 삭제까지 DB에 반영
         assertThat(parties.existsOngoingByMemberId(1L)).isFalse();
     }
+
+    // ───────────────────────── 탑승 횟수 집계 ─────────────────────────
+
+    /** 1L·2L·3L 이 탄 방을 FINISHED 까지 진행해 저장한다 */
+    private void finishRide() {
+        Party party = openAndSave();
+        party.join(2L);
+        party.join(3L);
+        party.startMatching(Instant.now());
+        party.assignDriver(9L);
+        party.startRide(9L);
+        party.completeRide(9L, 12000);
+        parties.save(party);
+    }
+
+    @Test
+    void 완주한_방_수를_멤버별로_센다() {
+        // 인터페이스 프로젝션은 JPQL 별칭과 getter 이름이 어긋나면 실행 때만 null 이 난다 - 그래서 실제 쿼리로 검증
+        finishRide();
+        finishRide();
+        openAndSave();                                   // ACTIVE 방 - 집계 제외
+
+        assertThat(parties.countFinishedRides(java.util.List.of(1L, 2L, 999L)))
+                .containsOnly(entry(1L, 2), entry(2L, 2));   // 999L 은 결과에 없음(0회는 빠진다)
+    }
+
+    @Test
+    void 빈_목록이면_쿼리_없이_빈_결과를_돌려준다() {
+        assertThat(parties.countFinishedRides(java.util.List.of())).isEmpty();
+    }
 }

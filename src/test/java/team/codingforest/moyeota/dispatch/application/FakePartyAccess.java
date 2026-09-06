@@ -108,6 +108,11 @@ class FakePartyAccess implements PartyAccess {
         return new PartyChatSummary(partyId, List.of(), summary.departure(), summary.destination());
     }
 
+    @Override
+    public List<Long> findMemberIds(Long partyId) {
+        return summaries.containsKey(partyId) ? List.copyOf(members) : List.of();
+    }
+
     private void ensureAssignedDriver(Long driverId) {
         if(assignedDriverId == null || !assignedDriverId.equals(driverId)) throw new BusinessException(MatchingErrorCode.NOT_ASSIGNED_DRIVER);
     }

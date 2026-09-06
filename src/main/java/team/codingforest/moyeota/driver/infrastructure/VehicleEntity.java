@@ -45,5 +45,6 @@ public class VehicleEntity extends BaseTimeEntity {
     public void update(Vehicle vehicle) {
         this.seats = vehicle.seats();
         this.plateNumber = vehicle.plateNumber();
+        this.type = vehicle.type();
     }
 }

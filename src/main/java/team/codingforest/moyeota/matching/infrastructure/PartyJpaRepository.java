@@ -35,4 +35,12 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 """)
     List<PartyEntity> findAllByStatusWithinBounds(@Param("status") PartyStatus status, @Param("swLat") double swLat, @Param("neLat") double neLat,
                                                   @Param("swLng") double swLng, @Param("neLng") double neLng);
+
+    @Query("""
+        select m.memberId as memberId, count(m) as count
+        from PartyMemberEntity m
+        where m.memberId in :memberIds and m.party.status = :status
+        group by m.memberId
+""")
+    List<MemberRideCount> countByMemberIdsAndStatus(@Param("memberIds") Collection<Long> memberIds, @Param("status") PartyStatus status);
 }

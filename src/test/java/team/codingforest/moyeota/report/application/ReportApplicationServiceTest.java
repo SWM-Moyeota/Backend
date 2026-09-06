@@ -231,5 +231,6 @@ class ReportApplicationServiceTest {
         @Override public boolean hasOngoingRide(Long driverId) { return false; }
         @Override public boolean hasMemberOnParty(Long memberId, Long partyId) { return true; }
         @Override public PartyChatSummary findChatSummary(Long partyId) { return null; }
+        @Override public List<Long> findMemberIds(Long partyId) { return List.of(); }
     }
 }

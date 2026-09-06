@@ -38,6 +38,9 @@ public class FcmCallNotifier implements CallNotifier {
         }
 
         MulticastMessage message = MulticastMessage.builder()
+                .setAndroidConfig(com.google.firebase.messaging.AndroidConfig.builder()
+                        .setPriority(com.google.firebase.messaging.AndroidConfig.Priority.HIGH)   // 데이터 메시지 기본 NORMAL은 백그라운드 ~90초 지연 - 콜/도착 알림은 즉시성 필수
+                        .build())
                 .putData("type", "CALL_OPENED")
                 .putData("partyId", String.valueOf(party.id()))
                 .putData("departure", party.departure())
@@ -55,6 +58,9 @@ public class FcmCallNotifier implements CallNotifier {
         if(tokens.isEmpty()) return;
 
         MulticastMessage message = MulticastMessage.builder()
+                .setAndroidConfig(com.google.firebase.messaging.AndroidConfig.builder()
+                        .setPriority(com.google.firebase.messaging.AndroidConfig.Priority.HIGH)   // 데이터 메시지 기본 NORMAL은 백그라운드 ~90초 지연 - 콜/도착 알림은 즉시성 필수
+                        .build())
                 .putData("type", "CALL_CLOSED")
                 .putData("partyId", String.valueOf(partyId))
                 .addAllTokens(tokens.values())
