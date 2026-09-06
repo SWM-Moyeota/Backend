@@ -7,6 +7,9 @@ import team.codingforest.moyeota.user.domain.Users;
 import team.codingforest.moyeota.user.domain.exception.UserErrorCode;
 import team.codingforest.moyeota.user.domain.exception.UserException;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,6 +21,15 @@ public class UserJpa implements Users {
 
     @Override
     public User save(User user) {
+        // 기존 ID가 있는 경우 update
+        if(user.getId() != null) {
+            UserEntity entity = userRepository.findById(user.getId())
+                    .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+
+            entity.update(user);
+            return userRepository.save(entity).toDomain();
+        }
+
         return userRepository.save(UserEntity.from(user)).toDomain();
     }
 
@@ -29,5 +41,18 @@ public class UserJpa implements Users {
     @Override
     public Optional<User> findByPublicId(UUID publicId) {
         return userRepository.findByPublicId(publicId).map(UserEntity::toDomain);
+    }
+
+    @Override
+    public Map<Long, String> findFcmTokens(List<Long> userIds) {
+        if(userIds.isEmpty()) return Map.of();
+
+        Map<Long, String> tokens = new HashMap<>();
+
+        for(UserEntity entity : userRepository.findAllByIdInAndFcmTokenIsNotNull(userIds)) {
+            tokens.put(entity.getId(), entity.getFcmToken());
+        }
+
+        return tokens;
     }
 }

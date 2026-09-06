@@ -109,6 +109,13 @@ class PartyAccessService implements PartyAccess {
                 .orElse(false);
     }
 
+    @Override
+    public List<Long> findMemberIds(Long partyId) {
+        return parties.findById(partyId)
+                .map(party -> party.getMembers().stream().map(PartyMember::getMemberId).toList())
+                .orElse(List.of());
+    }
+
     private Party getForUpdate(Long partyId) {
         return parties.findByIdForUpdate(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));

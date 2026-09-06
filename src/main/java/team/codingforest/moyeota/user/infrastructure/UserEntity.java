@@ -32,16 +32,26 @@ public class UserEntity extends BaseTimeEntity {
 
     private Long badgeId;
 
-    private UserEntity(UUID publicId, String nickname, String imageUrl, LoginType loginType, Long badgeId) {
+    private String fcmToken;
+
+    private UserEntity(UUID publicId, String nickname, String imageUrl, LoginType loginType, Long badgeId, String fcmToken) {
         this.publicId = publicId;
         this.nickname = nickname;
         this.imageUrl = imageUrl;
         this.loginType = loginType;
         this.badgeId = badgeId;
+        this.fcmToken = fcmToken;
     }
 
     public static UserEntity from(User user) {
-        return new UserEntity(user.getPublicId(), user.getNickname(), user.getImageUrl(), user.getLoginType(), user.getBadgeId());
+        return new UserEntity(user.getPublicId(), user.getNickname(), user.getImageUrl(), user.getLoginType(), user.getBadgeId(), user.getFcmToken());
+    }
+
+    public void update(User user) {
+        this.nickname = user.getNickname();
+        this.imageUrl = user.getImageUrl();
+        this.badgeId = user.getBadgeId();
+        this.fcmToken = user.getFcmToken();
     }
 
     public User toDomain() {
@@ -52,6 +62,7 @@ public class UserEntity extends BaseTimeEntity {
                 imageUrl,
                 loginType,
                 badgeId,
+                fcmToken,
                 getUpdatedAt()
         );
     }
