@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.dispatch.application;
 
+import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.dispatch.domain.exception.DispatchErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class RideService {
     /**
      *      탑승 완료 - 운행 시작 (DRIVER_ASSIGNED → IN_RIDE)
      */
+    @Transactional
     public void board(Long partyId, Long driverId) {
         partyAccess.startRide(partyId, driverId);
 
@@ -43,6 +45,7 @@ public class RideService {
     /**
      *      운행 종료 - 요금 입력 (IN_RIDE → FINISHED)
      */
+    @Transactional
     public void complete(Long partyId, Long driverId, int fare) {
         partyAccess.completeRide(partyId, driverId, fare);
 

@@ -24,7 +24,7 @@ public class LocalUserController {
     }
 
     @GetMapping("/users/info")
-    public ResponseEntity<?> getProfile(@CurrentUser Long userId) {
+    public ResponseEntity<UserResponse> getProfile(@CurrentUser Long userId) {
         return ResponseEntity.ok(service.getProfile(userId));
     }
 }

@@ -1,9 +1,6 @@
 package team.codingforest.moyeota.user.infrastructure;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.common.BaseTimeEntity;
@@ -15,6 +12,7 @@ import java.util.UUID;
 @Entity
 @Getter
 @NoArgsConstructor
+@Table(name = "users")   // "user" 는 PostgreSQL·H2 예약어라 insert 자체가 실패한다
 public class UserEntity extends BaseTimeEntity {
 
     // 필터가 매 요청 publicId 로 조회하므로 unique 인덱스 필요
@@ -27,7 +25,6 @@ public class UserEntity extends BaseTimeEntity {
 
     private String imageUrl;
 
-    // ordinal 이면 TINYINT 로 나가서 H2(PostgreSQL 모드) 테이블 생성 실패
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private LoginType loginType;

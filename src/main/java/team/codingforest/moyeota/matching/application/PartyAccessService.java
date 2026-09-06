@@ -51,18 +51,22 @@ class PartyAccessService implements PartyAccess {
         return parties.findMatchingTargets();
     }
 
+    @Transactional
     @Override
     public void startRide(Long partyId, Long driverId) {
         Party party = getForUpdate(partyId);
 
         party.startRide(driverId);
+        parties.save(party);
     }
 
+    @Transactional
     @Override
     public void completeRide(Long partyId, Long driverId, int fare) {
         Party party = getForUpdate(partyId);
 
         party.completeRide(driverId, fare);
+        parties.save(party);
     }
 
     @Override
