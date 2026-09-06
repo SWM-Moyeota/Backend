@@ -40,6 +40,11 @@ class FakeUsers implements Users {
     }
 
     @Override
+    public List<User> findAllByIds(List<Long> ids) {
+        return ids.stream().map(store::get).filter(u -> u != null).toList();
+    }
+
+    @Override
     public Map<Long, String> findFcmTokens(List<Long> userIds) {
         Map<Long, String> tokens = new HashMap<>();
         for(Long id : userIds) {

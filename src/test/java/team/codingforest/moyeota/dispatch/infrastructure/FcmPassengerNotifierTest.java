@@ -5,6 +5,7 @@ import team.codingforest.moyeota.matching.api.MatchingTarget;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.PartyChatSummary;
 import team.codingforest.moyeota.matching.api.PartySummary;
+import team.codingforest.moyeota.user.api.MemberSummary;
 import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.util.ArrayList;
@@ -43,6 +44,9 @@ class FcmPassengerNotifierTest {
             조회된유저.addAll(userIds);
             return Map.of();
         }
+
+        @Override
+        public Map<Long, MemberSummary> findMemberSummaries(List<Long> userIds) { return Map.of(); }
     }
 
     // FirebaseMessaging 자리에 null을 주입 - 가드를 통과해 전송을 시도하면 NPE로 실패한다

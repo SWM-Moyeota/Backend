@@ -61,6 +61,18 @@ class PartyJpaTest implements Parties {
     }
 
     @Override
+    public Map<Long, Integer> countFinishedRides(List<Long> memberIds) {
+        Map<Long, Integer> counts = new HashMap<>();
+        for(Party p : store.values()) {
+            if(p.getStatus() != PartyStatus.FINISHED) continue;
+            for(Long id : memberIds) {
+                if(p.hasMember(id)) counts.merge(id, 1, Integer::sum);
+            }
+        }
+        return counts;
+    }
+
+    @Override
     public boolean hasOngoingRide(Long driverId) {
         return store.values().stream()
                 .anyMatch(p -> (p.getStatus() == PartyStatus.DRIVER_ASSIGNED || p.getStatus() == PartyStatus.IN_RIDE)

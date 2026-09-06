@@ -55,4 +55,10 @@ public class UserJpa implements Users {
 
         return tokens;
     }
+
+    @Override
+    public List<User> findAllByIds(List<Long> ids) {
+        if(ids.isEmpty()) return List.of();
+        return userRepository.findAllById(ids).stream().map(UserEntity::toDomain).toList();
+    }
 }
