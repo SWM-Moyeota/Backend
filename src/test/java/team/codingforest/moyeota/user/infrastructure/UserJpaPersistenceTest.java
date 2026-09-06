@@ -57,4 +57,26 @@ class UserJpaPersistenceTest {
     void 빈_목록이면_쿼리_없이_빈_결과를_돌려준다() {
         assertThat(users.findFcmTokens(List.of())).isEmpty();
     }
+
+    // ───────────────────────── 닉네임 unique ─────────────────────────
+
+    @Test
+    void 같은_닉네임은_두_번_저장할_수_없다() {
+        users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "길동이"));
+
+        assertThatThrownBy(() -> {
+            users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "길동이"));
+            repository.flush();
+        }).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void 닉네임이_없는_소셜_가입자는_여럿이어도_충돌하지_않는다() {
+        // unique 컬럼이라도 null 끼리는 충돌하지 않아야 소셜 가입이 막히지 않는다
+        users.save(User.from(UUID.randomUUID(), LoginType.SOCIAL));
+        users.save(User.from(UUID.randomUUID(), LoginType.SOCIAL));
+        repository.flush();
+
+        assertThat(users.existsByNickname("아무거나")).isFalse();
+    }
 }

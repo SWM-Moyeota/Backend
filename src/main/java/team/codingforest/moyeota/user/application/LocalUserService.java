@@ -24,12 +24,15 @@ public class LocalUserService {
             throw new UserException(UserErrorCode.LOGIN_ID_DUPLICATED);
         }
 
-        //
         if(existsByPhoneNumber(command.phoneNumber())) {
             throw new UserException(UserErrorCode.PHONE_NUMBER_DUPLICATED);
         }
 
-        User user = users.save(User.from(idGenerator.generate(), LoginType.LOCAL));
+        if(existsByNickname(command.nickname())) {
+            throw new UserException(UserErrorCode.NICKNAME_DUPLICATED);
+        }
+
+        User user = users.save(User.from(idGenerator.generate(), LoginType.LOCAL, command.nickname()));
 
         localUsers.register(user.getId(), command.loginId(), passwordHasher.hash(command.password()));
 
@@ -62,5 +65,11 @@ public class LocalUserService {
     @Transactional(readOnly = true)
     public boolean existsByPhoneNumber(String rawPhoneNumber) {
         return userProfiles.existsByPhoneNumber(new PhoneNumber(rawPhoneNumber).value());
+    }
+
+    /** 정규화(공백 제거) 후 비교 - phone/check 와 같은 원칙 */
+    @Transactional(readOnly = true)
+    public boolean existsByNickname(String rawNickname) {
+        return users.existsByNickname(new Nickname(rawNickname).value());
     }
 }

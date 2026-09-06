@@ -42,4 +42,10 @@ public class AuthController {
     public PhoneCheckResponse checkPhone(@Valid @RequestBody PhoneCheckRequest request) {
         return new PhoneCheckResponse(localUserService.existsByPhoneNumber(request.phoneNumber()));
     }
+
+    /** 가입 폼 실시간 중복 확인 - 형식이 틀리면 400(USER107) */
+    @PostMapping("/nickname/check")
+    public NicknameCheckResponse checkNickname(@Valid @RequestBody NicknameCheckRequest request) {
+        return new NicknameCheckResponse(localUserService.existsByNickname(request.nickname()));
+    }
 }

@@ -57,6 +57,11 @@ public class UserJpa implements Users {
     }
 
     @Override
+    public boolean existsByNickname(String nickname) {
+        return userRepository.existsByNickname(nickname);
+    }
+
+    @Override
     public List<User> findAllByIds(List<Long> ids) {
         if(ids.isEmpty()) return List.of();
         return userRepository.findAllById(ids).stream().map(UserEntity::toDomain).toList();

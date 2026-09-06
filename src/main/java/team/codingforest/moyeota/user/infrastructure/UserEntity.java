@@ -21,6 +21,8 @@ public class UserEntity extends BaseTimeEntity {
     @Column(nullable = false, unique = true, updatable = false)
     private UUID publicId;
 
+    // null 허용 - 소셜 가입 직후는 비어 있다. PostgreSQL/H2 모두 null 끼리는 unique 충돌 없음
+    @Column(unique = true)
     private String nickname;
 
     private String imageUrl;

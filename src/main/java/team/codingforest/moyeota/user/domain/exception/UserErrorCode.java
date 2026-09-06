@@ -15,7 +15,9 @@ public enum UserErrorCode implements ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "USER103", "존재하지 않는 사용자입니다."),
     PHONE_NUMBER_DUPLICATED(HttpStatus.CONFLICT, "USER104", "이미 가입된 전화번호입니다."),
     INVALID_PHONE_NUMBER(HttpStatus.BAD_REQUEST, "USER105", "전화번호 형식이 올바르지 않습니다."),
-    EMPTY_FCM_TOKEN(HttpStatus.BAD_REQUEST, "USER106", "FCM 토큰이 비어 있습니다.");
+    EMPTY_FCM_TOKEN(HttpStatus.BAD_REQUEST, "USER106", "FCM 토큰이 비어 있습니다."),
+    INVALID_NICKNAME(HttpStatus.BAD_REQUEST, "USER107", "닉네임은 2~10자의 한글, 영문, 숫자만 가능합니다."),
+    NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "USER108", "이미 사용 중인 닉네임입니다.");
 
     private final HttpStatus httpStatus;
     private final String customCode;

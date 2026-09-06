@@ -40,6 +40,11 @@ class FakeUsers implements Users {
     }
 
     @Override
+    public boolean existsByNickname(String nickname) {
+        return store.values().stream().anyMatch(u -> nickname.equals(u.getNickname()));
+    }
+
+    @Override
     public List<User> findAllByIds(List<Long> ids) {
         return ids.stream().map(store::get).filter(u -> u != null).toList();
     }
