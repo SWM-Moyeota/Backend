@@ -9,9 +9,7 @@ import team.codingforest.moyeota.matching.domain.Parties;
 import team.codingforest.moyeota.matching.domain.Party;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Repository
 @RequiredArgsConstructor
@@ -80,5 +78,18 @@ public class PartyJpa implements Parties {
         return delegate.findAllByStatusWithinBounds(status, swLat, neLat, swLng, neLng)
                 .stream().map(PartyEntity::toDomain)
                 .toList();
+    }
+
+    @Override
+    public Map<Long, Integer> countFinishedRides(List<Long> memberIds) {
+        if(memberIds.isEmpty()) return Map.of();
+
+        Map<Long, Integer> counts = new HashMap<>();
+
+        for(MemberRideCount row : delegate.countByMemberIdsAndStatus(memberIds, PartyStatus.FINISHED)) {
+            counts.put(row.getMemberId(), row.getCount().intValue());
+        }
+
+        return counts;
     }
 }

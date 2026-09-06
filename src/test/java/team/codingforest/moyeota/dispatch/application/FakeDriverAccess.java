@@ -3,6 +3,7 @@ package team.codingforest.moyeota.dispatch.application;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.driver.api.DriverSummary;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -13,6 +14,7 @@ import java.util.Set;
  */
 class FakeDriverAccess implements DriverAccess {
     private final Set<Long> 콜가능기사들;
+    final Map<Long, Long> 기사의유저 = new HashMap<>();   // driverId → userId (셀프 배차 시나리오용)
 
     FakeDriverAccess(Set<Long> 콜가능기사들) {
         this.콜가능기사들 = 콜가능기사들;
@@ -26,6 +28,11 @@ class FakeDriverAccess implements DriverAccess {
     @Override
     public Map<Long, String> findFcmTokens(List<Long> driverIds) {
         return Map.of();
+    }
+
+    @Override
+    public Optional<Long> findUserId(Long driverId) {
+        return Optional.ofNullable(기사의유저.get(driverId));
     }
 
     @Override

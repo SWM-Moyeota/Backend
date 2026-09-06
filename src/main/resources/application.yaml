@@ -28,3 +28,9 @@ chat:
 
 fcm:
   service-account-path: ${FCM_SERVICE_ACCOUNT_PATH:}
+
+# user 모듈 JWT 설정. secret 은 base64, 로컬 기본값은 개발용이라 운영은 JWT_SECRET 환경변수 필수
+jwt:
+  secret: ${JWT_SECRET:deXiPUTSbvL2Qg673qn22K4S6fjf6VSBMLfW54E16DrUPty9aapfs/PGqoO+NdP9}
+  access-token-validity: ${JWT_ACCESS_VALIDITY:30m}
+  refresh-token-validity: ${JWT_REFRESH_VALIDITY:14d}

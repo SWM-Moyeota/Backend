@@ -46,13 +46,14 @@ public class ReportApplicationService {
      *  복귀 후 통화 여부 보강
      */
     @Transactional
-    public void confirmCall(Long reportId, boolean called) {
-        Report report = reports.findById(reportId)
+    /** 컨트롤러가 넘기는 값은 @CurrentUser의 로그인 사용자 id — 그 사용자의 최신 신고를 확정한다 */
+    public void confirmCall(Long reporterId, boolean called) {
+        Report report = reports.findLatestByReporterId(reporterId)
                 .orElseThrow(() -> new BusinessException(ReportErrorCode.REPORT_NOT_FOUND));
 
         report.confirmCall(called);
         reports.save(report);
 
-        log.info("신고 통화 여부 확정 reportId={}, called={}", reportId, called);
+        log.info("신고 통화 여부 확정 reporterId={}, reportId={}, called={}", reporterId, report.getId(), called);
     }
 }

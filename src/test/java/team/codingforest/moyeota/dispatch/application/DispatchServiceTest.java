@@ -244,6 +244,38 @@ class DispatchServiceTest {
     }
 
     @Test
+    void 자기가_승객으로_참여한_방의_콜은_수락할_수_없다() {
+        // 계정 공유 모델: 유저 7이 승객으로 방에 있으면서 기사(1)로 같은 방의 콜을 받은 경우 - 셀프 배차 차단
+        locations.nearby = List.of(1L, 2L);
+        FakeDriverAccess driverAccess = new FakeDriverAccess(Set.of(1L, 2L));
+        driverAccess.기사의유저.put(1L, 7L);
+        partyAccess.members.add(7L);
+        DispatchService service = new DispatchService(partyAccess, driverAccess, locations, notifier, candidates);
+        service.dispatch(방번호);
+
+        assertThatThrownBy(() -> service.acceptCall(방번호, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DispatchErrorCode.SELF_DISPATCH_NOT_ALLOWED);
+        assertThat(partyAccess.assignedDriverId).isNull();
+        assertThat(service.isCallOpen(방번호, 2L)).isTrue();   // 다른 기사에겐 콜이 살아 있어야 함
+    }
+
+    @Test
+    void 다른_방의_승객인_기사는_이_방의_콜을_수락할_수_있다() {
+        // 가드가 과하게 넓으면 안 된다 - 승객 이력이 있다는 이유로 기사 일을 막으면 안 됨
+        locations.nearby = List.of(1L);
+        FakeDriverAccess driverAccess = new FakeDriverAccess(Set.of(1L));
+        driverAccess.기사의유저.put(1L, 7L);   // 유저 7은 이 방(방번호)의 멤버가 아님
+        DispatchService service = new DispatchService(partyAccess, driverAccess, locations, notifier, candidates);
+        service.dispatch(방번호);
+
+        service.acceptCall(방번호, 1L);
+
+        assertThat(partyAccess.assignedDriverId).isEqualTo(1L);
+    }
+
+    @Test
     void 동시_수락_경합에서_늦은_기사는_배정_예외를_받고_배정은_유지된다() {
         locations.nearby = List.of(1L, 2L);
         DispatchService service = serviceWith(Set.of(1L, 2L));

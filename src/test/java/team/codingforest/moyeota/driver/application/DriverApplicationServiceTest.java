@@ -24,7 +24,27 @@ class DriverApplicationServiceTest {
     }
 
     private RegisterDriverCommand 등록명령(Long userId) {
-        return new RegisterDriverCommand(userId, "서울-1234-5678", "국민은행", "123-456-789012");
+        return new RegisterDriverCommand(userId, "서울-1234-5678", "국민은행", "123-456-789012",
+                4, "12가3456", "중형");
+    }
+
+    @Test
+    void 등록하면_차량까지_한_번에_저장된다() {
+        // 기사 등록과 차량 등록이 한 트랜잭션 - 차량 없는 "콜 못 받는 반쪽 기사"가 남으면 안 된다
+        DriverResult result = service.register(등록명령(유저));
+
+        assertThat(drivers.findById(result.id()).orElseThrow().getVehicle()).isNotNull();
+        assertThat(drivers.findById(result.id()).orElseThrow().getVehicle().plateNumber()).isEqualTo("12가3456");
+    }
+
+    @Test
+    void 차량_정보가_잘못되면_기사도_등록되지_않는다() {
+        // 좌석 0 → Vehicle 가드 예외 → 트랜잭션 전체 롤백 (인메모리에선 save 전 예외로 동일 효과)
+        RegisterDriverCommand 잘못된차량 = new RegisterDriverCommand(유저, "서울-1234-5678", "국민은행", "123-456-789012",
+                0, "12가3456", "중형");
+
+        assertThatThrownBy(() -> service.register(잘못된차량)).isInstanceOf(BusinessException.class);
+        assertThat(drivers.findByUserId(유저)).isEmpty();
     }
 
     @Test

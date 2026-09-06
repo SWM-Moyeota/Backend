@@ -28,7 +28,10 @@ public class DriverApplicationService {
     public DriverResult register(RegisterDriverCommand command) {
         validateNotRegistered(command.userId());
 
-        Driver driver = Driver.register(command.userId(), command.qualificationNumber(), new BankAccount(command.bankName(), command.accountNumber()));
+        Driver driver = Driver.register(command.userId(), command.qualificationNumber(),
+                new BankAccount(command.bankName(), command.accountNumber()));
+
+        driver.registerVehicle(new Vehicle(command.seats(), command.plateNumber(), command.type()));
 
         DriverResult result = DriverResult.from(service.save(driver));
 

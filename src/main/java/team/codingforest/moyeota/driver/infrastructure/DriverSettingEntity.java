@@ -14,7 +14,7 @@ import java.time.Instant;
 @Entity
 @Getter
 @Table(name = "driver_setting")
-@EntityListeners(AuditingEntityListener.class)      // 해당 엔티티는 MapsId로 참조받기 떄문에 BaseTimeEntity를 상속할 수 없음
+@EntityListeners(AuditingEntityListener.class)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class DriverSettingEntity {
 

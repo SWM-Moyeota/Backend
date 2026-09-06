@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -31,6 +32,7 @@ class PartyApplicationServiceTest {
     private PartyJpaTest parties;
     private RecordingEventPublisher events;
     private FakeDriverAccess driverAccess;
+    private FakeUserAccess userAccess;
     private PartyApplicationService service;
 
     @BeforeEach
@@ -38,9 +40,12 @@ class PartyApplicationServiceTest {
         parties = new PartyJpaTest();
         events = new RecordingEventPublisher();
         driverAccess = new FakeDriverAccess();
+        userAccess = new FakeUserAccess();
+        userAccess.등록(host, "방장");
+        userAccess.등록(participant, "동승자");
         service = new PartyApplicationService(parties, events,
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
-                new RouteCacheTest(), driverAccess);
+                new RouteCacheTest(), driverAccess, userAccess);
     }
 
     @Test
@@ -59,9 +64,58 @@ class PartyApplicationServiceTest {
         service.join(result.id(), participant);
         PartyDetailResult detail = service.getPartyDetail(result.id());
         assertThat(detail.currentMembers()).isEqualTo(2);
+        // 내부 PK 대신 user 모듈이 준 publicId·닉네임이 실려야 한다
         assertThat(detail.members())
-                .extracting(PartyDetailResult.MemberInfo::memberId)
-                .containsExactlyInAnyOrder(host, participant);
+                .extracting(PartyDetailResult.MemberInfo::publicId, PartyDetailResult.MemberInfo::nickname)
+                .containsExactlyInAnyOrder(
+                        tuple(userAccess.publicIdOf(host), "방장"),
+                        tuple(userAccess.publicIdOf(participant), "동승자"));
+    }
+
+    @Test
+    void 운행이_끝난_방_수가_탑승_횟수로_나온다() {
+        // host 는 한 번 완주, participant 는 처음 - 대기 화면 "탑승 N회" 의 근거
+        PartyResult 지난방 = service.open(createParty(host, 2));
+        service.join(지난방.id(), guest);                       // 정원 2 → 매칭 시작
+        Party finished = parties.findById(지난방.id()).orElseThrow();
+        finished.assignDriver(기사);
+        finished.startRide(기사);
+        finished.completeRide(기사, 12000);
+        parties.save(finished);
+
+        PartyResult 새방 = service.open(createParty(host, 3));
+        service.join(새방.id(), participant);
+
+        assertThat(service.getPartyDetail(새방.id()).members())
+                .extracting(PartyDetailResult.MemberInfo::nickname, PartyDetailResult.MemberInfo::rideCount)
+                .containsExactlyInAnyOrder(tuple("방장", 1), tuple("동승자", 0));
+    }
+
+    @Test
+    void 취소된_방은_탑승_횟수에_들어가지_않는다() {
+        PartyResult 취소방 = service.open(createParty(host, 3));
+        service.leave(취소방.id(), host);                       // 마지막 멤버가 나가면 CANCELED
+
+        PartyResult 새방 = service.open(createParty(host, 3));
+
+        assertThat(service.getPartyDetail(새방.id()).members())
+                .extracting(PartyDetailResult.MemberInfo::rideCount)
+                .containsExactly(0);
+    }
+
+    @Test
+    void 유저_요약이_없는_멤버가_있어도_상세_조회는_깨지지_않는다() {
+        // 탈퇴한 유저가 명단에 남아 있는 경우 - 조회 자체가 500 으로 죽으면 대기 화면 전체가 막힌다
+        PartyResult result = service.open(createParty(host, 3));
+        service.join(result.id(), guest);   // guest 는 userAccess 에 미등록
+
+        PartyDetailResult detail = service.getPartyDetail(result.id());
+
+        assertThat(detail.members()).hasSize(2);
+        assertThat(detail.members())
+                .filteredOn(m -> m.publicId() == null)
+                .singleElement()
+                .satisfies(m -> assertThat(m.joinedAt()).isNotNull());
     }
 
     @Test
@@ -319,6 +373,11 @@ class PartyApplicationServiceTest {
         @Override
         public Optional<DriverSummary> findSummary(Long driverId) {
             return Optional.ofNullable(summary);
+        }
+
+        @Override
+        public Optional<Long> findUserId(Long driverId) {
+            return Optional.empty();
         }
     }
 }

@@ -11,6 +11,7 @@ import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.application.dto.PartyResult;
 import team.codingforest.moyeota.matching.application.dto.*;
 import team.codingforest.moyeota.matching.domain.RouteEstimate;
+import team.codingforest.moyeota.user.api.CurrentUser;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -19,20 +20,19 @@ public class PartyController {
     private final PartyApplicationService service;
 
     @PostMapping("/matching/rooms")
-    public ResponseEntity<OpenPartyResponse> open(@RequestBody OpenPartyRequest request) {
-        PartyResult party = service.open(request.toCommand());
+    public ResponseEntity<OpenPartyResponse> open(@CurrentUser Long memberId, @RequestBody OpenPartyRequest request) {
+        PartyResult party = service.open(request.toCommand(memberId));
 
         return ResponseEntity.ok(OpenPartyResponse.from(party));
     }
 
-    @PostMapping("/matching/rooms/{partyId}/{memberId}/join")
-    public ResponseEntity<PartyDetailResult> join(@PathVariable Long partyId, @PathVariable Long memberId) {
+    @PostMapping("/matching/rooms/{partyId}/join")
+    public ResponseEntity<PartyDetailResult> join(@PathVariable Long partyId, @CurrentUser Long memberId) {
         return ResponseEntity.ok(service.join(partyId, memberId));
     }
 
-    // TODO 추후 인증 관련 JWT 헤더에서 memberId 추출
-    @DeleteMapping("/matching/leave/{partyId}/{memberId}")
-    public ResponseEntity<Void> leave(@PathVariable Long partyId, @PathVariable Long memberId) {
+    @DeleteMapping("/matching/leave/{partyId}")
+    public ResponseEntity<Void> leave(@PathVariable Long partyId, @CurrentUser Long memberId) {
         service.leave(partyId, memberId);
 
         return ResponseEntity.noContent().build();

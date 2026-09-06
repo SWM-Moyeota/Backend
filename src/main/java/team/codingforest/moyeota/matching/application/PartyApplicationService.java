@@ -15,6 +15,7 @@ import team.codingforest.moyeota.matching.application.dto.PartyResult;
 import team.codingforest.moyeota.matching.api.MatchingStartedEvent;
 import team.codingforest.moyeota.matching.domain.*;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
+import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.time.Instant;
 import java.util.List;
@@ -29,6 +30,7 @@ public class PartyApplicationService {
     private final RouteFinder routefinder;
     private final RouteCache routeCache;
     private final DriverAccess driverAccess;
+    private final UserAccess userAccess;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
@@ -92,7 +94,11 @@ public class PartyApplicationService {
 
     @Transactional(readOnly = true)
     public PartyDetailResult getPartyDetail(Long partyId) {
-        return PartyDetailResult.from(getParty(partyId));
+        Party party = getParty(partyId);
+
+        List<Long> memberIds = party.getMembers().stream().map(PartyMember::getMemberId).toList();
+
+        return PartyDetailResult.from(party, userAccess.findMemberSummaries(memberIds), parties.countFinishedRides(memberIds));
     }
 
     @Transactional(readOnly = true)
