@@ -11,7 +11,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import team.codingforest.moyeota.auth.jwt.JWTUtil;
 import team.codingforest.moyeota.auth.jwt.TokenHeaders;
-import team.codingforest.moyeota.auth.service.UserService;
+import team.codingforest.moyeota.auth.service.AuthCodeService;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -59,6 +59,10 @@ class AuthSecurityTest {
 
     @Autowired
     private JWTUtil jwtUtil;
+
+    //구글 로그인 성공 핸들러가 하는 일(일회용 코드 발급)을 테스트에서 대신하기 위해 쓴다.
+    @Autowired
+    private AuthCodeService authCodeService;
 
     // ---------------------------------------------------------------- 인증 없음
 
@@ -119,6 +123,41 @@ class AuthSecurityTest {
                 .andExpect(header().exists(TokenHeaders.REFRESH));
     }
 
+    /*
+    구글 로그인의 마지막 단계(코드 교환)도 로컬 로그인과 같은 헤더 모양으로 토큰을 줘야 한다.
+    프론트가 두 로그인의 토큰 저장 코드를 하나로 쓸 수 있는지가 이 테스트에 걸려 있다.
+
+    구글 화면을 실제로 거칠 수는 없으므로, 구글 로그인 성공 직후 CustomSuccessHandler가 하는 일
+    (AuthCodeService.issue로 일회용 코드 발급)을 여기서 직접 한 뒤 그 코드를 교환한다.
+    */
+    @Test
+    @DisplayName("구글 코드 교환도 access와 refresh가 헤더로 온다")
+    void 코드_교환하면_토큰이_헤더로_온다() throws Exception {
+
+        String publicId = mypagePublicId(signupAndLogin());
+        String code = authCodeService.issue(publicId);
+
+        MvcResult exchanged = mvc.perform(post("/api/v1/auth/login/exchange")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"%s\"}".formatted(code)))
+                .andExpect(status().isOk())
+                .andExpect(header().string(TokenHeaders.ACCESS, org.hamcrest.Matchers.startsWith("Bearer ")))
+                .andExpect(header().exists(TokenHeaders.REFRESH))
+                //토큰은 헤더로만 나간다. 본문에도 실려 있으면 프론트가 어느 쪽을 믿어야 할지 갈린다.
+                .andExpect(content().string(""))
+                .andReturn();
+
+        //교환으로 받은 access가 코드를 발급받은 바로 그 사용자를 가리켜야 한다.
+        String access = exchanged.getResponse().getHeader(TokenHeaders.ACCESS).substring("Bearer ".length());
+        assertThat(mypagePublicId(access)).isEqualTo(publicId);
+
+        //같은 코드를 다시 쓰면 401. 주소창에 남은 URL로 누가 다시 시도해도 토큰이 나오면 안 된다.
+        mvc.perform(post("/api/v1/auth/login/exchange")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"%s\"}".formatted(code)))
+                .andExpect(status().isUnauthorized());
+    }
+
     @Test
     @DisplayName("유효한 토큰이면 내 정보가 나온다")
     void 유효한_토큰이면_통과한다() throws Exception {
@@ -153,7 +192,7 @@ class AuthSecurityTest {
 
         //만료시간을 음수로 주면 "이미 만료된" 토큰이 만들어진다. 서명은 우리 키로 정상이다.
         String expired = jwtUtil.createJwt("access", "da4f83ee-e889-4875-b688-70466070c17c",
-                UserService.SECURITY_ROLE, -1000L);
+                 -1000L);
 
         mvc.perform(get(PROTECTED_API).header(TokenHeaders.ACCESS, "Bearer " + expired))
                 .andExpect(status().isUnauthorized())
@@ -176,29 +215,6 @@ class AuthSecurityTest {
         mvc.perform(get(PROTECTED_API).header(TokenHeaders.ACCESS, "Bearer " + refresh))
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().string("invalid access token"));
-    }
-
-    // ---------------------------------------------------------------- 인가
-
-    /*
-    401과 403은 다른 상황이다.
-      401 = 누군지 모르겠다 (로그인해라)
-      403 = 누군지는 알지만 권한이 없다
-    SecurityConfig의 /my 규칙(hasRole("USER"))이 그 경계다.
-
-    주의: 지금은 모든 사용자의 role이 ROLE_USER 하나뿐이라 실제 서비스에서는 403이 날 일이 없다.
-    그래서 여기서는 다른 역할을 가진 토큰을 일부러 만들어 인가 단계가 살아 있는지만 확인한다.
-    PASSENGER/DRIVER 구분을 토큰에 싣게 되면 이 테스트를 그 역할로 바꿔야 한다.
-    */
-    @Test
-    @DisplayName("인증은 됐지만 권한이 없으면 401이 아니라 403")
-    void 권한이_없으면_403() throws Exception {
-
-        String otherRole = jwtUtil.createJwt("access", "da4f83ee-e889-4875-b688-70466070c17c",
-                "ROLE_GUEST", 60_000L);
-
-        mvc.perform(get("/my").header(TokenHeaders.ACCESS, "Bearer " + otherRole))
-                .andExpect(status().isForbidden());
     }
 
     // ---------------------------------------------------------------- 신원 위조
@@ -227,6 +243,59 @@ class AuthSecurityTest {
                         .header(TokenHeaders.ACCESS, "Bearer " + accessA))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.publicId").value(publicIdA));
+    }
+
+    // ---------------------------------------------------------------- @CurrentUser
+
+    /*
+    @CurrentUser 는 토큰 -> publicId -> user_id 변환을 컨트롤러 대신 해준다.
+    변환이 한 곳(CurrentUserArgumentResolver)에만 있어야 팀 API가 늘어나도 구멍이 생기지 않으므로,
+    "그 한 곳이 실제로 옳은 사용자를 채워주는가"를 여기서 고정한다.
+
+    마이페이지가 돌려주는 publicId가 로그인한 사람의 것이어야 성공이다.
+    (@RequestParam 으로 신원을 받던 시절이라면 파라미터로 남의 것을 넣을 수 있었다)
+    */
+    @Test
+    @DisplayName("@CurrentUser 가 토큰이 가리키는 사용자를 채워준다")
+    void CurrentUser_가_토큰의_사용자를_채운다() throws Exception {
+
+        String accessA = signupAndLogin();
+        String accessB = signupAndLogin();
+
+        String publicIdA = mypagePublicId(accessA);
+        String publicIdB = mypagePublicId(accessB);
+
+        //서로 다른 사용자여야 이 테스트가 의미가 있다
+        assertThat(publicIdA).isNotEqualTo(publicIdB);
+    }
+
+    /*
+    수정 API도 같은 경로로 신원을 받는다.
+    조회만 확인하고 수정을 빼두면, 나중에 수정 쪽만 파라미터로 신원을 받게 바뀌어도 아무도 모른다.
+    */
+    @Test
+    @DisplayName("@CurrentUser 로 수정하면 내 정보만 바뀐다")
+    void CurrentUser_로_수정하면_내것만_바뀐다() throws Exception {
+
+        String accessA = signupAndLogin();
+        String accessB = signupAndLogin();
+
+        String publicIdB = mypagePublicId(accessB);
+        String beforeB = mypageNickname(accessB);
+
+        //A의 토큰으로 B의 publicId를 파라미터에 붙여 수정을 시도한다
+        mvc.perform(patch(PROTECTED_API)
+                        .param("userId", publicIdB)
+                        .param("publicId", publicIdB)
+                        .header(TokenHeaders.ACCESS, "Bearer " + accessA)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nickname\":\"A가바꾼닉네임\"}"))
+                .andExpect(status().isOk())
+                //바뀐 것은 A의 것이다
+                .andExpect(jsonPath("$.nickname").value("A가바꾼닉네임"));
+
+        //B는 그대로여야 한다
+        assertThat(mypageNickname(accessB)).isEqualTo(beforeB);
     }
 
     // ---------------------------------------------------------------- 로그아웃
@@ -330,6 +399,15 @@ class AuthSecurityTest {
                 .andReturn().getResponse().getContentAsString();
 
         return JsonPath.read(body, "$.publicId");
+    }
+
+    private String mypageNickname(String access) throws Exception {
+
+        String body = mvc.perform(get(PROTECTED_API).header(TokenHeaders.ACCESS, "Bearer " + access))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        return JsonPath.read(body, "$.nickname");
     }
 
     private String loginBody(String loginId) {

@@ -29,7 +29,6 @@ public class JWTFilter extends OncePerRequestFilter {
 
     private final JWTUtil jwtUtil;
 
-
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
@@ -78,12 +77,11 @@ public class JWTFilter extends OncePerRequestFilter {
         }
 
         //토큰에서 username과 role 획득
-        String username = jwtUtil.getUsername(accessToken);
-        String role = jwtUtil.getRole(accessToken);
+        String publicId = jwtUtil.getPublicId(accessToken);
 
         //서명은 맞는데 sub가 비어 있는 토큰(우리 키로 만든 옛 도구의 산물 등).
         //그대로 흘려보내면 컨트롤러에서 UUID.fromString(null)로 NPE가 나 500이 된다.
-        if (username == null) {
+        if (publicId == null) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().print("invalid access token");
             return;
@@ -91,8 +89,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
         //userDTO를 생성하여 값 set
         UserDTO userDTO = new UserDTO();
-        userDTO.setUsername(username);
-        userDTO.setRole(role);
+        userDTO.setUsername(publicId);
 
         //UserDetails에 회원 정보 객체 담기
         CustomOAuth2User customOAuth2User = new CustomOAuth2User(userDTO);

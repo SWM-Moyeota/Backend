@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 URL에 JWT를 그대로 실으면 주소창/브라우저 히스토리에 24시간짜리 refresh 토큰이 남는다.
 
 대신 30초만 사는 무의미한 난수를 URL에 실어 보내고,
-프론트가 그걸 POST /api/v1/auth/exchange 로 되돌려주면 그때 진짜 토큰을 200 JSON으로 준다.
+프론트가 그걸 POST /api/v1/auth/login/exchange 로 되돌려주면 그때 진짜 토큰을 응답 헤더로 준다.
 URL로 새어 나가는 것은 이미 만료됐거나 이미 사용된 코드가 된다.
 
 왜 DB가 아니라 메모리인가.
@@ -41,15 +41,14 @@ public class AuthCodeService {
 
     //코드에 매달아 둘 정보. 토큰 자체가 아니라 "누구에게 발급할 것인가"만 들고 있는다.
     //그래야 교환되지 않은 로그인 때문에 refresh 토큰이 DB에 쌓이지 않는다.
-    private record Payload(String username, String role, long expiresAt) {
-
+    private record Payload(String publicId, long expiresAt) {
         boolean isExpired() {
             return System.currentTimeMillis() > expiresAt;
         }
     }
 
     //구글 로그인 성공 직후 호출. 코드만 만들어 돌려준다(토큰은 아직 만들지 않는다).
-    public String issue(String username, String role) {
+    public String issue(String publicId) {
 
         //만료된 코드가 계속 쌓이지 않게 발급할 때마다 한 번 쓸어낸다.
         //별도 스케줄러를 두기엔 양이 적고, 로그인 빈도만큼만 돌면 충분하다.
@@ -60,7 +59,7 @@ public class AuthCodeService {
         //URL에 실려야 하므로 +, / 가 없는 URL-safe 인코딩을 쓴다. 패딩(=)도 뺀다.
         String code = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
 
-        store.put(code, new Payload(username, role, System.currentTimeMillis() + CODE_EXP));
+        store.put(code, new Payload(publicId, System.currentTimeMillis() + CODE_EXP));
 
         return code;
     }
@@ -80,9 +79,9 @@ public class AuthCodeService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "invalid or expired code");
         }
 
-        return new UsernameAndRole(payload.username(), payload.role());
+        return new UsernameAndRole(payload.publicId());
     }
 
-    public record UsernameAndRole(String username, String role) {
+    public record UsernameAndRole(String username) {
     }
 }

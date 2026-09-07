@@ -16,29 +16,45 @@ JWT는 서명만 맞으면 서버가 취소할 수 없다.
 그래서 "아직 살아 있는 refresh인가"를 따로 기록해두고 재발급 때 대조한다.
 로그아웃은 이 행을 지우는 것으로 처리한다(= 더 이상 재발급되지 않는다).
 
-user_id를 PK로 쓴다(공유 기본키). local_user / social_user / user_profile과 같은 방식이다.
-그 결과 한 사용자당 행이 최대 하나이므로, 동시에 살아 있는 로그인 세션도 하나다.
-다른 기기에서 로그인하면 이 행이 덮어써지고 먼저 쓰던 기기는 재발급에 실패한다.
-여러 기기 동시 로그인을 허용하려면 PK를 자체 id로 돌리고 user_id는 FK로만 두어야 한다.
+[PK를 자체 id로 둔다]
+예전에는 user_id를 그대로 PK로 쓰는 공유 기본키(@MapsId)였다.
+그 구조는 한 사용자당 행이 물리적으로 하나뿐이라, 나중에 기기별 로그인을 허용하려면
+PK를 바꾸는 마이그레이션이 필요했다. 지금은 자체 id를 두고 user_id는 FK로만 둔다.
+local_user / social_user / user_profile은 사용자와 1:1로 고정된 정보라 공유 기본키가 맞지만,
+refresh 토큰은 "로그인 한 번"마다 생기는 기록이라 성격이 다르다.
+
+[다만 지금은 여전히 사용자당 하나다]
+아래 user_id에 unique 제약을 걸어 기존 동작을 그대로 유지한다.
+다른 기기에서 로그인하면 그 행이 새 토큰으로 덮어써지고, 먼저 쓰던 기기는 재발급에 실패한다.
+여러 기기 동시 로그인을 허용하려면 이 unique 제약(uk_refresh_token_user_id)만 떼면 되고,
+그때 public_id의 unique도 함께 떼야 한다(같은 사용자의 행이 여럿이면 값이 겹치므로).
 */
 @Entity
-@Table(uniqueConstraints = @UniqueConstraint(
-        name = "uk_refresh_token_public_id",
-        columnNames = "public_id"))
+@Table(uniqueConstraints = {
+        //사용자당 살아 있는 refresh는 하나. PK가 user_id였을 때 공짜로 보장되던 것을 명시적으로 옮겨온 것이다.
+        @UniqueConstraint(name = "uk_refresh_token_user_id", columnNames = "user_id"),
+        @UniqueConstraint(name = "uk_refresh_token_public_id", columnNames = "public_id")})
 @Getter
 @Setter
 public class RefreshToken {
 
-    //user 테이블의 PK를 그대로 자기 PK로 쓴다.
-    //@GeneratedValue가 없는 이유는 이 값을 스스로 만들지 않고 아래 @MapsId가 user에서 복사해 오기 때문이다.
+    //이 행 자체의 식별자. 사용자와 무관하게 DB가 만들어준다.
     @Id
-    private Long userId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    //@MapsId : user_id 컬럼 하나가 PK이자 FK 역할을 동시에 한다.
-    //setUser(user)만 해주면 userId는 JPA가 알아서 채운다.
-    @MapsId
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id")
+    /*
+    이 토큰의 주인.
+
+    @ManyToOne인 이유는 위 unique 제약을 떼는 순간 "한 사용자 : 여러 토큰"이 되기 때문이다.
+    지금은 제약 덕분에 1:1처럼 동작하지만, 연관관계 자체는 여러 행을 담을 수 있는 쪽으로 열어둔다.
+    (@OneToOne으로 두면 나중에 제약을 뗄 때 매핑까지 같이 고쳐야 한다)
+
+    LAZY인 이유는 토큰을 다루는 대부분의 경로에서 User 본체가 필요 없기 때문이다.
+    재발급은 refresh 문자열만 대조하고, 로그아웃은 그 행을 지우기만 한다.
+    */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     /*
@@ -49,16 +65,9 @@ public class RefreshToken {
     JWT의 subject가 publicId라서, refresh를 publicId로 찾거나 지우려면 매번 user를 먼저 조회해야 한다.
     이 컬럼이 있으면 그 조회 없이 refresh_token만 보고 처리할 수 있다.
 
-    값이 채워지는 시점은 이 행이 처음 만들어질 때, 즉 TokenService.issue()가 부르는 순간이다.
-    지금 구조에서는 회원가입이 곧바로 issue()를 부르므로 가입하는 순간 refresh_token 행과 함께 채워진다.
-
     updatable=false를 걸지 않은 이유:
-    이 변경 전에 만들어진 행은 이 값이 비어 있는데, issue()가 매번 다시 넣어주면 다음 로그인 때 저절로 채워진다.
+    이 값이 비어 있는 옛 행도 issue()가 매번 다시 넣어주면 다음 로그인 때 저절로 채워진다.
     user_id와 public_id의 짝은 바뀌지 않으므로(User.publicId가 updatable=false다) 몇 번을 덮어써도 같은 값이다.
-
-    unique 제약을 거는 이유:
-    user_id가 PK라 사용자당 행이 하나뿐이므로 public_id도 당연히 유일해야 한다.
-    코드가 실수로 남의 publicId를 넣는 일을 DB가 막아주고, 덤으로 이 컬럼으로 찾을 때 쓸 인덱스가 생긴다.
     */
     @Column(nullable = false)
     private UUID publicId;

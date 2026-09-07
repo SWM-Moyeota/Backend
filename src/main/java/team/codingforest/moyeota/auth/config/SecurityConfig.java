@@ -154,7 +154,6 @@ public class SecurityConfig {
                         auth.requestMatchers(PathRequest.toH2Console()).permitAll();
                     }
 
-                    auth.requestMatchers("/my").hasRole("USER");
                     auth.anyRequest().authenticated();
                 });
 

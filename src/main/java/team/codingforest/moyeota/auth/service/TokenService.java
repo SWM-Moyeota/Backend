@@ -38,23 +38,24 @@ public class TokenService {
     JWT는 서버가 취소할 수 없으므로, 로그아웃으로 무효화하려면 DB대조가 필요하다.
 
     username 자리에는 로그인 아이디가 아니라 publicId(UUID)가 들어온다.
-    refresh_token은 user_id를 PK로 쓰므로 여기서 실제 User를 한 번 찾아와야 한다.
+    refresh_token이 User를 FK로 참조하므로 여기서 실제 User를 한 번 찾아와야 한다.
 
     행이 이미 있으면 새 토큰으로 덮어쓴다(사용자당 한 행).
     덕분에 재발급 때 옛 refresh는 자동으로 사라지고, 별도의 삭제 호출이 필요 없다.
     */
     @Transactional
-    public TokenResponse issue(String username, String role){
-        String access=jwtUtil.createJwt("access",username, role, ACCESS_EXP);
-        String refresh=jwtUtil.createJwt("refresh",username, role, REFRESH_EXP);
+    public TokenResponse issue(String publicId){
+        String access=jwtUtil.createJwt("access",publicId,  ACCESS_EXP);
+        String refresh=jwtUtil.createJwt("refresh",publicId, REFRESH_EXP);
 
-        User user = findUser(username);
+        User user = findUser(publicId);
 
-        //user_id가 PK이므로 findById로 그 사용자의 기존 행을 바로 찾을 수 있다.
-        RefreshToken entity = refreshRepository.findById(user.getUserId())
+        //PK가 이 행의 자체 id로 바뀌었으므로 findById(userId)로는 찾을 수 없다.
+        //user_id에 unique 제약이 있어 사용자당 행은 여전히 최대 하나다.
+        RefreshToken entity = refreshRepository.findByUserUserId(user.getUserId())
                 .orElseGet(() -> {
                     RefreshToken created = new RefreshToken();
-                    //@MapsId가 이 user의 PK를 그대로 refresh_token의 PK로 복사해 간다.
+                    //user만 넣어주면 user_id 컬럼은 JPA가 채운다. id는 DB가 만든다.
                     created.setUser(user);
                     return created;
                 });

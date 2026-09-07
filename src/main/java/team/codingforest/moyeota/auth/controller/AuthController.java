@@ -100,8 +100,8 @@ public class AuthController {
       const access  = res.headers.get('Authorization');   // "Bearer eyJ..."
       const refresh = res.headers.get('Refresh-Token');
 
-    재발급(POST /reissue)도 같은 헤더 방식이다.
-    회원가입(POST /signup)은 토큰을 아예 주지 않고, 구글 코드 교환(POST /login/exchange)만 아직 본문으로 준다.
+    재발급(POST /reissue)과 구글 코드 교환(POST /login/exchange)도 같은 헤더 방식이다.
+    회원가입(POST /signup)은 토큰을 아예 주지 않는다.
     */
     @Operation(summary = "로컬 로그인",
             description = "아이디와 비밀번호로 토큰을 받는다. "
@@ -121,7 +121,7 @@ public class AuthController {
 
         User user = userService.authenticateLocal(request.loginId(), request.password());
 
-        TokenResponse tokens = tokenService.issue(user.getPublicId().toString(), UserService.SECURITY_ROLE);
+        TokenResponse tokens = tokenService.issue(user.getPublicId().toString());
 
         return ResponseEntity.ok()
                 .header(TokenHeaders.ACCESS, TokenHeaders.BEARER_PREFIX + tokens.accessToken())
@@ -140,7 +140,7 @@ public class AuthController {
               -> 구글 로그인 화면
               -> GET /login/oauth2/code/google    (콜백)
               -> CustomSuccessHandler가 프론트로 일회용 코드를 들려 보냄 (302, ?code=...)
-      프론트   -> POST /api/v1/auth/exchange      (아래 메서드, 200 JSON으로 토큰 수령)
+      프론트   -> POST /api/v1/auth/login/exchange (아래 메서드, 200 + 헤더로 토큰 수령)
 
     굳이 한 단계를 더 두는 이유는 인증 관련 진입점을 /api/v1/auth 아래로 모아두기 위해서다.
     프론트는 우리 API 주소만 알면 되고, Security의 내부 경로가 바뀌어도 여기만 고치면 된다.
@@ -164,25 +164,43 @@ public class AuthController {
     구글 로그인의 마지막 단계. 일회용 코드를 진짜 토큰으로 바꿔준다.
 
     구글 로그인이 끝나면 브라우저는 app.oauth2.redirect-uri 로 ?code=... 를 달고 돌아온다.
-    프론트는 그 code를 쿼리스트링에서 읽어 이 API로 보내고, 여기서 200 JSON으로 토큰을 받는다.
+    프론트는 그 code를 쿼리스트링에서 읽어 이 API로 보내고, 여기서 토큰을 받는다.
 
-    주의: 로컬 로그인(POST /login)은 토큰을 응답 헤더로 주도록 바뀌었고 이쪽은 아직 본문이다.
-    둘의 응답 모양이 다르므로 프론트의 토큰 저장 로직도 갈라져 있어야 한다.
+    토큰은 로컬 로그인(POST /login)과 같은 방식으로 응답 헤더로 나간다.
+      Authorization: Bearer <accessToken>
+      Refresh-Token: <refreshToken>
+    본문은 비어 있다(200).
+    그래서 프론트는 로컬 로그인이든 구글 로그인이든 같은 코드로 토큰을 저장할 수 있다.
 
     코드는 30초만 살고 한 번 쓰면 사라진다.
     그래서 주소창에 남은 URL을 나중에 누가 다시 열어도 토큰이 나오지 않는다.
     */
     @Operation(summary = "구글 로그인 코드 교환",
-            description = "구글 로그인 후 리다이렉트 URL에 붙어 온 code를 accessToken/refreshToken으로 바꾼다. "
+            description = "구글 로그인 후 리다이렉트 URL에 붙어 온 code를 토큰으로 바꾼다. "
+                    + "토큰은 응답 본문이 아니라 Authorization / Refresh-Token 헤더로 나간다(본문은 비어 있음). "
                     + "code는 30초간 유효하고 1회만 쓸 수 있다. "
                     + "만료됐거나 이미 사용한 code면 401.")
+    @ApiResponse(responseCode = "200", description = "교환 성공. 토큰은 헤더에 있다.",
+            headers = {
+                    @Header(name = TokenHeaders.ACCESS, description = "Bearer <accessToken>",
+                            schema = @Schema(type = "string")),
+                    @Header(name = TokenHeaders.REFRESH, description = "refreshToken (Bearer 없음)",
+                            schema = @Schema(type = "string"))
+            },
+            content = @Content)
     @PostMapping("/login/exchange")
-    public TokenResponse exchange(@RequestBody ExchangeRequest request) {
+    public ResponseEntity<Void> exchange(@RequestBody ExchangeRequest request) {
 
         AuthCodeService.UsernameAndRole owner = authCodeService.consume(request.code());
 
         //토큰 발급 규칙은 로컬 로그인과 동일하게 TokenService 한 곳에서만 처리한다.
-        return tokenService.issue(owner.username(), owner.role());
+        TokenResponse tokens = tokenService.issue(owner.username());
+
+        //헤더 이름과 Bearer 접두사는 로그인·재발급과 똑같이 TokenHeaders에서 가져온다.
+        return ResponseEntity.ok()
+                .header(TokenHeaders.ACCESS, TokenHeaders.BEARER_PREFIX + tokens.accessToken())
+                .header(TokenHeaders.REFRESH, tokens.refreshToken())
+                .build();
     }
 
     /*
@@ -241,13 +259,12 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"invalid refresh token");
         }
 
-        String username=jwtUtil.getUsername(refresh);
-        String role=jwtUtil.getRole(refresh);
+        String username=jwtUtil.getPublicId(refresh);
 
         //Refresh Rotation : 기존 refresh를 폐기하고 새로 발급.
-        //refresh_token은 user_id가 PK라 사용자당 한 행이므로, issue()가 그 행을 덮어쓰면서 옛 값이 사라진다.
+        //refresh_token은 user_id에 unique가 걸려 사용자당 한 행이므로, issue()가 그 행을 덮어쓰면서 옛 값이 사라진다.
         //따로 삭제할 필요가 없다.
-        TokenResponse tokens = tokenService.issue(username,role);
+        TokenResponse tokens = tokenService.issue(username);
 
         //헤더 이름과 Bearer 접두사는 로그인과 똑같이 TokenHeaders에서 가져온다.
         //프론트가 로그인 응답과 재발급 응답을 같은 코드로 처리할 수 있게 하기 위해서다.

@@ -27,7 +27,7 @@ public class UserService {
 
     //Spring Security의 권한 문자열. Role(PASSENGER/DRIVER)은 서비스 안에서의 역할이고
     //이건 "로그인한 사용자냐"를 나타내는 보안 권한이라 서로 다른 개념이다.
-    //SecurityConfig의 hasRole("USER")가 이 값을 본다.
+    //CustomOAuth2User.getAuthorities()가 이 값을 돌려준다.
     public static final String SECURITY_ROLE = "ROLE_USER";
 
     private final UserRepository userRepository;

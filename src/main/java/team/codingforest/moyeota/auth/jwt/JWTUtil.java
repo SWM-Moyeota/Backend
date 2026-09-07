@@ -22,13 +22,10 @@ public class JWTUtil {
 
     //토큰의 주인(publicId)을 꺼낸다.
     //표준 클레임 sub에 담기므로 커스텀 클레임처럼 이름으로 찾지 않고 전용 메서드를 쓴다.
-    public String getUsername(String token) {
+    public String getPublicId(String token) {
         return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload().getSubject();
     }
 
-    public String getRole(String token) {
-        return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload().get("role", String.class);
-    }
 
     //추가: access인지 refresh인지 구분
     public String getCategory(String token) {
@@ -57,9 +54,9 @@ public class JWTUtil {
         try {
             Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token);
             return true;
-        } catch (ExpiredJwtException e) {
+        } catch (ExpiredJwtException e) { //진짜인데 만료 - 서명은 통과했으니깐
             return true;
-        } catch (JwtException | IllegalArgumentException e) {
+        } catch (JwtException | IllegalArgumentException e) { //가짜, 형식오류, 빈값
             return false;
         }
     }
@@ -83,12 +80,11 @@ public class JWTUtil {
     나중에 다른 인증 서버와 붙일 때도 규격이 맞는다.
     sub는 스펙상 문자열이어야 하므로 숫자를 넣을 일이 생기면 String으로 바꿔서 넣어야 한다.
     */
-    public String createJwt(String category, String username, String role, Long expiredMs) {
+    public String createJwt(String category, String publicId, Long expiredMs) {
 
         return Jwts.builder()
                 .claim("category", category)
-                .subject(username)
-                .claim("role", role)
+                .subject(publicId)
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + expiredMs))
                 .signWith(secretKey)

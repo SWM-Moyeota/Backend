@@ -35,7 +35,6 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             socialType = SocialType.NAVER;
         }
         else if (registrationId.equals("google")) {
-
             oAuth2Response = new GoogleResponse(oAuth2User.getAttributes());
             socialType = SocialType.GOOGLE;
         }
@@ -55,7 +54,6 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         //토큰의 subject로 쓰일 값. CustomSuccessHandler가 이걸 그대로 JWT에 넣는다.
         userDTO.setUsername(user.getPublicId().toString());
         userDTO.setName(oAuth2Response.getName());
-        userDTO.setRole(UserService.SECURITY_ROLE);
 
         return new CustomOAuth2User(userDTO);
     }
