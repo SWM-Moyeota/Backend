@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.chat.config;
 
+import com.google.common.net.HttpHeaders;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.messaging.Message;
@@ -12,19 +13,22 @@ import org.springframework.stereotype.Component;
 import team.codingforest.moyeota.chat.domain.ChatRoomUserRepository;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
+import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
+import team.codingforest.moyeota.user.api.TokenAuthenticator;
 
 import java.security.Principal;
 
 @Component
 @RequiredArgsConstructor
 public class StompAuthInterceptor implements ChannelInterceptor {
-    private static final String USER_ID_HEADER = "X-User-Id";
+    private static final String BEARER_PREFIX = "Bearer ";
     private static final String APP_DESTINATION_PREFIX = "/pub/";
     private static final String ROOM_DESTINATION_PREFIX = "/sub/chat-rooms/";
     private static final String ERROR_DESTINATION = "/user/queue/errors";
     private static final String ROOM_LEFT_DESTINATION = "/user/queue/room-left";
 
     private final ChatRoomUserRepository chatRoomUserRepository;
+    private final TokenAuthenticator tokenAuthenticator;
 
     @Override
     public Message<?> preSend(@NonNull Message<?> message, MessageChannel channel) {
@@ -39,7 +43,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
         }
 
         if (StompCommand.CONNECT.equals(command)) {
-            Long userId = parseUserId(accessor.getFirstNativeHeader(USER_ID_HEADER));
+            Long userId = authenticate(accessor.getFirstNativeHeader(HttpHeaders.AUTHORIZATION));
             accessor.setUser(new ChatPrincipal(userId));
             return message;
         }
@@ -103,16 +107,14 @@ public class StompAuthInterceptor implements ChannelInterceptor {
         }
     }
 
-    private Long parseUserId(String header) {
-        if (header == null || header.isBlank()) {
+    private Long authenticate(String header) {
+        if (header == null || !header.startsWith(BEARER_PREFIX)) {
             throw new ChatException(ChatErrorCode.CHAT_UNAUTHORIZED);
         }
 
-        try {
-            return Long.parseLong(header.trim());
-        } catch (NumberFormatException e) {
-            throw new ChatException(ChatErrorCode.CHAT_UNAUTHORIZED);
-        }
+        return tokenAuthenticator.authenticate(header.substring(BEARER_PREFIX.length()).trim())
+                .map(AuthenticatedPrincipal::userId)
+                .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_UNAUTHORIZED));
     }
 }
 
