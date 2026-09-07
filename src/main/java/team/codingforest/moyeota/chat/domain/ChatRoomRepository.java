@@ -8,4 +8,5 @@ public interface ChatRoomRepository {
     Optional<ChatRoom> findById(Long chatRoomId);
 
     boolean existsByPartyId(Long partyId);
+    Optional<ChatRoom> findByPartyId(Long partyId);
 }
