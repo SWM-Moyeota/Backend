@@ -20,6 +20,7 @@ import java.util.Optional;
 class PartyAccessService implements PartyAccess {
     private final Parties parties;
 
+    @Transactional(readOnly = true)
     @Override
     public Optional<PartySummary> findSummary(Long partyId) {
         return parties.findById(partyId)
@@ -46,6 +47,7 @@ class PartyAccessService implements PartyAccess {
         parties.save(party);
     }
 
+    @Transactional(readOnly = true)
     @Override
     public List<MatchingTarget> findMatchingTargets() {
         return parties.findMatchingTargets();
@@ -76,6 +78,7 @@ class PartyAccessService implements PartyAccess {
                 .orElse(false);
     }
 
+    @Transactional(readOnly = true)
     @Override
     public PartyChatSummary findChatSummary(Long partyId) {
         Party party = parties.findById(partyId)
