@@ -3,6 +3,7 @@ package team.codingforest.moyeota.chat.app;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import team.codingforest.moyeota.chat.app.dto.ChatRoomCommand;
@@ -33,6 +34,7 @@ class ChatRoomUserServiceTest {
     private ChatRoomUserRepository chatRoomUserRepository;
     private ChatRoomRepository chatRoomRepository;
     private ChatRoomUserService chatRoomUserService;
+    private MemberProvider memberProvider;
     private ApplicationEventPublisher eventPublisher;
 
     @BeforeEach
@@ -40,7 +42,8 @@ class ChatRoomUserServiceTest {
         chatRoomUserRepository = mock(ChatRoomUserRepository.class);
         chatRoomRepository = mock(ChatRoomRepository.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
-        chatRoomUserService = new ChatRoomUserService(eventPublisher, chatRoomUserRepository, chatRoomRepository);
+        memberProvider = mock(MemberProvider.class);
+        chatRoomUserService = new ChatRoomUserService(eventPublisher, chatRoomUserRepository, chatRoomRepository, memberProvider);
     }
 
     private ChatRoom room(ChatRoomStatus status) {

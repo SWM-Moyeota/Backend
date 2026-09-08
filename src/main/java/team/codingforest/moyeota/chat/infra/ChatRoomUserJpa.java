@@ -35,4 +35,11 @@ public class ChatRoomUserJpa implements ChatRoomUserRepository {
         Optional<ChatRoomUserEntity> entity = jpaRepository.findByUserIdAndChatRoomIdAndLeftAtIsNull(userId, chatRoomId);
         return entity.map(ChatRoomUserEntity::toDomain);
     }
+
+    @Override
+    public List<ChatRoomUser> findAllByChatRoomId(Long chatRoomId) {
+        return jpaRepository.findAllByChatRoomId(chatRoomId).stream()
+                .map(ChatRoomUserEntity::toDomain)
+                .toList();
+    }
 }

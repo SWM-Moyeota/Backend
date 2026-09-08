@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import team.codingforest.moyeota.chat.app.ChatMessageService;
 import team.codingforest.moyeota.chat.app.dto.*;
 import team.codingforest.moyeota.chat.presentation.dto.SendMessageRequest;
+import team.codingforest.moyeota.user.api.CurrentUser;
 
 @RestController
 @RequestMapping("/api/v1/chat-rooms/{chatRoomId}/messages")
@@ -16,7 +17,7 @@ public class ChatMessageController {
 
     @GetMapping
     public ChatMessageSlice getChatMessages(
-            @RequestHeader("X-User-Id") Long userId,
+            @CurrentUser Long userId,
             @PathVariable Long chatRoomId,
             @RequestParam(required = false) Long cursor,
             @RequestParam(defaultValue = "30") int size
@@ -27,7 +28,7 @@ public class ChatMessageController {
 
     @GetMapping("/after")
     public ChatMessageSlice getChatMessagesAfter(
-            @RequestHeader("X-User-Id") Long userId,
+            @CurrentUser Long userId,
             @PathVariable Long chatRoomId,
             @RequestParam Long cursor,
             @RequestParam(defaultValue = "30") int size
@@ -40,7 +41,7 @@ public class ChatMessageController {
     @ResponseStatus(HttpStatus.CREATED)
     public ChatMessageResult sendMessage(
             @PathVariable Long chatRoomId,
-            @RequestHeader("X-User-Id") Long userId,
+            @CurrentUser Long userId,
             @Valid @RequestBody SendMessageRequest request
     ) {
         return chatMessageService.sendMessage(new SendMessageCommand(chatRoomId, userId, request.content()));
@@ -51,7 +52,7 @@ public class ChatMessageController {
     public void deleteMessage(
             @PathVariable Long chatRoomId,
             @PathVariable Long messageId,
-            @RequestHeader("X-User-Id") Long userId
+            @CurrentUser Long userId
     ) {
         chatMessageService.deleteMessage(chatRoomId, messageId, userId);
     }
@@ -59,7 +60,7 @@ public class ChatMessageController {
     @GetMapping("/search")
     public ChatMessageSlice search(
             @PathVariable Long chatRoomId,
-            @RequestHeader("X-User-Id") Long userId,
+            @CurrentUser Long userId,
             @RequestParam String keyword,
             @RequestParam(required = false) Long cursor,
             @RequestParam(defaultValue = "30") int size

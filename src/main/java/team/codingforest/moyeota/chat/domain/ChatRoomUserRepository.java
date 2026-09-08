@@ -9,4 +9,6 @@ public interface ChatRoomUserRepository {
     List<ChatRoomUser> findActiveByUserId(Long userId);
 
     Optional<ChatRoomUser> findActiveByUserIdAndChatRoomId(Long userId, Long chatRoomId);
+
+    List<ChatRoomUser> findAllByChatRoomId(Long chatRoomId);
 }
