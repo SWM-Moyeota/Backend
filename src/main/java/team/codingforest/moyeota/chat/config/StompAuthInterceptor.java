@@ -1,8 +1,8 @@
 package team.codingforest.moyeota.chat.config;
 
-import org.springframework.http.HttpHeaders;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
+import org.springframework.http.HttpHeaders;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
