@@ -3,6 +3,7 @@ package team.codingforest.moyeota.chat.app;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.chat.app.dto.ChatRoomCommand;
 import team.codingforest.moyeota.chat.app.dto.ChatRoomResult;
@@ -29,7 +30,7 @@ public class MatchingChatRoomService {
     /**
      * 채팅방 여부를 확인하고 채팅방이 없으면 파티정보를 가져와 채팅방을 만들어 유저들을 추가한다.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ChatRoomResult provisionForParty(Long partyId) {
         Optional<ChatRoom> existing = chatRoomRepository.findByPartyId(partyId);
 
