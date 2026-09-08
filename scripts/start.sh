@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e
 systemctl daemon-reload
-systemctl start moyeota
+systemctl restart moyeota
