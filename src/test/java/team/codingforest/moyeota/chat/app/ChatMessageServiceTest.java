@@ -19,11 +19,14 @@ import team.codingforest.moyeota.chat.domain.exception.ChatException;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
@@ -32,6 +35,7 @@ import static org.mockito.Mockito.verify;
 class ChatMessageServiceTest {
     private static final Long ROOM_ID = 1L;
     private static final Long USER_ID = 7L;
+    private static final UUID PUBLIC_ID = UUID.fromString("3f7a1c2e-8b4d-4c1a-9f2e-1234567890ab");
     private static final Instant NOW = Instant.parse("2026-08-04T10:00:00Z");
 
     @Mock
@@ -40,6 +44,8 @@ class ChatMessageServiceTest {
     private ChatRoomRepository chatRoomRepository;
     @Mock
     private ChatRoomUserService chatRoomUserService;
+    @Mock
+    private MemberProvider memberProvider;
     @Mock
     private ApplicationEventPublisher eventPublisher;
     @InjectMocks
@@ -54,7 +60,13 @@ class ChatMessageServiceTest {
     }
 
     private SendMessageCommand command() {
-        return new SendMessageCommand(ROOM_ID, USER_ID, "안녕");
+        return new SendMessageCommand(ROOM_ID, USER_ID, PUBLIC_ID, "안녕");
+    }
+
+    /** 이력·검색 경로는 발신자를 배치 조회하므로 스텁이 필요하다 */
+    private void givenMembers() {
+        given(memberProvider.findMembers(anyList()))
+                .willReturn(Map.of(USER_ID, new ChatMember(USER_ID, PUBLIC_ID, "성훈", null)));
     }
 
     private FindMessageCommand findMessageCommand(Long cursor, int size) {
@@ -67,6 +79,7 @@ class ChatMessageServiceTest {
 
     @Test
     void size보다_많이_조회하면_hasNext_true() {
+        givenMembers();
         given(chatMessageRepository.findBefore(ROOM_ID, null, 3)) // Repo에서는 한개 더 불러와서 다음이 있는지 없는지 판단을 함
                 .willReturn(List.of(message(3L), message(2L), message(1L)));
 
@@ -79,6 +92,7 @@ class ChatMessageServiceTest {
 
     @Test
     void size보다_같거나_적게_조회하면_hasNext_false() {
+        givenMembers();
         given(chatMessageRepository.findBefore(ROOM_ID, null, 3))
                 .willReturn(List.of(message(2L), message(1L)));
 
@@ -97,7 +111,7 @@ class ChatMessageServiceTest {
         ChatMessageResult result = chatMessageService.sendMessage(command());
 
         assertThat(result.id()).isEqualTo(1L);
-        assertThat(result.userId()).isEqualTo(USER_ID);
+        assertThat(result.publicId()).isEqualTo(PUBLIC_ID);
         assertThat(result.chatRoomId()).isEqualTo(ROOM_ID);
 
         verify(eventPublisher).publishEvent(new ChatMessageSentEvent(result));
@@ -172,6 +186,7 @@ class ChatMessageServiceTest {
 
     @Test
     void findAfter_size보다_많이_조회시_hasNext_true() {
+        givenMembers();
         given(chatMessageRepository.findAfter(ROOM_ID, 1L, 3))
                 .willReturn(List.of(message(2L), message(3L), message(4L)));
 
@@ -196,7 +211,7 @@ class ChatMessageServiceTest {
         given(chatMessageRepository.findById(1L)).willReturn(Optional.of(message));
         given(chatMessageRepository.save(any(ChatMessage.class))).willReturn(message);
 
-        chatMessageService.deleteMessage(ROOM_ID, 1L, USER_ID);
+        chatMessageService.deleteMessage(ROOM_ID, 1L, USER_ID, PUBLIC_ID);
 
         assertThat(message.isDeleted()).isTrue();
         verify(eventPublisher).publishEvent(any(ChatMessageDeleteEvent.class));
@@ -206,7 +221,7 @@ class ChatMessageServiceTest {
     void 메시지_삭제시_본인_메시지_아니면_예외() {
         given(chatMessageRepository.findById(1L)).willReturn(Optional.of(message(1L)));
 
-        assertThatThrownBy(() -> chatMessageService.deleteMessage(ROOM_ID, 1L, 99L))
+        assertThatThrownBy(() -> chatMessageService.deleteMessage(ROOM_ID, 1L, 99L, PUBLIC_ID))
                 .isInstanceOf(ChatException.class)
                 .extracting("errorCode")
                 .isEqualTo(ChatErrorCode.CHAT_NOT_MESSAGE_OWNER);
@@ -216,7 +231,7 @@ class ChatMessageServiceTest {
     void 없는_메시지_삭제시_예외() {
         given(chatMessageRepository.findById(1L)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> chatMessageService.deleteMessage(ROOM_ID, 1L, USER_ID))
+        assertThatThrownBy(() -> chatMessageService.deleteMessage(ROOM_ID, 1L, USER_ID, PUBLIC_ID))
                 .isInstanceOf(ChatException.class)
                 .extracting("errorCode")
                 .isEqualTo(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND);
@@ -224,6 +239,7 @@ class ChatMessageServiceTest {
 
     @Test
     void 검색_결과가_size보다_많으면_hasNext_true() {
+        givenMembers();
         given(chatMessageRepository.search(ROOM_ID, "안녕", null, 3))
                 .willReturn(List.of(message(3L), message(2L), message(1L)));
 

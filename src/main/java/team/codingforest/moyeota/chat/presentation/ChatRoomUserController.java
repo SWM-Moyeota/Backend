@@ -11,6 +11,7 @@ import team.codingforest.moyeota.chat.app.dto.ReadChatCommand;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/chat-rooms")
@@ -27,18 +28,20 @@ public class ChatRoomUserController {
     @ResponseStatus(HttpStatus.CREATED)
     public void join(
             @CurrentUser Long userId,
+            @CurrentUser UUID publicId,
             @PathVariable Long chatRoomId
     ) {
-        chatRoomUserService.join(new ChatRoomCommand(chatRoomId, userId));
+        chatRoomUserService.join(new ChatRoomCommand(chatRoomId, userId, publicId));
     }
 
     @DeleteMapping("/{chatRoomId}/users")
     @ResponseStatus(HttpStatus.OK)
     public void leave(
             @CurrentUser Long userId,
+            @CurrentUser UUID publicId,
             @PathVariable Long chatRoomId
     ) {
-        chatRoomUserService.leave(new ChatRoomCommand(chatRoomId, userId));
+        chatRoomUserService.leave(new ChatRoomCommand(chatRoomId, userId, publicId));
     }
 
     @PostMapping("/{chatRoomId}/users/read/{readMessageId}")
