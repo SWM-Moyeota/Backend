@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import team.codingforest.moyeota.chat.app.ChatRoomUserService;
 import team.codingforest.moyeota.chat.app.dto.ChatRoomCommand;
+import team.codingforest.moyeota.chat.app.dto.ChatRoomMemberResult;
 import team.codingforest.moyeota.chat.app.dto.ChatRoomUserResult;
 import team.codingforest.moyeota.chat.app.dto.ReadChatCommand;
 import team.codingforest.moyeota.user.api.CurrentUser;
@@ -48,5 +49,13 @@ public class ChatRoomUserController {
             @PathVariable Long readMessageId
     ) {
         chatRoomUserService.read(new ReadChatCommand(userId, chatRoomId, readMessageId));
+    }
+
+    @GetMapping("/{chatRoomId}/users")
+    public List<ChatRoomMemberResult> getMembers(
+            @CurrentUser Long userId,
+            @PathVariable Long chatRoomId
+    ) {
+        return chatRoomUserService.findMembers(userId, chatRoomId);
     }
 }
