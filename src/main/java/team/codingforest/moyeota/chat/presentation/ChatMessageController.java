@@ -7,7 +7,10 @@ import org.springframework.web.bind.annotation.*;
 import team.codingforest.moyeota.chat.app.ChatMessageService;
 import team.codingforest.moyeota.chat.app.dto.*;
 import team.codingforest.moyeota.chat.presentation.dto.SendMessageRequest;
+import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
 import team.codingforest.moyeota.user.api.CurrentUser;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/chat-rooms/{chatRoomId}/messages")
@@ -42,21 +45,24 @@ public class ChatMessageController {
     public ChatMessageResult sendMessage(
             @PathVariable Long chatRoomId,
             @CurrentUser Long userId,
+            @CurrentUser UUID publicId,
             @Valid @RequestBody SendMessageRequest request
     ) {
-        return chatMessageService.sendMessage(new SendMessageCommand(chatRoomId, userId, request.content()));
+        return chatMessageService.sendMessage(
+                new SendMessageCommand(chatRoomId, userId, publicId, request.content()));
     }
+
 
     @DeleteMapping("/{messageId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteMessage(
             @PathVariable Long chatRoomId,
             @PathVariable Long messageId,
-            @CurrentUser Long userId
+            @CurrentUser Long userId,
+            @CurrentUser UUID publicId
     ) {
-        chatMessageService.deleteMessage(chatRoomId, messageId, userId);
+        chatMessageService.deleteMessage(chatRoomId, messageId, userId, publicId);
     }
-
     @GetMapping("/search")
     public ChatMessageSlice search(
             @PathVariable Long chatRoomId,

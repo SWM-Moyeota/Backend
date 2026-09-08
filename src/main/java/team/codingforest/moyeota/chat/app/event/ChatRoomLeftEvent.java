@@ -1,4 +1,5 @@
 package team.codingforest.moyeota.chat.app.event;
 
-public record ChatRoomLeftEvent(Long userId, Long chatRoomId) {
-}
+import java.util.UUID;
+
+public record ChatRoomLeftEvent(Long userId, UUID publicId, Long chatRoomId) {}
