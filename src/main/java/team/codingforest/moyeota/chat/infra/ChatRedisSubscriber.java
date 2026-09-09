@@ -43,7 +43,10 @@ public class ChatRedisSubscriber implements MessageListener {
 
     private void handleRoomLeft(String payload) {
         ChatRoomLeftResult result = objectMapper.readValue(payload, ChatRoomLeftResult.class);
+
         messagingTemplate.convertAndSendToUser(
-                String.valueOf(result.userId()), ROOM_LEFT_DESTINATION, result);
+                String.valueOf(result.userId()),                                 // 라우팅 키 (내부)
+                ROOM_LEFT_DESTINATION,
+                new RoomLeftPayload(result.publicId(), result.chatRoomId()));    // 페이로드 (외부)
     }
 }

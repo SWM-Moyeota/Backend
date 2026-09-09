@@ -43,8 +43,8 @@ public class StompAuthInterceptor implements ChannelInterceptor {
         }
 
         if (StompCommand.CONNECT.equals(command)) {
-            Long userId = authenticate(accessor.getFirstNativeHeader(HttpHeaders.AUTHORIZATION));
-            accessor.setUser(new ChatPrincipal(userId));
+            AuthenticatedPrincipal principal = authenticate(accessor.getFirstNativeHeader(HttpHeaders.AUTHORIZATION));
+            accessor.setUser(new ChatPrincipal(principal.userId(), principal.publicId()));
             return message;
         }
 
@@ -107,13 +107,12 @@ public class StompAuthInterceptor implements ChannelInterceptor {
         }
     }
 
-    private Long authenticate(String header) {
+    private AuthenticatedPrincipal authenticate(String header) {
         if (header == null || !header.startsWith(BEARER_PREFIX)) {
             throw new ChatException(ChatErrorCode.CHAT_UNAUTHORIZED);
         }
 
         return tokenAuthenticator.authenticate(header.substring(BEARER_PREFIX.length()).trim())
-                .map(AuthenticatedPrincipal::userId)
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_UNAUTHORIZED));
     }
 }

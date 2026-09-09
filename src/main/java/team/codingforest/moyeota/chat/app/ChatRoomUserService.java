@@ -60,7 +60,8 @@ public class ChatRoomUserService {
 
         chatRoomUserRepository.save(chatRoomUser);
 
-        eventPublisher.publishEvent(new ChatRoomLeftEvent(command.userId(), command.chatRoomId()));
+        eventPublisher.publishEvent(
+                new ChatRoomLeftEvent(command.userId(), command.publicId(), command.chatRoomId()));
 
         log.info("채팅방 나감 chatRoomId={} userID={}", command.chatRoomId(), command.userId());
     }

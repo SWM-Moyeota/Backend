@@ -20,6 +20,7 @@ import java.util.Optional;
 class PartyAccessService implements PartyAccess {
     private final Parties parties;
 
+    @Transactional(readOnly = true)
     @Override
     public Optional<PartySummary> findSummary(Long partyId) {
         return parties.findById(partyId)
@@ -46,6 +47,7 @@ class PartyAccessService implements PartyAccess {
         parties.save(party);
     }
 
+    @Transactional(readOnly = true)
     @Override
     public List<MatchingTarget> findMatchingTargets() {
         return parties.findMatchingTargets();
@@ -69,6 +71,7 @@ class PartyAccessService implements PartyAccess {
         parties.save(party);
     }
 
+    @Transactional(readOnly = true)
     @Override
     public boolean isAwaitingPickup(Long partyId, Long driverId) {
         return parties.findById(partyId)
@@ -76,6 +79,7 @@ class PartyAccessService implements PartyAccess {
                 .orElse(false);
     }
 
+    @Transactional(readOnly = true)
     @Override
     public PartyChatSummary findChatSummary(Long partyId) {
         Party party = parties.findById(partyId)
@@ -89,11 +93,13 @@ class PartyAccessService implements PartyAccess {
         return new PartyChatSummary(party.getId(), members, party.getDeparture(), party.getDestination());
     }
 
+    @Transactional(readOnly = true)
     @Override
     public boolean hasOngoingRide(Long driverId) {
         return parties.hasOngoingRide(driverId);
     }
 
+    @Transactional(readOnly = true)
     @Override
     public boolean hasMemberOnParty(Long memberId, Long partyId) {
         Party party = parties.findById(partyId)
@@ -106,6 +112,7 @@ class PartyAccessService implements PartyAccess {
         return false;
     }
 
+    @Transactional(readOnly = true)
     @Override
     public boolean isRidingMember(Long partyId, Long memberId) {
         return parties.findById(partyId)
@@ -113,6 +120,7 @@ class PartyAccessService implements PartyAccess {
                 .orElse(false);
     }
 
+    @Transactional(readOnly = true)
     @Override
     public List<Long> findMemberIds(Long partyId) {
         return parties.findById(partyId)

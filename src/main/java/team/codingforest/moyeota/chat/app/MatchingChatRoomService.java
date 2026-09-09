@@ -50,7 +50,7 @@ public class MatchingChatRoomService {
                 new CreateChatRoomCommand(party.partyId(), party.departurePlace(), party.destinationPlace()));
 
         for (Long memberId : party.userIds()) {
-            chatRoomUserService.join(new ChatRoomCommand(room.id(), memberId));
+            chatRoomUserService.join(new ChatRoomCommand(room.id(), memberId, null));
         }
 
         log.info("매칭 채팅방 생성 partyId={} chatRoomId={} 참여자={}", partyId, room.id(), party.userIds());

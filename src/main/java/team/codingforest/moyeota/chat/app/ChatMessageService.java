@@ -7,15 +7,14 @@ import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.chat.app.dto.*;
 import team.codingforest.moyeota.chat.app.event.ChatMessageDeleteEvent;
 import team.codingforest.moyeota.chat.app.event.ChatMessageSentEvent;
-import team.codingforest.moyeota.chat.domain.ChatMessage;
-import team.codingforest.moyeota.chat.domain.ChatMessageRepository;
-import team.codingforest.moyeota.chat.domain.ChatRoom;
-import team.codingforest.moyeota.chat.domain.ChatRoomRepository;
+import team.codingforest.moyeota.chat.domain.*;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +23,7 @@ public class ChatMessageService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomUserService chatRoomUserService;
+    private final MemberProvider memberProvider;
 
     private final ApplicationEventPublisher eventPublisher;
 
@@ -80,8 +80,8 @@ public class ChatMessageService {
                 command.content(),
                 Instant.now()
         );
-
-        ChatMessageResult result = ChatMessageResult.from(chatMessageRepository.save(message));
+        ChatMessageResult result = ChatMessageResult.from(
+                chatMessageRepository.save(message), command.publicId());
 
         eventPublisher.publishEvent(new ChatMessageSentEvent(result));
 
@@ -117,7 +117,7 @@ public class ChatMessageService {
      * 메시지 삭제
      */
     @Transactional
-    public void deleteMessage(Long chatRoomId, Long messageId, Long userId) {
+    public void deleteMessage(Long chatRoomId, Long messageId, Long userId, UUID publicId) {
         chatRoomUserService.validateParticipant(userId, chatRoomId);
 
         ChatMessage message = chatMessageRepository.findById(messageId)
@@ -133,10 +133,12 @@ public class ChatMessageService {
 
         message.delete(Instant.now());
 
-        ChatMessageResult result = ChatMessageResult.from(chatMessageRepository.save(message));
+        ChatMessageResult result = ChatMessageResult.from(chatMessageRepository.save(message), publicId);
 
         eventPublisher.publishEvent(new ChatMessageDeleteEvent(result));
     }
+
+
 
     /**
      * 메시지의 끝 여부를 조회 후 사이즈만큼 잘라서 반환
@@ -146,11 +148,25 @@ public class ChatMessageService {
         List<ChatMessage> page = hasNext ? messages.subList(0, size) : messages;
         Long nextCursor = page.isEmpty() ? null : page.getLast().getId();
 
+        List<Long> senderIds = page.stream()
+                .map(ChatMessage::getUserId)
+                .distinct()
+                .toList();
+
+        Map<Long, ChatMember> members = memberProvider.findMembers(senderIds);
+
         return new ChatMessageSlice(
-                page.stream().map(ChatMessageResult::from).toList(),
+                page.stream()
+                        .map(m -> ChatMessageResult.from(m, publicIdOf(members, m.getUserId())))
+                        .toList(),
                 nextCursor,
                 hasNext
         );
+    }
+
+    private UUID publicIdOf(Map<Long, ChatMember> members, Long userId) {
+        ChatMember member = members.get(userId);
+        return member == null ? null : member.publicId();
     }
 
     /**

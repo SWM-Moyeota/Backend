@@ -66,7 +66,8 @@ public class PartyApplicationService {
     @Transactional
     public PartyDetailResult join(Long partyId, Long memberId) {
         validateNotInOngoingParty(memberId);
-        Party party = getParty(partyId);
+        Party party = parties.findByIdForUpdate(partyId)
+                        .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
         party.join(memberId);
 
@@ -84,7 +85,8 @@ public class PartyApplicationService {
 
     @Transactional
     public void leave(Long partyId, Long memberId) {
-        Party party = getParty(partyId);
+        Party party = parties.findByIdForUpdate(partyId)
+                        .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
         party.leave(memberId);
         parties.save(party);
