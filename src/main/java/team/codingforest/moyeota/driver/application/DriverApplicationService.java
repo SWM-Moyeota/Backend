@@ -13,6 +13,7 @@ import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Drivers;
 import team.codingforest.moyeota.driver.domain.Vehicle;
 import team.codingforest.moyeota.driver.domain.exception.DriverErrorCode;
+import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.time.Instant;
 
@@ -21,6 +22,7 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class DriverApplicationService {
     private final Drivers service;
+    private final UserAccess userAccess;
 
     @Transactional
     public DriverResult register(RegisterDriverCommand command) {
@@ -31,7 +33,7 @@ public class DriverApplicationService {
 
         driver.registerVehicle(new Vehicle(command.seats(), command.plateNumber(), command.type()));
 
-        DriverResult result = DriverResult.from(service.save(driver));
+        DriverResult result = toResult(service.save(driver));
 
         log.info("기사 등록 신청 driverId={}, userId={}", result.id(), result.userId());
 
@@ -102,11 +104,13 @@ public class DriverApplicationService {
     @Transactional(readOnly = true)
     public DriverResult getByUserId(Long userId) {
         return service.findByUserId(userId)
-                .map(DriverResult::from)
+                .map(this::toResult)
                 .orElseThrow(() -> new BusinessException(DriverErrorCode.DRIVER_NOT_REGISTERED));
     }
 
-
+    private DriverResult toResult(Driver driver) {
+        return DriverResult.from(driver, userAccess.findNickname(driver.getUserId()).orElse(null));
+    }
 
     private Driver getDriver(Long driverId) {
         return service.findById(driverId)

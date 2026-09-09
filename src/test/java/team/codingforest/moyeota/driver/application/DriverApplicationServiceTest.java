@@ -16,12 +16,15 @@ class DriverApplicationServiceTest {
     private static final Long 다른유저 = 2L;
 
     private DriverJpaTest drivers;
+    private FakeUserAccess userAccess;
     private DriverApplicationService service;
 
     @BeforeEach
     void setUp() {
         drivers = new DriverJpaTest();
-        service = new DriverApplicationService(drivers);
+        userAccess = new FakeUserAccess();
+        userAccess.등록(유저, "길동기사");
+        service = new DriverApplicationService(drivers, userAccess);
     }
 
     private RegisterDriverCommand 등록명령(Long userId) {
@@ -100,6 +103,22 @@ class DriverApplicationServiceTest {
         service.disableCall(registered.id());
 
         assertThat(service.getByUserId(유저).callEnabled()).isFalse();
+    }
+
+    @Test
+    void 내_기사_정보에는_닉네임이_실린다() {
+        // 기사 앱 홈 "OO 기사님" - 이름은 driver 테이블이 아니라 user 모듈에서 온다
+        service.register(등록명령(유저));
+
+        assertThat(service.getByUserId(유저).name()).isEqualTo("길동기사");
+    }
+
+    @Test
+    void 닉네임이_없는_유저면_name은_null이다() {
+        // 소셜 가입 직후(프로필 설정 전) - 조회 자체가 실패하면 안 된다
+        service.register(등록명령(다른유저));   // 다른유저는 userAccess 에 미등록
+
+        assertThat(service.getByUserId(다른유저).name()).isNull();
     }
 
     @Test
