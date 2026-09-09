@@ -55,6 +55,7 @@ public class RideService {
     /**
      *      승객이 오는 기사의 현재 위치를 조회
      */
+    @Transactional
     public DriverLocationResponse driverLocation(Long partyId, Long memberId) {
         if(!partyAccess.hasMemberOnParty(memberId, partyId)) throw new BusinessException(DispatchErrorCode.NOT_PARTY_MEMBER);
 
