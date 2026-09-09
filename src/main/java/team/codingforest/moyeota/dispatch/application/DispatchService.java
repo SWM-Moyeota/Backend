@@ -109,6 +109,7 @@ public class DispatchService {
         return (int) Math.min(MAX_RADIUS_METERS, INITIAL_RADIUS_METERS + steps * RADIUS_STEP_METERS);
     }
 
+    @Transactional(readOnly = true)
     public PartySummary getDetailRoom(Long driverId, Long partyId) {
         if(!isCallOpen(partyId, driverId)) throw new BusinessException(DispatchErrorCode.CALL_CLOSED);
 
