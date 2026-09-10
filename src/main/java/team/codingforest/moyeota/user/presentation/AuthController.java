@@ -3,10 +3,22 @@ package team.codingforest.moyeota.user.presentation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 import team.codingforest.moyeota.user.application.AuthService;
 import team.codingforest.moyeota.user.application.LocalUserService;
-import team.codingforest.moyeota.user.application.dto.*;
+import team.codingforest.moyeota.user.application.dto.NicknameCheckRequest;
+import team.codingforest.moyeota.user.application.dto.NicknameCheckResponse;
+import team.codingforest.moyeota.user.application.dto.PhoneCheckRequest;
+import team.codingforest.moyeota.user.application.dto.PhoneCheckResponse;
+import team.codingforest.moyeota.user.application.dto.TokenRequest;
+import team.codingforest.moyeota.user.application.dto.TokenResponse;
+import team.codingforest.moyeota.user.application.dto.UserLoginRequest;
+import team.codingforest.moyeota.user.application.dto.UserRegisterRequest;
+import team.codingforest.moyeota.user.application.dto.UserResponse;
 
 @RestController
 @RequestMapping("/api/v1/auth")

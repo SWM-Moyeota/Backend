@@ -5,11 +5,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import team.codingforest.moyeota.chat.domain.ChatRooms;
 import team.codingforest.moyeota.matching.application.PartyApplicationService;
-import team.codingforest.moyeota.matching.domain.*;
+import team.codingforest.moyeota.matching.domain.Capacity;
+import team.codingforest.moyeota.matching.domain.Location;
+import team.codingforest.moyeota.matching.domain.Parties;
+import team.codingforest.moyeota.matching.domain.Party;
+import team.codingforest.moyeota.matching.domain.Radius;
 
 import java.time.Instant;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  *  정원이 차서 MatchingStartedEvent 가 커밋 뒤 발행되면 채팅방이 "실제 DB 에" 남아야 한다.

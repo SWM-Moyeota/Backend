@@ -4,8 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.chat.domain.ChatMessage;
-import team.codingforest.moyeota.chat.domain.ChatMessages;
 import team.codingforest.moyeota.chat.domain.ChatMessageStatus;
+import team.codingforest.moyeota.chat.domain.ChatMessages;
 import team.codingforest.moyeota.chat.infrastructure.entity.ChatMessageEntity;
 
 import java.util.List;

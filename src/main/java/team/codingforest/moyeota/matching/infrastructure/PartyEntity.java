@@ -1,10 +1,20 @@
 package team.codingforest.moyeota.matching.infrastructure;
 
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import team.codingforest.moyeota.common.BaseTimeEntity;
 import team.codingforest.moyeota.matching.api.MatchingTarget;
-import team.codingforest.moyeota.matching.domain.*;
+import team.codingforest.moyeota.matching.domain.Capacity;
+import team.codingforest.moyeota.matching.domain.Location;
+import team.codingforest.moyeota.matching.domain.Party;
+import team.codingforest.moyeota.matching.domain.PartyMember;
+import team.codingforest.moyeota.matching.domain.Radius;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
 import java.time.Instant;

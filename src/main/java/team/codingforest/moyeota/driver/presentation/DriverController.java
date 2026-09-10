@@ -3,10 +3,20 @@ package team.codingforest.moyeota.driver.presentation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import team.codingforest.moyeota.driver.api.CurrentDriver;
 import team.codingforest.moyeota.driver.application.DriverApplicationService;
-import team.codingforest.moyeota.driver.application.dto.*;
+import team.codingforest.moyeota.driver.application.dto.DriverResult;
+import team.codingforest.moyeota.driver.application.dto.RegisterDriverRequest;
+import team.codingforest.moyeota.driver.application.dto.RegisterFcmTokenRequest;
+import team.codingforest.moyeota.driver.application.dto.RegisterVehicleCommand;
+import team.codingforest.moyeota.driver.application.dto.RegisterVehicleRequest;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
 @RestController
