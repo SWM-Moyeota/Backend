@@ -10,6 +10,10 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true   # 이미 테이블이 있는 기존 DB: V1 을 적용된 것으로 기록하고 V2 부터 실행
+    baseline-version: 1
   data:
     redis:
       host: localhost
