@@ -2,6 +2,7 @@ package team.codingforest.moyeota.user.presentation.auth;
 
 import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -11,6 +12,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import team.codingforest.moyeota.user.api.CurrentUser;
 import team.codingforest.moyeota.user.application.AuthService;
 
 import java.util.List;
@@ -22,6 +24,11 @@ import java.util.List;
 @Configuration
 @RequiredArgsConstructor
 public class SecurityConfig implements WebMvcConfigurer {
+    static {
+        // 토큰에서 주입되는 파라미터 - Swagger 스펙에 쿼리 파라미터로 잡히면 안 된다
+        SpringDocUtils.getConfig().addAnnotationsToIgnore(CurrentUser.class);
+    }
+
 
     private final AuthService authService;
     private final JsonAuthenticationEntryPoint entryPoint;
@@ -38,6 +45,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**", "/ws-chat/**", "/health").permitAll()
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthenticationFilter(authService, entryPoint), AuthorizationFilter.class)
                 .build();

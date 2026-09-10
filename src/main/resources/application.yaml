@@ -41,6 +41,15 @@ jwt:
   access-token-validity: ${JWT_ACCESS_VALIDITY:30m}
   refresh-token-validity: ${JWT_REFRESH_VALIDITY:14d}
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
+  api-docs:
+    path: /v3/api-docs
+
 management:
   endpoints:
     web:
