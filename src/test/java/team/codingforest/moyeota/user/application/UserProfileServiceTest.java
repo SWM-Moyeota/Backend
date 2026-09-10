@@ -9,7 +9,9 @@ import team.codingforest.moyeota.user.domain.exception.UserException;
 
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class UserProfileServiceTest {
     private FakeUsers users;

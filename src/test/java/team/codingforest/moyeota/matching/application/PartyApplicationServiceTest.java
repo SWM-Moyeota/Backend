@@ -1,10 +1,9 @@
 package team.codingforest.moyeota.matching.application;
 
-import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
+import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.api.MatchingStartedEvent;
@@ -13,14 +12,16 @@ import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.application.dto.PartyResult;
 import team.codingforest.moyeota.matching.domain.Party;
 import team.codingforest.moyeota.matching.domain.RouteEstimate;
+import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 class PartyApplicationServiceTest {
     private static final Long host = 1L;

@@ -10,7 +10,10 @@ import team.codingforest.moyeota.user.domain.exception.UserException;
 import java.util.List;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.entry;
 
 class UserFcmTokenServiceTest {
     private FakeUsers users;

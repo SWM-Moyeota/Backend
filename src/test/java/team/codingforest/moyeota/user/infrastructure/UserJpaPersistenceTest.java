@@ -11,7 +11,9 @@ import team.codingforest.moyeota.user.domain.enums.LoginType;
 import java.util.List;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.entry;
 
 @DataJpaTest
 @Import({UserJpa.class, JpaAuditingConfig.class})

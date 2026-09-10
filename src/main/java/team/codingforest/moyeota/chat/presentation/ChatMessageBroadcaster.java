@@ -6,12 +6,12 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-import team.codingforest.moyeota.chat.app.event.ChatMessageDeleteEvent;
-import team.codingforest.moyeota.chat.app.event.ChatMessageSentEvent;
-import team.codingforest.moyeota.chat.app.event.ChatRoomLeftEvent;
+import team.codingforest.moyeota.chat.application.event.ChatMessageDeleteEvent;
+import team.codingforest.moyeota.chat.application.event.ChatMessageSentEvent;
+import team.codingforest.moyeota.chat.application.event.ChatRoomLeftEvent;
 import team.codingforest.moyeota.chat.config.RedisConfig;
-import team.codingforest.moyeota.chat.infra.ChatEventEnvelope;
-import team.codingforest.moyeota.chat.infra.ChatRoomLeftResult;
+import team.codingforest.moyeota.chat.infrastructure.ChatEventEnvelope;
+import team.codingforest.moyeota.chat.infrastructure.ChatRoomLeftResult;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 

@@ -4,7 +4,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.user.application.dto.UserRegisterCommand;
 import team.codingforest.moyeota.user.application.dto.UserResponse;
-import team.codingforest.moyeota.user.domain.*;
+import team.codingforest.moyeota.user.domain.LocalUser;
+import team.codingforest.moyeota.user.domain.LocalUsers;
+import team.codingforest.moyeota.user.domain.PasswordHasher;
+import team.codingforest.moyeota.user.domain.UserProfile;
+import team.codingforest.moyeota.user.domain.UserProfiles;
 import team.codingforest.moyeota.user.domain.enums.Gender;
 import team.codingforest.moyeota.user.domain.exception.UserErrorCode;
 import team.codingforest.moyeota.user.domain.exception.UserException;
@@ -15,7 +19,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class LocalUserServiceTest {
     private FakeUsers users;

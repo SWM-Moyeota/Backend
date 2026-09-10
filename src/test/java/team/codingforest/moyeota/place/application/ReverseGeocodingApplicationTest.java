@@ -8,7 +8,8 @@ import team.codingforest.moyeota.place.domain.exception.PlaceErrorCode;
 
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ReverseGeocodingApplicationTest {
 

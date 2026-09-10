@@ -17,7 +17,7 @@ class ChatRoomTest {
     private static final Instant DEPARTURE_TIME = NOW.plusSeconds(3600);
 
     private ChatRoom roomCreate(ChatRoomStatus status) {
-        return ChatRoom.restore(1L, PARTY_ID, DEPARTURE, DESTINATION, NOW, status);
+        return ChatRoom.restore(1L, PARTY_ID, DEPARTURE, DESTINATION, NOW, NOW,status);
     }
 
     @Test
@@ -30,7 +30,7 @@ class ChatRoomTest {
     @Test
     void 방_종료시_CLOSED() {
         ChatRoom chatRoom = roomCreate(ChatRoomStatus.ACTIVE);
-        chatRoom.close();
+        chatRoom.close(NOW);
         assertThat(chatRoom.getStatus()).isEqualTo(ChatRoomStatus.CLOSED);
     }
 
@@ -38,7 +38,7 @@ class ChatRoomTest {
     void 종료된_방을_종료하면_예외() {
         ChatRoom chatRoom = roomCreate(ChatRoomStatus.CLOSED);
 
-        assertThatThrownBy(chatRoom::close)
+        assertThatThrownBy(() -> chatRoom.close(NOW))
                 .isInstanceOf(ChatException.class)
                 .extracting("errorCode")
                 .isEqualTo(ChatErrorCode.CHAT_ROOM_CLOSED);
@@ -48,7 +48,7 @@ class ChatRoomTest {
     void 보관된_방을_종료하면_예외() {
         ChatRoom chatRoom = roomCreate(ChatRoomStatus.ARCHIVED);
 
-        assertThatThrownBy(chatRoom::close)
+        assertThatThrownBy(() -> chatRoom.close(NOW))
                 .isInstanceOf(ChatException.class)
                 .extracting("errorCode")
                 .isEqualTo(ChatErrorCode.CHAT_ROOM_CLOSED);
@@ -57,7 +57,7 @@ class ChatRoomTest {
     @Test
     void 종료된_방을_보관하면_ARCHIVE() {
         ChatRoom chatRoom = roomCreate(ChatRoomStatus.CLOSED);
-        chatRoom.archive();
+        chatRoom.archive(NOW);
         assertThat(chatRoom.getStatus()).isEqualTo(ChatRoomStatus.ARCHIVED);
     }
 
@@ -65,7 +65,7 @@ class ChatRoomTest {
     void 보관된_방을_보관하면_예외() {
         ChatRoom chatRoom = roomCreate(ChatRoomStatus.ARCHIVED);
 
-        assertThatThrownBy(() -> chatRoom.archive())
+        assertThatThrownBy(() -> chatRoom.archive(NOW))
                 .isInstanceOf(ChatException.class)
                 .extracting("errorCode")
                 .isEqualTo(ChatErrorCode.CHAT_ROOM_INVALID_STATUS);

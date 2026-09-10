@@ -13,8 +13,6 @@ import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Drivers;
 import team.codingforest.moyeota.driver.domain.Vehicle;
 import team.codingforest.moyeota.driver.domain.exception.DriverErrorCode;
-import team.codingforest.moyeota.matching.api.PartyAccess;
-import team.codingforest.moyeota.matching.api.PartySummary;
 
 import java.time.Instant;
 

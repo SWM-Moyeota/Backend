@@ -8,7 +8,7 @@ import team.codingforest.moyeota.common.JpaAuditingConfig;
 import team.codingforest.moyeota.report.domain.Report;
 import team.codingforest.moyeota.report.domain.enums.ReportStatus;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @Import({ReportJpa.class, JpaAuditingConfig.class})

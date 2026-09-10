@@ -6,7 +6,6 @@ import team.codingforest.moyeota.place.domain.FavoritePlace;
 import team.codingforest.moyeota.place.domain.FavoritePlaces;
 
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor

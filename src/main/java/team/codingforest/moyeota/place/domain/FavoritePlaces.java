@@ -1,9 +1,6 @@
 package team.codingforest.moyeota.place.domain;
 
-import org.springframework.data.repository.query.Param;
-
 import java.util.List;
-import java.util.Optional;
 
 public interface FavoritePlaces {
     FavoritePlace save(FavoritePlace place);

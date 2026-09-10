@@ -1,0 +1,14 @@
+package team.codingforest.moyeota.chat.domain;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface ChatRoomUsers {
+    ChatRoomUser save(ChatRoomUser chatRoomUser);
+
+    List<ChatRoomUser> findActiveByUserId(Long userId);
+
+    Optional<ChatRoomUser> findActiveByUserIdAndChatRoomId(Long userId, Long chatRoomId);
+
+    List<ChatRoomUser> findAllByChatRoomId(Long chatRoomId);
+}
