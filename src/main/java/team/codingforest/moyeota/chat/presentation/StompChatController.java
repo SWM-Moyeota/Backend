@@ -6,13 +6,12 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Controller;
-import team.codingforest.moyeota.chat.app.ChatMessageService;
-import team.codingforest.moyeota.chat.app.dto.SendMessageCommand;
+import team.codingforest.moyeota.chat.application.ChatMessageService;
+import team.codingforest.moyeota.chat.application.dto.SendMessageCommand;
 import team.codingforest.moyeota.chat.config.ChatPrincipal;
 import team.codingforest.moyeota.chat.presentation.dto.SendMessageRequest;
 
 import java.security.Principal;
-import java.util.UUID;
 
 @Controller
 @RequiredArgsConstructor

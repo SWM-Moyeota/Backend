@@ -4,13 +4,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.geo.Distance;
 import org.springframework.data.geo.GeoResults;
 import org.springframework.data.geo.Point;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.connection.RedisGeoCommands;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.domain.geo.GeoReference;
 import org.springframework.data.redis.domain.geo.Metrics;
 import org.springframework.stereotype.Repository;
-import team.codingforest.moyeota.dispatch.domain.DriverPosition;
 import team.codingforest.moyeota.dispatch.domain.DriverLocations;
+import team.codingforest.moyeota.dispatch.domain.DriverPosition;
 
 import java.time.Duration;
 import java.util.List;

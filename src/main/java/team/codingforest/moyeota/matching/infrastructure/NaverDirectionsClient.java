@@ -10,7 +10,6 @@ import team.codingforest.moyeota.matching.domain.RouteEstimate;
 import team.codingforest.moyeota.matching.domain.RouteFinder;
 import team.codingforest.moyeota.matching.domain.RouteKey;
 import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
-import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
 @Component

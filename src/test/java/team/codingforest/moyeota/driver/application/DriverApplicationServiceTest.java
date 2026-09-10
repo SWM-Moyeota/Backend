@@ -4,11 +4,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.application.dto.DriverResult;
-import team.codingforest.moyeota.driver.domain.exception.DriverErrorCode;
 import team.codingforest.moyeota.driver.application.dto.RegisterDriverCommand;
 import team.codingforest.moyeota.driver.domain.enums.DriverStatus;
+import team.codingforest.moyeota.driver.domain.exception.DriverErrorCode;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DriverApplicationServiceTest {
     private static final Long 유저 = 1L;

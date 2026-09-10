@@ -1,8 +1,8 @@
 package team.codingforest.moyeota.place.domain;
 
+import lombok.Getter;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.place.domain.exception.PlaceErrorCode;
-import lombok.Getter;
 
 import java.time.Instant;
 

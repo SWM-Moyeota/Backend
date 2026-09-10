@@ -2,29 +2,31 @@ package team.codingforest.moyeota.common.exception;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.core.MethodParameter;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import team.codingforest.moyeota.driver.api.CurrentDriver;
-import team.codingforest.moyeota.user.api.CurrentUser;
-import org.springframework.web.bind.annotation.RestController;
 import team.codingforest.moyeota.driver.application.DriverApplicationService;
 import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Drivers;
-import team.codingforest.moyeota.driver.interfaces.DriverController;
+import team.codingforest.moyeota.driver.presentation.DriverController;
+import team.codingforest.moyeota.user.api.CurrentUser;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  *  예외가 클라이언트에게 실제로 어떤 HTTP 응답으로 배달되는지 검증한다.

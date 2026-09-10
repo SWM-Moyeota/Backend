@@ -4,10 +4,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-import team.codingforest.moyeota.chat.app.ChatMessageService;
-import team.codingforest.moyeota.chat.app.dto.*;
+import team.codingforest.moyeota.chat.application.ChatMessageService;
+import team.codingforest.moyeota.chat.application.dto.*;
 import team.codingforest.moyeota.chat.presentation.dto.SendMessageRequest;
-import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
 import java.util.UUID;
