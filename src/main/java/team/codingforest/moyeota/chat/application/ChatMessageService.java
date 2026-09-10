@@ -20,8 +20,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ChatMessageService {
 
-    private final ChatRoomRepository chatRoomRepository;
-    private final ChatMessageRepository chatMessageRepository;
+    private final ChatRooms chatRooms;
+    private final ChatMessages chatMessages;
     private final ChatRoomUserService chatRoomUserService;
     private final MemberProvider memberProvider;
 
@@ -42,7 +42,7 @@ public class ChatMessageService {
         validateCursor(command.cursor());
         chatRoomUserService.validateParticipant(command.userId(), command.chatRoomId());
 
-        List<ChatMessage> messages = chatMessageRepository.findBefore(command.chatRoomId(), command.cursor(), command.size() + 1);
+        List<ChatMessage> messages = chatMessages.findBefore(command.chatRoomId(), command.cursor(), command.size() + 1);
 
         return toSlice(messages, command.size());
     }
@@ -57,7 +57,7 @@ public class ChatMessageService {
         validateRequiredCursor(command.cursor());
         chatRoomUserService.validateParticipant(command.userId(), command.chatRoomId());
 
-        List<ChatMessage> messages = chatMessageRepository.findAfter(command.chatRoomId(), command.cursor(), command.size() + 1);
+        List<ChatMessage> messages = chatMessages.findAfter(command.chatRoomId(), command.cursor(), command.size() + 1);
 
         return toSlice(messages, command.size());
     }
@@ -67,7 +67,7 @@ public class ChatMessageService {
      */
     @Transactional
     public ChatMessageResult sendMessage(SendMessageCommand command) {
-        ChatRoom chatRoom = chatRoomRepository.findById(command.chatRoomId())
+        ChatRoom chatRoom = chatRooms.findById(command.chatRoomId())
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND));
 
         chatRoom.validateCanSend();
@@ -81,7 +81,7 @@ public class ChatMessageService {
                 Instant.now()
         );
         ChatMessageResult result = ChatMessageResult.from(
-                chatMessageRepository.save(message), command.publicId());
+                chatMessages.save(message), command.publicId());
 
         eventPublisher.publishEvent(new ChatMessageSentEvent(result));
 
@@ -98,7 +98,7 @@ public class ChatMessageService {
         validateKeyword(command.keyword());
         chatRoomUserService.validateParticipant(command.userId(), command.chatRoomId());
 
-        List<ChatMessage> messages = chatMessageRepository.search(
+        List<ChatMessage> messages = chatMessages.search(
                 command.chatRoomId(), command.keyword().trim(), command.cursor(), command.size() + 1);
 
         return toSlice(messages, command.size());
@@ -120,7 +120,7 @@ public class ChatMessageService {
     public void deleteMessage(Long chatRoomId, Long messageId, Long userId, UUID publicId) {
         chatRoomUserService.validateParticipant(userId, chatRoomId);
 
-        ChatMessage message = chatMessageRepository.findById(messageId)
+        ChatMessage message = chatMessages.findById(messageId)
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND));
 
         if (!message.getChatRoomId().equals(chatRoomId)) {
@@ -133,7 +133,7 @@ public class ChatMessageService {
 
         message.delete(Instant.now());
 
-        ChatMessageResult result = ChatMessageResult.from(chatMessageRepository.save(message), publicId);
+        ChatMessageResult result = ChatMessageResult.from(chatMessages.save(message), publicId);
 
         eventPublisher.publishEvent(new ChatMessageDeleteEvent(result));
     }

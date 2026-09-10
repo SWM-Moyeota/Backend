@@ -33,23 +33,23 @@ class ChatRoomUserServiceTest {
     private static final UUID PUBLIC_ID = UUID.fromString("3f7a1c2e-8b4d-4c1a-9f2e-1234567890ab");
     private static final Instant NOW = Instant.parse("2026-08-10T10:00:00Z");
 
-    private ChatRoomUserRepository chatRoomUserRepository;
-    private ChatRoomRepository chatRoomRepository;
+    private ChatRoomUsers chatRoomUsers;
+    private ChatRooms chatRooms;
     private ChatRoomUserService chatRoomUserService;
     private MemberProvider memberProvider;
     private ApplicationEventPublisher eventPublisher;
 
     @BeforeEach
     void setUp() {
-        chatRoomUserRepository = mock(ChatRoomUserRepository.class);
-        chatRoomRepository = mock(ChatRoomRepository.class);
+        chatRoomUsers = mock(ChatRoomUsers.class);
+        chatRooms = mock(ChatRooms.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
         memberProvider = mock(MemberProvider.class);
-        chatRoomUserService = new ChatRoomUserService(eventPublisher, chatRoomUserRepository, chatRoomRepository, memberProvider);
+        chatRoomUserService = new ChatRoomUserService(eventPublisher, chatRoomUsers, chatRooms, memberProvider);
     }
 
     private ChatRoom room(ChatRoomStatus status) {
-        return ChatRoom.restore(ROOM_ID, PARTY_ID, "서울시청", "강남역", NOW, status);
+        return ChatRoom.restore(ROOM_ID, PARTY_ID, "서울시청", "강남역", NOW, NOW, status);
     }
 
     private ChatRoomUser activeUser(Long chatRoomId) {
@@ -58,18 +58,18 @@ class ChatRoomUserServiceTest {
 
     @Test
     void 채팅방_참여_성공() {
-        given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
-        given(chatRoomUserRepository.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.empty());
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
+        given(chatRoomUsers.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.empty());
 
         chatRoomUserService.join(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID));
 
-        verify(chatRoomUserRepository).save(any(ChatRoomUser.class));
+        verify(chatRoomUsers).save(any(ChatRoomUser.class));
     }
 
     @Test
     void 이미_참여중이면_예외() {
-        given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
-        given(chatRoomUserRepository.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID))
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
+        given(chatRoomUsers.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID))
                 .willReturn(Optional.of(activeUser(ROOM_ID)));
 
         assertThatThrownBy(() -> chatRoomUserService.join(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID)))
@@ -80,7 +80,7 @@ class ChatRoomUserServiceTest {
 
     @Test
     void 없는_방_참여_예외() {
-        given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.empty());
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> chatRoomUserService.join(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID)))
                 .isInstanceOf(ChatException.class)
@@ -90,7 +90,7 @@ class ChatRoomUserServiceTest {
 
     @Test
     void 종료된_방_참여_예외() {
-        given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.CLOSED)));
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.CLOSED)));
 
         assertThatThrownBy(() -> chatRoomUserService.join(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID)))
                 .isInstanceOf(ChatException.class)
@@ -101,17 +101,17 @@ class ChatRoomUserServiceTest {
     @Test
     void 채팅방_나가기_성공() {
         ChatRoomUser user = activeUser(ROOM_ID);
-        given(chatRoomUserRepository.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.of(user));
+        given(chatRoomUsers.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.of(user));
 
         chatRoomUserService.leave(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID));
 
         assertThat(user.hasLeft()).isTrue();
-        verify(chatRoomUserRepository).save(user);
+        verify(chatRoomUsers).save(user);
     }
 
     @Test
     void 참여자가_아니면_나가기_예외() {
-        given(chatRoomUserRepository.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.empty());
+        given(chatRoomUsers.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> chatRoomUserService.leave(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID)))
                 .isInstanceOf(ChatException.class)
@@ -122,17 +122,17 @@ class ChatRoomUserServiceTest {
     @Test
     void 읽음_처리_성공() {
         ChatRoomUser user = activeUser(ROOM_ID);
-        given(chatRoomUserRepository.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.of(user));
+        given(chatRoomUsers.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.of(user));
 
         chatRoomUserService.read(new ReadChatCommand(USER_ID, ROOM_ID, 5L));
 
         assertThat(user.getLastReadMessageId()).isEqualTo(5L);
-        verify(chatRoomUserRepository).save(user);
+        verify(chatRoomUsers).save(user);
     }
 
     @Test
     void 참여중인_방_목록_조회() {
-        given(chatRoomUserRepository.findActiveByUserId(USER_ID))
+        given(chatRoomUsers.findActiveByUserId(USER_ID))
                 .willReturn(List.of(activeUser(10L), activeUser(20L)));
 
         List<ChatRoomUserResult> results = chatRoomUserService.findMyActiveRooms(USER_ID);
@@ -143,7 +143,7 @@ class ChatRoomUserServiceTest {
 
     @Test
     void 참여중인_방이_없으면_빈_목록() {
-        given(chatRoomUserRepository.findActiveByUserId(USER_ID)).willReturn(List.of());
+        given(chatRoomUsers.findActiveByUserId(USER_ID)).willReturn(List.of());
 
         List<ChatRoomUserResult> results = chatRoomUserService.findMyActiveRooms(USER_ID);
 
@@ -152,7 +152,7 @@ class ChatRoomUserServiceTest {
 
     @Test
     void 나가기_시_퇴장_이벤트를_발행한다() {
-        given(chatRoomUserRepository.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID))
+        given(chatRoomUsers.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID))
                 .willReturn(Optional.of(activeUser(ROOM_ID)));
 
         chatRoomUserService.leave(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID));

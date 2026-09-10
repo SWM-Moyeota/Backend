@@ -12,26 +12,28 @@ public class ChatRoomUser {
     private final Long chatRoomId;
     private Long lastReadMessageId;
     private boolean notificationMuted;
-    private final Instant joinedAt;
+    private final Instant createdAt;
+    private Instant updatedAt;
     private Instant leftAt;
 
     private ChatRoomUser(Long userId, Long chatRoomId, Long lastReadMessageId,
-                         boolean notificationMuted, Instant joinedAt, Instant leftAt) {
+                         boolean notificationMuted, Instant createdAt, Instant updatedAt, Instant leftAt) {
         this.userId = userId;
         this.chatRoomId = chatRoomId;
         this.lastReadMessageId = lastReadMessageId;
         this.notificationMuted = notificationMuted;
-        this.joinedAt = joinedAt;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
         this.leftAt = leftAt;
     }
 
     public static ChatRoomUser restore(Long userId, Long chatRoomId, Long lastReadMessageId,
-                                       boolean notificationMuted, Instant joinedAt, Instant leftAt) {
-        return new ChatRoomUser(userId, chatRoomId, lastReadMessageId, notificationMuted, joinedAt, leftAt);
+                                       boolean notificationMuted, Instant createdAt, Instant updatedAt, Instant leftAt) {
+        return new ChatRoomUser(userId, chatRoomId, lastReadMessageId, notificationMuted, createdAt, updatedAt, leftAt);
     }
 
     public static ChatRoomUser join(Long userId, Long chatRoomId, Instant now) {
-        return new ChatRoomUser(userId, chatRoomId, null, false, now, null);
+        return new ChatRoomUser(userId, chatRoomId, null, false, now, now,null);
     }
 
 
@@ -40,23 +42,27 @@ public class ChatRoomUser {
             throw new ChatException(ChatErrorCode.CHAT_NOT_PARTICIPANT);
         }
         this.leftAt = now;
+        updatedAt = now;
     }
 
-    public void read(Long messageId) {
+    public void read(Long messageId, Instant now) {
         if (messageId == null) {
             return;
         }
         if (lastReadMessageId == null || messageId > lastReadMessageId) {
             this.lastReadMessageId = messageId;
         }
+        updatedAt = now;
     }
 
-    public void muteNotification() {
+    public void muteNotification(Instant now) {
         this.notificationMuted = true;
+        updatedAt = now;
     }
 
-    public void unmuteNotification() {
+    public void unmuteNotification(Instant now) {
         this.notificationMuted = false;
+        updatedAt = now;
     }
 
     public boolean hasLeft() {

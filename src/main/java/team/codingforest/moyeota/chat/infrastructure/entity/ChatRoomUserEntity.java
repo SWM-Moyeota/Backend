@@ -24,20 +24,24 @@ public class ChatRoomUserEntity {
     private boolean notificationMuted;
 
     @Column(nullable = false)
-    private Instant joinedAt;
+    private Instant createdAt;
 
     private Instant leftAt;
+
+    @Column(nullable = false)
+    private Instant updatedAt;
 
     protected ChatRoomUserEntity() {
     }
 
     private ChatRoomUserEntity(Long userId, Long chatRoomId, Long lastReadMessageId,
-                               boolean notificationMuted, Instant joinedAt, Instant leftAt) {
+                               boolean notificationMuted, Instant createdAt, Instant updatedAt, Instant leftAt) {
         this.userId = userId;
         this.chatRoomId = chatRoomId;
         this.lastReadMessageId = lastReadMessageId;
         this.notificationMuted = notificationMuted;
-        this.joinedAt = joinedAt;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
         this.leftAt = leftAt;
     }
 
@@ -47,7 +51,8 @@ public class ChatRoomUserEntity {
                 user.getChatRoomId(),
                 user.getLastReadMessageId(),
                 user.isNotificationMuted(),
-                user.getJoinedAt(),
+                user.getCreatedAt(),
+                user.getUpdatedAt(),
                 user.getLeftAt()
         );
     }
@@ -58,7 +63,8 @@ public class ChatRoomUserEntity {
                 chatRoomId,
                 lastReadMessageId,
                 notificationMuted,
-                joinedAt,
+                createdAt,
+                updatedAt,
                 leftAt
         );
     }

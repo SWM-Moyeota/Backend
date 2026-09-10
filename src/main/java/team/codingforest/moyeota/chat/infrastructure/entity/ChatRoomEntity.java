@@ -19,13 +19,16 @@ public class ChatRoomEntity {
     private Long partyId;
 
     @Column(nullable = false)
-    private String departure;
+    private String departurePlace;
 
     @Column(nullable = false)
-    private String destination;
+    private String destinationPlace;
 
     @Column(nullable = false)
     private Instant createdAt;
+
+    @Column(nullable = false)
+    private Instant updatedAt;
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
@@ -34,13 +37,14 @@ public class ChatRoomEntity {
     protected ChatRoomEntity() {
     }
 
-    private ChatRoomEntity(Long id, Long partyId, String departure, String destination,
-                           Instant createdAt, ChatRoomStatus status) {
+    private ChatRoomEntity(Long id, Long partyId, String departurePlace, String destinationPlace,
+                           Instant createdAt, Instant updatedAt, ChatRoomStatus status) {
         this.id = id;
         this.partyId = partyId;
-        this.departure = departure;
-        this.destination = destination;
+        this.departurePlace = departurePlace;
+        this.destinationPlace = destinationPlace;
         this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
         this.status = status;
     }
 
@@ -51,6 +55,7 @@ public class ChatRoomEntity {
                 chatRoom.getDeparture(),
                 chatRoom.getDestination(),
                 chatRoom.getCreatedAt(),
+                chatRoom.getUpdatedAt(),
                 chatRoom.getStatus()
         );
     }
@@ -59,9 +64,10 @@ public class ChatRoomEntity {
         return ChatRoom.restore(
                 id,
                 partyId,
-                departure,
-                destination,
+                departurePlace,
+                destinationPlace,
                 createdAt,
+                updatedAt,
                 status
         );
     }

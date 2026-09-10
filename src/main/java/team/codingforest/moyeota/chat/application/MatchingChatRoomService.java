@@ -9,7 +9,7 @@ import team.codingforest.moyeota.chat.application.dto.ChatRoomCommand;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomResult;
 import team.codingforest.moyeota.chat.application.dto.CreateChatRoomCommand;
 import team.codingforest.moyeota.chat.domain.ChatRoom;
-import team.codingforest.moyeota.chat.domain.ChatRoomRepository;
+import team.codingforest.moyeota.chat.domain.ChatRooms;
 import team.codingforest.moyeota.chat.domain.PartyProvider;
 import team.codingforest.moyeota.chat.domain.PartySnapshot;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
@@ -22,7 +22,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class MatchingChatRoomService {
 
-    private final ChatRoomRepository chatRoomRepository;
+    private final ChatRooms chatRooms;
     private final ChatRoomService chatRoomService;
     private final ChatRoomUserService chatRoomUserService;
     private final PartyProvider partyProvider;
@@ -32,7 +32,7 @@ public class MatchingChatRoomService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public ChatRoomResult provisionForParty(Long partyId) {
-        Optional<ChatRoom> existing = chatRoomRepository.findByPartyId(partyId);
+        Optional<ChatRoom> existing = chatRooms.findByPartyId(partyId);
 
         if (existing.isPresent()) {
             return ChatRoomResult.from(existing.get());

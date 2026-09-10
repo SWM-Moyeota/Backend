@@ -15,7 +15,7 @@ public record ChatRoomUserResult(
                 user.getChatRoomId(),
                 user.getLastReadMessageId(),
                 user.isNotificationMuted(),
-                user.getJoinedAt()
+                user.getCreatedAt()
         );
     }
 }

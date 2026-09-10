@@ -3,7 +3,7 @@ package team.codingforest.moyeota.chat.domain;
 import java.util.List;
 import java.util.Optional;
 
-public interface ChatRoomUserRepository {
+public interface ChatRoomUsers {
     ChatRoomUser save(ChatRoomUser chatRoomUser);
 
     List<ChatRoomUser> findActiveByUserId(Long userId);

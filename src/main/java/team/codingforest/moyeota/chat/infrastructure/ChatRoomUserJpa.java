@@ -3,7 +3,7 @@ package team.codingforest.moyeota.chat.infrastructure;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.chat.domain.ChatRoomUser;
-import team.codingforest.moyeota.chat.domain.ChatRoomUserRepository;
+import team.codingforest.moyeota.chat.domain.ChatRoomUsers;
 import team.codingforest.moyeota.chat.infrastructure.entity.ChatRoomUserEntity;
 
 import java.util.List;
@@ -11,7 +11,7 @@ import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
-public class ChatRoomUserJpa implements ChatRoomUserRepository {
+public class ChatRoomUserJpa implements ChatRoomUsers {
 
     private final ChatRoomUserJpaRepository jpaRepository;
 

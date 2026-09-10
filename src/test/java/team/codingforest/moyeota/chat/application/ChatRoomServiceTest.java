@@ -8,7 +8,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomResult;
 import team.codingforest.moyeota.chat.application.dto.CreateChatRoomCommand;
 import team.codingforest.moyeota.chat.domain.ChatRoom;
-import team.codingforest.moyeota.chat.domain.ChatRoomRepository;
+import team.codingforest.moyeota.chat.domain.ChatRooms;
 import team.codingforest.moyeota.chat.domain.ChatRoomStatus;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
@@ -31,12 +31,12 @@ class ChatRoomServiceTest {
     private static final Instant NOW = Instant.parse("2026-08-10T10:00:00Z");
 
     @Mock
-    private ChatRoomRepository chatRoomRepository;
+    private ChatRooms chatRooms;
     @InjectMocks
     private ChatRoomService chatRoomService;
 
     private ChatRoom room(ChatRoomStatus status) {
-        return ChatRoom.restore(ROOM_ID, PARTY_ID, DEPARTURE, DESTINATION, NOW, status);
+        return ChatRoom.restore(ROOM_ID, PARTY_ID, DEPARTURE, DESTINATION, NOW, NOW, status);
     }
 
     private CreateChatRoomCommand command() {
@@ -45,8 +45,8 @@ class ChatRoomServiceTest {
 
     @Test
     public void 채팅방_생성_성공() {
-        given(chatRoomRepository.existsByPartyId(PARTY_ID)).willReturn(false);
-        given(chatRoomRepository.save(any(ChatRoom.class))).willReturn(room(ChatRoomStatus.ACTIVE));
+        given(chatRooms.existsByPartyId(PARTY_ID)).willReturn(false);
+        given(chatRooms.save(any(ChatRoom.class))).willReturn(room(ChatRoomStatus.ACTIVE));
 
         ChatRoomResult result = chatRoomService.createRoom(command());
 
@@ -59,7 +59,7 @@ class ChatRoomServiceTest {
 
     @Test
     public void 중복된_partyId_예외() {
-        given(chatRoomRepository.existsByPartyId(PARTY_ID)).willReturn(true);
+        given(chatRooms.existsByPartyId(PARTY_ID)).willReturn(true);
 
         assertThatThrownBy(() -> chatRoomService.createRoom(command()))
                 .isInstanceOf(ChatException.class)
@@ -70,7 +70,7 @@ class ChatRoomServiceTest {
     @Test
     public void 채팅방_닫기_성공() {
         ChatRoom chatRoom = room(ChatRoomStatus.ACTIVE);
-        given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
 
         chatRoomService.close(ROOM_ID);
 
@@ -80,7 +80,7 @@ class ChatRoomServiceTest {
     @Test
     public void 채팅방_단건_조회_성공() {
         ChatRoom chatRoom = room(ChatRoomStatus.ACTIVE);
-        given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));
 
         ChatRoomResult result = chatRoomService.findById(ROOM_ID);
 
@@ -91,7 +91,7 @@ class ChatRoomServiceTest {
 
     @Test
     public void 없는_방_조회_예외() {
-        given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.empty());
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> chatRoomService.findById(ROOM_ID))
             .isInstanceOf(ChatException.class)

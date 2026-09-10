@@ -24,18 +24,18 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ChatRoomUserService {
     private final ApplicationEventPublisher eventPublisher;
-    private final ChatRoomUserRepository chatRoomUserRepository;
-    private final ChatRoomRepository chatRoomRepository;
+    private final ChatRoomUsers chatRoomUsers;
+    private final ChatRooms chatRooms;
     private final MemberProvider memberProvider;
 
     @Transactional
     public void join(ChatRoomCommand command) {
-        ChatRoom chatRoom = chatRoomRepository.findById(command.chatRoomId())
+        ChatRoom chatRoom = chatRooms.findById(command.chatRoomId())
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND));
 
         chatRoom.validateJoin();
 
-        boolean alreadyJoined = chatRoomUserRepository.findActiveByUserIdAndChatRoomId(command.userId(), command.chatRoomId())
+        boolean alreadyJoined = chatRoomUsers.findActiveByUserIdAndChatRoomId(command.userId(), command.chatRoomId())
                 .isPresent();
 
         if (alreadyJoined) {
@@ -43,7 +43,7 @@ public class ChatRoomUserService {
         }
 
         try {
-            chatRoomUserRepository.save(ChatRoomUser.join(command.userId(), command.chatRoomId(), Instant.now()));
+            chatRoomUsers.save(ChatRoomUser.join(command.userId(), command.chatRoomId(), Instant.now()));
         } catch (DataIntegrityViolationException e) {
             throw new ChatException(ChatErrorCode.CHAT_ROOM_ALREADY_JOINED);
         }
@@ -58,7 +58,7 @@ public class ChatRoomUserService {
 
         chatRoomUser.leave(Instant.now());
 
-        chatRoomUserRepository.save(chatRoomUser);
+        chatRoomUsers.save(chatRoomUser);
 
         eventPublisher.publishEvent(
                 new ChatRoomLeftEvent(command.userId(), command.publicId(), command.chatRoomId()));
@@ -70,14 +70,14 @@ public class ChatRoomUserService {
     public void read(ReadChatCommand command) {
         ChatRoomUser chatRoomUser = getActiveUser(command.userId(), command.chatRoomId());
 
-        chatRoomUser.read(command.lastReadMessageId());
+        chatRoomUser.read(command.lastReadMessageId(), Instant.now());
 
-        chatRoomUserRepository.save(chatRoomUser);
+        chatRoomUsers.save(chatRoomUser);
     }
 
     @Transactional(readOnly = true)
     public List<ChatRoomUserResult> findMyActiveRooms(Long userId) {
-        return chatRoomUserRepository.findActiveByUserId(userId).stream()
+        return chatRoomUsers.findActiveByUserId(userId).stream()
                 .map(ChatRoomUserResult::from)
                 .toList();
     }
@@ -88,7 +88,7 @@ public class ChatRoomUserService {
     }
 
     private ChatRoomUser getActiveUser(Long userId, Long chatRoomId) {
-        return chatRoomUserRepository.findActiveByUserIdAndChatRoomId(userId, chatRoomId)
+        return chatRoomUsers.findActiveByUserIdAndChatRoomId(userId, chatRoomId)
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_NOT_PARTICIPANT));
     }
 
@@ -96,7 +96,7 @@ public class ChatRoomUserService {
     public List<ChatRoomMemberResult> findMembers(Long userId, Long chatRoomId) {
         validateParticipant(userId, chatRoomId);
 
-        List<ChatRoomUser> participants = chatRoomUserRepository.findAllByChatRoomId(chatRoomId);
+        List<ChatRoomUser> participants = chatRoomUsers.findAllByChatRoomId(chatRoomId);
 
         List<Long> userIds = participants.stream().map(ChatRoomUser::getUserId).toList();
 

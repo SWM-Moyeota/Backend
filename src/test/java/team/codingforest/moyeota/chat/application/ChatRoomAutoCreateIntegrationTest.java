@@ -3,13 +3,13 @@ package team.codingforest.moyeota.chat.application;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import team.codingforest.moyeota.chat.domain.ChatRoomRepository;
+import team.codingforest.moyeota.chat.domain.ChatRooms;
 import team.codingforest.moyeota.matching.application.PartyApplicationService;
 import team.codingforest.moyeota.matching.domain.*;
 
 import java.time.Instant;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.*;
 
 /**
  *  정원이 차서 MatchingStartedEvent 가 커밋 뒤 발행되면 채팅방이 "실제 DB 에" 남아야 한다.
@@ -20,7 +20,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ChatRoomAutoCreateIntegrationTest {
     @Autowired PartyApplicationService partyService;
     @Autowired Parties parties;
-    @Autowired ChatRoomRepository chatRoomRepository;
+    @Autowired
+    ChatRooms chatRooms;
 
     @Test
     void 정원이_차면_커밋_후_채팅방이_DB에_남는다() {
@@ -31,7 +32,7 @@ class ChatRoomAutoCreateIntegrationTest {
 
         partyService.join(party.getId(), base + 1);   // 정원 2 → startMatching → AFTER_COMMIT 리스너
 
-        assertThat(chatRoomRepository.findByPartyId(party.getId()))
+        assertThat(chatRooms.findByPartyId(party.getId()))
                 .as("리스너 로그엔 생성됐다고 찍혀도 커밋이 안 되면 여기서 비어 있다")
                 .isPresent();
     }

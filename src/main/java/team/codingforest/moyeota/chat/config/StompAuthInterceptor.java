@@ -10,7 +10,7 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
-import team.codingforest.moyeota.chat.domain.ChatRoomUserRepository;
+import team.codingforest.moyeota.chat.domain.ChatRoomUsers;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
 import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
@@ -27,7 +27,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     private static final String ERROR_DESTINATION = "/user/queue/errors";
     private static final String ROOM_LEFT_DESTINATION = "/user/queue/room-left";
 
-    private final ChatRoomUserRepository chatRoomUserRepository;
+    private final ChatRoomUsers chatRoomUsers;
     private final TokenAuthenticator tokenAuthenticator;
 
     @Override
@@ -81,7 +81,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
             throw new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND);
         }
 
-        chatRoomUserRepository.findActiveByUserIdAndChatRoomId(userId, chatRoomId)
+        chatRoomUsers.findActiveByUserIdAndChatRoomId(userId, chatRoomId)
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_NOT_PARTICIPANT));
     }
 

@@ -35,9 +35,9 @@ class ChatMessageServiceTest {
     private static final Instant NOW = Instant.parse("2026-08-04T10:00:00Z");
 
     @Mock
-    private ChatMessageRepository chatMessageRepository;
+    private ChatMessages chatMessages;
     @Mock
-    private ChatRoomRepository chatRoomRepository;
+    private ChatRooms chatRooms;
     @Mock
     private ChatRoomUserService chatRoomUserService;
     @Mock
@@ -52,7 +52,7 @@ class ChatMessageServiceTest {
     }
 
     private ChatRoom room(ChatRoomStatus status) {
-        return ChatRoom.restore(ROOM_ID, 1L, "서울시청", "강남역", NOW, status);
+        return ChatRoom.restore(ROOM_ID, 1L, "서울시청", "강남역", NOW, NOW, status);
     }
 
     private SendMessageCommand command() {
@@ -76,7 +76,7 @@ class ChatMessageServiceTest {
     @Test
     void size보다_많이_조회하면_hasNext_true() {
         givenMembers();
-        given(chatMessageRepository.findBefore(ROOM_ID, null, 3)) // Repo에서는 한개 더 불러와서 다음이 있는지 없는지 판단을 함
+        given(chatMessages.findBefore(ROOM_ID, null, 3)) // Repo에서는 한개 더 불러와서 다음이 있는지 없는지 판단을 함
                 .willReturn(List.of(message(3L), message(2L), message(1L)));
 
         ChatMessageSlice slice = chatMessageService.findBefore(findMessageCommand(null, 2));
@@ -89,7 +89,7 @@ class ChatMessageServiceTest {
     @Test
     void size보다_같거나_적게_조회하면_hasNext_false() {
         givenMembers();
-        given(chatMessageRepository.findBefore(ROOM_ID, null, 3))
+        given(chatMessages.findBefore(ROOM_ID, null, 3))
                 .willReturn(List.of(message(2L), message(1L)));
 
         ChatMessageSlice slice = chatMessageService.findBefore(findMessageCommand(null, 2));
@@ -101,8 +101,8 @@ class ChatMessageServiceTest {
 
     @Test
     void 채팅_메시지_저장_성공() {
-        given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
-        given(chatMessageRepository.save(any(ChatMessage.class))).willReturn(message(1L));
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
+        given(chatMessages.save(any(ChatMessage.class))).willReturn(message(1L));
 
         ChatMessageResult result = chatMessageService.sendMessage(command());
 
@@ -115,7 +115,7 @@ class ChatMessageServiceTest {
 
     @Test
     void 없는_방에_메시지_보내면_예외() {
-        given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.empty());
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> chatMessageService.sendMessage(command()))
                 .isInstanceOf(ChatException.class)
@@ -125,7 +125,7 @@ class ChatMessageServiceTest {
 
     @Test
     void 종료된_방에_메시지_보내면_예외() {
-        given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.CLOSED)));
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.CLOSED)));
 
         assertThatThrownBy(() -> chatMessageService.sendMessage(command()))
                 .isInstanceOf(ChatException.class)
@@ -135,7 +135,7 @@ class ChatMessageServiceTest {
 
     @Test
     void 참여자가_아니면_예외() {
-        given(chatRoomRepository.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
         willThrow(new ChatException(ChatErrorCode.CHAT_NOT_PARTICIPANT))
                 .given(chatRoomUserService).validateParticipant(USER_ID, ROOM_ID);
 
@@ -183,7 +183,7 @@ class ChatMessageServiceTest {
     @Test
     void findAfter_size보다_많이_조회시_hasNext_true() {
         givenMembers();
-        given(chatMessageRepository.findAfter(ROOM_ID, 1L, 3))
+        given(chatMessages.findAfter(ROOM_ID, 1L, 3))
                 .willReturn(List.of(message(2L), message(3L), message(4L)));
 
         ChatMessageSlice slice = chatMessageService.findAfter(findMessageCommand(1L, 2));
@@ -204,8 +204,8 @@ class ChatMessageServiceTest {
     @Test
     void 메시지_삭제_성공() {
         ChatMessage message = message(1L);
-        given(chatMessageRepository.findById(1L)).willReturn(Optional.of(message));
-        given(chatMessageRepository.save(any(ChatMessage.class))).willReturn(message);
+        given(chatMessages.findById(1L)).willReturn(Optional.of(message));
+        given(chatMessages.save(any(ChatMessage.class))).willReturn(message);
 
         chatMessageService.deleteMessage(ROOM_ID, 1L, USER_ID, PUBLIC_ID);
 
@@ -215,7 +215,7 @@ class ChatMessageServiceTest {
 
     @Test
     void 메시지_삭제시_본인_메시지_아니면_예외() {
-        given(chatMessageRepository.findById(1L)).willReturn(Optional.of(message(1L)));
+        given(chatMessages.findById(1L)).willReturn(Optional.of(message(1L)));
 
         assertThatThrownBy(() -> chatMessageService.deleteMessage(ROOM_ID, 1L, 99L, PUBLIC_ID))
                 .isInstanceOf(ChatException.class)
@@ -225,7 +225,7 @@ class ChatMessageServiceTest {
 
     @Test
     void 없는_메시지_삭제시_예외() {
-        given(chatMessageRepository.findById(1L)).willReturn(Optional.empty());
+        given(chatMessages.findById(1L)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> chatMessageService.deleteMessage(ROOM_ID, 1L, USER_ID, PUBLIC_ID))
                 .isInstanceOf(ChatException.class)
@@ -236,7 +236,7 @@ class ChatMessageServiceTest {
     @Test
     void 검색_결과가_size보다_많으면_hasNext_true() {
         givenMembers();
-        given(chatMessageRepository.search(ROOM_ID, "안녕", null, 3))
+        given(chatMessages.search(ROOM_ID, "안녕", null, 3))
                 .willReturn(List.of(message(3L), message(2L), message(1L)));
 
         ChatMessageSlice slice = chatMessageService.searchMessage(searchMessageCommand("안녕", null, 2));

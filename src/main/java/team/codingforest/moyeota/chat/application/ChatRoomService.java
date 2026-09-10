@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomResult;
 import team.codingforest.moyeota.chat.application.dto.CreateChatRoomCommand;
 import team.codingforest.moyeota.chat.domain.ChatRoom;
-import team.codingforest.moyeota.chat.domain.ChatRoomRepository;
+import team.codingforest.moyeota.chat.domain.ChatRooms;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
 import java.time.Instant;
@@ -17,7 +17,7 @@ import java.time.Instant;
 @RequiredArgsConstructor
 public class ChatRoomService {
 
-    private final ChatRoomRepository chatRoomRepository;
+    private final ChatRooms chatRooms;
 
     /**
      * 채팅방 만들기
@@ -31,11 +31,11 @@ public class ChatRoomService {
                 Instant.now()
         );
 
-        if (chatRoomRepository.existsByPartyId(command.partyId())) {
+        if (chatRooms.existsByPartyId(command.partyId())) {
             throw new ChatException(ChatErrorCode.CHAT_ROOM_ALREADY_EXISTS);
         }
 
-        ChatRoom result = chatRoomRepository.save(chatRoom);
+        ChatRoom result = chatRooms.save(chatRoom);
 
         log.info("채팅방 생성 partyId={} chatRoomId={}", result.getPartyId(), result.getId());
 
@@ -48,7 +48,7 @@ public class ChatRoomService {
     @Transactional(readOnly = true)
     public ChatRoomResult findById(Long chatRoomId) {
 
-        ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
+        ChatRoom chatRoom = chatRooms.findById(chatRoomId)
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND));
 
         return ChatRoomResult.from(chatRoom);
@@ -59,12 +59,12 @@ public class ChatRoomService {
      */
     @Transactional
     public void close(Long chatRoomId) {
-        ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
+        ChatRoom chatRoom = chatRooms.findById(chatRoomId)
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND));
 
-        chatRoom.close();
+        chatRoom.close(Instant.now());
 
-        chatRoomRepository.save(chatRoom);
+        chatRooms.save(chatRoom);
 
         log.info("채팅방 종료 chatRoomId={}", chatRoomId);
     }
