@@ -20,7 +20,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBusiness(BusinessException e) {
         ErrorCode errorCode = e.getErrorCode();
 
-        log.warn("비즈니스 예외 code={} message={}", errorCode.getCode(), errorCode.getMessage());
+        if(errorCode.getHttpStatus().is5xxServerError()) {
+            log.warn("비즈니스 예외 code={} message={}", errorCode.getCode(), errorCode.getMessage());
+        }
+        else {
+            log.info("비즈니스 예외 code={} message={}", errorCode.getCode(), errorCode.getMessage());
+        }
 
         return ResponseEntity.status(errorCode.getHttpStatus())
                 .body(new ErrorResponse(errorCode.getCode(), errorCode.getMessage()));
