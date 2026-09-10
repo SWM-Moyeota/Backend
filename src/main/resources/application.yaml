@@ -10,6 +10,8 @@ spring:
     password:
   jpa:
     open-in-view: false
+  flyway:
+    enabled: false   # 기본(H2 인메모리)에선 끔. Postgres 를 쓰는 dev/prod 프로필에서만 켠다 - 마이그레이션은 Postgres 문법
   data:
     redis:
       host: localhost
