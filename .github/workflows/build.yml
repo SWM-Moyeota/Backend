@@ -19,6 +19,19 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: moyeota
+          POSTGRES_USER: moyeota
+          POSTGRES_PASSWORD: moyeota
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U moyeota"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
       redis:
         image: redis:7-alpine
         ports:

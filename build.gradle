@@ -35,6 +35,8 @@ dependencies {
 	implementation 'com.fasterxml.uuid:java-uuid-generator:5.1.0'	// UUID v7
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0'   // Boot 4 → springdoc 3.x
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'          // Boot 4.1 은 starter 없이는 auto-config 가 안 붙음
+	implementation 'org.flywaydb:flyway-database-postgresql'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 	implementation 'com.google.firebase:firebase-admin:9.10.0'		// fcm 의존성 추가

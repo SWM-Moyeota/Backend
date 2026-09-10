@@ -38,7 +38,11 @@ class GlobalExceptionHandlerTest {
 
     @BeforeEach
     void setUp() {
-        DriverApplicationService service = new DriverApplicationService(new InMemoryDrivers());
+        DriverApplicationService service = new DriverApplicationService(new InMemoryDrivers(), new team.codingforest.moyeota.user.api.UserAccess() {
+            public java.util.Optional<String> findNickname(Long userId) { return java.util.Optional.empty(); }
+            public java.util.Map<Long, String> findFcmTokens(java.util.List<Long> userIds) { return java.util.Map.of(); }
+            public java.util.Map<Long, team.codingforest.moyeota.user.api.MemberSummary> findMemberSummaries(java.util.List<Long> userIds) { return java.util.Map.of(); }
+        });
 
         mvc = MockMvcBuilders.standaloneSetup(new DriverController(service), new IllegalArgumentThrowingController())
                 .setCustomArgumentResolvers(new StubAuthResolver())   // 인증 없이 @CurrentUser=1, @CurrentDriver=1 주입

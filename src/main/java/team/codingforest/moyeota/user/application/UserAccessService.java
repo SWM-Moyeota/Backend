@@ -11,6 +11,7 @@ import team.codingforest.moyeota.user.domain.Users;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,5 +34,14 @@ class UserAccessService implements UserAccess {
         }
 
         return result;
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public Optional<String> findNickname(Long userId) {
+        // findById 는 없으면 예외를 던지므로 목록 조회로 empty 를 만든다
+        return users.findAllByIds(List.of(userId)).stream()
+                .findFirst()
+                .map(User::getNickname);
     }
 }

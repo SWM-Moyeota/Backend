@@ -48,6 +48,9 @@ class FcmPassengerNotifierTest {
 
         @Override
         public Map<Long, MemberSummary> findMemberSummaries(List<Long> userIds) { return Map.of(); }
+
+        @Override
+        public java.util.Optional<String> findNickname(Long userId) { return java.util.Optional.empty(); }
     }
 
     // FirebaseMessaging 자리에 null을 주입 - 가드를 통과해 전송을 시도하면 NPE로 실패한다

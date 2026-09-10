@@ -28,6 +28,11 @@ class FakeUserAccess implements UserAccess {
     }
 
     @Override
+    public java.util.Optional<String> findNickname(Long userId) {
+        return java.util.Optional.ofNullable(summaries.get(userId)).map(MemberSummary::nickname);
+    }
+
+    @Override
     public Map<Long, MemberSummary> findMemberSummaries(List<Long> userIds) {
         Map<Long, MemberSummary> result = new HashMap<>();
         for(Long id : userIds) {
