@@ -1,11 +1,12 @@
 package team.codingforest.moyeota.report.domain;
 
-import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.report.domain.exception.ReportErrorCode;
 import org.junit.jupiter.api.Test;
+import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.report.domain.enums.ReportStatus;
+import team.codingforest.moyeota.report.domain.exception.ReportErrorCode;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ReportTest {
     private static final Long 신고자 = 5L;

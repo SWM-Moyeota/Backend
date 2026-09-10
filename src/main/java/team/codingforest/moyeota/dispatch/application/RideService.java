@@ -1,15 +1,15 @@
 package team.codingforest.moyeota.dispatch.application;
 
-import org.springframework.transaction.annotation.Transactional;
-import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.dispatch.domain.exception.DispatchErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.dispatch.application.dto.DriverLocationResponse;
 import team.codingforest.moyeota.dispatch.domain.DriverLocations;
 import team.codingforest.moyeota.dispatch.domain.DriverPosition;
 import team.codingforest.moyeota.dispatch.domain.PassengerNotifier;
+import team.codingforest.moyeota.dispatch.domain.exception.DispatchErrorCode;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.PartySummary;
 
@@ -24,6 +24,7 @@ public class RideService {
     /**
      *      기사 도착 - 승객 알림
      */
+    @Transactional(readOnly = true)
     public void arrive(Long partyId, Long driverId) {
         if(!partyAccess.isAwaitingPickup(partyId, driverId)) throw new BusinessException(DispatchErrorCode.NOT_AWAITING_PICKUP);
 

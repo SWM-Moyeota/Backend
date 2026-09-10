@@ -10,6 +10,7 @@ import com.google.firebase.messaging.MulticastMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import team.codingforest.moyeota.dispatch.domain.CallNotifier;
@@ -19,6 +20,7 @@ import team.codingforest.moyeota.matching.api.PartySummary;
 import java.util.List;
 import java.util.Map;
 
+@ConditionalOnProperty(prefix = "moyeota.taxi", name = "enabled", havingValue = "true", matchIfMissing = true)
 @Slf4j
 @Component
 @Primary

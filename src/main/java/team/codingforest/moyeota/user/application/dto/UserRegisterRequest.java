@@ -1,6 +1,12 @@
 package team.codingforest.moyeota.user.application.dto;
 
-import jakarta.validation.constraints.*;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Past;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import team.codingforest.moyeota.user.domain.enums.Gender;
 
 import java.time.Instant;
@@ -9,30 +15,30 @@ public record UserRegisterRequest(
         @NotBlank(message = "아이디는 필수입니다.")
         @Pattern(regexp = "^[a-z][a-z0-9_]{3,19}$",
                 message = "아이디는 영소문자로 시작하는 4~20자의 영소문자, 숫자, _ 조합이어야 합니다.")
-        String loginId,
+        @Schema(example = "hong123") String loginId,
 
         @NotBlank(message = "비밀번호는 필수입니다.")
         @Size(min = 8, max = 64, message = "비밀번호는 8자 이상 64자 이하여야 합니다.")
         @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]).+$",
                 message = "비밀번호는 영문, 숫자, 특수문자를 각각 하나 이상 포함해야 합니다.")
-        String password,
+        @Schema(example = "Passw0rd!") String password,
 
         @NotBlank(message = "닉네임은 필수입니다.")
         @Size(min = 2, max = 10, message = "닉네임은 2~10자여야 합니다.")
-        String nickname,
+        @Schema(description = "동승자에게 보이는 이름. 한글·영문·숫자 2~10자, 중복 불가", example = "길동이") String nickname,
 
         @NotBlank(message = "이름은 필수입니다.")
         @Size(max = 20, message = "이름은 20자를 넘을 수 없습니다.")
-        String name,
+        @Schema(description = "실명 - 동승자에게 노출되지 않음", example = "홍길동") String name,
 
         @NotNull(message = "생년월일은 필수입니다.")
         @Past(message = "생년월일은 과거 날짜여야 합니다.")
-        Instant birthDate,
+        @Schema(example = "2000-01-01T00:00:00Z") Instant birthDate,
 
         @NotBlank(message = "전화번호는 필수입니다.")
         @Pattern(regexp = "^01[016-9]-?\\d{3,4}-?\\d{4}$",
                 message = "전화번호 형식이 올바르지 않습니다.")
-        String phoneNumber,
+        @Schema(description = "하이픈 유무 무관", example = "010-1234-5678") String phoneNumber,
 
         @NotNull(message = "성별은 필수입니다.")
         Gender gender,
@@ -40,7 +46,7 @@ public record UserRegisterRequest(
         @NotBlank(message = "이메일은 필수입니다.")
         @Email(message = "이메일 형식이 올바르지 않습니다.")
         @Size(max = 100, message = "이메일은 100자를 넘을 수 없습니다.")
-        String email
+        @Schema(example = "hong@example.com") String email
 ) {
     public UserRegisterCommand toCommand() {
         return new UserRegisterCommand(loginId, password, nickname, name, birthDate, phoneNumber, gender, email);

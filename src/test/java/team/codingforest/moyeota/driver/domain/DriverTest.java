@@ -7,7 +7,8 @@ import team.codingforest.moyeota.driver.domain.exception.DriverErrorCode;
 
 import java.time.Instant;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DriverTest {
     private static final Long 유저 = 1L;

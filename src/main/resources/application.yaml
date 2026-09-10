@@ -8,6 +8,8 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
+  jpa:
+    open-in-view: false
   data:
     redis:
       host: localhost
@@ -39,6 +41,15 @@ jwt:
   access-token-validity: ${JWT_ACCESS_VALIDITY:30m}
   refresh-token-validity: ${JWT_REFRESH_VALIDITY:14d}
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
+  api-docs:
+    path: /v3/api-docs
+
 management:
   endpoints:
     web:
@@ -48,3 +59,7 @@ management:
   endpoint:
     health:
       show-details: never
+
+moyeota:
+  taxi:
+    enabled: ${TAXI_ENABLED:true}

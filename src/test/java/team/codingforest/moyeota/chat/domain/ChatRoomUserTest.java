@@ -20,7 +20,7 @@ class ChatRoomUserTest {
 
         assertThat(user.getUserId()).isEqualTo(USER_ID);
         assertThat(user.getChatRoomId()).isEqualTo(ROOM_ID);
-        assertThat(user.getJoinedAt()).isEqualTo(NOW);
+        assertThat(user.getCreatedAt()).isEqualTo(NOW);
         assertThat(user.getLastReadMessageId()).isNull();
         assertThat(user.isNotificationMuted()).isFalse();
         assertThat(user.getLeftAt()).isNull();
@@ -53,7 +53,7 @@ class ChatRoomUserTest {
     void 읽음처리시_lastReadMessageId_갱신() {
         ChatRoomUser user = ChatRoomUser.join(USER_ID, ROOM_ID, NOW);
 
-        user.read(10L);
+        user.read(10L, NOW);
 
         assertThat(user.getLastReadMessageId()).isEqualTo(10L);
     }
@@ -61,9 +61,9 @@ class ChatRoomUserTest {
     @Test
     void 더_큰_messageId면_갱신() {
         ChatRoomUser user = ChatRoomUser.join(USER_ID, ROOM_ID, NOW);
-        user.read(10L);
+        user.read(10L, NOW);
 
-        user.read(20L);
+        user.read(20L, NOW);
 
         assertThat(user.getLastReadMessageId()).isEqualTo(20L);
     }
@@ -71,9 +71,9 @@ class ChatRoomUserTest {
     @Test
     void 더_작은_messageId면_갱신안함() {
         ChatRoomUser user = ChatRoomUser.join(USER_ID, ROOM_ID, NOW);
-        user.read(20L);
+        user.read(20L, NOW);
 
-        user.read(10L);
+        user.read(10L, NOW);
 
         assertThat(user.getLastReadMessageId()).isEqualTo(20L);
     }
@@ -81,9 +81,9 @@ class ChatRoomUserTest {
     @Test
     void messageId가_null이면_무시() {
         ChatRoomUser user = ChatRoomUser.join(USER_ID, ROOM_ID, NOW);
-        user.read(10L);
+        user.read(10L, NOW);
 
-        user.read(null);
+        user.read(null, Instant.now());
 
         assertThat(user.getLastReadMessageId()).isEqualTo(10L);
     }
@@ -92,10 +92,10 @@ class ChatRoomUserTest {
     void 알림_음소거_및_해제() {
         ChatRoomUser user = ChatRoomUser.join(USER_ID, ROOM_ID, NOW);
 
-        user.muteNotification();
+        user.muteNotification(NOW);
         assertThat(user.isNotificationMuted()).isTrue();
 
-        user.unmuteNotification();
+        user.unmuteNotification(NOW);
         assertThat(user.isNotificationMuted()).isFalse();
     }
 }

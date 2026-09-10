@@ -1,16 +1,16 @@
 package team.codingforest.moyeota.place.application;
 
-import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.place.domain.exception.PlaceErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.place.application.dto.FavoritePlaceCommand;
 import team.codingforest.moyeota.place.application.dto.FavoritePlaceListResponse;
 import team.codingforest.moyeota.place.application.dto.FavoritePlaceResponse;
 import team.codingforest.moyeota.place.domain.FavoritePlace;
-import team.codingforest.moyeota.place.infrastructure.FavoritePlaceJpa;
+import team.codingforest.moyeota.place.domain.exception.PlaceErrorCode;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FavoritePlaceApplicationServiceTest {
 

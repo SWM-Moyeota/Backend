@@ -10,8 +10,11 @@ import team.codingforest.moyeota.matching.domain.Location;
 import team.codingforest.moyeota.matching.domain.Party;
 import team.codingforest.moyeota.matching.domain.Radius;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
+
 import java.time.Instant;
-import static org.assertj.core.api.Assertions.*;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 
 @DataJpaTest
 @Import({PartyJpa.class, JpaAuditingConfig.class})

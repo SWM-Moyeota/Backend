@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
-import team.codingforest.moyeota.chat.infra.ChatRedisSubscriber;
+import team.codingforest.moyeota.chat.infrastructure.ChatRedisSubscriber;
 
 @Configuration
 public class RedisConfig {

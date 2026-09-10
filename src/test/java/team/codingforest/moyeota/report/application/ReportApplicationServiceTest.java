@@ -1,9 +1,8 @@
 package team.codingforest.moyeota.report.application;
 
-import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.report.domain.exception.ReportErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.api.MatchingTarget;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.PartyChatSummary;
@@ -11,13 +10,15 @@ import team.codingforest.moyeota.matching.api.PartySummary;
 import team.codingforest.moyeota.report.domain.Report;
 import team.codingforest.moyeota.report.domain.Reports;
 import team.codingforest.moyeota.report.domain.enums.ReportStatus;
+import team.codingforest.moyeota.report.domain.exception.ReportErrorCode;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ReportApplicationServiceTest {
 

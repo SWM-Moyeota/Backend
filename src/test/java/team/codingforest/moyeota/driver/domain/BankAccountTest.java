@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.domain.exception.DriverErrorCode;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class BankAccountTest {
 
