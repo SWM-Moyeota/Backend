@@ -3,6 +3,7 @@ package team.codingforest.moyeota.dispatch.application;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.dispatch.domain.CallCandidates;
@@ -36,7 +37,7 @@ public class DispatchService {
     /**
      *      매칭방을 기준으로 3km 이내의 기사들을 찾고 콜 뿌리기
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void dispatch(Long partyId) {
         attempt(partyId, INITIAL_RADIUS_METERS);
     }

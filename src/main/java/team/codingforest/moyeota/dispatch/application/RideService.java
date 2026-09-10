@@ -24,6 +24,7 @@ public class RideService {
     /**
      *      기사 도착 - 승객 알림
      */
+    @Transactional(readOnly = true)
     public void arrive(Long partyId, Long driverId) {
         if(!partyAccess.isAwaitingPickup(partyId, driverId)) throw new BusinessException(DispatchErrorCode.NOT_AWAITING_PICKUP);
 

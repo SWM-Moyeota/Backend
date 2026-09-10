@@ -8,6 +8,8 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password:
+  jpa:
+    open-in-view: false
   data:
     redis:
       host: localhost
@@ -48,3 +50,7 @@ management:
   endpoint:
     health:
       show-details: never
+
+moyeota:
+  taxi:
+    enabled: ${TAXI_ENABLED:true}

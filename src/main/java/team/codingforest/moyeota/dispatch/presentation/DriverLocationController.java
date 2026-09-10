@@ -2,6 +2,7 @@ package team.codingforest.moyeota.dispatch.presentation;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -12,6 +13,7 @@ import team.codingforest.moyeota.dispatch.application.DriverLocationService;
 import team.codingforest.moyeota.dispatch.application.dto.LocationReportRequest;
 import team.codingforest.moyeota.driver.api.CurrentDriver;
 
+@ConditionalOnProperty(prefix = "moyeota.taxi", name = "enabled", havingValue = "true", matchIfMissing = true)
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor

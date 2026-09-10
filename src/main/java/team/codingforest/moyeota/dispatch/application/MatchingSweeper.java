@@ -2,6 +2,7 @@ package team.codingforest.moyeota.dispatch.application;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import team.codingforest.moyeota.common.exception.BusinessException;
@@ -17,6 +18,7 @@ import java.util.List;
 /**
  *     30초마다 매칭 중인 방을 훑어 반경을 넓혀 재탐색하고, 타임아웃이면 해산한다.
  */
+@ConditionalOnProperty(prefix = "moyeota.taxi", name = "enabled", havingValue = "true", matchIfMissing = true)
 @Slf4j
 @Component
 @RequiredArgsConstructor
