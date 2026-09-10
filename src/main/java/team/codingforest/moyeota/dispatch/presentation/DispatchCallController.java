@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.dispatch.presentation;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -12,6 +13,7 @@ import team.codingforest.moyeota.dispatch.application.dto.CallStatusResponse;
 import team.codingforest.moyeota.driver.api.CurrentDriver;
 import team.codingforest.moyeota.matching.api.PartySummary;
 
+@ConditionalOnProperty(prefix = "moyeota.taxi", name = "enabled", havingValue = "true", matchIfMissing = true)
 @RestController
 @RequestMapping("/api/v1/dispatch")
 @RequiredArgsConstructor

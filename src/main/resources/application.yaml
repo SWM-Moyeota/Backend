@@ -50,3 +50,7 @@ management:
   endpoint:
     health:
       show-details: never
+
+moyeota:
+  taxi:
+    enabled: ${TAXI_ENABLED:true}
