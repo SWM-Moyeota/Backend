@@ -16,6 +16,10 @@ spring:
     redis:
       host: localhost
       port: 6379
+  modulith:
+    events:
+      republish-outstanding-events-on-restart: true
+      completion-mode: DELETE
 
 kakao:
   api:
