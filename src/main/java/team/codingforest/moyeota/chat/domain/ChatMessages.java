@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.chat.domain;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public interface ChatMessages {
@@ -13,4 +14,6 @@ public interface ChatMessages {
     List<ChatMessage> findAfter(Long chatRoomId, Long cursor, int size);
 
     List<ChatMessage> search(Long chatRoomId, String keyword, Long cursor, int size);
+
+    Map<Long, ChatMessage> findLatestByChatRoomIds(List<Long> chatRoomIds);
 }

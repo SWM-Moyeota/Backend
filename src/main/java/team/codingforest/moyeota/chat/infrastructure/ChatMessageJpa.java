@@ -9,7 +9,9 @@ import team.codingforest.moyeota.chat.domain.ChatMessages;
 import team.codingforest.moyeota.chat.infrastructure.entity.ChatMessageEntity;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor
@@ -62,5 +64,13 @@ public class ChatMessageJpa implements ChatMessages {
         return keyword.replace("!", "!!")   // 반드시 첫 줄
                 .replace("%", "!%")
                 .replace("_", "!_");
+    }
+
+    @Override
+    public Map<Long, ChatMessage> findLatestByChatRoomIds(List<Long> chatRoomIds) {
+        return jpaRepository.findLatestByChatRoomIds(chatRoomIds)
+                .stream()
+                .map(ChatMessageEntity::toDomain)
+                .collect(Collectors.toMap(ChatMessage::getChatRoomId, m -> m));
     }
 }

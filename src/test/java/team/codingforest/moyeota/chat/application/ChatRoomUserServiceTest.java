@@ -9,6 +9,11 @@ import team.codingforest.moyeota.chat.application.dto.ChatRoomCommand;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomUserResult;
 import team.codingforest.moyeota.chat.application.dto.ReadChatCommand;
 import team.codingforest.moyeota.chat.application.event.ChatRoomLeftEvent;
+import team.codingforest.moyeota.chat.domain.ChatMember;
+import team.codingforest.moyeota.chat.domain.ChatMessage;
+import team.codingforest.moyeota.chat.domain.ChatMessageStatus;
+import team.codingforest.moyeota.chat.domain.ChatMessageType;
+import team.codingforest.moyeota.chat.domain.ChatMessages;
 import team.codingforest.moyeota.chat.domain.ChatRoom;
 import team.codingforest.moyeota.chat.domain.ChatRoomStatus;
 import team.codingforest.moyeota.chat.domain.ChatRoomUser;
@@ -20,6 +25,7 @@ import team.codingforest.moyeota.chat.domain.exception.ChatException;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,6 +46,7 @@ class ChatRoomUserServiceTest {
 
     private ChatRoomUsers chatRoomUsers;
     private ChatRooms chatRooms;
+    private ChatMessages chatMessages;
     private ChatRoomUserService chatRoomUserService;
     private MemberProvider memberProvider;
     private ApplicationEventPublisher eventPublisher;
@@ -48,9 +55,10 @@ class ChatRoomUserServiceTest {
     void setUp() {
         chatRoomUsers = mock(ChatRoomUsers.class);
         chatRooms = mock(ChatRooms.class);
+        chatMessages = mock(ChatMessages.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
         memberProvider = mock(MemberProvider.class);
-        chatRoomUserService = new ChatRoomUserService(eventPublisher, chatRoomUsers, chatRooms, memberProvider);
+        chatRoomUserService = new ChatRoomUserService(eventPublisher, chatRoomUsers, chatRooms, chatMessages, memberProvider);
     }
 
     private ChatRoom room(ChatRoomStatus status) {
@@ -163,5 +171,21 @@ class ChatRoomUserServiceTest {
         chatRoomUserService.leave(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID));
 
         verify(eventPublisher).publishEvent(new ChatRoomLeftEvent(USER_ID, PUBLIC_ID, ROOM_ID));
+    }
+
+    @Test
+    void 방_목록에_마지막_메시지_포함() {
+        given(chatRoomUsers.findActiveByUserId(USER_ID))
+                .willReturn(List.of(activeUser(10L), activeUser(20L)));
+        ChatMessage last = ChatMessage.restore(99L, 10L, 5L, "안녕", ChatMessageType.TEXT, ChatMessageStatus.ACTIVE, NOW, null);
+        given(chatMessages.findLatestByChatRoomIds(List.of(10L, 20L))).willReturn(Map.of(10L, last));
+        given(memberProvider.findMembers(List.of(5L)))
+                .willReturn(Map.of(5L, new ChatMember(5L, PUBLIC_ID, "닉", null)));
+
+        List<ChatRoomUserResult> results = chatRoomUserService.findMyActiveRooms(USER_ID);
+
+        assertThat(results.get(0).lastMessage().content()).isEqualTo("안녕");
+        assertThat(results.get(0).lastMessage().senderPublicId()).isEqualTo(PUBLIC_ID);
+        assertThat(results.get(1).lastMessage()).isNull();
     }
 }
