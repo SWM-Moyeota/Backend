@@ -12,6 +12,8 @@ import team.codingforest.moyeota.chat.application.dto.ChatRoomUserResult;
 import team.codingforest.moyeota.chat.application.dto.ReadChatCommand;
 import team.codingforest.moyeota.chat.application.event.ChatRoomLeftEvent;
 import team.codingforest.moyeota.chat.domain.ChatMember;
+import team.codingforest.moyeota.chat.domain.ChatMessage;
+import team.codingforest.moyeota.chat.domain.ChatMessages;
 import team.codingforest.moyeota.chat.domain.ChatRoom;
 import team.codingforest.moyeota.chat.domain.ChatRoomUser;
 import team.codingforest.moyeota.chat.domain.ChatRoomUsers;
@@ -31,6 +33,7 @@ public class ChatRoomUserService {
     private final ApplicationEventPublisher eventPublisher;
     private final ChatRoomUsers chatRoomUsers;
     private final ChatRooms chatRooms;
+    private final ChatMessages chatMessages;
     private final MemberProvider memberProvider;
 
     @Transactional
@@ -82,10 +85,33 @@ public class ChatRoomUserService {
 
     @Transactional(readOnly = true)
     public List<ChatRoomUserResult> findMyActiveRooms(Long userId) {
-        return chatRoomUsers.findActiveByUserId(userId).stream()
-                .map(ChatRoomUserResult::from)
+        List<ChatRoomUser> rooms = chatRoomUsers.findActiveByUserId(userId);
+        if (rooms.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> roomIds = rooms.stream().map(ChatRoomUser::getChatRoomId).toList();
+        Map<Long, ChatMessage> latest = chatMessages.findLatestByChatRoomIds(roomIds);
+
+        List<Long> senderIds = latest.values().stream()
+                .map(ChatMessage::getUserId)
+                .distinct()
+                .toList();
+        Map<Long, ChatMember> members = memberProvider.findMembers(senderIds);
+
+        return rooms.stream()
+                .map(room -> ChatRoomUserResult.from(room, toLastMessage(latest.get(room.getChatRoomId()), members)))
                 .toList();
     }
+
+    private ChatRoomUserResult.LastMessage toLastMessage(ChatMessage message, Map<Long, ChatMember> members) {
+        if (message == null) {
+            return null;
+        }
+        ChatMember sender = members.get(message.getUserId());
+        return ChatRoomUserResult.LastMessage.from(message, sender == null ? null : sender.publicId());
+    }
+
 
     @Transactional(readOnly = true)
     public void validateParticipant(Long userId, Long chatRoomId) {

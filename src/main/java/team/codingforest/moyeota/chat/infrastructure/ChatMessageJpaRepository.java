@@ -28,4 +28,14 @@ public interface ChatMessageJpaRepository extends JpaRepository<ChatMessageEntit
             @Param("chatRoomId") Long chatRoomId, @Param("status") ChatMessageStatus status,
             @Param("keyword") String keyword, @Param("cursor") Long cursor, Limit limit
     );
+
+    @Query("""
+            SELECT m FROM ChatMessageEntity m
+            WHERE m.id IN (
+                SELECT MAX(m2.id) FROM ChatMessageEntity m2
+                WHERE m2.chatRoomId IN :chatRoomIds
+                GROUP BY m2.chatRoomId
+            )
+        """)
+    List<ChatMessageEntity> findLatestByChatRoomIds(@Param("chatRoomIds") List<Long> chatRoomIds);
 }
