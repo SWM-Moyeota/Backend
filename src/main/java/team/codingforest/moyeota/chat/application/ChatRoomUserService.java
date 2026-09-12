@@ -86,11 +86,13 @@ public class ChatRoomUserService {
     @Transactional(readOnly = true)
     public List<ChatRoomUserResult> findMyActiveRooms(Long userId) {
         List<ChatRoomUser> rooms = chatRoomUsers.findActiveByUserId(userId);
+
         if (rooms.isEmpty()) {
             return List.of();
         }
 
         List<Long> roomIds = rooms.stream().map(ChatRoomUser::getChatRoomId).toList();
+        Map<Long, Long> unreadCounts = chatMessages.countUnreadByUserId(userId);
         Map<Long, ChatMessage> latest = chatMessages.findLatestByChatRoomIds(roomIds);
 
         List<Long> senderIds = latest.values().stream()
@@ -100,7 +102,10 @@ public class ChatRoomUserService {
         Map<Long, ChatMember> members = memberProvider.findMembers(senderIds);
 
         return rooms.stream()
-                .map(room -> ChatRoomUserResult.from(room, toLastMessage(latest.get(room.getChatRoomId()), members)))
+                .map(room -> ChatRoomUserResult.from(
+                        room,
+                        toLastMessage(latest.get(room.getChatRoomId()), members),
+                        unreadCounts.getOrDefault(room.getChatRoomId(), 0L)))
                 .toList();
     }
 

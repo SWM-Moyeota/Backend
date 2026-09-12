@@ -10,6 +10,7 @@ import java.util.UUID;
 public record ChatRoomUserResult(
         Long chatRoomId,
         Long lastReadMessageId,
+        Long unreadCount,
         boolean notificationMuted,
         Instant joinedAt,
         LastMessage lastMessage
@@ -34,10 +35,11 @@ public record ChatRoomUserResult(
         }
     }
 
-    public static ChatRoomUserResult from(ChatRoomUser user, LastMessage lastMessage) {
+    public static ChatRoomUserResult from(ChatRoomUser user, LastMessage lastMessage, Long unreadCount) {
         return new ChatRoomUserResult(
                 user.getChatRoomId(),
                 user.getLastReadMessageId(),
+                unreadCount,
                 user.isNotificationMuted(),
                 user.getCreatedAt(),
                 lastMessage

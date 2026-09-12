@@ -38,4 +38,23 @@ public interface ChatMessageJpaRepository extends JpaRepository<ChatMessageEntit
             )
         """)
     List<ChatMessageEntity> findLatestByChatRoomIds(@Param("chatRoomIds") List<Long> chatRoomIds);
+
+    @Query("""
+            SELECT m.chatRoomId AS chatRoomId, COUNT(m) AS unreadCount
+            FROM ChatMessageEntity m, ChatRoomUserEntity cru
+            WHERE cru.chatRoomId = m.chatRoomId
+              AND cru.userId = :userId
+              AND cru.leftAt IS NULL
+              AND m.userId <> :userId
+              AND m.status = :status
+              AND m.id > COALESCE(cru.lastReadMessageId, 0)
+            GROUP BY m.chatRoomId
+            """)
+    List<UnreadCount> countUnreadByUserId(
+            @Param("userId") Long userId, @Param("status") ChatMessageStatus status);
+
+    interface UnreadCount {
+        Long getChatRoomId();
+        Long getUnreadCount();
+    }
 }
