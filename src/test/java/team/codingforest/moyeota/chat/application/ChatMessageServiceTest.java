@@ -122,7 +122,7 @@ class ChatMessageServiceTest {
         assertThat(result.publicId()).isEqualTo(PUBLIC_ID);
         assertThat(result.chatRoomId()).isEqualTo(ROOM_ID);
 
-        verify(eventPublisher).publishEvent(new ChatMessageSentEvent(result));
+        verify(eventPublisher).publishEvent(new ChatMessageSentEvent(USER_ID, result));
     }
 
     @Test

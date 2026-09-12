@@ -188,4 +188,16 @@ class ChatRoomUserServiceTest {
         assertThat(results.get(0).lastMessage().senderPublicId()).isEqualTo(PUBLIC_ID);
         assertThat(results.get(1).lastMessage()).isNull();
     }
+
+    @Test
+    void 방_목록에_안읽은_개수_포함() {
+        given(chatRoomUsers.findActiveByUserId(USER_ID))
+                .willReturn(List.of(activeUser(10L), activeUser(20L)));
+        given(chatMessages.countUnreadByUserId(USER_ID)).willReturn(Map.of(10L, 3L));
+
+        List<ChatRoomUserResult> results = chatRoomUserService.findMyActiveRooms(USER_ID);
+
+        assertThat(results.get(0).unreadCount()).isEqualTo(3L);
+        assertThat(results.get(1).unreadCount()).isZero();   // 결과에 없는 방은 0
+    }
 }

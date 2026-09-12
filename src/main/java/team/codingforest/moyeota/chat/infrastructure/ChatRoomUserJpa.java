@@ -38,7 +38,7 @@ public class ChatRoomUserJpa implements ChatRoomUsers {
 
     @Override
     public List<ChatRoomUser> findAllByChatRoomId(Long chatRoomId) {
-        return jpaRepository.findAllByChatRoomId(chatRoomId).stream()
+        return jpaRepository.findAllByChatRoomIdOrderByCreatedAtAscUserIdAsc(chatRoomId).stream()
                 .map(ChatRoomUserEntity::toDomain)
                 .toList();
     }
