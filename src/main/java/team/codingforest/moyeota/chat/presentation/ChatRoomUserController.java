@@ -67,4 +67,22 @@ public class ChatRoomUserController {
     ) {
         return chatRoomUserService.findMembers(userId, chatRoomId);
     }
+
+    @PostMapping("/{chatRoomId}/users/notification/mute")
+    @ResponseStatus(HttpStatus.OK)
+    public void muteNotification(
+            @CurrentUser Long userId,
+            @PathVariable Long chatRoomId
+    ) {
+        chatRoomUserService.muteNotification(userId, chatRoomId);
+    }
+
+    @DeleteMapping("/{chatRoomId}/users/notification/mute")
+    @ResponseStatus(HttpStatus.OK)
+    public void unmuteNotification(
+            @CurrentUser Long userId,
+            @PathVariable Long chatRoomId
+    ) {
+        chatRoomUserService.unmuteNotification(userId, chatRoomId);
+    }
 }

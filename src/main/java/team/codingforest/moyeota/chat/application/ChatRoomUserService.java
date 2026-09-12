@@ -145,4 +145,18 @@ public class ChatRoomUserService {
                 })
                 .toList();
     }
+
+    @Transactional
+    public void muteNotification(Long userId, Long chatRoomId) {
+        ChatRoomUser chatRoomUser = getActiveUser(userId, chatRoomId);
+        chatRoomUser.muteNotification(Instant.now());
+        chatRoomUsers.save(chatRoomUser);
+    }
+
+    @Transactional
+    public void unmuteNotification(Long userId, Long chatRoomId) {
+        ChatRoomUser chatRoomUser = getActiveUser(userId, chatRoomId);
+        chatRoomUser.unmuteNotification(Instant.now());
+        chatRoomUsers.save(chatRoomUser);
+    }
 }
