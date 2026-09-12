@@ -92,7 +92,7 @@ public class ChatMessageService {
         ChatMessageResult result = ChatMessageResult.from(
                 chatMessages.save(message), command.publicId());
 
-        eventPublisher.publishEvent(new ChatMessageSentEvent(result));
+        eventPublisher.publishEvent(new ChatMessageSentEvent(command.userId(), result));
 
         return result;
     }
