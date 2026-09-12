@@ -57,7 +57,6 @@ public class ChatMessageJpa implements ChatMessages {
                 .stream()
                 .map(ChatMessageEntity::toDomain)
                 .toList();
-
     }
 
     private String escapeLike(String keyword) {
@@ -72,5 +71,13 @@ public class ChatMessageJpa implements ChatMessages {
                 .stream()
                 .map(ChatMessageEntity::toDomain)
                 .collect(Collectors.toMap(ChatMessage::getChatRoomId, m -> m));
+    }
+
+    @Override
+    public Map<Long, Long> countUnreadByUserId(Long userId) {
+        return jpaRepository.countUnreadByUserId(userId, ChatMessageStatus.ACTIVE).stream()
+                .collect(Collectors.toMap(
+                        ChatMessageJpaRepository.UnreadCount::getChatRoomId,
+                        ChatMessageJpaRepository.UnreadCount::getUnreadCount));
     }
 }

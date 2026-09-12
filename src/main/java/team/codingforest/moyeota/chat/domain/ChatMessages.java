@@ -16,4 +16,6 @@ public interface ChatMessages {
     List<ChatMessage> search(Long chatRoomId, String keyword, Long cursor, int size);
 
     Map<Long, ChatMessage> findLatestByChatRoomIds(List<Long> chatRoomIds);
+
+    Map<Long, Long> countUnreadByUserId(Long userId);
 }
