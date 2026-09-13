@@ -1,0 +1,15 @@
+-- V4: chat_room_user.joined_at 의 NOT NULL 제약 해제
+--
+-- V2 에서 컬럼 컨벤션을 바꾸며 joined_at → created_at 으로 옮겼고, 엔티티(ChatRoomUserEntity)는
+-- joined_at 을 더 이상 매핑하지 않는다. 그런데 V1 baseline 의 `joined_at ... not null` 이 그대로 남아
+-- **모든 INSERT 가 실패**했다:
+--     ERROR: null value in column "joined_at" of relation "chat_room_user" violates not-null constraint
+-- Hibernate validate 는 엔티티에 없는 여분 컬럼을 검사하지 않아 기동은 정상이었고, 증상만 남았다:
+--   - 정원이 차도 채팅방이 안 생김 (ChatRoomMatchingListener 의 REQUIRES_NEW 트랜잭션이 통째로 롤백)
+--   - 수동 참여는 409 CHAT_ROOM_ALREADY_JOINED (join 이 DataIntegrityViolationException 을 그렇게 매핑)
+--   - 그 방의 /chat-rooms/me · 메시지 전송은 403 CHAT_NOT_PARTICIPANT
+-- 2026-09-13 로컬 Postgres + 동일 마이그레이션으로 재현·확인.
+--
+-- 컬럼은 남긴다 (V2 주석의 데이터 보존 의도). 과거 값은 created_at 에 복사되어 있으므로
+-- 나중에 DROP COLUMN 으로 정리해도 된다.
+ALTER TABLE chat_room_user ALTER COLUMN joined_at DROP NOT NULL;
