@@ -94,6 +94,7 @@ public class ChatRoomUserService {
         }
 
         List<Long> roomIds = rooms.stream().map(ChatRoomUser::getChatRoomId).toList();
+        Map<Long, ChatRoom> chatRoomsById = chatRooms.findByIds(roomIds);
         Map<Long, Long> unreadCounts = chatMessages.countUnreadByUserId(userId);
         Map<Long, ChatMessage> latest = chatMessages.findLatestByChatRoomIds(roomIds);
         List<ChatRoomUser> participants = chatRoomUsers.findAllByChatRoomIds(roomIds);
@@ -116,8 +117,10 @@ public class ChatRoomUserService {
                                 Collectors.toList())));
 
         return rooms.stream()
+                .filter(room -> chatRoomsById.containsKey(room.getChatRoomId()))
                 .map(room -> ChatRoomUserResult.from(
                         room,
+                        chatRoomsById.get(room.getChatRoomId()),
                         toLastMessage(latest.get(room.getChatRoomId()), members),
                         unreadCounts.getOrDefault(room.getChatRoomId(), 0L),
                         membersByRoom.getOrDefault(room.getChatRoomId(), List.of()))

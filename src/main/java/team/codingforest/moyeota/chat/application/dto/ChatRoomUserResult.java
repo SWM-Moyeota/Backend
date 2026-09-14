@@ -2,6 +2,8 @@ package team.codingforest.moyeota.chat.application.dto;
 
 import team.codingforest.moyeota.chat.domain.ChatMessage;
 import team.codingforest.moyeota.chat.domain.ChatMessageType;
+import team.codingforest.moyeota.chat.domain.ChatRoom;
+import team.codingforest.moyeota.chat.domain.ChatRoomStatus;
 import team.codingforest.moyeota.chat.domain.ChatRoomUser;
 
 import java.time.Instant;
@@ -10,6 +12,9 @@ import java.util.UUID;
 
 public record ChatRoomUserResult(
         Long chatRoomId,
+        String departure,
+        String destination,
+        ChatRoomStatus status,
         Long lastReadMessageId,
         long unreadCount,
         boolean notificationMuted,
@@ -37,10 +42,13 @@ public record ChatRoomUserResult(
         }
     }
 
-    public static ChatRoomUserResult from(ChatRoomUser user, LastMessage lastMessage,
+    public static ChatRoomUserResult from(ChatRoomUser user, ChatRoom chatRoom, LastMessage lastMessage,
                                           long unreadCount, List<ChatRoomMemberResult> members) {
         return new ChatRoomUserResult(
                 user.getChatRoomId(),
+                chatRoom.getDeparturePlace(),
+                chatRoom.getDestinationPlace(),
+                chatRoom.getStatus(),
                 user.getLastReadMessageId(),
                 unreadCount,
                 user.isNotificationMuted(),
