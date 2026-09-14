@@ -5,15 +5,17 @@ import team.codingforest.moyeota.chat.domain.ChatMessageType;
 import team.codingforest.moyeota.chat.domain.ChatRoomUser;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record ChatRoomUserResult(
         Long chatRoomId,
         Long lastReadMessageId,
-        Long unreadCount,
+        long unreadCount,
         boolean notificationMuted,
         Instant joinedAt,
-        LastMessage lastMessage
+        LastMessage lastMessage,
+        List<ChatRoomMemberResult> members
 ) {
     public record LastMessage(
             Long id,
@@ -35,14 +37,16 @@ public record ChatRoomUserResult(
         }
     }
 
-    public static ChatRoomUserResult from(ChatRoomUser user, LastMessage lastMessage, Long unreadCount) {
+    public static ChatRoomUserResult from(ChatRoomUser user, LastMessage lastMessage,
+                                          long unreadCount, List<ChatRoomMemberResult> members) {
         return new ChatRoomUserResult(
                 user.getChatRoomId(),
                 user.getLastReadMessageId(),
                 unreadCount,
                 user.isNotificationMuted(),
                 user.getCreatedAt(),
-                lastMessage
+                lastMessage,
+                members
         );
     }
 }

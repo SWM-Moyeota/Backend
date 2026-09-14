@@ -25,6 +25,8 @@ import team.codingforest.moyeota.chat.domain.exception.ChatException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -94,18 +96,32 @@ public class ChatRoomUserService {
         List<Long> roomIds = rooms.stream().map(ChatRoomUser::getChatRoomId).toList();
         Map<Long, Long> unreadCounts = chatMessages.countUnreadByUserId(userId);
         Map<Long, ChatMessage> latest = chatMessages.findLatestByChatRoomIds(roomIds);
+        List<ChatRoomUser> participants = chatRoomUsers.findAllByChatRoomIds(roomIds);
 
-        List<Long> senderIds = latest.values().stream()
-                .map(ChatMessage::getUserId)
-                .distinct()
-                .toList();
-        Map<Long, ChatMember> members = memberProvider.findMembers(senderIds);
+        Map<Long, ChatMember> members = memberProvider.findMembers(
+                Stream.concat(
+                        latest.values().stream().map(ChatMessage::getUserId),
+                        participants.stream().map(ChatRoomUser::getUserId)
+                )
+                        .distinct()
+                        .toList()
+        );
+
+        Map<Long, List<ChatRoomMemberResult>> membersByRoom = participants.stream()
+                .filter(participant -> members.containsKey(participant.getUserId()))
+                .collect(Collectors.groupingBy(
+                        ChatRoomUser::getChatRoomId,
+                        Collectors.mapping(
+                                participant -> toMemberResult(participant, members.get(participant.getUserId())),
+                                Collectors.toList())));
 
         return rooms.stream()
                 .map(room -> ChatRoomUserResult.from(
                         room,
                         toLastMessage(latest.get(room.getChatRoomId()), members),
-                        unreadCounts.getOrDefault(room.getChatRoomId(), 0L)))
+                        unreadCounts.getOrDefault(room.getChatRoomId(), 0L),
+                        membersByRoom.getOrDefault(room.getChatRoomId(), List.of()))
+                        )
                 .toList();
     }
 
@@ -115,6 +131,14 @@ public class ChatRoomUserService {
         }
         ChatMember sender = members.get(message.getUserId());
         return ChatRoomUserResult.LastMessage.from(message, sender == null ? null : sender.publicId());
+    }
+
+    private ChatRoomMemberResult toMemberResult(ChatRoomUser participant, ChatMember member) {
+        return new ChatRoomMemberResult(
+                member.publicId(),
+                member.nickname(),
+                member.imageUrl(),
+                !participant.hasLeft());
     }
 
 
