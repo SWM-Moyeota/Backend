@@ -50,10 +50,10 @@ public class ChatRoomService {
      */
     @Transactional(readOnly = true)
     public ChatRoomResult findById(Long userId, Long chatRoomId) {
-        validatePartyMember(userId, chatRoomId);
-
         ChatRoom chatRoom = chatRooms.findById(chatRoomId)
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        validatePartyMember(userId, chatRoom.getPartyId());
 
         return ChatRoomResult.from(chatRoom);
     }
