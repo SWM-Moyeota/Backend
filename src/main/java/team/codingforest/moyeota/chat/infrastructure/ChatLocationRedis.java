@@ -29,21 +29,19 @@ public class ChatLocationRedis implements ChatLocations {
     }
 
     @Override
-    public void put(Long userId, Long chatRoomId, ChatLocation chatLocation) {
+    public boolean put(Long userId, Long chatRoomId, ChatLocation chatLocation) {
         String key = coordKey(chatRoomId);
 
         ChatLocation existing = readCoord(key, userId);
 
-        // 백그라운드 요청이 지연 도착해 낡은 좌표로 덮어쓰는 것을 막는다
         if (!chatLocation.isNewerThan(existing)) {
-            return;
+            return false;
         }
 
         redisTemplate.opsForHash().put(key, userId.toString(), objectMapper.writeValueAsString(chatLocation));
-
-        // Hash 전체에 걸리는 TTL - 방치된 키 청소용.
-        // 개별 좌표의 신선도는 ChatLocation.isFresh 가 판정한다
         redisTemplate.expire(key, COORD_TTL);
+
+        return true;
     }
 
     @Override

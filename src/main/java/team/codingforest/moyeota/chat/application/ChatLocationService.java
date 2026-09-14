@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import team.codingforest.moyeota.chat.application.dto.ChatLocationResult;
 import team.codingforest.moyeota.chat.domain.ChatLocation;
+import team.codingforest.moyeota.chat.domain.ChatLocationPublisher;
 import team.codingforest.moyeota.chat.domain.ChatLocations;
 import team.codingforest.moyeota.chat.domain.ChatMember;
 import team.codingforest.moyeota.chat.domain.ChatRooms;
@@ -16,6 +17,7 @@ import team.codingforest.moyeota.chat.domain.exception.ChatException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -26,6 +28,7 @@ public class ChatLocationService {
     private final ChatRooms chatRooms;
     private final PartyProvider partyProvider;
     private final MemberProvider memberProvider;
+    private final ChatLocationPublisher locationPublisher;
 
     /**
      * 위치 공유 토글 ON. 세션이 살아있는 동안만 발행할 수 있다.
@@ -41,14 +44,16 @@ public class ChatLocationService {
     /**
      * 위치 발행. 포그라운드(WS)와 백그라운드(REST)가 같은 경로를 탄다.
      */
-    public void share(Long userId, Long chatRoomId, ChatLocation location) {
+    public void share(Long userId, UUID publicId, Long chatRoomId, ChatLocation location) {
         validateMember(userId, chatRoomId);
 
         if (!chatLocations.isSharing(userId, chatRoomId)) {
             throw new ChatException(ChatErrorCode.CHAT_NOT_PARTY_MEMBER);
         }
 
-        chatLocations.put(userId, chatRoomId, location);
+        if (chatLocations.put(userId, chatRoomId, location)) {
+            locationPublisher.publish(chatRoomId, publicId, location);
+        }
     }
 
     /**

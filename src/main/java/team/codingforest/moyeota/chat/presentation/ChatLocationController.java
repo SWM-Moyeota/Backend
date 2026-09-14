@@ -14,6 +14,8 @@ import team.codingforest.moyeota.chat.application.ChatLocationService;
 import team.codingforest.moyeota.chat.presentation.dto.LocationRequest;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/v1/chat-rooms/{chatRoomId}/location")
 @RequiredArgsConstructor
@@ -52,9 +54,10 @@ public class ChatLocationController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void share(
             @CurrentUser Long userId,
+            @CurrentUser UUID publicId,
             @PathVariable Long chatRoomId,
             @Valid @RequestBody LocationRequest request
     ) {
-        chatLocationService.share(userId, chatRoomId, request.toDomain());
+        chatLocationService.share(userId, publicId, chatRoomId, request.toDomain());
     }
 }
