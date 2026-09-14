@@ -65,7 +65,7 @@ public class AuthCodeService {
     }
 
     //코드를 토큰 발급 정보로 바꾼다. 성공하든 만료됐든 그 코드는 이 순간 사라진다.
-    public UsernameAndRole consume(String code) {
+    public CodeOwner consume(String code) {
 
         if (code == null || code.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "code null");
@@ -79,9 +79,9 @@ public class AuthCodeService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "invalid or expired code");
         }
 
-        return new UsernameAndRole(payload.publicId());
+        return new CodeOwner(payload.publicId());
     }
 
-    public record UsernameAndRole(String username) {
+    public record CodeOwner(String publicId) {
     }
 }

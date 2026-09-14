@@ -52,7 +52,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
         /*
         서명·형식부터 확인한다. 반드시 다른 검사보다 먼저 와야 한다.
-        아래 isExpired/getCategory/getUsername은 모두 파싱을 하는데,
+        아래 isExpired/getCategory/getPublicId는 모두 파싱을 하는데,
         우리 키로 서명되지 않았거나 JWT 모양이 아닌 값이면 그 자리에서 예외가 나고
         그 예외가 필터를 뚫고 나가 500이 된다(401이어야 한다).
         */
@@ -76,7 +76,7 @@ public class JWTFilter extends OncePerRequestFilter {
             return;
         }
 
-        //토큰에서 username과 role 획득
+        //토큰에서 publicId 획득
         String publicId = jwtUtil.getPublicId(accessToken);
 
         //서명은 맞는데 sub가 비어 있는 토큰(우리 키로 만든 옛 도구의 산물 등).
@@ -89,7 +89,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
         //userDTO를 생성하여 값 set
         UserDTO userDTO = new UserDTO();
-        userDTO.setUsername(publicId);
+        userDTO.setPublicId(publicId);
 
         //UserDetails에 회원 정보 객체 담기
         CustomOAuth2User customOAuth2User = new CustomOAuth2User(userDTO);

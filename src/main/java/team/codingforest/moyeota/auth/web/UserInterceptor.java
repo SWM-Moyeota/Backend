@@ -48,9 +48,8 @@ public class UserInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        //principal.getName()이 아니라 getUsername()이다. getName()은 null이다.
-        //이 값은 로그인 아이디가 아니라 토큰 sub에 담긴 publicId(UUID 문자열)다.
-        String subject = principal.getUsername();
+        //이 값은 토큰 sub에 담긴 publicId(UUID 문자열)다.
+        String subject = principal.getPublicId();
         if (subject == null) {
             return true;
         }

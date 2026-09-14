@@ -331,6 +331,43 @@ class AuthSecurityTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    @DisplayName("같은 사용자의 여러 로그인은 각각 독립적으로 재발급할 수 있다")
+    void 여러_로그인의_refresh를_동시에_유지한다() throws Exception {
+
+        String loginId = signup();
+
+        String firstRefresh = login(loginId).getResponse().getHeader(TokenHeaders.REFRESH);
+        String secondRefresh = login(loginId).getResponse().getHeader(TokenHeaders.REFRESH);
+
+        assertThat(firstRefresh).isNotEqualTo(secondRefresh);
+
+        MvcResult firstReissue = mvc.perform(post("/api/v1/auth/reissue")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(firstRefresh)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String rotatedFirst = firstReissue.getResponse().getHeader(TokenHeaders.REFRESH);
+
+        //첫 번째 로그인의 토큰을 회전해도 두 번째 로그인 토큰은 계속 사용할 수 있다.
+        mvc.perform(post("/api/v1/auth/reissue")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(secondRefresh)))
+                .andExpect(status().isOk());
+
+        //회전 전 첫 번째 토큰은 폐기되고, 회전된 새 토큰은 사용할 수 있다.
+        mvc.perform(post("/api/v1/auth/reissue")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(firstRefresh)))
+                .andExpect(status().isUnauthorized());
+
+        mvc.perform(post("/api/v1/auth/reissue")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshBody(rotatedFirst)))
+                .andExpect(status().isOk());
+    }
+
     // ---------------------------------------------------------------- permitAll
 
     /*

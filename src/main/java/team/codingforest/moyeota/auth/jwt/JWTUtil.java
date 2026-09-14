@@ -10,6 +10,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 public class JWTUtil {
@@ -36,7 +37,7 @@ public class JWTUtil {
     이 토큰을 우리 서버가 발급한 것으로 볼 수 있는지 확인한다. 만료 여부는 보지 않는다.
 
     [왜 따로 필요한가]
-    아래 getUsername/getRole/getCategory/isExpired는 전부 파싱을 하는데,
+    아래 getPublicId/getCategory/isExpired는 전부 파싱을 하는데,
     서명이 맞지 않거나(SignatureException) JWT 모양이 아니면(MalformedJwtException)
     그 자리에서 예외를 던진다. isExpired는 만료 예외만 잡으므로 나머지는 그대로 튀어나가고,
     호출한 필터·컨트롤러를 뚫고 나가 500이 된다. 위조 토큰에 500을 주면
@@ -74,7 +75,7 @@ public class JWTUtil {
     /*
     수정: category 파라미터 추가
 
-    username 자리에는 로그인 아이디가 아니라 publicId(UUID 문자열)가 들어온다.
+    publicId에는 사용자 UUID 문자열이 들어온다.
     이 값은 표준 클레임 sub("이 토큰이 누구의 것인가")에 담는다.
     커스텀 이름 대신 표준을 쓰면 라이브러리의 getSubject()를 그대로 쓸 수 있고,
     나중에 다른 인증 서버와 붙일 때도 규격이 맞는다.
@@ -83,6 +84,8 @@ public class JWTUtil {
     public String createJwt(String category, String publicId, Long expiredMs) {
 
         return Jwts.builder()
+                //같은 사용자·종류의 토큰이 같은 밀리초에 발급되어도 서로 다른 로그인 세션이 되게 한다.
+                .id(UUID.randomUUID().toString())
                 .claim("category", category)
                 .subject(publicId)
                 .issuedAt(new Date(System.currentTimeMillis()))

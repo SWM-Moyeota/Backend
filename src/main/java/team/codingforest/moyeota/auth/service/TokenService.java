@@ -37,36 +37,52 @@ public class TokenService {
     access/refresh를 발급하고, refresh만 DB에 기록한다.
     JWT는 서버가 취소할 수 없으므로, 로그아웃으로 무효화하려면 DB대조가 필요하다.
 
-    username 자리에는 로그인 아이디가 아니라 publicId(UUID)가 들어온다.
+    publicId에는 사용자 UUID 문자열이 들어온다.
     refresh_token이 User를 FK로 참조하므로 여기서 실제 User를 한 번 찾아와야 한다.
 
-    행이 이미 있으면 새 토큰으로 덮어쓴다(사용자당 한 행).
-    덕분에 재발급 때 옛 refresh는 자동으로 사라지고, 별도의 삭제 호출이 필요 없다.
+    로그인할 때마다 새 refresh 행을 만든다. 따라서 같은 사용자가 여러 기기에서 로그인해도
+    각 기기의 refresh가 서로를 덮어쓰지 않는다.
     */
     @Transactional
     public TokenResponse issue(String publicId){
+        User user = findUser(publicId);
+
         String access=jwtUtil.createJwt("access",publicId,  ACCESS_EXP);
         String refresh=jwtUtil.createJwt("refresh",publicId, REFRESH_EXP);
 
-        User user = findUser(publicId);
-
-        //PK가 이 행의 자체 id로 바뀌었으므로 findById(userId)로는 찾을 수 없다.
-        //user_id에 unique 제약이 있어 사용자당 행은 여전히 최대 하나다.
-        RefreshToken entity = refreshRepository.findByUserUserId(user.getUserId())
-                .orElseGet(() -> {
-                    RefreshToken created = new RefreshToken();
-                    //user만 넣어주면 user_id 컬럼은 JPA가 채운다. id는 DB가 만든다.
-                    created.setUser(user);
-                    return created;
-                });
-
-        //이 행이 누구 것인지 publicId로도 남긴다. user.publicId와 같은 값이다.
-        //orElseGet 안이 아니라 밖에서 넣는 이유는, 이 컬럼이 없던 시절에 만들어진 행도
-        //다음 로그인 때 여기서 저절로 채워지게 하기 위해서다. 값은 언제 넣어도 같다.
+        RefreshToken entity = new RefreshToken();
+        entity.setUser(user);
         entity.setPublicId(user.getPublicId());
-
         entity.setRefreshToken(refresh);
         entity.setExpiration(new Date(System.currentTimeMillis()+REFRESH_EXP).toString());
+        refreshRepository.save(entity);
+
+        return new TokenResponse(access, refresh);
+    }
+
+    /*
+    재발급에 사용된 refresh 행 하나만 회전시킨다.
+    사용자로 행을 찾으면 여러 기기의 토큰 중 어느 것을 바꿀지 알 수 없으므로,
+    요청으로 받은 기존 refresh 문자열로 정확한 행을 찾는다.
+    */
+    @Transactional
+    public TokenResponse rotate(String oldRefresh, String publicId) {
+        User user = findUser(publicId);
+
+        RefreshToken entity = refreshRepository.findByRefreshTokenForUpdate(oldRefresh)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "invalid refresh token"));
+
+        //JWT의 sub와 DB 행의 주인이 일치해야 한다.
+        if (!entity.getUser().getUserId().equals(user.getUserId())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "invalid refresh token");
+        }
+
+        String access = jwtUtil.createJwt("access", publicId, ACCESS_EXP);
+        String refresh = jwtUtil.createJwt("refresh", publicId, REFRESH_EXP);
+
+        entity.setPublicId(user.getPublicId());
+        entity.setRefreshToken(refresh);
+        entity.setExpiration(new Date(System.currentTimeMillis() + REFRESH_EXP).toString());
         refreshRepository.save(entity);
 
         return new TokenResponse(access, refresh);
@@ -81,6 +97,7 @@ public class TokenService {
         }
 
         UUID uuid;
+
         try {
             uuid = UUID.fromString(publicId);
         } catch (IllegalArgumentException e) {

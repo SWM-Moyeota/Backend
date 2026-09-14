@@ -63,8 +63,8 @@ public class CustomSuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
         CustomOAuth2User principal = (CustomOAuth2User) authentication.getPrincipal();
 
-        //CustomOAuth2UserService가 username 자리에 publicId 문자열을 넣어둔다.
-        String publicId = principal.getUsername();
+        //CustomOAuth2UserService가 인증 사용자에 publicId 문자열을 넣어둔다.
+        String publicId = principal.getPublicId();
 
         String target = isFragmentFlow(request)
                 ? fragmentTarget(publicId)
@@ -92,9 +92,9 @@ public class CustomSuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
     //코드 교환 방식. 토큰은 만들지 않고 교환권만 넘긴다.
     //사용자가 로그인만 하고 프론트로 돌아오지 않은 경우까지 refresh를 DB에 쌓지 않기 위해서다.
-    private String codeTarget(String username) {
+    private String codeTarget(String publicId) {
 
-        String code = authCodeService.issue(username);
+        String code = authCodeService.issue(publicId);
 
         //난수는 프래그먼트(#)가 아니라 쿼리스트링(?)으로 넘긴다.
         //30초짜리 무의미한 값이라 감출 필요가 없고, ?는 서버 라우팅에서도 읽을 수 있어
@@ -104,10 +104,10 @@ public class CustomSuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     }
 
     //예전 방식. 토큰을 여기서 바로 발급해 URL에 실어 보낸다.
-    private String fragmentTarget(String username) {
+    private String fragmentTarget(String publicId) {
 
         //발급 규칙(만료시간, refresh의 DB 저장)은 TokenService 한 곳에만 둔다.
-        TokenResponse tokens = tokenService.issue(username);
+        TokenResponse tokens = tokenService.issue(publicId);
 
         //쿼리스트링(?)이 아니라 프래그먼트(#)로 넘긴다.
         //프래그먼트는 서버로 전송되지 않으므로 웹서버 액세스 로그나 Referer 헤더에 토큰이 남지 않는다.

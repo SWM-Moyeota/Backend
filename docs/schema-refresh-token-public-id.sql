@@ -30,7 +30,7 @@ BEGIN;
 ALTER TABLE refresh_token ADD COLUMN IF NOT EXISTS public_id uuid;
 
 -- 주인이 되는 user 행에서 그대로 복사해 온다.
--- refresh_token.user_id 는 user.user_id 를 그대로 쓰는 공유 기본키라 이 조인은 항상 한 행만 짚는다.
+-- 각 refresh 행의 user_id로 주인인 user를 찾아 public_id를 채운다.
 UPDATE refresh_token rt
    SET public_id = u.public_id
   FROM "user" u
@@ -40,8 +40,6 @@ UPDATE refresh_token rt
 -- 여기까지 오면 빈 값이 없으므로 not null 을 걸 수 있다.
 ALTER TABLE refresh_token ALTER COLUMN public_id SET NOT NULL;
 
--- user_id 가 PK라 사용자당 행이 하나뿐이므로 public_id 도 유일하다.
--- 엔티티의 @UniqueConstraint 와 이름을 맞춰둔다.
-CREATE UNIQUE INDEX IF NOT EXISTS uk_refresh_token_public_id ON refresh_token (public_id);
+--한 사용자가 여러 로그인 세션을 가질 수 있으므로 public_id에는 unique를 걸지 않는다.
 
 COMMIT;

@@ -52,7 +52,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         UserDTO userDTO = new UserDTO();
         //토큰의 subject로 쓰일 값. CustomSuccessHandler가 이걸 그대로 JWT에 넣는다.
-        userDTO.setUsername(user.getPublicId().toString());
+        userDTO.setPublicId(user.getPublicId().toString());
         userDTO.setName(oAuth2Response.getName());
 
         return new CustomOAuth2User(userDTO);

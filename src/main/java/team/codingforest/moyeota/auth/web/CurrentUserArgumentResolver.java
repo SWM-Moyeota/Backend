@@ -83,8 +83,8 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
         }
 
         //JWTFilter가 토큰의 sub(publicId)를 넣어둔 자리다.
-        //principal.getName()이 아니라 getUsername()이다. getName()은 null이다.
-        String subject = principal.getUsername();
+        //principal에 저장된 publicId를 꺼낸다. getName()은 프로필 이름용이다.
+        String subject = principal.getPublicId();
 
         //UUID.fromString(null)은 IllegalArgumentException이 아니라 NullPointerException을 던진다.
         //아래 catch에 걸리지 않아 500이 되므로 먼저 막는다.

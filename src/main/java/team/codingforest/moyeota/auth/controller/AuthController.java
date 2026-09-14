@@ -191,10 +191,10 @@ public class AuthController {
     @PostMapping("/login/exchange")
     public ResponseEntity<Void> exchange(@RequestBody ExchangeRequest request) {
 
-        AuthCodeService.UsernameAndRole owner = authCodeService.consume(request.code());
+        AuthCodeService.CodeOwner owner = authCodeService.consume(request.code());
 
         //토큰 발급 규칙은 로컬 로그인과 동일하게 TokenService 한 곳에서만 처리한다.
-        TokenResponse tokens = tokenService.issue(owner.username());
+        TokenResponse tokens = tokenService.issue(owner.publicId());
 
         //헤더 이름과 Bearer 접두사는 로그인·재발급과 똑같이 TokenHeaders에서 가져온다.
         return ResponseEntity.ok()
@@ -233,6 +233,7 @@ public class AuthController {
                             schema = @Schema(type = "string"))
             },
             content = @Content)
+
     @PostMapping("/reissue")
     public ResponseEntity<Void> reissue(@RequestBody ReissueRequest request){
         String refresh=request.refreshToken();
@@ -254,17 +255,11 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "invalid refresh token");
         }
 
-        //로그아웃됐거나 이미 사용된 refresh인지 DB로 확인
-        if(!refreshRepository.existsByRefreshToken(refresh)){
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"invalid refresh token");
-        }
+        String publicId = jwtUtil.getPublicId(refresh);
 
-        String username=jwtUtil.getPublicId(refresh);
-
-        //Refresh Rotation : 기존 refresh를 폐기하고 새로 발급.
-        //refresh_token은 user_id에 unique가 걸려 사용자당 한 행이므로, issue()가 그 행을 덮어쓰면서 옛 값이 사라진다.
-        //따로 삭제할 필요가 없다.
-        TokenResponse tokens = tokenService.issue(username);
+        //Refresh Rotation: 요청에 사용된 refresh 행 하나만 잠가 새 토큰으로 교체한다.
+        //다른 기기·로그인 세션의 refresh 행은 그대로 유지된다.
+        TokenResponse tokens = tokenService.rotate(refresh, publicId);
 
         //헤더 이름과 Bearer 접두사는 로그인과 똑같이 TokenHeaders에서 가져온다.
         //프론트가 로그인 응답과 재발급 응답을 같은 코드로 처리할 수 있게 하기 위해서다.
