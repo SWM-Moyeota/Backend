@@ -26,6 +26,7 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     private static final String ROOM_DESTINATION_PREFIX = "/sub/chat-rooms/";
     private static final String ERROR_DESTINATION = "/user/queue/errors";
     private static final String ROOM_LEFT_DESTINATION = "/user/queue/room-left";
+    private static final String LOCATION_SYNC_DESTINATION = "/user/queue/location-sync";
 
     private final ChatRoomUsers chatRoomUsers;
     private final TokenAuthenticator tokenAuthenticator;
@@ -72,9 +73,12 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     }
 
     private void validateSubscribe(Long userId, String destination) {
-        if (ERROR_DESTINATION.equals(destination) || ROOM_LEFT_DESTINATION.equals(destination)) {
+        if (ERROR_DESTINATION.equals(destination)
+                || ROOM_LEFT_DESTINATION.equals(destination)
+                || LOCATION_SYNC_DESTINATION.equals(destination)) {
             return;
         }
+
         Long chatRoomId = parseChatRoomId(destination);
 
         if (chatRoomId == null) {
