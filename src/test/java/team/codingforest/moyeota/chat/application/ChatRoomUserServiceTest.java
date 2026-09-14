@@ -6,6 +6,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomCommand;
+import team.codingforest.moyeota.chat.application.dto.ChatRoomMemberResult;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomUserResult;
 import team.codingforest.moyeota.chat.application.dto.ReadChatCommand;
 import team.codingforest.moyeota.chat.application.event.ChatRoomLeftEvent;
@@ -32,6 +33,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -43,6 +45,8 @@ class ChatRoomUserServiceTest {
     private static final Long PARTY_ID = 100L;
     private static final UUID PUBLIC_ID = UUID.fromString("3f7a1c2e-8b4d-4c1a-9f2e-1234567890ab");
     private static final Instant NOW = Instant.parse("2026-08-10T10:00:00Z");
+    private static final Long OTHER_ID = 8L;
+    private static final UUID OTHER_PUBLIC_ID = UUID.fromString("7c1b5d90-2f3a-4e88-b6d1-0987654321fe");
 
     private ChatRoomUsers chatRoomUsers;
     private ChatRooms chatRooms;
@@ -50,6 +54,14 @@ class ChatRoomUserServiceTest {
     private ChatRoomUserService chatRoomUserService;
     private MemberProvider memberProvider;
     private ApplicationEventPublisher eventPublisher;
+
+    private ChatRoomUser activeUser(Long chatRoomId, Long userId) {
+        return ChatRoomUser.restore(userId, chatRoomId, null, false, NOW, NOW, null);
+    }
+
+    private ChatRoomUser leftUser(Long chatRoomId, Long userId) {
+        return ChatRoomUser.restore(userId, chatRoomId, null, false, NOW, NOW, NOW);
+    }
 
     @BeforeEach
     void setUp() {
@@ -200,4 +212,35 @@ class ChatRoomUserServiceTest {
         assertThat(results.get(0).unreadCount()).isEqualTo(3L);
         assertThat(results.get(1).unreadCount()).isZero();   // 결과에 없는 방은 0
     }
+
+    @Test
+    void 방_목록에_참여자_포함() {
+        given(chatRoomUsers.findActiveByUserId(USER_ID)).willReturn(List.of(activeUser(10L)));
+        given(chatRoomUsers.findAllByChatRoomIds(List.of(10L)))
+                .willReturn(List.of(activeUser(10L, USER_ID), leftUser(10L, OTHER_ID)));
+        given(memberProvider.findMembers(anyList())).willReturn(Map.of(
+                USER_ID, new ChatMember(USER_ID, PUBLIC_ID, "나", null),
+                OTHER_ID, new ChatMember(OTHER_ID, OTHER_PUBLIC_ID, "영희", null)));
+
+        List<ChatRoomUserResult> results = chatRoomUserService.findMyActiveRooms(USER_ID);
+
+        assertThat(results.getFirst().members()).hasSize(2);
+        assertThat(results.getFirst().members())
+                .extracting(ChatRoomMemberResult::active)
+                .containsExactly(true, false);
+    }
+
+    @Test
+    void 유저_정보가_없는_참여자는_제외() {
+        given(chatRoomUsers.findActiveByUserId(USER_ID)).willReturn(List.of(activeUser(10L)));
+        given(chatRoomUsers.findAllByChatRoomIds(List.of(10L)))
+                .willReturn(List.of(activeUser(10L, USER_ID), activeUser(10L, OTHER_ID)));
+        given(memberProvider.findMembers(anyList()))
+                .willReturn(Map.of(USER_ID, new ChatMember(USER_ID, PUBLIC_ID, "나", null)));
+
+        List<ChatRoomUserResult> results = chatRoomUserService.findMyActiveRooms(USER_ID);
+
+        assertThat(results.getFirst().members()).hasSize(1);   // 탈퇴 유저는 제외
+    }
+
 }
