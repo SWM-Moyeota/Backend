@@ -44,7 +44,7 @@ class FakePartyAccess implements PartyAccess {
     }
 
     @Override
-    public boolean hasMemberOnParty(Long memberId, Long partyId) {
+    public boolean hasMemberOnParty(Long partyId, Long memberId) {
         if(!summaries.containsKey(partyId)) throw new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND);
         return members.contains(memberId);
     }
@@ -93,6 +93,12 @@ class FakePartyAccess implements PartyAccess {
     @Override
     public boolean isRidingMember(Long partyId, Long memberId) {
         return summaries.containsKey(partyId) && members.contains(memberId) && rideStarted && completedFare == null;
+    }
+
+    @Override
+    public boolean isOnboardingMember(Long partyId, Long memberId) {
+        // 종료(FINISHED) 전까지 true - 실제 구현의 isOngoing() 과 같은 의미. 방이 없으면 예외 없이 false
+        return summaries.containsKey(partyId) && members.contains(memberId) && completedFare == null;
     }
 
     @Override

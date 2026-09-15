@@ -13,7 +13,8 @@ public interface PartyAccess {
     boolean isAwaitingPickup(Long partyId, Long driverId);
     PartyChatSummary findChatSummary(Long partyId);
     boolean hasOngoingRide(Long driverId);
-    boolean hasMemberOnParty(Long memberId, Long partyId);
+    boolean hasMemberOnParty(Long partyId, Long memberId);
     boolean isRidingMember(Long partyId, Long memberId);
+    boolean isOnboardingMember(Long partyId, Long memberId);
     List<Long> findMemberIds(Long partyId);
 }

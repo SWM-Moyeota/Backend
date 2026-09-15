@@ -31,8 +31,9 @@ class FcmPassengerNotifierTest {
             @Override public boolean isAwaitingPickup(Long partyId, Long driverId) { return false; }
             @Override public PartyChatSummary findChatSummary(Long partyId) { return null; }
             @Override public boolean hasOngoingRide(Long driverId) { return false; }
-            @Override public boolean hasMemberOnParty(Long memberId, Long partyId) { return false; }
+            @Override public boolean hasMemberOnParty(Long partyId, Long memberId) { return false; }
             @Override public boolean isRidingMember(Long partyId, Long memberId) { return false; }
+            @Override public boolean isOnboardingMember(Long partyId, Long memberId) { return false; }
         };
     }
 
