@@ -50,7 +50,7 @@ public class FcmChatNotifier implements ChatNotifier {
                 .putData("senderPublicId", String.valueOf(notification.senderPublicId()))
                 .putData("senderNickname", notification.senderNickname())
                 .putData("preview", notification.preview())
-                .addAllFids(tokens.values())
+                .addAllTokens(tokens.values())
                 .build();
 
         ApiFuture<BatchResponse> future = firebaseMessaging.sendEachForMulticastAsync(message);
@@ -65,6 +65,14 @@ public class FcmChatNotifier implements ChatNotifier {
             public void onSuccess(BatchResponse result) {
                 log.info("[채팅 알림] 전송완료 chatRoomId={}, 성공={}, 실패={}",
                         notification.chatRoomId(), result.getSuccessCount(), result.getFailureCount());
+
+                if (result.getFailureCount() > 0) {
+                    result.getResponses().stream()
+                            .filter(r -> !r.isSuccessful())
+                            .forEach(r -> log.warn("[채팅 알림] 개별 실패 chatRoomId={}, 사유={}",
+                                    notification.chatRoomId(),
+                                    r.getException() == null ? "unknown" : r.getException().getMessage()));
+                }
             }
         }, MoreExecutors.directExecutor());
     }
