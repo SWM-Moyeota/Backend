@@ -96,6 +96,12 @@ class FakePartyAccess implements PartyAccess {
     }
 
     @Override
+    public boolean isOnboardingMember(Long partyId, Long memberId) {
+        // 종료(FINISHED) 전까지 true - 실제 구현의 isOngoing() 과 같은 의미. 방이 없으면 예외 없이 false
+        return summaries.containsKey(partyId) && members.contains(memberId) && completedFare == null;
+    }
+
+    @Override
     public boolean hasOngoingRide(Long driverId) {
         // 배정~운행 구간만 true, 운행이 끝나면(FINISHED) 자동으로 자유 - 실제 쿼리 의미 그대로
         return driverId.equals(assignedDriverId) && completedFare == null;

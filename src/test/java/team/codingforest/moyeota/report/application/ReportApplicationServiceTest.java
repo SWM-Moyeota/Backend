@@ -214,6 +214,8 @@ class ReportApplicationServiceTest {
             return partyId.equals(ridingPartyId);
         }
 
+        @Override public boolean isOnboardingMember(Long partyId, Long memberId) { return false; }
+
         @Override
         public Optional<PartySummary> findSummary(Long partyId) {
             if(explodeOnFindSummary) throw new IllegalStateException("DB 연결 실패 재현");
