@@ -123,6 +123,14 @@ class PartyAccessService implements PartyAccess {
 
     @Transactional(readOnly = true)
     @Override
+    public boolean isOnboardingMember(Long partyId, Long memberId) {
+        return parties.findById(partyId)
+                .map(party -> party.hasMember(memberId) && party.getStatus().isOngoing())
+                .orElse(false);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
     public List<Long> findMemberIds(Long partyId) {
         return parties.findById(partyId)
                 .map(party -> party.getMembers().stream().map(PartyMember::getMemberId).toList())
