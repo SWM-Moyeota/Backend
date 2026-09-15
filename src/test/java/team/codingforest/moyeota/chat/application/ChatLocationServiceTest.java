@@ -137,7 +137,7 @@ class ChatLocationServiceTest {
         assertThatThrownBy(() -> chatLocationService.share(USER_ID, PUBLIC_ID, ROOM_ID, location()))
                 .isInstanceOf(ChatException.class)
                 .extracting("errorCode")
-                .isEqualTo(ChatErrorCode.CHAT_NOT_PARTY_MEMBER);
+                .isEqualTo(ChatErrorCode.CHAT_LOCATION_SHARING_NOT_STARTED);
 
         then(chatLocations).should(never()).put(anyLong(), anyLong(), any(ChatLocation.class));
         then(locationPublisher).should(never()).publish(anyLong(), any(UUID.class), any(ChatLocation.class));

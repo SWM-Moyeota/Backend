@@ -44,3 +44,4 @@ application-local.yml
 
 ### secrets 폴더 내에 json 파일
 /secrets/
+dump.rdb
