@@ -102,7 +102,7 @@ class PartyAccessService implements PartyAccess {
 
     @Transactional(readOnly = true)
     @Override
-    public boolean hasMemberOnParty(Long memberId, Long partyId) {
+    public boolean hasMemberOnParty(Long partyId, Long memberId) {
         Party party = parties.findById(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
@@ -118,6 +118,14 @@ class PartyAccessService implements PartyAccess {
     public boolean isRidingMember(Long partyId, Long memberId) {
         return parties.findById(partyId)
                 .map(party -> party.hasMember(memberId) && party.getStatus().isRiding())
+                .orElse(false);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public boolean isOnboardingMember(Long partyId, Long memberId) {
+        return parties.findById(partyId)
+                .map(party -> party.hasMember(memberId) && party.getStatus().isOngoing())
                 .orElse(false);
     }
 

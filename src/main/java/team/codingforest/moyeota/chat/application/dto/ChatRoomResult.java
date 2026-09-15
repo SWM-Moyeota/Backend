@@ -17,8 +17,8 @@ public record ChatRoomResult(
         return new ChatRoomResult(
                 chatRoom.getId(),
                 chatRoom.getPartyId(),
-                chatRoom.getDeparture(),
-                chatRoom.getDestination(),
+                chatRoom.getDeparturePlace(),
+                chatRoom.getDestinationPlace(),
                 chatRoom.getCreatedAt(),
                 chatRoom.getStatus()
         );
