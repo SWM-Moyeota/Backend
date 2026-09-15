@@ -59,8 +59,8 @@ public class ChatRoomEntity {
         return new ChatRoomEntity(
                 chatRoom.getId(),
                 chatRoom.getPartyId(),
-                chatRoom.getDeparture(),
-                chatRoom.getDestination(),
+                chatRoom.getDeparturePlace(),
+                chatRoom.getDestinationPlace(),
                 chatRoom.getCreatedAt(),
                 chatRoom.getUpdatedAt(),
                 chatRoom.getStatus()
