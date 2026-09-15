@@ -58,7 +58,7 @@ public class RideService {
      */
     @Transactional
     public DriverLocationResponse driverLocation(Long partyId, Long memberId) {
-        if(!partyAccess.hasMemberOnParty(memberId, partyId)) throw new BusinessException(DispatchErrorCode.NOT_PARTY_MEMBER);
+        if(!partyAccess.hasMemberOnParty(partyId, memberId)) throw new BusinessException(DispatchErrorCode.NOT_PARTY_MEMBER);
 
         PartySummary summary = partyAccess.findSummary(partyId)
                 .orElseThrow(() -> new BusinessException(DispatchErrorCode.PARTY_NOT_FOUND));
