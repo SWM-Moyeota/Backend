@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import team.codingforest.moyeota.chat.domain.PartyProvider;
 import team.codingforest.moyeota.chat.domain.PartySnapshot;
-import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.PartyChatSummary;
 
@@ -32,11 +31,6 @@ public class MatchingPartyProvider implements PartyProvider {
 
     @Override
     public boolean isActiveMember(Long userId, Long partyId) {
-        try {
-            return partyAccess.hasMemberOnParty(userId, partyId);
-        } catch (BusinessException e) {
-            log.warn("파티 조회 실패 partyId={} 사유={}", partyId, e.getMessage());
-            return false;
-        }
+        return partyAccess.isOnboardingMember(partyId, userId);
     }
 }

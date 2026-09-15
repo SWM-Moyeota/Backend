@@ -43,7 +43,7 @@ class ChatLocationRedisIntegrationTest {
     void 지연_도착한_과거_좌표는_덮어쓰지_않는다() {
         Instant now = Instant.now();
         ChatLocation newer = new ChatLocation(37.5665, 126.9780, now);
-        ChatLocation older = new ChatLocation(99.0, 99.0, now.minusSeconds(60));
+        ChatLocation older = new ChatLocation(37.3948, 127.1112, now.minusSeconds(60));
 
         chatLocations.put(USER_ID, ROOM_ID, newer);
 

@@ -10,12 +10,12 @@ import org.springframework.stereotype.Controller;
 import team.codingforest.moyeota.chat.application.ChatLocationService;
 import team.codingforest.moyeota.chat.application.ChatMessageService;
 import team.codingforest.moyeota.chat.application.ChatRoomUserService;
-import team.codingforest.moyeota.chat.application.dto.ReadChatCommand;
 import team.codingforest.moyeota.chat.application.dto.ChatLocationResult;
+import team.codingforest.moyeota.chat.application.dto.ReadChatCommand;
 import team.codingforest.moyeota.chat.application.dto.SendMessageCommand;
 import team.codingforest.moyeota.chat.config.ChatPrincipal;
-import team.codingforest.moyeota.chat.presentation.dto.ReadMessageRequest;
 import team.codingforest.moyeota.chat.presentation.dto.LocationRequest;
+import team.codingforest.moyeota.chat.presentation.dto.ReadMessageRequest;
 import team.codingforest.moyeota.chat.presentation.dto.SendMessageRequest;
 
 import java.security.Principal;
