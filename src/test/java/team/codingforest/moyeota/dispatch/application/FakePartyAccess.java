@@ -44,7 +44,7 @@ class FakePartyAccess implements PartyAccess {
     }
 
     @Override
-    public boolean hasMemberOnParty(Long memberId, Long partyId) {
+    public boolean hasMemberOnParty(Long partyId, Long memberId) {
         if(!summaries.containsKey(partyId)) throw new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND);
         return members.contains(memberId);
     }
