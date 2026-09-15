@@ -42,13 +42,13 @@ public class ChatLocationService {
     }
 
     /**
-     * 위치 발행. 포그라운드(WS)와 백그라운드(REST)가 같은 경로를 탄다.
+     * 위치 발행 포그라운드(WS)와 백그라운드(REST)가 같은 경로를 탄다.
      */
     public void share(Long userId, UUID publicId, Long chatRoomId, ChatLocation location) {
         validateMember(userId, chatRoomId);
 
         if (!chatLocations.isSharing(userId, chatRoomId)) {
-            throw new ChatException(ChatErrorCode.CHAT_NOT_PARTY_MEMBER);
+            throw new ChatException(ChatErrorCode.CHAT_LOCATION_SHARING_NOT_STARTED);
         }
 
         if (chatLocations.put(userId, chatRoomId, location)) {
@@ -57,7 +57,7 @@ public class ChatLocationService {
     }
 
     /**
-     * 위치 공유 토글 OFF.
+     * 위치 공유 토글 OFF
      * 파티가 끝난 뒤에도 끌 수 있어야 하므로 검증하지 않는다.
      */
     public void stopSharing(Long userId, Long chatRoomId) {
