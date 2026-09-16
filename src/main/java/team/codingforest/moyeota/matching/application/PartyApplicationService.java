@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.driver.api.DriverSummary;
-import team.codingforest.moyeota.matching.api.MatchingStartedEvent;
 import team.codingforest.moyeota.matching.api.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyCommand;
@@ -41,6 +40,7 @@ public class PartyApplicationService {
     private final RouteCache routeCache;
     private final DriverAccess driverAccess;
     private final UserAccess userAccess;
+    private final PartyCompletionPolicy partyCompletionPolicy;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
@@ -58,10 +58,8 @@ public class PartyApplicationService {
         Party saved = parties.save(party);
 
         if(saved.isFull()) {
-            saved.startMatching(Instant.now());
-            eventPublisher.publishEvent(new MatchingStartedEvent(saved.getId()));
+            partyCompletionPolicy.onCompleted(saved);
             parties.save(saved);
-            log.info("매칭 시작 partyId={}, status={}", saved.getId(), saved.getStatus());
             return PartyResult.from(saved);
         }
 
@@ -82,9 +80,7 @@ public class PartyApplicationService {
         eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
 
         if(party.isFull()) {
-            party.startMatching(Instant.now());
-            eventPublisher.publishEvent(new MatchingStartedEvent(partyId));
-            log.info("매칭시작 partyId={}, status={}", party.getId(), party.getStatus());
+            partyCompletionPolicy.onCompleted(party);
         }
 
         log.info("매칭방에 사용자 참가됨 partyId={}, memberId={}, status={}", partyId, memberId, party.getStatus());
