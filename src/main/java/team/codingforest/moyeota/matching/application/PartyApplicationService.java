@@ -77,14 +77,13 @@ public class PartyApplicationService {
 
         party.join(memberId);
 
-        eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
-
         if(party.isFull()) {
             partyCompletionPolicy.onCompleted(party);
         }
 
         log.info("매칭방에 사용자 참가됨 partyId={}, memberId={}, status={}", partyId, memberId, party.getStatus());
         parties.save(party);
+        eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
 
         return getPartyDetail(partyId);
     }
@@ -95,8 +94,8 @@ public class PartyApplicationService {
                         .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
         party.leave(memberId);
-        eventPublisher.publishEvent(new PartyMemberLeftEvent(partyId, memberId));
         parties.save(party);
+        eventPublisher.publishEvent(new PartyMemberLeftEvent(partyId, memberId));
 
         log.info("매칭방에서 사용자 나감 partyId={}, memberId={}, status={}, members={}", partyId, memberId, party.getStatus(), party.getMembers().size());
     }
