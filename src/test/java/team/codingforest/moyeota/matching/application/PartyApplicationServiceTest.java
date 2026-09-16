@@ -13,10 +13,16 @@ import team.codingforest.moyeota.matching.api.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.application.dto.PartyResult;
+import team.codingforest.moyeota.matching.domain.Capacity;
+import team.codingforest.moyeota.matching.domain.Location;
 import team.codingforest.moyeota.matching.domain.Party;
+import team.codingforest.moyeota.matching.domain.Radius;
 import team.codingforest.moyeota.matching.domain.RouteEstimate;
+import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -307,6 +313,101 @@ class PartyApplicationServiceTest {
 
             assertThat(events.joinedFor(party.id(), host)).isEqualTo(1);
             assertThat(events.joinedFor(party.id(), participant)).isEqualTo(1);
+        }
+
+        // ── 합승 완료 (참여자가 직접) ──
+
+        @Test
+        void 참여자가_합승_완료하면_FINISHED가_된다() {
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);
+
+            service.finish(party.id(), participant);
+
+            assertThat(service.getPartyDetail(party.id()).status()).isEqualTo("FINISHED");
+        }
+
+        @Test
+        void 합승_완료한_뒤에는_같은_사람이_새_방을_만들_수_있다() {
+            // 이게 안 되면 배포 모드에서 계정이 잠긴다 - 이 기능의 존재 이유
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);
+            service.finish(party.id(), host);
+
+            PartyResult next = service.open(createParty(host, 3));
+
+            assertThat(next.id()).isNotEqualTo(party.id());
+        }
+
+        @Test
+        void 모집_중인_방은_합승_완료할_수_없다() {
+            PartyResult party = service.open(createParty(host, 3));
+
+            assertThatThrownBy(() -> service.finish(party.id(), host))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
+        }
+
+        @Test
+        void 방에_없는_사람은_합승_완료할_수_없다() {
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);
+
+            assertThatThrownBy(() -> service.finish(party.id(), guest))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(MatchingErrorCode.NOT_PARTY_MEMBER);
+        }
+
+        // ── 자동 종료 스윕 ──
+
+        @Test
+        void 정원이_찬_뒤_오래_방치된_방만_자동_종료된다() {
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);   // anotherHost·guest 가 여기 묶여 있다
+            PartyResult 방금찬방 = service.open(createParty(host, 2));
+            service.join(방금찬방.id(), participant);
+
+            new CompletedPartySweeper(parties, service).sweep();
+
+            assertThat(parties.findById(오래된방).orElseThrow().getStatus()).isEqualTo(PartyStatus.FINISHED);
+            assertThat(parties.findById(방금찬방.id()).orElseThrow().getStatus()).as("TTL 전이면 건드리지 않는다").isEqualTo(PartyStatus.COMPLETED);
+        }
+
+        @Test
+        void 한_방이_실패해도_나머지_방은_닫힌다() {
+            Long 기사있는방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), 기사);   // DRIVER_ALREADY_ASSIGNED 로 실패할 방
+            Long 정상방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);
+
+            new CompletedPartySweeper(parties, service).sweep();   // 예외가 새어 나오면 여기서 터진다
+
+            assertThat(parties.findById(기사있는방).orElseThrow().getStatus()).isEqualTo(PartyStatus.COMPLETED);
+            assertThat(parties.findById(정상방).orElseThrow().getStatus()).isEqualTo(PartyStatus.FINISHED);
+        }
+
+        @Test
+        void 이미_닫힌_방을_스윕이_다시_닫으려_하면_거부된다() {
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);
+            service.finish(party.id(), host);
+
+            assertThatThrownBy(() -> service.expire(party.id()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
+        }
+
+        /** 정원 2가 찬 방을 원하는 충족 시각으로 저장 - 도메인은 Instant.now() 만 찍으므로 과거 시각은 restore 로만 만들 수 있다 */
+        private Long saveCompleted(Instant completedAt, Long driverId) {
+            Location 강남역 = new Location(37.4979, 127.0276);
+            Location 판교역 = new Location(37.3948, 127.1112);
+            Party seed = Party.open(anotherHost, 강남역, 판교역, "강남역", "판교역", new Capacity(2),
+                    completedAt, new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
+            seed.join(guest);   // 멤버 목록만 빌려 쓴다 (PartyMember 생성자는 도메인 패키지 밖에서 못 부른다)
+
+            Party party = Party.restore(null, 강남역, 판교역, new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
+                    seed.getMembers(), completedAt, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", driverId, null, completedAt);
+            return parties.save(party).getId();
         }
     }
 

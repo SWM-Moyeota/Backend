@@ -11,7 +11,9 @@ import team.codingforest.moyeota.matching.domain.Party;
 import team.codingforest.moyeota.matching.domain.Radius;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
@@ -26,6 +28,52 @@ class PartyJpaPersistenceTest {
     PartyJpaPersistenceTest(PartyJpa parties, PartyJpaRepository repository) {
         this.parties = parties;
         this.repository = repository;
+    }
+
+    @Test
+    void 정원_충족_시각은_저장_후_다시_조회해도_유지된다() {
+        // 자동 종료 스윕이 이 값으로 TTL 을 판정한다 - update() 에서 빠지면 조용히 NULL 로 남아 스윕이 아무것도 안 한다
+        Party saved = openAndSave();
+        saved.join(2L);
+        saved.join(3L);   // capacity 3 충족 → COMPLETED
+        parties.save(saved);
+
+        Party reloaded = parties.findById(saved.getId()).orElseThrow();
+
+        assertThat(reloaded.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(reloaded.getCompletedAt()).isNotNull();
+    }
+
+    @Test
+    void 누가_나가면_충족_시각이_NULL로_저장된다() {
+        Party saved = openAndSave();
+        saved.join(2L);
+        saved.join(3L);
+        parties.save(saved);
+        saved.leave(3L);   // COMPLETED → ACTIVE
+
+        parties.save(saved);
+
+        assertThat(parties.findById(saved.getId()).orElseThrow().getCompletedAt()).isNull();
+    }
+
+    @Test
+    void 기준_시각_이전에_정원이_찬_방만_조회된다() {
+        Instant 하루전 = Instant.now().minus(Duration.ofDays(1));
+        Location 강남역 = new Location(37.4979, 127.0276);
+        Location 판교역 = new Location(37.3948, 127.1112);
+        Party seed = Party.open(1L, 강남역, 판교역, "강남역", "판교역", new Capacity(2), 하루전, new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
+        seed.join(2L);   // 멤버 목록만 빌려 쓴다
+        Party 오래된방 = parties.save(Party.restore(null, 강남역, 판교역, new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
+                seed.getMembers(), 하루전, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", null, null, 하루전));
+        Party 방금찬방 = openAndSave();
+        방금찬방.join(2L);
+        방금찬방.join(3L);
+        parties.save(방금찬방);
+
+        List<Long> targets = parties.findCompletedBefore(Instant.now().minus(Duration.ofMinutes(1)));
+
+        assertThat(targets).contains(오래된방.getId()).doesNotContain(방금찬방.getId());
     }
 
     private Party openAndSave() {

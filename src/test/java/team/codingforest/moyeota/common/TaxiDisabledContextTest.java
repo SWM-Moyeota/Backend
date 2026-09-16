@@ -12,6 +12,10 @@ import team.codingforest.moyeota.dispatch.presentation.DriverLocationController;
 import team.codingforest.moyeota.dispatch.presentation.RideController;
 import team.codingforest.moyeota.driver.application.DriverApplicationService;
 import team.codingforest.moyeota.driver.presentation.DriverController;
+import team.codingforest.moyeota.matching.application.ChatOnlyCompletionPolicy;
+import team.codingforest.moyeota.matching.application.CompletedPartySweeper;
+import team.codingforest.moyeota.matching.application.DispatchCompletionPolicy;
+import team.codingforest.moyeota.matching.application.PartyCompletionPolicy;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -31,6 +35,19 @@ class TaxiDisabledContextTest {
         assertThat(ctx.getBeanNamesForType(DriverLocationController.class)).isEmpty();
         assertThat(ctx.getBeanNamesForType(RideController.class)).isEmpty();
         assertThat(ctx.getBeanNamesForType(DriverController.class)).isEmpty();
+    }
+
+    /** 단위 테스트는 정책을 new 로 꽂으므로 @ConditionalOnProperty 가 뒤바뀐 실수는 여기서만 잡힌다 */
+    @Test
+    void 정원_충족_정책은_채팅만_정책_하나가_뜬다() {
+        assertThat(ctx.getBeanNamesForType(DispatchCompletionPolicy.class)).as("배차 정책이 뜨면 정원 찬 방이 MATCHING 에 갇힌다").isEmpty();
+        assertThat(ctx.getBeanNamesForType(ChatOnlyCompletionPolicy.class)).isNotEmpty();
+        assertThat(ctx.getBeanNamesForType(PartyCompletionPolicy.class)).hasSize(1);
+    }
+
+    @Test
+    void 방치된_방_자동_종료_스윕이_돈다() {
+        assertThat(ctx.getBeanNamesForType(CompletedPartySweeper.class)).as("없으면 아무도 닫지 않은 방의 멤버가 영영 새 방에 못 들어간다").isNotEmpty();
     }
 
     @Test
