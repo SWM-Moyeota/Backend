@@ -214,6 +214,27 @@ public class Party {
         return status == PartyStatus.DRIVER_ASSIGNED && driverId.equals(taxiDriverId);
     }
 
+    public void finishWithoutDriver(Long memberId) {
+        if(!hasMember(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
+
+        if(status != PartyStatus.COMPLETED) throw new BusinessException(MatchingErrorCode.PARTY_NOT_COMPLETED);
+
+        if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
+
+        status = PartyStatus.FINISHED;
+    }
+
+    public void expireCompleted() {
+        ensureFinishableWithoutDriver();
+        status = PartyStatus.FINISHED;
+    }
+
+    private void ensureFinishableWithoutDriver() {
+        if(status != PartyStatus.COMPLETED) throw new BusinessException(MatchingErrorCode.PARTY_NOT_COMPLETED);
+
+        if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
+    }
+
     private void ensureAssignDriver(Long driverId) {
         if(taxiDriverId == null || !taxiDriverId.equals(driverId)) throw new BusinessException(MatchingErrorCode.NOT_ASSIGNED_DRIVER);
     }

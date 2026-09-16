@@ -141,6 +141,28 @@ public class PartyApplicationService {
                 .toList();
     }
 
+    @Transactional
+    public void finish(Long partyId, Long memberId) {
+        Party party = parties.findByIdForUpdate(partyId)
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+
+        party.finishWithoutDriver(memberId);
+        parties.save(party);
+
+        log.info("기사 없이 합승 종료 partyId={}, memberId={}", partyId, memberId);
+    }
+
+    @Transactional
+    public void expire(Long partyId) {
+        Party party = parties.findByIdForUpdate(partyId)
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+
+        party.expireCompleted();
+        parties.save(party);
+
+        log.warn("정원 충족 후 방치된 방 자동 종료 partyId={}", partyId);
+    }
+
     private Party getParty(Long partyId) {
         return parties.findById(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
