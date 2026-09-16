@@ -9,6 +9,8 @@ import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.api.MatchingStartedEvent;
+import team.codingforest.moyeota.matching.api.PartyMemberJoinedEvent;
+import team.codingforest.moyeota.matching.api.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.application.dto.PartyResult;
@@ -33,7 +35,6 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 public class PartyApplicationService {
-
     private final Parties parties;
     private final ApplicationEventPublisher eventPublisher;
     private final RouteFinder routefinder;
@@ -56,20 +57,18 @@ public class PartyApplicationService {
 
         Party saved = parties.save(party);
 
-        // 최대 정원이 1명인 방은 바로 매칭 시작
         if(saved.isFull()) {
             saved.startMatching(Instant.now());
-            parties.save(saved);
             eventPublisher.publishEvent(new MatchingStartedEvent(saved.getId()));
-
+            parties.save(saved);
             log.info("매칭 시작 partyId={}, status={}", saved.getId(), saved.getStatus());
+            return PartyResult.from(saved);
         }
 
-        PartyResult result = PartyResult.from(saved);
+        eventPublisher.publishEvent(new PartyMemberJoinedEvent(saved.getId(), command.creatorId()));
+        log.info("매칭방 활성화. partyId={}, creatorId={}, capacity={}, status={}", saved.getId(), command.creatorId(), saved.getCapacity().value(), saved.getStatus());
 
-        log.info("매칭방 활성화. partyId={}, creatorId={}, capacity={}, status={}", result.id(), command.creatorId(), result.capacity(), result.status());
-
-        return result;
+        return PartyResult.from(saved);
     }
 
     @Transactional
@@ -79,6 +78,8 @@ public class PartyApplicationService {
                         .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
         party.join(memberId);
+
+        eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
 
         if(party.isFull()) {
             party.startMatching(Instant.now());
@@ -98,6 +99,7 @@ public class PartyApplicationService {
                         .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
         party.leave(memberId);
+        eventPublisher.publishEvent(new PartyMemberLeftEvent(partyId, memberId));
         parties.save(party);
 
         log.info("매칭방에서 사용자 나감 partyId={}, memberId={}, status={}, members={}", partyId, memberId, party.getStatus(), party.getMembers().size());
