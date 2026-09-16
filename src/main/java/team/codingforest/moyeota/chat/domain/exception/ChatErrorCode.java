@@ -13,6 +13,9 @@ public enum ChatErrorCode {
     CHAT_ROOM_NOT_REQUIRED(HttpStatus.CONFLICT, "채팅방이 필요하지 않은 파티입니다."),
     CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "채팅방 참여자가 아닙니다."),
     CHAT_PARTY_NOT_FOUND(HttpStatus.NOT_FOUND, "파티 정보를 찾을 수 없습니다."),
+    CHAT_NOT_PARTY_MEMBER(HttpStatus.FORBIDDEN, "파티 참여자가 아닙니다."),
+    CHAT_LOCATION_SHARING_NOT_STARTED(HttpStatus.CONFLICT, "위치 공유가 시작되지 않았습니다."),
+    CHAT_INVALID_COORDINATE(HttpStatus.BAD_REQUEST, "좌표 값이 올바르지 않습니다."),
 
     CHAT_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "메시지가 존재하지 않습니다."),
     CHAT_NOT_MESSAGE_OWNER(HttpStatus.FORBIDDEN, "본인이 보낸 메시지만 삭제할 수 있습니다."),

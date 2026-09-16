@@ -8,6 +8,8 @@ import team.codingforest.moyeota.chat.application.dto.ChatRoomResult;
 import team.codingforest.moyeota.chat.application.dto.CreateChatRoomCommand;
 import team.codingforest.moyeota.chat.domain.ChatRoom;
 import team.codingforest.moyeota.chat.domain.ChatRooms;
+import team.codingforest.moyeota.chat.domain.PartyProvider;
+import team.codingforest.moyeota.chat.domain.PartySnapshot;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
 import java.time.Instant;
@@ -18,9 +20,10 @@ import java.time.Instant;
 public class ChatRoomService {
 
     private final ChatRooms chatRooms;
+    private final PartyProvider partyProvider;
 
     /**
-     * 채팅방 만들기
+     * 채팅방 만들기 (내부 호출 이벤트)
      */
     @Transactional
     public ChatRoomResult createRoom(CreateChatRoomCommand command) {
@@ -46,10 +49,11 @@ public class ChatRoomService {
      * 채팅방 단건 조회
      */
     @Transactional(readOnly = true)
-    public ChatRoomResult findById(Long chatRoomId) {
-
+    public ChatRoomResult findById(Long userId, Long chatRoomId) {
         ChatRoom chatRoom = chatRooms.findById(chatRoomId)
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        validatePartyMember(userId, chatRoom.getPartyId());
 
         return ChatRoomResult.from(chatRoom);
     }
@@ -67,6 +71,15 @@ public class ChatRoomService {
         chatRooms.save(chatRoom);
 
         log.info("채팅방 종료 chatRoomId={}", chatRoomId);
+    }
+
+    private void validatePartyMember(Long userId, Long partyId) {
+        PartySnapshot party = partyProvider.findSnapshot(partyId)
+                .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_PARTY_NOT_FOUND));
+
+        if (!party.userIds().contains(userId)) {
+            throw new ChatException(ChatErrorCode.CHAT_NOT_PARTY_MEMBER);
+        }
     }
 
 }
