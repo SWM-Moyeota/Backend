@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -43,4 +44,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
         group by m.memberId
 """)
     List<MemberRideCount> countByMemberIdsAndStatus(@Param("memberIds") Collection<Long> memberIds, @Param("status") PartyStatus status);
+
+    @Query("select p.id from PartyEntity p where p.status = :status and p.completedAt < :before")
+    List<Long> findIdsByStatusAndCompletedBefore(@Param("status") PartyStatus status, @Param("before") Instant before);
 }

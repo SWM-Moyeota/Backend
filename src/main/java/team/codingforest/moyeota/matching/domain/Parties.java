@@ -3,6 +3,7 @@ package team.codingforest.moyeota.matching.domain;
 import team.codingforest.moyeota.matching.api.MatchingTarget;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -17,4 +18,5 @@ public interface Parties {
     boolean hasOngoingRide(Long driverId);
     List<Party> findAllByStatusWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng);
     Map<Long, Integer> countFinishedRides(List<Long> memberIds);
+    List<Long> findCompletedBefore(Instant before);
 }
