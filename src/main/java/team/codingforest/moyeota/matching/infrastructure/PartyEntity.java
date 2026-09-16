@@ -77,11 +77,14 @@ public class PartyEntity extends BaseTimeEntity {
     @Column(name = "match_started_at")
     private Instant matchingStartedAt;
 
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
     protected PartyEntity() {}
 
     private PartyEntity(Double departureLat, Double departureLng, Double destinationLat, Double destinationLng, String departure,
                        String destination, Integer capacity, Integer departureRadius, Integer destinationRadius, PartyStatus status,
-                        Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt) {
+                        Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt) {
         this.departureLat = departureLat;
         this.departureLng = departureLng;
         this.destinationLat = destinationLat;
@@ -97,6 +100,7 @@ public class PartyEntity extends BaseTimeEntity {
         this.route = route;
         this.taxiDriverId = taxiDriverId;
         this.matchingStartedAt = matchingStartedAt;
+        this.completedAt = completedAt;
     }
 
     public static PartyEntity from(Party party) {
@@ -115,7 +119,8 @@ public class PartyEntity extends BaseTimeEntity {
                 party.getEstimatedTime(),
                 party.getRoute(),
                 party.getTaxiDriverId(),
-                party.getMatchingStartedAt()
+                party.getMatchingStartedAt(),
+                party.getCompletedAt()
         );
 
         for(PartyMember member : party.getMembers()) {
@@ -128,13 +133,14 @@ public class PartyEntity extends BaseTimeEntity {
     public Party toDomain() {
         return Party.restore(getId(), new Location(departureLat, departureLng), new Location(destinationLat, destinationLng),
                 new Radius(departureRadius), new Radius(destinationRadius), departure, destination, new Capacity(capacity),
-                members.stream().map(PartyMemberEntity::toDomain).toList(), getCreatedAt(), status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt);
+                members.stream().map(PartyMemberEntity::toDomain).toList(), getCreatedAt(), status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt);
     }
 
     public void update(Party party) {
         this.status = party.getStatus();
         this.taxiDriverId = party.getTaxiDriverId();
         this.matchingStartedAt = party.getMatchingStartedAt();
+        this.completedAt = party.getCompletedAt();
         syncMembers(party.getMembers());
     }
 
