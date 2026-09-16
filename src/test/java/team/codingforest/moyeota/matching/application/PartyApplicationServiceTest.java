@@ -1,12 +1,15 @@
 package team.codingforest.moyeota.matching.application;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.api.MatchingStartedEvent;
+import team.codingforest.moyeota.matching.api.PartyMemberJoinedEvent;
+import team.codingforest.moyeota.matching.api.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.application.dto.PartyResult;
@@ -44,9 +47,14 @@ class PartyApplicationServiceTest {
         userAccess = new FakeUserAccess();
         userAccess.등록(host, "방장");
         userAccess.등록(participant, "동승자");
-        service = new PartyApplicationService(parties, events,
+        service = serviceWith(new DispatchCompletionPolicy(events));   // 기본은 발표 모드 - 정원이 차면 배차 시작
+    }
+
+    /** 정원 충족 정책만 갈아끼운 서비스. 정책이 쏘는 MatchingStartedEvent 도 같은 기록기에 쌓인다 */
+    private PartyApplicationService serviceWith(PartyCompletionPolicy policy) {
+        return new PartyApplicationService(parties, events,
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
-                new RouteCacheTest(), driverAccess, userAccess);
+                new RouteCacheTest(), driverAccess, userAccess, policy);
     }
 
     @Test
@@ -221,6 +229,87 @@ class PartyApplicationServiceTest {
         assertThat(events.matchingStartedFor(party.id())).isZero();
     }
 
+    // ───────────────────────── 참여·퇴장 이벤트 (채팅방 초대용) ─────────────────────────
+
+    @Test
+    void 방을_만들면_방장의_참여_이벤트가_발행된다() {
+        PartyResult party = service.open(createParty(host, 3));
+
+        assertThat(events.joinedFor(party.id(), host)).isEqualTo(1);
+    }
+
+    @Test
+    void 참여하면_정원_충족_여부와_무관하게_참여_이벤트가_발행된다() {
+        PartyResult party = service.open(createParty(host, 2));
+
+        service.join(party.id(), participant);   // 정원 충족 → 매칭 시작까지 같이 일어남
+
+        assertThat(events.joinedFor(party.id(), participant))
+                .as("정원을 채운 마지막 사람도 채팅방에 들어가야 한다")
+                .isEqualTo(1);
+        assertThat(events.matchingStartedFor(party.id())).isEqualTo(1);
+    }
+
+    @Test
+    void 나가면_퇴장_이벤트가_발행된다() {
+        PartyResult party = service.open(createParty(host, 3));
+        service.join(party.id(), participant);
+
+        service.leave(party.id(), participant);
+
+        assertThat(events.leftFor(party.id(), participant)).isEqualTo(1);
+    }
+
+    @Test
+    void 혼자_타는_방은_참여_이벤트_없이_바로_매칭을_시작한다() {
+        PartyResult party = service.open(createParty(host, 1));
+
+        assertThat(events.joinedFor(party.id(), host))
+                .as("두 번째 사람이 올 수 없어 채팅방이 생길 일이 없다 - 초대 이벤트도 없다")
+                .isZero();
+        assertThat(events.matchingStartedFor(party.id())).isEqualTo(1);
+    }
+
+    // ───────────────────────── 배포 모드 (TAXI_ENABLED=false) ─────────────────────────
+
+    /** 기사 기능이 없는 1차 배포. 정원이 차도 배차 없이 COMPLETED 에 머물러야 한다 - MATCHING 으로 가면 받는 리스너가 없어 계정이 잠긴다 */
+    @Nested
+    class 택시_기능이_꺼진_배포_모드 {
+
+        @BeforeEach
+        void 배포_정책으로_교체() {
+            service = serviceWith(new ChatOnlyCompletionPolicy());
+        }
+
+        @Test
+        void 정원이_차도_매칭을_시작하지_않고_COMPLETED에_머문다() {
+            PartyResult party = service.open(createParty(host, 2));
+
+            service.join(party.id(), participant);
+
+            assertThat(service.getPartyDetail(party.id()).status()).isEqualTo("COMPLETED");
+            assertThat(events.matchingStartedFor(party.id())).as("배차 신호가 나가면 안 된다").isZero();
+        }
+
+        @Test
+        void 혼자_타는_방도_COMPLETED에_머문다() {
+            PartyResult party = service.open(createParty(host, 1));
+
+            assertThat(service.getPartyDetail(party.id()).status()).isEqualTo("COMPLETED");
+            assertThat(events.matchingStartedFor(party.id())).isZero();
+        }
+
+        @Test
+        void 참여_이벤트는_모드와_무관하게_발행된다() {
+            PartyResult party = service.open(createParty(host, 2));
+
+            service.join(party.id(), participant);
+
+            assertThat(events.joinedFor(party.id(), host)).isEqualTo(1);
+            assertThat(events.joinedFor(party.id(), participant)).isEqualTo(1);
+        }
+    }
+
     @Test
     void 매칭중인_유저는_새_방을_만들_수_없다() {
         // 기사를 기다리는 중에도 방에 묶여 있어야 한다 (isOngoing 확장 검증)
@@ -353,6 +442,18 @@ class PartyApplicationServiceTest {
         long matchingStartedFor(Long partyId) {
             return published.stream()
                     .filter(e -> e instanceof MatchingStartedEvent m && m.partyId().equals(partyId))
+                    .count();
+        }
+
+        long joinedFor(Long partyId, Long memberId) {
+            return published.stream()
+                    .filter(e -> e instanceof PartyMemberJoinedEvent j && j.partyId().equals(partyId) && j.memberId().equals(memberId))
+                    .count();
+        }
+
+        long leftFor(Long partyId, Long memberId) {
+            return published.stream()
+                    .filter(e -> e instanceof PartyMemberLeftEvent l && l.partyId().equals(partyId) && l.memberId().equals(memberId))
                     .count();
         }
     }
