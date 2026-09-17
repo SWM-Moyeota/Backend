@@ -19,13 +19,17 @@ import java.time.Instant;
 @Service
 @RequiredArgsConstructor
 public class ChatReportService {
+
     private final ChatReports chatReports;
     private final ChatMessages chatMessages;
+    private final ChatRoomUserService chatRoomUserService;
 
     @Transactional
     public void report(ReportChatCommand command) {
+        chatRoomUserService.validateParticipant(command.userId(), command.chatRoomId());
+
         ChatMessage message = chatMessages.findById(command.chatMessageId())
-                .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND));;
+                .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND));
 
         if (!message.getChatRoomId().equals(command.chatRoomId())) {
             throw new ChatException(ChatErrorCode.CHAT_NOT_PARTICIPANT);
