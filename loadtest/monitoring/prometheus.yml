@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: moyeota                          # 대상 서버 - Spring Actuator (관리 포트 9091, base-path /)
+    metrics_path: /prometheus
+    static_configs:
+      - targets: ['172.16.1.30:9091']          # 운영 EC2 프라이빗 IP. 부하 대상을 따로 띄우면 여기만 바꾼다

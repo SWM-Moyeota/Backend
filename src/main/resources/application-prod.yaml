@@ -47,3 +47,7 @@ jwt:
 moyeota:
   taxi:
     enabled: ${TAXI_ENABLED:true}
+
+management:
+  server:
+    port: 9091
