@@ -17,7 +17,7 @@ jobs:
     steps:
       - name: Slack payload 생성
         id: payload
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             // TODO: Slack 멤버 ID 기입 (Slack 프로필 → 멤버 ID 복사, U로 시작)
