@@ -8,7 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.driver.api.DriverSummary;
-import team.codingforest.moyeota.matching.api.MatchingStartedEvent;
+import team.codingforest.moyeota.matching.api.PartyMemberJoinedEvent;
+import team.codingforest.moyeota.matching.api.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.application.dto.PartyResult;
@@ -33,13 +34,13 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 public class PartyApplicationService {
-
     private final Parties parties;
     private final ApplicationEventPublisher eventPublisher;
     private final RouteFinder routefinder;
     private final RouteCache routeCache;
     private final DriverAccess driverAccess;
     private final UserAccess userAccess;
+    private final PartyCompletionPolicy partyCompletionPolicy;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
@@ -56,20 +57,16 @@ public class PartyApplicationService {
 
         Party saved = parties.save(party);
 
-        // 최대 정원이 1명인 방은 바로 매칭 시작
         if(saved.isFull()) {
-            saved.startMatching(Instant.now());
+            partyCompletionPolicy.onCompleted(saved);
             parties.save(saved);
-            eventPublisher.publishEvent(new MatchingStartedEvent(saved.getId()));
-
-            log.info("매칭 시작 partyId={}, status={}", saved.getId(), saved.getStatus());
+            return PartyResult.from(saved);
         }
 
-        PartyResult result = PartyResult.from(saved);
+        eventPublisher.publishEvent(new PartyMemberJoinedEvent(saved.getId(), command.creatorId()));
+        log.info("매칭방 활성화. partyId={}, creatorId={}, capacity={}, status={}", saved.getId(), command.creatorId(), saved.getCapacity().value(), saved.getStatus());
 
-        log.info("매칭방 활성화. partyId={}, creatorId={}, capacity={}, status={}", result.id(), command.creatorId(), result.capacity(), result.status());
-
-        return result;
+        return PartyResult.from(saved);
     }
 
     @Transactional
@@ -81,13 +78,12 @@ public class PartyApplicationService {
         party.join(memberId);
 
         if(party.isFull()) {
-            party.startMatching(Instant.now());
-            eventPublisher.publishEvent(new MatchingStartedEvent(partyId));
-            log.info("매칭시작 partyId={}, status={}", party.getId(), party.getStatus());
+            partyCompletionPolicy.onCompleted(party);
         }
 
         log.info("매칭방에 사용자 참가됨 partyId={}, memberId={}, status={}", partyId, memberId, party.getStatus());
         parties.save(party);
+        eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
 
         return getPartyDetail(partyId);
     }
@@ -99,6 +95,7 @@ public class PartyApplicationService {
 
         party.leave(memberId);
         parties.save(party);
+        eventPublisher.publishEvent(new PartyMemberLeftEvent(partyId, memberId));
 
         log.info("매칭방에서 사용자 나감 partyId={}, memberId={}, status={}, members={}", partyId, memberId, party.getStatus(), party.getMembers().size());
     }
@@ -141,6 +138,28 @@ public class PartyApplicationService {
         return parties.findAllByStatusWithinBounds(PartyStatus.ACTIVE, swLat, neLat, swLng, neLng)
                 .stream().map(PartyResult::from)
                 .toList();
+    }
+
+    @Transactional
+    public void finish(Long partyId, Long memberId) {
+        Party party = parties.findByIdForUpdate(partyId)
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+
+        party.finishWithoutDriver(memberId);
+        parties.save(party);
+
+        log.info("기사 없이 합승 종료 partyId={}, memberId={}", partyId, memberId);
+    }
+
+    @Transactional
+    public void expire(Long partyId) {
+        Party party = parties.findByIdForUpdate(partyId)
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+
+        party.expireCompleted();
+        parties.save(party);
+
+        log.warn("정원 충족 후 방치된 방 자동 종료 partyId={}", partyId);
     }
 
     private Party getParty(Long partyId) {
