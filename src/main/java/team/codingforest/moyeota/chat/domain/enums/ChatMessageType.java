@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.chat.domain;
+package team.codingforest.moyeota.chat.domain.enums;
 
 public enum ChatMessageType {
     TEXT, // 문자열 전송

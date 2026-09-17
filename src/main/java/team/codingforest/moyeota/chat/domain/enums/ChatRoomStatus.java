@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.chat.domain;
+package team.codingforest.moyeota.chat.domain.enums;
 
 public enum ChatRoomStatus {
     ACTIVE, // 활성화
