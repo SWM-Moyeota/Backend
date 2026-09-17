@@ -10,7 +10,6 @@ public enum ChatErrorCode {
     CHAT_ROOM_CLOSED(HttpStatus.CONFLICT, "종료된 채팅방입니다."),
     CHAT_ROOM_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 존재하는 채팅방입니다."),
     CHAT_ROOM_ALREADY_JOINED(HttpStatus.CONFLICT, "이미 참여 중인 채팅방입니다."),
-    CHAT_ROOM_NOT_REQUIRED(HttpStatus.CONFLICT, "채팅방이 필요하지 않은 파티입니다."),
     CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "채팅방 참여자가 아닙니다."),
     CHAT_PARTY_NOT_FOUND(HttpStatus.NOT_FOUND, "파티 정보를 찾을 수 없습니다."),
     CHAT_NOT_PARTY_MEMBER(HttpStatus.FORBIDDEN, "파티 참여자가 아닙니다."),
