@@ -21,6 +21,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -43,13 +44,16 @@ public class ChatMessageBroadcaster {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onRoomJoined(ChatRoomJoinedEvent event) {
-        publish(ChatEventEnvelope.TYPE_MEMBER, memberChanged(event.chatRoomId(), event.userId(), MemberChangeType.JOINED));
+        publish(ChatEventEnvelope.TYPE_MEMBER, memberChanged(event.chatRoomId(), findMember(event.userId()), MemberChangeType.JOINED));
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onRoomLeft(ChatRoomLeftEvent event) {
-        publish(ChatEventEnvelope.TYPE_ROOM_LEFT, ChatRoomLeftResult.from(event));
-        publish(ChatEventEnvelope.TYPE_MEMBER, memberChanged(event.chatRoomId(), event.userId(), MemberChangeType.LEFT));
+        ChatMember member = findMember(event.userId());
+        UUID publicId = member == null ? null : member.publicId();
+
+        publish(ChatEventEnvelope.TYPE_ROOM_LEFT, new ChatRoomLeftResult(event.userId(), publicId, event.chatRoomId()));
+        publish(ChatEventEnvelope.TYPE_MEMBER, memberChanged(event.chatRoomId(), member, MemberChangeType.LEFT));
     }
 
     private void publish(String type, Object payload) {
@@ -65,9 +69,11 @@ public class ChatMessageBroadcaster {
         }
     }
 
-    private MemberChangedPayload memberChanged(Long chatRoomId, Long userId, MemberChangeType type) {
-        ChatMember member = memberProvider.findMembers(List.of(userId)).get(userId);
+    private ChatMember findMember(Long userId) {
+        return memberProvider.findMembers(List.of(userId)).get(userId);
+    }
 
+    private MemberChangedPayload memberChanged(Long chatRoomId, ChatMember member, MemberChangeType type) {
         return new MemberChangedPayload(
                 chatRoomId,
                 member == null ? null : member.publicId(),
