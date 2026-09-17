@@ -1,6 +1,8 @@
 package team.codingforest.moyeota.chat.domain;
 
 import lombok.Getter;
+import team.codingforest.moyeota.chat.domain.enums.ChatMessageStatus;
+import team.codingforest.moyeota.chat.domain.enums.ChatMessageType;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
 

@@ -10,6 +10,7 @@ import team.codingforest.moyeota.chat.application.dto.ChatRoomCommand;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomMemberResult;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomUserResult;
 import team.codingforest.moyeota.chat.application.dto.ReadChatCommand;
+import team.codingforest.moyeota.chat.application.event.ChatRoomJoinedEvent;
 import team.codingforest.moyeota.chat.application.event.ChatRoomLeftEvent;
 import team.codingforest.moyeota.chat.domain.ChatMember;
 import team.codingforest.moyeota.chat.domain.ChatMessage;
@@ -58,6 +59,7 @@ public class ChatRoomUserService {
             throw new ChatException(ChatErrorCode.CHAT_ROOM_ALREADY_JOINED);
         }
 
+        eventPublisher.publishEvent(new ChatRoomJoinedEvent(command.userId(), command.chatRoomId()));
 
         log.info("채팅방 참여 chatRoomId={} userID={}", command.chatRoomId(), command.userId());
     }

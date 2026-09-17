@@ -1,7 +1,7 @@
 package team.codingforest.moyeota.chat.application.dto;
 
 import team.codingforest.moyeota.chat.domain.ChatMessage;
-import team.codingforest.moyeota.chat.domain.ChatMessageType;
+import team.codingforest.moyeota.chat.domain.enums.ChatMessageType;
 
 import java.time.Instant;
 import java.util.UUID;

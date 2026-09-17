@@ -4,4 +4,5 @@ public record ChatEventEnvelope(String type, String payload) {
     public static final String TYPE_MESSAGE = "MESSAGE";
     public static final String TYPE_ROOM_LEFT = "ROOM_LEFT";
     public static final String TYPE_LOCATION = "LOCATION";
+    public static final String TYPE_MEMBER = "MEMBER";
 }

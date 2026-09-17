@@ -18,6 +18,7 @@ public class ChatRedisSubscriber implements MessageListener {
     private static final String ROOM_DESTINATION = "/sub/chat-rooms/";
     private static final String ROOM_LEFT_DESTINATION = "/queue/room-left";
     private static final String LOCATION_DESTINATION_SUFFIX = "/location";
+    private static final String MEMBER_DESTINATION_SUFFIX = "/members";
 
     private final ObjectMapper objectMapper;
     private final SimpMessagingTemplate messagingTemplate;
@@ -31,6 +32,7 @@ public class ChatRedisSubscriber implements MessageListener {
                 case ChatEventEnvelope.TYPE_MESSAGE -> handleMessage(envelope.payload());
                 case ChatEventEnvelope.TYPE_ROOM_LEFT -> handleRoomLeft(envelope.payload());
                 case ChatEventEnvelope.TYPE_LOCATION -> handleLocation(envelope.payload());
+                case ChatEventEnvelope.TYPE_MEMBER -> handleMember(envelope.payload());
                 default -> log.warn("알 수 없는 이벤트 타입 type={}", envelope.type());
             }
         } catch (Exception e) {
@@ -58,5 +60,13 @@ public class ChatRedisSubscriber implements MessageListener {
 
         messagingTemplate.convertAndSend(
                 ROOM_DESTINATION + result.chatRoomId() + LOCATION_DESTINATION_SUFFIX, result);
+    }
+
+    private void handleMember(String payload) {
+        MemberChangedPayload result = objectMapper.readValue(payload, MemberChangedPayload.class);
+
+        messagingTemplate.convertAndSend(
+                ROOM_DESTINATION + result.chatRoomId() + MEMBER_DESTINATION_SUFFIX, result // sub/chat-rooms/{chatRoomId}/members
+        );
     }
 }

@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.chat.domain;
 
 import org.junit.jupiter.api.Test;
+import team.codingforest.moyeota.chat.domain.enums.ChatRoomStatus;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
 

@@ -8,12 +8,19 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import team.codingforest.moyeota.chat.application.event.ChatMessageDeleteEvent;
 import team.codingforest.moyeota.chat.application.event.ChatMessageSentEvent;
+import team.codingforest.moyeota.chat.application.event.ChatRoomJoinedEvent;
 import team.codingforest.moyeota.chat.application.event.ChatRoomLeftEvent;
 import team.codingforest.moyeota.chat.config.RedisConfig;
+import team.codingforest.moyeota.chat.domain.ChatMember;
+import team.codingforest.moyeota.chat.domain.MemberProvider;
+import team.codingforest.moyeota.chat.domain.enums.MemberChangeType;
 import team.codingforest.moyeota.chat.infrastructure.ChatEventEnvelope;
 import team.codingforest.moyeota.chat.infrastructure.ChatRoomLeftResult;
+import team.codingforest.moyeota.chat.infrastructure.MemberChangedPayload;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
+
+import java.util.List;
 
 @Slf4j
 @Component
@@ -22,6 +29,7 @@ public class ChatMessageBroadcaster {
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final MemberProvider memberProvider;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onMessageSent(ChatMessageSentEvent event) {
@@ -34,8 +42,14 @@ public class ChatMessageBroadcaster {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onRoomJoined(ChatRoomJoinedEvent event) {
+        publish(ChatEventEnvelope.TYPE_MEMBER, memberChanged(event.chatRoomId(), event.userId(), MemberChangeType.JOINED));
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onRoomLeft(ChatRoomLeftEvent event) {
         publish(ChatEventEnvelope.TYPE_ROOM_LEFT, ChatRoomLeftResult.from(event));
+        publish(ChatEventEnvelope.TYPE_MEMBER, memberChanged(event.chatRoomId(), event.userId(), MemberChangeType.LEFT));
     }
 
     private void publish(String type, Object payload) {
@@ -49,5 +63,16 @@ public class ChatMessageBroadcaster {
         } catch (JacksonException e) {
             log.error("메시지 직렬화 실패 type={}", type, e);
         }
+    }
+
+    private MemberChangedPayload memberChanged(Long chatRoomId, Long userId, MemberChangeType type) {
+        ChatMember member = memberProvider.findMembers(List.of(userId)).get(userId);
+
+        return new MemberChangedPayload(
+                chatRoomId,
+                member == null ? null : member.publicId(),
+                member == null ? null : member.nickname(),
+                member == null ? null : member.imageUrl(),
+                type);
     }
 }
