@@ -27,7 +27,6 @@ public enum ChatErrorCode {
     CHAT_REPORT_DESCRIPTION_REQUIRED(HttpStatus.BAD_REQUEST, "기타 사유는 상세 내용을 입력해야 합니다."),
     CHAT_REPORT_DESCRIPTION_TOO_LONG(HttpStatus.BAD_REQUEST, "상세 내용은 500자를 넘을 수 없습니다."),
 
-
     CHAT_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "조회 개수가 허용 범위를 벗어났습니다."),
     CHAT_INVALID_CURSOR(HttpStatus.BAD_REQUEST, "커서 값이 올바르지 않습니다."),
     CHAT_INVALID_KEYWORD(HttpStatus.BAD_REQUEST, "검색어는 2글자 이상이어야 합니다."),

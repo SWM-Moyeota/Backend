@@ -26,6 +26,9 @@ public class ChatReportEntity {
     private Long id;
 
     @Column(nullable = false)
+    private Long chatRoomId;
+
+    @Column(nullable = false)
     private Long userId;
 
     @Column(nullable = false)
@@ -48,8 +51,10 @@ public class ChatReportEntity {
     protected ChatReportEntity() {
 
     }
-    private ChatReportEntity(Long id, Long userId, Long reportedUserId, Long chatMessageId, ReportReasonType reason, String description, Instant createdAt) {
+
+    private ChatReportEntity(Long id, Long chatRoomId, Long userId, Long reportedUserId, Long chatMessageId, ReportReasonType reason, String description, Instant createdAt) {
         this.id = id;
+        this.chatRoomId = chatRoomId;
         this.userId = userId;
         this.reportedUserId = reportedUserId;
         this.chatMessageId = chatMessageId;
@@ -61,6 +66,7 @@ public class ChatReportEntity {
     public static ChatReportEntity from(ChatReport chatReport) {
         return new ChatReportEntity(
                 chatReport.getId(),
+                chatReport.getChatRoomId(),
                 chatReport.getUserId(),
                 chatReport.getReportedUserId(),
                 chatReport.getChatMessageId(),
@@ -70,7 +76,8 @@ public class ChatReportEntity {
     }
 
     public ChatReport toDomain() {
-        return ChatReport.restore(id, userId, reportedUserId,
+        return ChatReport.restore(id, chatRoomId,
+                userId, reportedUserId,
                 chatMessageId, reason,
                 description, createdAt);
     }

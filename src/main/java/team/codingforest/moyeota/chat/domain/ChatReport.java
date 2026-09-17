@@ -10,6 +10,7 @@ import java.time.Instant;
 @Getter
 public class ChatReport {
     private final Long id;
+    private final Long chatRoomId;
     private final Long userId;
     private final Long reportedUserId;
     private final Long chatMessageId;
@@ -19,8 +20,9 @@ public class ChatReport {
 
     private static final int MAX_DESCRIPTION_LENGTH = 500;
 
-    private ChatReport(Long id, Long userId, Long reportedUserId, Long chatMessageId, ReportReasonType reason, String description, Instant createdAt) {
+    private ChatReport(Long id, Long chatRoomId, Long userId, Long reportedUserId, Long chatMessageId, ReportReasonType reason, String description, Instant createdAt) {
         this.id = id;
+        this.chatRoomId = chatRoomId;
         this.userId = userId;
         this.reportedUserId = reportedUserId;
         this.chatMessageId = chatMessageId;
@@ -29,7 +31,7 @@ public class ChatReport {
         this.createdAt = createdAt;
     }
 
-    public static ChatReport create(Long userId, Long reportedUserId, Long chatMessageId,
+    public static ChatReport create(Long chatRoomId, Long userId, Long reportedUserId, Long chatMessageId,
                                     ReportReasonType reason, String description, Instant createdAt) {
         if (userId.equals(reportedUserId)) {
             throw new ChatException(ChatErrorCode.CHAT_CANNOT_REPORT_SELF);
@@ -41,10 +43,10 @@ public class ChatReport {
             throw new ChatException(ChatErrorCode.CHAT_REPORT_DESCRIPTION_TOO_LONG);
         }
 
-        return new ChatReport(null, userId, reportedUserId, chatMessageId, reason, description, createdAt);
+        return new ChatReport(null, chatRoomId, userId, reportedUserId, chatMessageId, reason, description, createdAt);
     }
 
-    public static ChatReport restore(Long id, Long userId, Long reportedUserId, Long chatMessageId, ReportReasonType reason, String description, Instant createdAt) {
-        return new ChatReport(id, userId, reportedUserId, chatMessageId, reason, description, createdAt);
+    public static ChatReport restore(Long id, Long chatRoomId, Long userId, Long reportedUserId, Long chatMessageId, ReportReasonType reason, String description, Instant createdAt) {
+        return new ChatReport(id, chatRoomId, userId, reportedUserId, chatMessageId, reason, description, createdAt);
     }
 }
