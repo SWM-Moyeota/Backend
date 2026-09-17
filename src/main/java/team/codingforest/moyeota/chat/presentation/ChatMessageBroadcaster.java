@@ -50,7 +50,9 @@ public class ChatMessageBroadcaster {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onRoomLeft(ChatRoomLeftEvent event) {
         ChatMember member = findMember(event.userId());
-        UUID publicId = member == null ? null : member.publicId();
+        UUID publicId = event.publicId() != null
+                ? event.publicId()
+                : (member == null ? null : member.publicId());
 
         publish(ChatEventEnvelope.TYPE_ROOM_LEFT, new ChatRoomLeftResult(event.userId(), publicId, event.chatRoomId()));
         publish(ChatEventEnvelope.TYPE_MEMBER, memberChanged(event.chatRoomId(), member, MemberChangeType.LEFT));
