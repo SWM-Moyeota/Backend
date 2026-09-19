@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 class FavoritePlaceJpaTest implements FavoritePlaces {
     private final Map<String, FavoritePlace> store = new HashMap<>();
@@ -22,11 +23,22 @@ class FavoritePlaceJpaTest implements FavoritePlaces {
     }
 
     @Override
+    public List<FavoritePlace> saveAll(List<FavoritePlace> places) {
+        places.forEach(this::save);
+        return places;
+    }
+
+    @Override
     public List<FavoritePlace> findByUserId(Long userId) {
         return store.values().stream()
                 .filter(p -> p.getUserId().equals(userId))
                 .sorted(Comparator.comparing(FavoritePlace::getPlaceSequence))
                 .toList();
+    }
+
+    @Override
+    public Optional<FavoritePlace> findByUserIdAndPlaceName(Long userId, String placeName) {
+        return Optional.ofNullable(store.get(key(userId, placeName)));
     }
 
     @Override

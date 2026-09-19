@@ -8,6 +8,8 @@ import team.codingforest.moyeota.common.exception.ErrorCode;
 public enum PlaceErrorCode implements ErrorCode {
     FAVORITE_PLACE_DUPLICATED(HttpStatus.CONFLICT, "이미 등록된 장소입니다."),
     FAVORITE_PLACE_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "자주가는 장소는 최대 10개까지만 등록할 수 있습니다."),
+    FAVORITE_PLACE_NOT_FOUND(HttpStatus.NOT_FOUND, "등록되지 않은 장소입니다."),
+    INVALID_PLACE_ORDER(HttpStatus.BAD_REQUEST, "순서 목록은 등록된 장소 전체를 빠짐없이, 중복 없이 담아야 합니다."),
     INVALID_PLACE_NAME(HttpStatus.BAD_REQUEST, "장소 이름은 필수입니다."),
     SEARCH_QUERY_EMPTY(HttpStatus.BAD_REQUEST, "검색어를 입력해주세요."),
     PLACE_SEARCH_FAILED(HttpStatus.BAD_GATEWAY, "장소 검색에 실패했습니다. 잠시 후 다시 시도해주세요."),
