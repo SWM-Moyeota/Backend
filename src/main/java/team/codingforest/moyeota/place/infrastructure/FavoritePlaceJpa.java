@@ -6,6 +6,7 @@ import team.codingforest.moyeota.place.domain.FavoritePlace;
 import team.codingforest.moyeota.place.domain.FavoritePlaces;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
@@ -20,9 +21,20 @@ public class FavoritePlaceJpa implements FavoritePlaces {
     }
 
     @Override
+    public List<FavoritePlace> saveAll(List<FavoritePlace> places) {
+        List<FavoritePlaceEntity> entities = places.stream().map(FavoritePlaceEntity::from).toList();
+        return delegate.saveAll(entities).stream().map(FavoritePlaceEntity::toDomain).toList();
+    }
+
+    @Override
     public List<FavoritePlace> findByUserId(Long userId) {
-        return delegate.findByUserId(userId)
-                .stream().map(m -> m.toDomain()).toList();
+        return delegate.findByUserIdOrderByPlaceSequenceAsc(userId)
+                .stream().map(FavoritePlaceEntity::toDomain).toList();
+    }
+
+    @Override
+    public Optional<FavoritePlace> findByUserIdAndPlaceName(Long userId, String placeName) {
+        return delegate.findByUserIdAndPlaceName(userId, placeName).map(FavoritePlaceEntity::toDomain);
     }
 
     @Override

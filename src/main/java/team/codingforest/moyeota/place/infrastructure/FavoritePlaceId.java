@@ -7,6 +7,10 @@ public class FavoritePlaceId implements Serializable {
     private Long userId;
     private String placeName;
 
+    /** JPA(@IdClass) 가 리플렉션으로 만들 때 필요. 이 생성자가 없으면 save 시점에 InstantiationException 이 난다. */
+    protected FavoritePlaceId() {
+    }
+
     public FavoritePlaceId(Long userId, String placeName) {
         this.userId = userId;
         this.placeName = placeName;
