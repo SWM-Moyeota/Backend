@@ -1,7 +1,6 @@
 package team.codingforest.moyeota.place.presentation;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,6 +14,7 @@ import team.codingforest.moyeota.place.application.PlaceSearchApplicationService
 import team.codingforest.moyeota.place.application.ReverseGeocodingApplication;
 import team.codingforest.moyeota.place.application.dto.AddressResponse;
 import team.codingforest.moyeota.place.application.dto.PlaceSearchListResponse;
+import team.codingforest.moyeota.user.api.CurrentUser;
 
 @Tag(name = "장소", description = "장소 검색(카카오 로컬)과 좌표→주소 변환(네이버 역지오코딩)")
 @RestController
@@ -24,11 +24,11 @@ public class PlaceSearchController {
     private final PlaceSearchApplicationService service;
     private final ReverseGeocodingApplication geocodingService;
 
-    @Operation(summary = "장소 검색", description = "키워드로 카카오 로컬 검색. 빈 검색어는 400")
-    @ApiResponses({@ApiResponse(responseCode = "200", description = "검색 결과"), @ApiResponse(responseCode = "400", description = "EMPTY_QUERY"), @ApiResponse(responseCode = "502", description = "PLACE_SEARCH_FAILED - 카카오 API 장애")})
+    @Operation(summary = "장소 검색", description = "키워드로 카카오 로컬 검색. 검색어는 내 검색기록에 저장된다(최근 10개). 빈 검색어는 400")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "검색 결과"), @ApiResponse(responseCode = "400", description = "SEARCH_QUERY_EMPTY / SEARCH_QUERY_TOO_LONG"), @ApiResponse(responseCode = "502", description = "PLACE_SEARCH_FAILED - 카카오 API 장애")})
     @GetMapping("/places")
-    public ResponseEntity<PlaceSearchListResponse> search(@RequestParam String query) {
-        return ResponseEntity.ok(service.search(query));
+    public ResponseEntity<PlaceSearchListResponse> search(@RequestParam String query, @CurrentUser Long userId) {
+        return ResponseEntity.ok(service.search(query, userId));
     }
 
     @Operation(summary = "좌표 → 주소", description = "지도 핀 위치의 도로명/지번 주소. 한국 범위 밖 좌표는 400")
