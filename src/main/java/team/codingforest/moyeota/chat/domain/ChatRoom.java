@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.chat.domain;
 
 import lombok.Getter;
+import team.codingforest.moyeota.chat.domain.enums.ChatRoomStatus;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
 
@@ -10,17 +11,17 @@ import java.time.Instant;
 public class ChatRoom {
     private final Long id;
     private final Long partyId;
-    private final String departure;
-    private final String destination;
+    private final String departurePlace;
+    private final String destinationPlace;
     private final Instant createdAt;
     private Instant updatedAt;
     private ChatRoomStatus status;
 
-    private ChatRoom(Long id, Long partyId, String departure, String destination, Instant createdAt, Instant updatedAt, ChatRoomStatus status) {
+    private ChatRoom(Long id, Long partyId, String departurePlace, String destinationPlace, Instant createdAt, Instant updatedAt, ChatRoomStatus status) {
         this.id = id;
         this.partyId = partyId;
-        this.departure = departure;
-        this.destination = destination;
+        this.departurePlace = departurePlace;
+        this.destinationPlace = destinationPlace;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.status = status;

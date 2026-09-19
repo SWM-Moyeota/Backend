@@ -11,8 +11,8 @@ import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import team.codingforest.moyeota.chat.domain.ChatMessage;
-import team.codingforest.moyeota.chat.domain.ChatMessageStatus;
-import team.codingforest.moyeota.chat.domain.ChatMessageType;
+import team.codingforest.moyeota.chat.domain.enums.ChatMessageStatus;
+import team.codingforest.moyeota.chat.domain.enums.ChatMessageType;
 
 import java.time.Instant;
 

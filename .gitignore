@@ -37,6 +37,7 @@ Thumbs.db
 
 ### ai (선택)
 *.ai
+AGENTS.md
 
 # 로컬 시크릿 설정
 application-local.yaml
@@ -44,3 +45,4 @@ application-local.yml
 
 ### secrets 폴더 내에 json 파일
 /secrets/
+dump.rdb

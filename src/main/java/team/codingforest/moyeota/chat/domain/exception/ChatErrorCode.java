@@ -10,15 +10,22 @@ public enum ChatErrorCode {
     CHAT_ROOM_CLOSED(HttpStatus.CONFLICT, "종료된 채팅방입니다."),
     CHAT_ROOM_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 존재하는 채팅방입니다."),
     CHAT_ROOM_ALREADY_JOINED(HttpStatus.CONFLICT, "이미 참여 중인 채팅방입니다."),
-    CHAT_ROOM_NOT_REQUIRED(HttpStatus.CONFLICT, "채팅방이 필요하지 않은 파티입니다."),
     CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "채팅방 참여자가 아닙니다."),
     CHAT_PARTY_NOT_FOUND(HttpStatus.NOT_FOUND, "파티 정보를 찾을 수 없습니다."),
+    CHAT_NOT_PARTY_MEMBER(HttpStatus.FORBIDDEN, "파티 참여자가 아닙니다."),
+    CHAT_LOCATION_SHARING_NOT_STARTED(HttpStatus.CONFLICT, "위치 공유가 시작되지 않았습니다."),
+    CHAT_INVALID_COORDINATE(HttpStatus.BAD_REQUEST, "좌표 값이 올바르지 않습니다."),
 
     CHAT_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "메시지가 존재하지 않습니다."),
     CHAT_NOT_MESSAGE_OWNER(HttpStatus.FORBIDDEN, "본인이 보낸 메시지만 삭제할 수 있습니다."),
     CHAT_MESSAGE_ALREADY_DELETED(HttpStatus.CONFLICT, "이미 삭제된 메시지입니다."),
     CHAT_MESSAGE_TOO_LONG(HttpStatus.BAD_REQUEST, "메시지는 1000자를 넘을 수 없습니다."),
     CHAT_MESSAGE_BLANK(HttpStatus.BAD_REQUEST, "메시지 내용이 비어 있습니다."),
+
+    CHAT_CANNOT_REPORT_SELF(HttpStatus.BAD_REQUEST, "본인이 보낸 메시지는 신고할 수 없습니다."),
+    CHAT_ALREADY_REPORTED(HttpStatus.CONFLICT, "이미 신고한 메시지입니다."),
+    CHAT_REPORT_DESCRIPTION_REQUIRED(HttpStatus.BAD_REQUEST, "기타 사유는 상세 내용을 입력해야 합니다."),
+    CHAT_REPORT_DESCRIPTION_TOO_LONG(HttpStatus.BAD_REQUEST, "상세 내용은 500자를 넘을 수 없습니다."),
 
     CHAT_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "조회 개수가 허용 범위를 벗어났습니다."),
     CHAT_INVALID_CURSOR(HttpStatus.BAD_REQUEST, "커서 값이 올바르지 않습니다."),

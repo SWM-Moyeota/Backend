@@ -10,7 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import team.codingforest.moyeota.chat.domain.ChatRoom;
-import team.codingforest.moyeota.chat.domain.ChatRoomStatus;
+import team.codingforest.moyeota.chat.domain.enums.ChatRoomStatus;
 
 import java.time.Instant;
 
@@ -59,8 +59,8 @@ public class ChatRoomEntity {
         return new ChatRoomEntity(
                 chatRoom.getId(),
                 chatRoom.getPartyId(),
-                chatRoom.getDeparture(),
-                chatRoom.getDestination(),
+                chatRoom.getDeparturePlace(),
+                chatRoom.getDestinationPlace(),
                 chatRoom.getCreatedAt(),
                 chatRoom.getUpdatedAt(),
                 chatRoom.getStatus()

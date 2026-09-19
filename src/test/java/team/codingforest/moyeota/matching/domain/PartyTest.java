@@ -408,4 +408,112 @@ class PartyTest {
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
     }
+
+    // ───────────────────────── 정원 충족 시각 ─────────────────────────
+
+    @Test
+    void 정원이_차면_충족_시각이_찍힌다() {
+        Party party = openParty(2);
+        assertThat(party.getCompletedAt()).as("모집 중엔 없다").isNull();
+
+        party.join(참여자);
+
+        assertThat(party.getCompletedAt()).isNotNull();
+    }
+
+    @Test
+    void 혼자_타는_방은_생성_시점이_충족_시각이다() {
+        Party party = openParty(1);
+
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(party.getCompletedAt()).isNotNull();
+    }
+
+    @Test
+    void 누가_나가서_모집으로_돌아가면_충족_시각이_지워진다() {
+        Party party = openParty(2);
+        party.join(참여자);
+
+        party.leave(참여자);
+
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.ACTIVE);
+        assertThat(party.getCompletedAt()).as("다시 차면 새 시각이 찍혀야 하므로 옛 값을 남기면 안 된다").isNull();
+    }
+
+    // ───────────────────────── 기사 없는 종료 (배포 모드) ─────────────────────────
+
+    @Test
+    void 정원이_찬_방은_참여자가_직접_합승_완료할_수_있다() {
+        Party party = openParty(2);
+        party.join(참여자);
+
+        party.finishWithoutDriver(참여자);
+
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
+    }
+
+    @Test
+    void 합승_완료해도_정원_충족_시각은_유지된다() {
+        Party party = openParty(2);
+        party.join(참여자);
+        Instant 충족시각 = party.getCompletedAt();
+
+        party.finishWithoutDriver(생성자);
+
+        assertThat(party.getCompletedAt()).as("\"정원이 찬 시각\"이지 \"끝난 시각\"이 아니다 - 덮어쓰면 기록이 사라진다").isEqualTo(충족시각);
+    }
+
+    @Test
+    void 방에_없는_사람은_합승_완료할_수_없다() {
+        Party party = openParty(2);
+        party.join(참여자);
+
+        assertThatThrownBy(() -> party.finishWithoutDriver(다른기사))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.NOT_PARTY_MEMBER);
+    }
+
+    @Test
+    void 모집_중인_방은_합승_완료할_수_없다() {
+        Party party = openParty(3);
+        party.join(참여자);   // 2/3 - 아직 ACTIVE
+
+        assertThatThrownBy(() -> party.finishWithoutDriver(생성자))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
+    }
+
+    @Test
+    void 기사가_배정된_방은_기사_없는_종료를_할_수_없다() {
+        Party party = assignedParty();   // DRIVER_ASSIGNED - COMPLETED 가 아니라 여기서 먼저 걸린다
+
+        assertThatThrownBy(() -> party.finishWithoutDriver(생성자))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
+    }
+
+    @Test
+    void 방치된_방은_시스템이_멤버_검증_없이_닫는다() {
+        Party party = openParty(2);
+        party.join(참여자);
+
+        party.expireCompleted();
+
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
+    }
+
+    @Test
+    void 이미_닫힌_방은_다시_닫을_수_없다() {
+        Party party = openParty(2);
+        party.join(참여자);
+        party.finishWithoutDriver(참여자);
+
+        assertThatThrownBy(party::expireCompleted)
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
+    }
 }

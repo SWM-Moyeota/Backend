@@ -9,6 +9,7 @@ import team.codingforest.moyeota.matching.domain.Party;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -95,5 +96,10 @@ public class PartyJpa implements Parties {
         }
 
         return counts;
+    }
+
+    @Override
+    public List<Long> findCompletedBefore(Instant before) {
+        return delegate.findIdsByStatusAndCompletedBefore(PartyStatus.COMPLETED, before);
     }
 }

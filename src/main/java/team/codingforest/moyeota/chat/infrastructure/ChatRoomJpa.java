@@ -6,7 +6,10 @@ import team.codingforest.moyeota.chat.domain.ChatRoom;
 import team.codingforest.moyeota.chat.domain.ChatRooms;
 import team.codingforest.moyeota.chat.infrastructure.entity.ChatRoomEntity;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor
@@ -22,6 +25,14 @@ public class ChatRoomJpa implements ChatRooms {
     @Override
     public Optional<ChatRoom> findById(Long chatRoomId) {
         return jpaRepository.findById(chatRoomId).map(ChatRoomEntity::toDomain);
+    }
+
+    @Override
+    public Map<Long, ChatRoom> findByIds(List<Long> chatRoomIds) {
+        return jpaRepository.findAllById(chatRoomIds)
+                .stream()
+                .map(ChatRoomEntity::toDomain)
+                .collect(Collectors.toMap(ChatRoom::getId, chatRoom -> chatRoom));
     }
 
     @Override

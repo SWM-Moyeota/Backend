@@ -5,6 +5,7 @@ import team.codingforest.moyeota.matching.domain.Parties;
 import team.codingforest.moyeota.matching.domain.Party;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +28,7 @@ class PartyJpaTest implements Parties {
                 party.getDepartureRadius(), party.getDestinationRadius(),
                 party.getDeparture(), party.getDestination(), party.getCapacity(),
                 party.getMembers(), party.getCreatedAt(), party.getStatus(),
-                party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getTaxiDriverId(), party.getMatchingStartedAt());
+                party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getTaxiDriverId(), party.getMatchingStartedAt(), party.getCompletedAt());
 
         store.put(id, saved);
         return saved;
@@ -84,6 +85,16 @@ class PartyJpaTest implements Parties {
         return store.values().stream()
                 .filter(p -> p.getStatus() == PartyStatus.MATCHING)
                 .map(p -> new MatchingTarget(p.getId(), p.getMatchingStartedAt()))
+                .toList();
+    }
+
+    @Override
+    public List<Long> findCompletedBefore(Instant before) {
+        // 실제 JPQL 과 같은 규칙 - status = COMPLETED 이고 completedAt < before. null 은 비교 대상이 아니다
+        return store.values().stream()
+                .filter(p -> p.getStatus() == PartyStatus.COMPLETED)
+                .filter(p -> p.getCompletedAt() != null && p.getCompletedAt().isBefore(before))
+                .map(Party::getId)
                 .toList();
     }
 }

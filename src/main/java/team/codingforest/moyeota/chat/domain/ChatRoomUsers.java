@@ -11,4 +11,6 @@ public interface ChatRoomUsers {
     Optional<ChatRoomUser> findActiveByUserIdAndChatRoomId(Long userId, Long chatRoomId);
 
     List<ChatRoomUser> findAllByChatRoomId(Long chatRoomId);
+
+    List<ChatRoomUser> findAllByChatRoomIds(List<Long> chatRoomIds);
 }

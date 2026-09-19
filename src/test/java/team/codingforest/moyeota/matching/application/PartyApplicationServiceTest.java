@@ -1,19 +1,28 @@
 package team.codingforest.moyeota.matching.application;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.api.MatchingStartedEvent;
+import team.codingforest.moyeota.matching.api.PartyMemberJoinedEvent;
+import team.codingforest.moyeota.matching.api.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.application.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.application.dto.PartyResult;
+import team.codingforest.moyeota.matching.domain.Capacity;
+import team.codingforest.moyeota.matching.domain.Location;
 import team.codingforest.moyeota.matching.domain.Party;
+import team.codingforest.moyeota.matching.domain.Radius;
 import team.codingforest.moyeota.matching.domain.RouteEstimate;
+import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -44,9 +53,14 @@ class PartyApplicationServiceTest {
         userAccess = new FakeUserAccess();
         userAccess.등록(host, "방장");
         userAccess.등록(participant, "동승자");
-        service = new PartyApplicationService(parties, events,
+        service = serviceWith(new DispatchCompletionPolicy(events));   // 기본은 발표 모드 - 정원이 차면 배차 시작
+    }
+
+    /** 정원 충족 정책만 갈아끼운 서비스. 정책이 쏘는 MatchingStartedEvent 도 같은 기록기에 쌓인다 */
+    private PartyApplicationService serviceWith(PartyCompletionPolicy policy) {
+        return new PartyApplicationService(parties, events,
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
-                new RouteCacheTest(), driverAccess, userAccess);
+                new RouteCacheTest(), driverAccess, userAccess, policy);
     }
 
     @Test
@@ -221,6 +235,182 @@ class PartyApplicationServiceTest {
         assertThat(events.matchingStartedFor(party.id())).isZero();
     }
 
+    // ───────────────────────── 참여·퇴장 이벤트 (채팅방 초대용) ─────────────────────────
+
+    @Test
+    void 방을_만들면_방장의_참여_이벤트가_발행된다() {
+        PartyResult party = service.open(createParty(host, 3));
+
+        assertThat(events.joinedFor(party.id(), host)).isEqualTo(1);
+    }
+
+    @Test
+    void 참여하면_정원_충족_여부와_무관하게_참여_이벤트가_발행된다() {
+        PartyResult party = service.open(createParty(host, 2));
+
+        service.join(party.id(), participant);   // 정원 충족 → 매칭 시작까지 같이 일어남
+
+        assertThat(events.joinedFor(party.id(), participant))
+                .as("정원을 채운 마지막 사람도 채팅방에 들어가야 한다")
+                .isEqualTo(1);
+        assertThat(events.matchingStartedFor(party.id())).isEqualTo(1);
+    }
+
+    @Test
+    void 나가면_퇴장_이벤트가_발행된다() {
+        PartyResult party = service.open(createParty(host, 3));
+        service.join(party.id(), participant);
+
+        service.leave(party.id(), participant);
+
+        assertThat(events.leftFor(party.id(), participant)).isEqualTo(1);
+    }
+
+    @Test
+    void 혼자_타는_방은_참여_이벤트_없이_바로_매칭을_시작한다() {
+        PartyResult party = service.open(createParty(host, 1));
+
+        assertThat(events.joinedFor(party.id(), host))
+                .as("두 번째 사람이 올 수 없어 채팅방이 생길 일이 없다 - 초대 이벤트도 없다")
+                .isZero();
+        assertThat(events.matchingStartedFor(party.id())).isEqualTo(1);
+    }
+
+    // ───────────────────────── 배포 모드 (TAXI_ENABLED=false) ─────────────────────────
+
+    /** 기사 기능이 없는 1차 배포. 정원이 차도 배차 없이 COMPLETED 에 머물러야 한다 - MATCHING 으로 가면 받는 리스너가 없어 계정이 잠긴다 */
+    @Nested
+    class 택시_기능이_꺼진_배포_모드 {
+
+        @BeforeEach
+        void 배포_정책으로_교체() {
+            service = serviceWith(new ChatOnlyCompletionPolicy());
+        }
+
+        @Test
+        void 정원이_차도_매칭을_시작하지_않고_COMPLETED에_머문다() {
+            PartyResult party = service.open(createParty(host, 2));
+
+            service.join(party.id(), participant);
+
+            assertThat(service.getPartyDetail(party.id()).status()).isEqualTo("COMPLETED");
+            assertThat(events.matchingStartedFor(party.id())).as("배차 신호가 나가면 안 된다").isZero();
+        }
+
+        @Test
+        void 혼자_타는_방도_COMPLETED에_머문다() {
+            PartyResult party = service.open(createParty(host, 1));
+
+            assertThat(service.getPartyDetail(party.id()).status()).isEqualTo("COMPLETED");
+            assertThat(events.matchingStartedFor(party.id())).isZero();
+        }
+
+        @Test
+        void 참여_이벤트는_모드와_무관하게_발행된다() {
+            PartyResult party = service.open(createParty(host, 2));
+
+            service.join(party.id(), participant);
+
+            assertThat(events.joinedFor(party.id(), host)).isEqualTo(1);
+            assertThat(events.joinedFor(party.id(), participant)).isEqualTo(1);
+        }
+
+        // ── 합승 완료 (참여자가 직접) ──
+
+        @Test
+        void 참여자가_합승_완료하면_FINISHED가_된다() {
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);
+
+            service.finish(party.id(), participant);
+
+            assertThat(service.getPartyDetail(party.id()).status()).isEqualTo("FINISHED");
+        }
+
+        @Test
+        void 합승_완료한_뒤에는_같은_사람이_새_방을_만들_수_있다() {
+            // 이게 안 되면 배포 모드에서 계정이 잠긴다 - 이 기능의 존재 이유
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);
+            service.finish(party.id(), host);
+
+            PartyResult next = service.open(createParty(host, 3));
+
+            assertThat(next.id()).isNotEqualTo(party.id());
+        }
+
+        @Test
+        void 모집_중인_방은_합승_완료할_수_없다() {
+            PartyResult party = service.open(createParty(host, 3));
+
+            assertThatThrownBy(() -> service.finish(party.id(), host))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
+        }
+
+        @Test
+        void 방에_없는_사람은_합승_완료할_수_없다() {
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);
+
+            assertThatThrownBy(() -> service.finish(party.id(), guest))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(MatchingErrorCode.NOT_PARTY_MEMBER);
+        }
+
+        // ── 자동 종료 스윕 ──
+
+        @Test
+        void 정원이_찬_뒤_오래_방치된_방만_자동_종료된다() {
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);   // anotherHost·guest 가 여기 묶여 있다
+            PartyResult 방금찬방 = service.open(createParty(host, 2));
+            service.join(방금찬방.id(), participant);
+
+            new CompletedPartySweeper(parties, service).sweep();
+
+            assertThat(parties.findById(오래된방).orElseThrow().getStatus()).isEqualTo(PartyStatus.FINISHED);
+            assertThat(parties.findById(방금찬방.id()).orElseThrow().getStatus()).as("TTL 전이면 건드리지 않는다").isEqualTo(PartyStatus.COMPLETED);
+        }
+
+        @Test
+        void 한_방이_실패해도_나머지_방은_닫힌다() {
+            Long 기사있는방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), 기사);   // DRIVER_ALREADY_ASSIGNED 로 실패할 방
+            Long 정상방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);
+
+            new CompletedPartySweeper(parties, service).sweep();   // 예외가 새어 나오면 여기서 터진다
+
+            assertThat(parties.findById(기사있는방).orElseThrow().getStatus()).isEqualTo(PartyStatus.COMPLETED);
+            assertThat(parties.findById(정상방).orElseThrow().getStatus()).isEqualTo(PartyStatus.FINISHED);
+        }
+
+        @Test
+        void 이미_닫힌_방을_스윕이_다시_닫으려_하면_거부된다() {
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);
+            service.finish(party.id(), host);
+
+            assertThatThrownBy(() -> service.expire(party.id()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
+        }
+
+        /** 정원 2가 찬 방을 원하는 충족 시각으로 저장 - 도메인은 Instant.now() 만 찍으므로 과거 시각은 restore 로만 만들 수 있다 */
+        private Long saveCompleted(Instant completedAt, Long driverId) {
+            Location 강남역 = new Location(37.4979, 127.0276);
+            Location 판교역 = new Location(37.3948, 127.1112);
+            Party seed = Party.open(anotherHost, 강남역, 판교역, "강남역", "판교역", new Capacity(2),
+                    completedAt, new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
+            seed.join(guest);   // 멤버 목록만 빌려 쓴다 (PartyMember 생성자는 도메인 패키지 밖에서 못 부른다)
+
+            Party party = Party.restore(null, 강남역, 판교역, new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
+                    seed.getMembers(), completedAt, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", driverId, null, completedAt);
+            return parties.save(party).getId();
+        }
+    }
+
     @Test
     void 매칭중인_유저는_새_방을_만들_수_없다() {
         // 기사를 기다리는 중에도 방에 묶여 있어야 한다 (isOngoing 확장 검증)
@@ -353,6 +543,18 @@ class PartyApplicationServiceTest {
         long matchingStartedFor(Long partyId) {
             return published.stream()
                     .filter(e -> e instanceof MatchingStartedEvent m && m.partyId().equals(partyId))
+                    .count();
+        }
+
+        long joinedFor(Long partyId, Long memberId) {
+            return published.stream()
+                    .filter(e -> e instanceof PartyMemberJoinedEvent j && j.partyId().equals(partyId) && j.memberId().equals(memberId))
+                    .count();
+        }
+
+        long leftFor(Long partyId, Long memberId) {
+            return published.stream()
+                    .filter(e -> e instanceof PartyMemberLeftEvent l && l.partyId().equals(partyId) && l.memberId().equals(memberId))
                     .count();
         }
     }

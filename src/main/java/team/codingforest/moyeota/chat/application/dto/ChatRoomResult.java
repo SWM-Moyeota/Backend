@@ -1,7 +1,7 @@
 package team.codingforest.moyeota.chat.application.dto;
 
 import team.codingforest.moyeota.chat.domain.ChatRoom;
-import team.codingforest.moyeota.chat.domain.ChatRoomStatus;
+import team.codingforest.moyeota.chat.domain.enums.ChatRoomStatus;
 
 import java.time.Instant;
 
@@ -17,8 +17,8 @@ public record ChatRoomResult(
         return new ChatRoomResult(
                 chatRoom.getId(),
                 chatRoom.getPartyId(),
-                chatRoom.getDeparture(),
-                chatRoom.getDestination(),
+                chatRoom.getDeparturePlace(),
+                chatRoom.getDestinationPlace(),
                 chatRoom.getCreatedAt(),
                 chatRoom.getStatus()
         );
