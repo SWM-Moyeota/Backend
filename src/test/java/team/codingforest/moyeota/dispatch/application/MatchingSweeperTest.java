@@ -35,7 +35,8 @@ class MatchingSweeperTest {
         candidates = new InMemoryCallCandidates();
         partyAccess = new FakePartyAccess(강남출발방, 판교출발방);
 
-        DispatchService dispatchService = new DispatchService(partyAccess, new FakeDriverAccess(Set.of(1L, 2L, 3L)), locations, notifier, candidates);
+        SyncDispatchEvents events = new SyncDispatchEvents(new DispatchEventListener(candidates, locations, notifier));
+        DispatchService dispatchService = new DispatchService(partyAccess, new FakeDriverAccess(Set.of(1L, 2L, 3L)), locations, candidates, events);
         sweeper = new MatchingSweeper(partyAccess, dispatchService, candidates, notifier);
     }
 

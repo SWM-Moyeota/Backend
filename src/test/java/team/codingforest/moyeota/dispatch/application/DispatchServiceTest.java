@@ -25,6 +25,7 @@ class DispatchServiceTest {
     private RecordingNotifier notifier;
     private InMemoryCallCandidates candidates;
     private FakePartyAccess partyAccess;
+    private SyncDispatchEvents events;
 
     @BeforeEach
     void setUp() {
@@ -32,10 +33,12 @@ class DispatchServiceTest {
         notifier = new RecordingNotifier();
         candidates = new InMemoryCallCandidates();
         partyAccess = new FakePartyAccess(강남출발방);
+        // 커밋 후 리스너가 하던 일(후보 등록·알림·마감)을 발행 즉시 실행 - 트랜잭션 경계는 DispatchEventListenerTransactionTest 가 본다
+        events = new SyncDispatchEvents(new DispatchEventListener(candidates, locations, notifier));
     }
 
     private DispatchService serviceWith(Set<Long> 콜가능기사들) {
-        return new DispatchService(partyAccess, new FakeDriverAccess(콜가능기사들), locations, notifier, candidates);
+        return new DispatchService(partyAccess, new FakeDriverAccess(콜가능기사들), locations, candidates, events);
     }
 
     // ───────────────────────── dispatch (첫 탐색) ─────────────────────────
@@ -216,7 +219,7 @@ class DispatchServiceTest {
     void 콜을_받은_후_오프라인이_된_기사는_수락할_수_없다() {
         locations.nearby = List.of(1L, 2L);
         Set<Long> 콜가능 = new HashSet<>(Set.of(1L, 2L));
-        DispatchService service = new DispatchService(partyAccess, new FakeDriverAccess(콜가능), locations, notifier, candidates);
+        DispatchService service = new DispatchService(partyAccess, new FakeDriverAccess(콜가능), locations, candidates, events);
         service.dispatch(방번호);
 
         콜가능.remove(1L);   // 콜을 받은 뒤 콜 OFF / 오프라인 전환
@@ -251,7 +254,7 @@ class DispatchServiceTest {
         FakeDriverAccess driverAccess = new FakeDriverAccess(Set.of(1L, 2L));
         driverAccess.기사의유저.put(1L, 7L);
         partyAccess.members.add(7L);
-        DispatchService service = new DispatchService(partyAccess, driverAccess, locations, notifier, candidates);
+        DispatchService service = new DispatchService(partyAccess, driverAccess, locations, candidates, events);
         service.dispatch(방번호);
 
         assertThatThrownBy(() -> service.acceptCall(방번호, 1L))
@@ -268,7 +271,7 @@ class DispatchServiceTest {
         locations.nearby = List.of(1L);
         FakeDriverAccess driverAccess = new FakeDriverAccess(Set.of(1L));
         driverAccess.기사의유저.put(1L, 7L);   // 유저 7은 이 방(방번호)의 멤버가 아님
-        DispatchService service = new DispatchService(partyAccess, driverAccess, locations, notifier, candidates);
+        DispatchService service = new DispatchService(partyAccess, driverAccess, locations, candidates, events);
         service.dispatch(방번호);
 
         service.acceptCall(방번호, 1L);
