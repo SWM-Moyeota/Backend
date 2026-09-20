@@ -60,7 +60,9 @@ class PartyApplicationServiceTest {
     private PartyApplicationService serviceWith(PartyCompletionPolicy policy) {
         return new PartyApplicationService(parties, events,
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
-                new RouteCacheTest(), driverAccess, userAccess, policy);
+                new RouteCacheTest(), driverAccess, userAccess, policy, new team.codingforest.moyeota.matching.domain.MatchingAdmission() {
+                    @Override public <T> T execute(Long memberId, java.util.function.Supplier<T> work) { return work.get(); }
+                });
     }
 
     @Test

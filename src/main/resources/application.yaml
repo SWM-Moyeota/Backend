@@ -69,3 +69,10 @@ management:
 moyeota:
   taxi:
     enabled: ${TAXI_ENABLED:true}
+
+matching:
+  lock:
+    zookeeper:
+      connect-string: ${MATCHING_LOCK_ZOOKEEPER_CONNECT:localhost:2181,localhost:2182,localhost:2183}
+      session-timeout-ms: ${MATCHING_LOCK_ZOOKEEPER_SESSION_TIMEOUT_MS:15000}
+      connection-timeout-ms: ${MATCHING_LOCK_ZOOKEEPER_CONNECTION_TIMEOUT_MS:2000}

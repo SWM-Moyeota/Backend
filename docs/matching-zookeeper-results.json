@@ -1,0 +1,52 @@
+{
+  "environment": {
+    "date": "2026-09-20",
+    "curator": "5.9.0",
+    "java_toolchain": 25,
+    "platform": "macOS arm64",
+    "postgresql_major": 16,
+    "zookeeper_nodes": 3,
+    "topology": "TestingCluster, 3 servers with separate ports and data directories in one JVM",
+    "workers": 16,
+    "requests_per_scenario": 96,
+    "rounds": 3,
+    "scope": "서비스 메서드 호출, HTTP와 외부 경로 API 및 이벤트 소비 비용 제외"
+  },
+  "counts": {
+    "tests": 460,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "suites": [
+    {
+      "suite": "team.codingforest.moyeota.matching.infrastructure.ZooKeeperMatchingAdmissionTest",
+      "tests": 6,
+      "failures": 0,
+      "seconds": 0.191
+    },
+    {
+      "suite": "team.codingforest.moyeota.matching.infrastructure.ZooKeeperLockContractTest",
+      "tests": 4,
+      "failures": 0,
+      "seconds": 18.087
+    },
+    {
+      "suite": "team.codingforest.moyeota.matching.infrastructure.MatchingConcurrencyTest",
+      "tests": 12,
+      "failures": 0,
+      "seconds": 38.39
+    }
+  ],
+  "benchmark": [
+    "BENCHMARK strategy=ZooKeeperMatchingAdmission scenario=동일사용자 round=1 requests=96 success=1 rejected=95 p50_ms=268.973 p95_ms=285.043 rps=60.5 peak_connections=1",
+    "BENCHMARK strategy=ZooKeeperMatchingAdmission scenario=한방집중 round=1 requests=96 success=1 rejected=95 p50_ms=90.199 p95_ms=99.160 rps=175.4 peak_connections=16",
+    "BENCHMARK strategy=ZooKeeperMatchingAdmission scenario=분산참가 round=1 requests=96 success=96 rejected=0 p50_ms=101.693 p95_ms=135.223 rps=149.8 peak_connections=16",
+    "BENCHMARK strategy=ZooKeeperMatchingAdmission scenario=동일사용자 round=2 requests=96 success=1 rejected=95 p50_ms=255.824 p95_ms=308.246 rps=62.0 peak_connections=1",
+    "BENCHMARK strategy=ZooKeeperMatchingAdmission scenario=한방집중 round=2 requests=96 success=1 rejected=95 p50_ms=91.080 p95_ms=99.128 rps=181.3 peak_connections=15",
+    "BENCHMARK strategy=ZooKeeperMatchingAdmission scenario=분산참가 round=2 requests=96 success=96 rejected=0 p50_ms=101.970 p95_ms=127.294 rps=154.9 peak_connections=16",
+    "BENCHMARK strategy=ZooKeeperMatchingAdmission scenario=동일사용자 round=3 requests=96 success=1 rejected=95 p50_ms=262.805 p95_ms=273.968 rps=63.4 peak_connections=1",
+    "BENCHMARK strategy=ZooKeeperMatchingAdmission scenario=한방집중 round=3 requests=96 success=1 rejected=95 p50_ms=91.874 p95_ms=101.908 rps=173.2 peak_connections=16",
+    "BENCHMARK strategy=ZooKeeperMatchingAdmission scenario=분산참가 round=3 requests=96 success=96 rejected=0 p50_ms=100.926 p95_ms=117.868 rps=157.7 peak_connections=16"
+  ]
+}

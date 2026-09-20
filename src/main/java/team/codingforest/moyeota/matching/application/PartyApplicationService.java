@@ -16,6 +16,7 @@ import team.codingforest.moyeota.matching.application.dto.PartyResult;
 import team.codingforest.moyeota.matching.domain.Capacity;
 import team.codingforest.moyeota.matching.domain.Location;
 import team.codingforest.moyeota.matching.domain.Parties;
+import team.codingforest.moyeota.matching.domain.MatchingAdmission;
 import team.codingforest.moyeota.matching.domain.Party;
 import team.codingforest.moyeota.matching.domain.PartyMember;
 import team.codingforest.moyeota.matching.domain.Radius;
@@ -41,51 +42,53 @@ public class PartyApplicationService {
     private final DriverAccess driverAccess;
     private final UserAccess userAccess;
     private final PartyCompletionPolicy partyCompletionPolicy;
+    private final MatchingAdmission admission;
 
-    @Transactional
     public PartyResult open(OpenPartyCommand command) {
-        validateNotInOngoingParty(command.creatorId());
-
+        // 외부 HTTP/캐시 호출은 사용자 잠금과 DB 트랜잭션 밖에서 수행한다.
         RouteEstimate estimate = estimateRoute(command.departureLat(), command.departureLng(), command.destinationLat(), command.destinationLng());
+        return admission.execute(command.creatorId(), () -> {
+            validateNotInOngoingParty(command.creatorId());
+            Party party = Party.open(command.creatorId(),
+                    new Location(command.departureLat(), command.departureLng()),
+                    new Location(command.destinationLat(), command.destinationLng()),
+                    command.departure(), command.destination(), new Capacity(command.capacity()),
+                    Instant.now(), new Radius(command.departureRadius()), new Radius(command.destinationRadius()),
+                    estimate.estimateFare(), estimate.estimateTime(), estimate.path());
 
-        Party party = Party.open(command.creatorId(),
-                new Location(command.departureLat(), command.departureLng()),
-                new Location(command.destinationLat(), command.destinationLng()),
-                command.departure(), command.destination(), new Capacity(command.capacity()),
-                Instant.now(), new Radius(command.departureRadius()), new Radius(command.destinationRadius()),
-                estimate.estimateFare(), estimate.estimateTime(), estimate.path());
+            Party saved = parties.save(party);
 
-        Party saved = parties.save(party);
+            if(saved.isFull()) {
+                partyCompletionPolicy.onCompleted(saved);
+                parties.save(saved);
+                return PartyResult.from(saved);
+            }
 
-        if(saved.isFull()) {
-            partyCompletionPolicy.onCompleted(saved);
-            parties.save(saved);
+            eventPublisher.publishEvent(new PartyMemberJoinedEvent(saved.getId(), command.creatorId()));
+            log.info("매칭방 활성화. partyId={}, creatorId={}, capacity={}, status={}", saved.getId(), command.creatorId(), saved.getCapacity().value(), saved.getStatus());
+
             return PartyResult.from(saved);
-        }
-
-        eventPublisher.publishEvent(new PartyMemberJoinedEvent(saved.getId(), command.creatorId()));
-        log.info("매칭방 활성화. partyId={}, creatorId={}, capacity={}, status={}", saved.getId(), command.creatorId(), saved.getCapacity().value(), saved.getStatus());
-
-        return PartyResult.from(saved);
+        });
     }
 
-    @Transactional
     public PartyDetailResult join(Long partyId, Long memberId) {
-        validateNotInOngoingParty(memberId);
-        Party party = parties.findByIdForUpdate(partyId)
-                        .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+        return admission.execute(memberId, () -> {
+            validateNotInOngoingParty(memberId);
+            Party party = parties.findByIdForUpdate(partyId)
+                            .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
-        party.join(memberId);
+            party.join(memberId);
 
-        if(party.isFull()) {
-            partyCompletionPolicy.onCompleted(party);
-        }
+            if(party.isFull()) {
+                partyCompletionPolicy.onCompleted(party);
+            }
 
-        log.info("매칭방에 사용자 참가됨 partyId={}, memberId={}, status={}", partyId, memberId, party.getStatus());
-        parties.save(party);
-        eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
+            log.info("매칭방에 사용자 참가됨 partyId={}, memberId={}, status={}", partyId, memberId, party.getStatus());
+            parties.save(party);
+            eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
 
-        return getPartyDetail(partyId);
+            return getPartyDetail(partyId);
+        });
     }
 
     @Transactional
