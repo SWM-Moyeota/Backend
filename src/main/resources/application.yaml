@@ -74,7 +74,12 @@ moyeota:
 matching:
   lock:
     redis:
+      # auto: spring.data.redis.sentinel.master 가 있으면 sentinel, 없으면 single. 앱 Redis 토폴로지를 그대로 따라간다
+      mode: ${MATCHING_LOCK_REDIS_MODE:auto}
       address: ${MATCHING_LOCK_REDIS_ADDRESS:redis://${spring.data.redis.host:localhost}:${spring.data.redis.port:6379}}
+      sentinel:
+        master: ${MATCHING_LOCK_SENTINEL_MASTER:${spring.data.redis.sentinel.master:}}
+        nodes: ${MATCHING_LOCK_SENTINEL_NODES:${spring.data.redis.sentinel.nodes:}}
       username: ${MATCHING_LOCK_REDIS_USERNAME:${spring.data.redis.username:}}
       password: ${MATCHING_LOCK_REDIS_PASSWORD:${spring.data.redis.password:}}
       database: ${MATCHING_LOCK_REDIS_DATABASE:${spring.data.redis.database:0}}

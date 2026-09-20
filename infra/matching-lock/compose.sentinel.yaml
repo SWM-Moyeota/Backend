@@ -1,0 +1,59 @@
+# 매칭 잠금 실험용 Redis Sentinel 토폴로지: 마스터 1 + 복제본 2 + Sentinel 3 (quorum 2)
+#
+# 호스트 JVM 테스트와 컨테이너 안의 Sentinel 이 같은 주소로 노드에 닿아야 한다. Docker Desktop(macOS)에서는 host 네트워크 포트가
+# 호스트로 안 열리므로, 노드가 자신을 호스트 LAN IP(HOST_IP)로 알리고 포트를 공개한다. Sentinel 은 그 주소로 마스터를 감시하고,
+# Redisson 은 Sentinel 에게 받은 HOST_IP:6381 로 붙는다. 기본 docker-compose.yml(6379)과 포트가 겹치지 않는다.
+#   infra/matching-lock/up.sh sentinel                 # HOST_IP 를 계산해 띄운다
+#   ./gradlew matchingLockTopologyTest -Dmatching.lock.topology=sentinel
+#   ./gradlew matchingLockTopologyTest -Dmatching.lock.topology=sentinel -Dmatching.lock.failover=true
+#   docker compose -f infra/matching-lock/compose.sentinel.yaml down -v
+name: moyeota-lock-sentinel
+x-redis: &redis
+  image: redis:7-alpine
+  healthcheck:
+    test: ["CMD-SHELL", "redis-cli -p $$REDIS_PORT ping"]
+    interval: 1s
+    timeout: 1s
+    retries: 30
+services:
+  redis-1:
+    <<: *redis
+    ports: ["6381:6381"]
+    environment: { REDIS_PORT: "6381" }
+    command: ["redis-server", "--port", "6381", "--appendonly", "no",
+              "--replica-announce-ip", "${HOST_IP:?infra/matching-lock/up.sh 로 띄우세요}", "--replica-announce-port", "6381"]
+  redis-2:
+    <<: *redis
+    ports: ["6382:6382"]
+    environment: { REDIS_PORT: "6382" }
+    command: ["redis-server", "--port", "6382", "--appendonly", "no", "--replicaof", "${HOST_IP}", "6381",
+              "--replica-announce-ip", "${HOST_IP}", "--replica-announce-port", "6382"]
+    depends_on: { redis-1: { condition: service_healthy } }
+  redis-3:
+    <<: *redis
+    ports: ["6383:6383"]
+    environment: { REDIS_PORT: "6383" }
+    command: ["redis-server", "--port", "6383", "--appendonly", "no", "--replicaof", "${HOST_IP}", "6381",
+              "--replica-announce-ip", "${HOST_IP}", "--replica-announce-port", "6383"]
+    depends_on: { redis-1: { condition: service_healthy } }
+  sentinel-1:
+    <<: *redis
+    ports: ["26381:26381"]
+    environment: { REDIS_PORT: "26381", HOST_IP: "${HOST_IP}" }
+    command: ["sh", "/sentinel.sh", "26381"]
+    volumes: ["./sentinel.sh:/sentinel.sh:ro"]
+    depends_on: { redis-1: { condition: service_healthy } }
+  sentinel-2:
+    <<: *redis
+    ports: ["26382:26382"]
+    environment: { REDIS_PORT: "26382", HOST_IP: "${HOST_IP}" }
+    command: ["sh", "/sentinel.sh", "26382"]
+    volumes: ["./sentinel.sh:/sentinel.sh:ro"]
+    depends_on: { redis-1: { condition: service_healthy } }
+  sentinel-3:
+    <<: *redis
+    ports: ["26383:26383"]
+    environment: { REDIS_PORT: "26383", HOST_IP: "${HOST_IP}" }
+    command: ["sh", "/sentinel.sh", "26383"]
+    volumes: ["./sentinel.sh:/sentinel.sh:ro"]
+    depends_on: { redis-1: { condition: service_healthy } }

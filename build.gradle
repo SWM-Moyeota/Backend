@@ -56,5 +56,21 @@ dependencies {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+	useJUnitPlatform {
+		excludeTags 'matching-lock-topology'   // 실제 Sentinel/Cluster 컨테이너가 필요한 실험은 기본 CI 에서 뺀다
+	}
+}
+
+// 매칭 잠금 토폴로지 실험. infra/matching-lock/compose.*.yaml 을 띄운 뒤 -Dmatching.lock.topology=sentinel 로 고른다.
+tasks.register('matchingLockTopologyTest', Test) {
+	description = '실제 Redis Sentinel/Cluster 위에서 매칭 잠금의 연결·직렬화·장애 전환을 검증'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform { includeTags 'matching-lock-topology' }
+	systemProperty 'matching.lock.topology', System.getProperty('matching.lock.topology', 'sentinel')
+	systemProperty 'matching.lock.failover', System.getProperty('matching.lock.failover', 'false')
+	systemProperty 'matching.lock.failover.watchdogMs', System.getProperty('matching.lock.failover.watchdogMs', '2000')
+	testLogging { events 'passed', 'skipped', 'failed'; showStandardStreams = true }
+	outputs.upToDateWhen { false }
 }
