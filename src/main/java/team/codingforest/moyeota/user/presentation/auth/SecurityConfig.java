@@ -10,8 +10,10 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import team.codingforest.moyeota.common.logging.RequestLoggingFilter;
 import team.codingforest.moyeota.user.api.CurrentUser;
 import team.codingforest.moyeota.user.application.AuthService;
 
@@ -49,6 +51,8 @@ public class SecurityConfig implements WebMvcConfigurer {
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthenticationFilter(authService, entryPoint), AuthorizationFilter.class)
+                // 요청 로그. SecurityContextHolderFilter 바로 뒤라 JWT 401 도 잡히고, 돌아온 뒤 userId 도 읽힌다
+                .addFilterAfter(new RequestLoggingFilter(), SecurityContextHolderFilter.class)
                 .build();
     }
 

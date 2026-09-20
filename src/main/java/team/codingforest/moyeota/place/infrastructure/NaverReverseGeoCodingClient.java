@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.common.logging.StageTimer;
 import team.codingforest.moyeota.place.domain.Address;
 import team.codingforest.moyeota.place.domain.RegionSearcher;
 import team.codingforest.moyeota.place.domain.exception.PlaceErrorCode;
@@ -26,7 +27,7 @@ public class NaverReverseGeoCodingClient implements RegionSearcher {
         NaverReverseGeocodeResponse response;
 
         try {
-            response = naverRestClient.get()
+            response = StageTimer.time("naver.reverse-geocode", () -> naverRestClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/map-reversegeocode/v2/gc")
                             .queryParam("coords", longitude + "," + latitude)
@@ -35,7 +36,7 @@ public class NaverReverseGeoCodingClient implements RegionSearcher {
 
                             .build())
                     .retrieve()
-                    .body(NaverReverseGeocodeResponse.class);
+                    .body(NaverReverseGeocodeResponse.class));
         } catch (RestClientException e) {
             log.warn("네이버 역지오코딩 실패 lat={}, lng={}", latitude, longitude, e);
             throw new BusinessException(PlaceErrorCode.REVERSE_GEOCODE_FAILED);

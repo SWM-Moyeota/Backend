@@ -47,3 +47,13 @@ jwt:
 moyeota:
   taxi:
     enabled: ${TAXI_ENABLED:true}
+
+# 콘솔(stdout)을 Logstash 포맷 JSON 으로. RequestLoggingFilter / StageTimer 의 key-value 와 MDC(requestId) 가 필드로 나간다.
+# 수집은 Logstash(또는 Filebeat) 가 컨테이너 stdout 을 읽어 Elasticsearch 로 보내는 구성을 전제로 한다.
+logging:
+  structured:
+    format:
+      console: logstash
+    json:
+      add:
+        application: moyeota

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.common.logging.StageTimer;
 import team.codingforest.moyeota.matching.domain.RouteEstimate;
 import team.codingforest.moyeota.matching.domain.RouteFinder;
 import team.codingforest.moyeota.matching.domain.RouteKey;
@@ -23,7 +24,7 @@ public class NaverDirectionsClient implements RouteFinder {
     public RouteEstimate find(RouteKey key) {
         NaverDirectionResponse response;
         try {
-            response = naverRestClient.get()
+            response = StageTimer.time("naver.directions", () -> naverRestClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/map-direction/v1/driving")
                             .queryParam("start", key.departureLng() + "," + key.departureLat())
@@ -31,7 +32,7 @@ public class NaverDirectionsClient implements RouteFinder {
                             .queryParam("option", OPTION)
                             .build())
                     .retrieve()
-                    .body(NaverDirectionResponse.class);
+                    .body(NaverDirectionResponse.class));
         } catch (RestClientException e) {
             // 외부 장애가 정체불명의 500으로 새지 않게 규격 안(502)으로 변환
             log.warn("네이버 경로 조회 실패 key={}", key, e);
