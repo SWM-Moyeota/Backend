@@ -1,0 +1,81 @@
+{
+  "environment": {
+    "date": "2026-09-20",
+    "platform": "macOS arm64",
+    "java_toolchain": 25,
+    "postgresql_major": 16,
+    "redis_major": 7,
+    "workers": 16,
+    "requests_per_scenario": 96,
+    "rounds": 3,
+    "hikari_maximum_pool_size": 16,
+    "sampling_interval_ms": 5,
+    "scope": "서비스 호출, 단일 JVM, 외부 경로/이벤트 소비 모의"
+  },
+  "db": {
+    "counts": {
+      "tests": 450,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "benchmark": [
+      "BENCHMARK strategy=DbMatchingAdmission scenario=동일사용자 round=1 requests=96 success=1 rejected=95 p50_ms=17.896 p95_ms=23.178 rps=984.9 peak_connections=16",
+      "BENCHMARK strategy=DbMatchingAdmission scenario=한방집중 round=1 requests=96 success=1 rejected=95 p50_ms=15.558 p95_ms=20.346 rps=977.4 peak_connections=16",
+      "BENCHMARK strategy=DbMatchingAdmission scenario=분산참가 round=1 requests=96 success=96 rejected=0 p50_ms=11.316 p95_ms=15.742 rps=1355.9 peak_connections=16",
+      "BENCHMARK strategy=DbMatchingAdmission scenario=동일사용자 round=2 requests=96 success=1 rejected=95 p50_ms=15.346 p95_ms=24.658 rps=1023.4 peak_connections=16",
+      "BENCHMARK strategy=DbMatchingAdmission scenario=한방집중 round=2 requests=96 success=1 rejected=95 p50_ms=12.468 p95_ms=16.236 rps=1294.4 peak_connections=16",
+      "BENCHMARK strategy=DbMatchingAdmission scenario=분산참가 round=2 requests=96 success=96 rejected=0 p50_ms=11.731 p95_ms=12.647 rps=1341.7 peak_connections=16",
+      "BENCHMARK strategy=DbMatchingAdmission scenario=동일사용자 round=3 requests=96 success=1 rejected=95 p50_ms=17.910 p95_ms=20.249 rps=977.7 peak_connections=16",
+      "BENCHMARK strategy=DbMatchingAdmission scenario=한방집중 round=3 requests=96 success=1 rejected=95 p50_ms=12.669 p95_ms=15.756 rps=1223.4 peak_connections=16",
+      "BENCHMARK strategy=DbMatchingAdmission scenario=분산참가 round=3 requests=96 success=96 rejected=0 p50_ms=10.410 p95_ms=11.721 rps=1522.7 peak_connections=16"
+    ]
+  },
+  "redis": {
+    "counts": {
+      "tests": 456,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "benchmark": [
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=동일사용자 round=1 requests=96 success=1 rejected=95 p50_ms=27.334 p95_ms=87.608 rps=532.7 peak_connections=1",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=한방집중 round=1 requests=96 success=1 rejected=95 p50_ms=20.284 p95_ms=28.194 rps=775.8 peak_connections=16",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=분산참가 round=1 requests=96 success=96 rejected=0 p50_ms=13.031 p95_ms=18.265 rps=1150.1 peak_connections=16",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=동일사용자 round=2 requests=96 success=1 rejected=95 p50_ms=2.236 p95_ms=100.690 rps=525.0 peak_connections=1",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=한방집중 round=2 requests=96 success=1 rejected=95 p50_ms=14.170 p95_ms=17.224 rps=1096.4 peak_connections=16",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=분산참가 round=2 requests=96 success=96 rejected=0 p50_ms=12.899 p95_ms=16.090 rps=1192.8 peak_connections=16",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=동일사용자 round=3 requests=96 success=1 rejected=95 p50_ms=12.428 p95_ms=106.562 rps=586.5 peak_connections=1",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=한방집중 round=3 requests=96 success=1 rejected=95 p50_ms=14.962 p95_ms=17.138 rps=1209.8 peak_connections=16",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=분산참가 round=3 requests=96 success=96 rejected=0 p50_ms=16.375 p95_ms=21.666 rps=937.9 peak_connections=16"
+    ]
+  },
+  "redis_expanded_comparison": {
+    "counts": {
+      "tests": 473,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "benchmark": [
+      "BENCHMARK strategy=LettuceMatchingAdmission scenario=동일사용자 round=1 requests=96 success=1 rejected=95 p50_ms=1.689 p95_ms=164.524 rps=435.1 peak_connections=1",
+      "BENCHMARK strategy=LettuceMatchingAdmission scenario=한방집중 round=1 requests=96 success=1 rejected=95 p50_ms=15.191 p95_ms=23.192 rps=967.8 peak_connections=16",
+      "BENCHMARK strategy=LettuceMatchingAdmission scenario=분산참가 round=1 requests=96 success=96 rejected=0 p50_ms=10.897 p95_ms=13.577 rps=1381.9 peak_connections=16",
+      "BENCHMARK strategy=LettuceMatchingAdmission scenario=동일사용자 round=2 requests=96 success=1 rejected=95 p50_ms=1.390 p95_ms=159.531 rps=459.0 peak_connections=1",
+      "BENCHMARK strategy=LettuceMatchingAdmission scenario=한방집중 round=2 requests=96 success=1 rejected=95 p50_ms=12.895 p95_ms=18.428 rps=1193.5 peak_connections=16",
+      "BENCHMARK strategy=LettuceMatchingAdmission scenario=분산참가 round=2 requests=96 success=96 rejected=0 p50_ms=11.848 p95_ms=22.677 rps=1176.8 peak_connections=16",
+      "BENCHMARK strategy=LettuceMatchingAdmission scenario=동일사용자 round=3 requests=96 success=1 rejected=95 p50_ms=1.616 p95_ms=150.390 rps=455.1 peak_connections=1",
+      "BENCHMARK strategy=LettuceMatchingAdmission scenario=한방집중 round=3 requests=96 success=1 rejected=95 p50_ms=14.372 p95_ms=19.055 rps=1189.8 peak_connections=16",
+      "BENCHMARK strategy=LettuceMatchingAdmission scenario=분산참가 round=3 requests=96 success=96 rejected=0 p50_ms=12.002 p95_ms=12.738 rps=1345.4 peak_connections=16",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=동일사용자 round=1 requests=96 success=1 rejected=95 p50_ms=2.670 p95_ms=114.726 rps=598.8 peak_connections=1",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=한방집중 round=1 requests=96 success=1 rejected=95 p50_ms=14.105 p95_ms=19.196 rps=1108.7 peak_connections=16",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=분산참가 round=1 requests=96 success=96 rejected=0 p50_ms=11.566 p95_ms=20.127 rps=1254.5 peak_connections=16",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=동일사용자 round=2 requests=96 success=1 rejected=95 p50_ms=1.490 p95_ms=141.726 rps=641.5 peak_connections=1",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=한방집중 round=2 requests=96 success=1 rejected=95 p50_ms=12.585 p95_ms=16.422 rps=1283.1 peak_connections=16",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=분산참가 round=2 requests=96 success=96 rejected=0 p50_ms=10.287 p95_ms=11.674 rps=1530.2 peak_connections=16",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=동일사용자 round=3 requests=96 success=1 rejected=95 p50_ms=24.110 p95_ms=74.743 rps=605.9 peak_connections=1",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=한방집중 round=3 requests=96 success=1 rejected=95 p50_ms=13.711 p95_ms=16.193 rps=1266.2 peak_connections=16",
+      "BENCHMARK strategy=RedisMatchingAdmission scenario=분산참가 round=3 requests=96 success=96 rejected=0 p50_ms=12.247 p95_ms=27.180 rps=1085.8 peak_connections=16"
+    ]
+  }
+}

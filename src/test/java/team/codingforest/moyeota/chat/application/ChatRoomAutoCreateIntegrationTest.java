@@ -27,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ChatRoomAutoCreateIntegrationTest {
     @Autowired PartyApplicationService partyService;
     @Autowired Parties parties;
+    @Autowired team.codingforest.moyeota.user.domain.Users users;
     @Autowired
     ChatRooms chatRooms;
     @Autowired
@@ -34,7 +35,8 @@ class ChatRoomAutoCreateIntegrationTest {
     @Test
     void 파티원이_들어오면_커밋_후_채팅방과_참여가_DB에_남는다() {
         long base = 900_000L + System.currentTimeMillis() % 90_000L;
-        long joiner = base + 1;
+        long joiner = users.save(team.codingforest.moyeota.user.domain.User.from(java.util.UUID.randomUUID(),
+                team.codingforest.moyeota.user.domain.enums.LoginType.LOCAL)).getId();
 
         // 방장은 리포지토리로 직접 넣어 이벤트를 태우지 않는다 - 채팅방 생성이 참여 이벤트만으로 일어나는지 본다
         Party party = parties.save(Party.open(base, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),

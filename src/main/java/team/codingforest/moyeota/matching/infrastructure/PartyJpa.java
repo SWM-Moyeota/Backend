@@ -21,6 +21,7 @@ import java.util.Optional;
 public class PartyJpa implements Parties {
 
     private final PartyJpaRepository delegate;
+    private final ActiveMatchParticipationStore activeParticipations;
 
     @Override
     public Optional<Party> findById(Long id) {
@@ -30,6 +31,7 @@ public class PartyJpa implements Parties {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public Party save(Party party) {
         PartyEntity entity;
 
@@ -43,7 +45,10 @@ public class PartyJpa implements Parties {
             entity.update(party);                           // 더티체킹
         }
 
-        return entity.toDomain();                           // 엔티티 -> 도메인
+        delegate.flush();
+        Party saved = entity.toDomain();
+        activeParticipations.synchronize(saved);
+        return saved;
     }
 
     @Override
