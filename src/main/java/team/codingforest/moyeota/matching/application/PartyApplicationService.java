@@ -26,6 +26,7 @@ import team.codingforest.moyeota.matching.domain.RouteKey;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
 import team.codingforest.moyeota.user.api.UserAccess;
+import team.codingforest.moyeota.user.api.IdentityAccess;
 
 import java.time.Instant;
 import java.util.List;
@@ -41,9 +42,11 @@ public class PartyApplicationService {
     private final DriverAccess driverAccess;
     private final UserAccess userAccess;
     private final PartyCompletionPolicy partyCompletionPolicy;
+    private final IdentityAccess identityAccess;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
+        identityAccess.requireVerified(command.creatorId());
         validateNotInOngoingParty(command.creatorId());
 
         RouteEstimate estimate = estimateRoute(command.departureLat(), command.departureLng(), command.destinationLat(), command.destinationLng());
@@ -71,6 +74,7 @@ public class PartyApplicationService {
 
     @Transactional
     public PartyDetailResult join(Long partyId, Long memberId) {
+        identityAccess.requireVerified(memberId);
         validateNotInOngoingParty(memberId);
         Party party = parties.findByIdForUpdate(partyId)
                         .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));

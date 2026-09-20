@@ -44,6 +44,7 @@ class PartyApplicationServiceTest {
     private FakeDriverAccess driverAccess;
     private FakeUserAccess userAccess;
     private PartyApplicationService service;
+    private final java.util.Set<Long> unverifiedUsers = new java.util.HashSet<>();
 
     @BeforeEach
     void setUp() {
@@ -56,11 +57,27 @@ class PartyApplicationServiceTest {
         service = serviceWith(new DispatchCompletionPolicy(events));   // 기본은 발표 모드 - 정원이 차면 배차 시작
     }
 
+    @Test
+    void 미인증_사용자는_방을_만들거나_참가할_수_없다() {
+        unverifiedUsers.add(host);
+        assertThatThrownBy(() -> service.open(createParty(host, 3)))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(team.codingforest.moyeota.user.domain.exception.IdentityErrorCode.REQUIRED);
+        PartyResult party = service.open(createParty(anotherHost, 3));
+        assertThatThrownBy(() -> service.join(party.id(), host))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(team.codingforest.moyeota.user.domain.exception.IdentityErrorCode.REQUIRED);
+        assertThat(service.getPartyDetail(party.id()).currentMembers()).isEqualTo(1);
+    }
+
     /** 정원 충족 정책만 갈아끼운 서비스. 정책이 쏘는 MatchingStartedEvent 도 같은 기록기에 쌓인다 */
     private PartyApplicationService serviceWith(PartyCompletionPolicy policy) {
         return new PartyApplicationService(parties, events,
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
-                new RouteCacheTest(), driverAccess, userAccess, policy);
+                new RouteCacheTest(), driverAccess, userAccess, policy, userId -> {
+                    if (unverifiedUsers.contains(userId)) throw new BusinessException(
+                            team.codingforest.moyeota.user.domain.exception.IdentityErrorCode.REQUIRED);
+                });
     }
 
     @Test

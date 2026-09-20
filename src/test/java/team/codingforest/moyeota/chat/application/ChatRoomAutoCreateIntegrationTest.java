@@ -25,6 +25,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @SpringBootTest
 class ChatRoomAutoCreateIntegrationTest {
+    // 이 테스트는 참여 이벤트의 커밋을 검증한다. 본인인증 정책은 별도 통합 테스트에서 검증한다.
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    team.codingforest.moyeota.user.application.IdentityVerificationService identityAccess;
     @Autowired PartyApplicationService partyService;
     @Autowired Parties parties;
     @Autowired

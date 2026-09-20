@@ -40,6 +40,11 @@ fcm:
 portone:
   api:
     secret: ${PORTONE_SECRET:}
+  identity:
+    store-id: ${PORTONE_STORE_ID:}
+    channel-key: ${PORTONE_IDENTITY_CHANNEL_KEY:}
+    di-hash-key: ${PORTONE_DI_HASH_KEY:}
+    request-validity: 10m
 
 # user 모듈 JWT 설정. secret 은 base64, 로컬 기본값은 개발용이라 운영은 JWT_SECRET 환경변수 필수
 jwt:
