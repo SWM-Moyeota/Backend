@@ -72,7 +72,8 @@ public class PartyApplicationService {
     }
 
     public PartyDetailResult join(Long partyId, Long memberId) {
-        return admission.execute(memberId, () -> {
+        // 사용자 → 방 순서로 Redis 잠금을 잡은 뒤에야 DB 트랜잭션을 연다. 한 방에 몰린 요청은 여기서 대기한다.
+        return admission.execute(memberId, partyId, () -> {
             validateNotInOngoingParty(memberId);
             Party party = parties.findByIdForUpdate(partyId)
                             .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
