@@ -1,0 +1,76 @@
+# 부하테스트 모니터링 스택. 앱·Postgres·Redis 와는 별개로 띄운다.
+#   cd loadtest && docker compose up -d
+#   Grafana http://localhost:3000 (admin / admin), Prometheus http://localhost:9090
+# Postgres/Redis 는 루트 docker-compose.yml 이 호스트 포트(5432/6379)로 노출한 것을 exporter 가 붙는다.
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: moyeota-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-remote-write-receiver     # k6 -o experimental-prometheus-rw 수신
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    container_name: moyeota-grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"   # 3000 이 이미 쓰이면 GRAFANA_PORT=3001 로
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANONYMOUS:-false}   # 로컬에서 로그인 없이 보려면 GRAFANA_ANONYMOUS=true
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: moyeota-node-exporter
+    pid: host
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    # macOS Docker Desktop 에서는 Linux VM 의 수치가 나온다. EC2 에서는 호스트 그대로.
+    ports:
+      - "9100:9100"
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.75.0
+    container_name: moyeota-redis-exporter
+    environment:
+      REDIS_ADDR: redis://host.docker.internal:${REDIS_PORT:-6379}
+    ports:
+      - "9121:9121"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: moyeota-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: postgresql://${DATABASE_USERNAME:-moyeota}:${DATABASE_PASSWORD:-moyeota}@host.docker.internal:${DATABASE_PORT:-5432}/moyeota?sslmode=disable
+    ports:
+      - "9187:9187"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  prometheus_data:
+  grafana_data:

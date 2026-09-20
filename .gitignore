@@ -46,3 +46,10 @@ application-local.yml
 ### secrets 폴더 내에 json 파일
 /secrets/
 dump.rdb
+
+### 부하테스트 결과물
+loadtest/results/
+
+### 로컬 로그 / Claude Code 작업 폴더
+logs/
+.claude/

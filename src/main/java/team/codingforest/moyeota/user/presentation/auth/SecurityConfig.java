@@ -45,6 +45,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**", "/api/v1/config", "/ws-chat/**", "/health").permitAll()
+                        .requestMatchers("/prometheus").permitAll()   // actuator 메트릭. loadtest 프로필에서만 exposure 에 포함되고 그 외엔 404
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthenticationFilter(authService, entryPoint), AuthorizationFilter.class)

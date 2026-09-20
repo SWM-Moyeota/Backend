@@ -1,0 +1,54 @@
+# 부하테스트 프로필 - 운영과 같은 조건(Postgres + Flyway + validate)에 메트릭 노출과 외부 API 스텁만 얹는다
+#   docker compose up -d && ./gradlew bootRun --args='--spring.profiles.active=loadtest'
+# 차이점
+#   - /prometheus 노출 + http.server.requests 히스토그램 (p95/p99 계산용)
+#   - 네이버 경로 API → StubRouteFinder (직선거리 기반 추정치)
+#   - FCM → service-account-path 비움 → Logging*Notifier 로 대체
+#   - access 토큰 3시간 (k6 setup 에서 한 번 로그인해 테스트 내내 재사용)
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/moyeota}
+    driver-class-name: org.postgresql.Driver
+    username: ${DATABASE_USERNAME:moyeota}
+    password: ${DATABASE_PASSWORD:moyeota}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}   # 운영 기본값과 동일. 병목이면 이 값을 바꿔가며 비교
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health,prometheus
+  metrics:
+    tags:
+      application: moyeota
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true
+      slo:
+        "[http.server.requests]": 50ms,100ms,200ms,300ms,500ms,1s,2s,5s
+
+fcm:
+  service-account-path: ""
+
+jwt:
+  access-token-validity: 3h
+
+moyeota:
+  taxi:
+    enabled: ${TAXI_ENABLED:true}   # 매칭 단독 시나리오는 false 로 띄운다 (docs/loadtest/scenarios.md 참고)
+
+logging:
+  level:
+    team.codingforest.moyeota: ${LOG_LEVEL:INFO}

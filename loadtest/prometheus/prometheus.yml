@@ -1,0 +1,35 @@
+# 앱은 도커 밖(호스트)에서 돌고 exporter 는 컨테이너 - 호스트는 host.docker.internal 로 접근
+# EC2(Linux) 에서는 docker-compose.yml 의 extra_hosts 가 host-gateway 로 매핑해 준다
+global:
+  scrape_interval: 5s      # 부하테스트는 짧은 구간 변화를 봐야 해서 기본(15s)보다 촘촘하게
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: moyeota
+    metrics_path: /prometheus
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+        labels:
+          instance: app
+
+  - job_name: node
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          instance: app-host
+
+  - job_name: redis
+    static_configs:
+      - targets: ['redis-exporter:9121']
+        labels:
+          instance: redis
+
+  - job_name: postgres
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+        labels:
+          instance: postgres
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
