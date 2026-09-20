@@ -8,7 +8,10 @@ import org.springframework.boot.test.context.SpringBootTest;
  *  로컬 docker Postgres(5432) 또는 CI 의 postgres 서비스가 필요하다. 기본(H2) 프로필 테스트와는 별개.
  *  엔티티를 바꿨는데 이 테스트가 실패하면 답은 "새 V{n} 마이그레이션 추가" 이지 이 테스트 수정이 아니다.
  */
-@SpringBootTest(properties = {"spring.profiles.active=dev", "spring.jpa.hibernate.ddl-auto=validate"})
+@SpringBootTest(properties = {"spring.profiles.active=dev", "spring.jpa.hibernate.ddl-auto=validate",
+        "spring.flyway.schemas=matching_migration_test",
+        "spring.jpa.properties.hibernate.default_schema=matching_migration_test",
+        "spring.datasource.hikari.connection-init-sql=SET search_path TO matching_migration_test"})
 class FlywayMigrationTest {
 
     @Test

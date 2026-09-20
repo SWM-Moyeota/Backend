@@ -69,3 +69,12 @@ management:
 moyeota:
   taxi:
     enabled: ${TAXI_ENABLED:true}
+
+# 매칭 입장 분산 락 전용 연결. 운영 TLS는 rediss:// 주소를 지정한다.
+matching:
+  lock:
+    redis:
+      address: ${MATCHING_LOCK_REDIS_ADDRESS:redis://${spring.data.redis.host:localhost}:${spring.data.redis.port:6379}}
+      username: ${MATCHING_LOCK_REDIS_USERNAME:${spring.data.redis.username:}}
+      password: ${MATCHING_LOCK_REDIS_PASSWORD:${spring.data.redis.password:}}
+      database: ${MATCHING_LOCK_REDIS_DATABASE:${spring.data.redis.database:0}}

@@ -29,6 +29,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'org.redisson:redisson:4.6.1' // 분산 락 전용. 기존 Spring Data Redis 구성은 유지
 	implementation 'org.springframework.modulith:spring-modulith-starter-core'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.modulith:spring-modulith-starter-jpa'       // 아웃박스 패턴 적용하기 위한 이벤트 발생 기록을 JPA로 저장

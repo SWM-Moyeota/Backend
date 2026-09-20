@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 
 @DataJpaTest
-@Import({PartyJpa.class, JpaAuditingConfig.class})
+@Import({PartyJpa.class, ActiveMatchParticipationStore.class, JpaAuditingConfig.class})
 class PartyJpaPersistenceTest {
     private final PartyJpa parties;
     private final PartyJpaRepository repository;
@@ -62,8 +62,8 @@ class PartyJpaPersistenceTest {
         Instant 하루전 = Instant.now().minus(Duration.ofDays(1));
         Location 강남역 = new Location(37.4979, 127.0276);
         Location 판교역 = new Location(37.3948, 127.1112);
-        Party seed = Party.open(1L, 강남역, 판교역, "강남역", "판교역", new Capacity(2), 하루전, new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
-        seed.join(2L);   // 멤버 목록만 빌려 쓴다
+        Party seed = Party.open(101L, 강남역, 판교역, "강남역", "판교역", new Capacity(2), 하루전, new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
+        seed.join(102L);   // 멤버 목록만 빌려 쓴다
         Party 오래된방 = parties.save(Party.restore(null, 강남역, 판교역, new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
                 seed.getMembers(), 하루전, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", null, null, 하루전));
         Party 방금찬방 = openAndSave();

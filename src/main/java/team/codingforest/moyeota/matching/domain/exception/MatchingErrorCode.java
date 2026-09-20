@@ -10,6 +10,9 @@ public enum MatchingErrorCode implements ErrorCode {
     PARTY_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 방입니다."),
     ASSIGNED_DRIVER_NOT_FOUND(HttpStatus.NOT_FOUND, "기사 정보를 찾을 수 없습니다."),
 
+    MATCHING_BUSY(HttpStatus.CONFLICT, "매칭 요청이 처리 중입니다. 잠시 후 다시 시도해 주세요."),
+    MATCHING_LOCK_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "매칭 잠금 서비스를 사용할 수 없습니다."),
+
     // 참여/이탈
     ALREADY_JOINED_OTHER_PARTY(HttpStatus.CONFLICT, "이미 참여 중인 방이 있습니다."),
     ALREADY_JOINED_PARTY(HttpStatus.CONFLICT, "이미 참여한 방입니다."),
