@@ -55,5 +55,24 @@ dependencies {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+    useJUnitPlatform { excludeTags 'search-integration', 'search-benchmark' }
+}
+
+tasks.register('searchIntegrationTest', Test) {
+    description = '실제 Elasticsearch와 PostgreSQL 기반 채팅 검색 검증'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'search-integration' }
+    shouldRunAfter test
+}
+
+
+tasks.register('searchBenchmark', Test) {
+    description = '합성 메시지로 DB와 Elasticsearch 검색 지연 비교'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'search-benchmark' }
+    outputs.upToDateWhen { false }
 }

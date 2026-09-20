@@ -1,0 +1,6 @@
+chat:
+  search:
+    enabled: true
+    url: ${ELASTICSEARCH_URL:http://localhost:19200}
+    index: ${ELASTICSEARCH_CHAT_INDEX:chat-messages-v1}
+    api-key: ${ELASTICSEARCH_API_KEY:}

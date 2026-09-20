@@ -7,6 +7,10 @@ import java.util.Optional;
 public interface ChatMessages {
     Optional<ChatMessage> findById(Long id);
 
+    default List<ChatMessage> findByIds(List<Long> ids) {
+        return ids.stream().map(this::findById).flatMap(Optional::stream).toList();
+    }
+
     ChatMessage save(ChatMessage chatMessage);
 
     List<ChatMessage> findBefore(Long chatRoomId, Long cursor, int size);

@@ -10,6 +10,15 @@ import org.springframework.boot.test.context.SpringBootTest;
  */
 @SpringBootTest(properties = {"spring.profiles.active=dev", "spring.jpa.hibernate.ddl-auto=validate"})
 class FlywayMigrationTest {
+    @org.springframework.test.context.DynamicPropertySource
+    static void database(org.springframework.test.context.DynamicPropertyRegistry registry) {
+        if (System.getenv("SEARCH_TEST_JDBC_URL") != null) {
+            registry.add("spring.datasource.url", () -> System.getenv("SEARCH_TEST_JDBC_URL"));
+            registry.add("spring.datasource.username", () -> System.getenv().getOrDefault("SEARCH_TEST_DB_USER", "search_test"));
+            registry.add("spring.datasource.password", () -> System.getenv().getOrDefault("SEARCH_TEST_DB_PASSWORD", "search_test"));
+        }
+    }
+
 
     @Test
     void 마이그레이션_적용_후_엔티티와_스키마가_일치한다() {

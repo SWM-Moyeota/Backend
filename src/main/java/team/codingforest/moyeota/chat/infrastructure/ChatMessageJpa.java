@@ -8,6 +8,9 @@ import team.codingforest.moyeota.chat.domain.ChatMessages;
 import team.codingforest.moyeota.chat.domain.enums.ChatMessageStatus;
 import team.codingforest.moyeota.chat.infrastructure.entity.ChatMessageEntity;
 
+import org.springframework.transaction.annotation.Transactional;
+import team.codingforest.moyeota.chat.infrastructure.search.SearchOutboxEntry;
+import team.codingforest.moyeota.chat.infrastructure.search.SearchOutboxRepository;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -18,6 +21,9 @@ import java.util.stream.Collectors;
 public class ChatMessageJpa implements ChatMessages {
 
     private final ChatMessageJpaRepository jpaRepository;
+    private final SearchOutboxRepository searchOutbox;
+    @org.springframework.beans.factory.annotation.Value("${chat.search.enabled:false}")
+    private boolean searchEnabled;
 
     @Override
     public Optional<ChatMessage> findById(Long id) {
@@ -25,10 +31,21 @@ public class ChatMessageJpa implements ChatMessages {
     }
 
     @Override
+    @Transactional
     public ChatMessage save(ChatMessage chatMessage) {
         ChatMessageEntity entity = ChatMessageEntity.from(chatMessage);
-        jpaRepository.save(entity);
-        return entity.toDomain();
+        ChatMessage saved = jpaRepository.save(entity).toDomain();
+        if (searchEnabled) {
+            // 기존 행의 변경 잠금을 획득한 뒤 이벤트 버전을 발급한다.
+            jpaRepository.flush();
+            searchOutbox.save(SearchOutboxEntry.of(saved));
+        }
+        return saved;
+    }
+
+    @Override
+    public List<ChatMessage> findByIds(List<Long> ids) {
+        return jpaRepository.findAllById(ids).stream().map(ChatMessageEntity::toDomain).toList();
     }
 
     @Override

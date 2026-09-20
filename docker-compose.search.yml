@@ -1,0 +1,37 @@
+# 기존 개발 서비스와 격리된 검색 검증 환경. 운영 환경에서는 보안/TLS를 활성화한다.
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:16379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.0
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "127.0.0.1:19200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: search_test
+      POSTGRES_USER: search_test
+      POSTGRES_PASSWORD: search_test
+    ports:
+      - "127.0.0.1:15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U search_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 20

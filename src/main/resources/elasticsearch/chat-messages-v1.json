@@ -1,0 +1,25 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1,
+    "refresh_interval": "1s",
+    "analysis": {
+      "tokenizer": { "message_bigram": { "type": "ngram", "min_gram": 2, "max_gram": 2 } },
+      "analyzer": { "message_partial": { "type": "custom", "tokenizer": "message_bigram", "filter": ["lowercase"] } }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "messageId": { "type": "long" },
+      "roomId": { "type": "long" },
+      "senderId": { "type": "long" },
+      "deleted": { "type": "boolean" },
+      "sentAt": { "type": "date_nanos" },
+      "content": {
+        "type": "text", "analyzer": "standard", "index_options": "offsets",
+        "fields": { "partial": { "type": "text", "analyzer": "message_partial", "index_options": "offsets" } }
+      }
+    }
+  }
+}
