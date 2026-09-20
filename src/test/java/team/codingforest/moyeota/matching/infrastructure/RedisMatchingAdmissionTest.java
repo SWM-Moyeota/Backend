@@ -19,9 +19,57 @@ class RedisMatchingAdmissionTest {
     private final RLock lock = mock(RLock.class);
     private final RedisMatchingAdmission admission = new RedisMatchingAdmission(transactions, clients);
 
+    private final RLock partyLock = mock(RLock.class);
+
     private void available() {
         when(clients.getObject()).thenReturn(client);
         when(client.getLock("moyeota:matching:member:1")).thenReturn(lock);
+        when(client.getLock("moyeota:matching:party:7")).thenReturn(partyLock);
+    }
+
+    // ───────────────────────── 참가: 사용자 → 방 두 잠금 ─────────────────────────
+
+    @Test
+    void 참가는_사용자_락_다음에_방_락을_잡고_커밋_뒤_역순으로_푼다() throws Exception {
+        available();
+        when(lock.tryLock(2, TimeUnit.SECONDS)).thenReturn(true);
+        when(partyLock.tryLock(2, TimeUnit.SECONDS)).thenReturn(true);
+        when(transactions.execute(any())).thenReturn("커밋된 결과");
+
+        assertThat(admission.execute(1L, 7L, () -> "결과")).isEqualTo("커밋된 결과");
+
+        var order = inOrder(lock, partyLock, transactions);
+        order.verify(lock).tryLock(2, TimeUnit.SECONDS);        // 순서가 고정돼야 교착이 없다
+        order.verify(partyLock).tryLock(2, TimeUnit.SECONDS);
+        order.verify(transactions).execute(any());
+        order.verify(partyLock).unlock();
+        order.verify(lock).unlock();
+    }
+
+    @Test
+    void 방_락_대기에_실패하면_사용자_락을_돌려주고_트랜잭션을_시작하지_않는다() throws Exception {
+        available();
+        when(lock.tryLock(2, TimeUnit.SECONDS)).thenReturn(true);
+        when(partyLock.tryLock(2, TimeUnit.SECONDS)).thenReturn(false);
+
+        assertThatThrownBy(() -> admission.execute(1L, 7L, () -> true)).isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(MATCHING_BUSY);
+
+        verify(lock).unlock();                 // 사용자 락을 쥔 채 실패하면 같은 사용자의 다음 요청이 2초를 더 기다린다
+        verify(partyLock, never()).unlock();   // 못 잡은 락은 풀지 않는다
+        verifyNoInteractions(transactions);
+    }
+
+    @Test
+    void 방_락_해제_실패가_사용자_락_해제와_성공_결과를_막지_않는다() throws Exception {
+        available();
+        when(lock.tryLock(2, TimeUnit.SECONDS)).thenReturn(true);
+        when(partyLock.tryLock(2, TimeUnit.SECONDS)).thenReturn(true);
+        when(transactions.execute(any())).thenReturn("커밋된 결과");
+        doThrow(new IllegalMonitorStateException("만료된 소유권")).when(partyLock).unlock();
+
+        assertThat(admission.execute(1L, 7L, () -> "결과")).isEqualTo("커밋된 결과");
+        verify(lock).unlock();
     }
 
     @Test

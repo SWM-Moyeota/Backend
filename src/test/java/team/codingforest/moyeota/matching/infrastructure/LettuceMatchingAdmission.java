@@ -34,14 +34,44 @@ class LettuceMatchingAdmission implements MatchingAdmission {
         String token = UUID.randomUUID().toString();
         acquire(key, token);
         try {
+            return run(operation);
+        } finally {
+            release(key, token);
+        }
+    }
+    /** Redisson 어댑터와 같은 사용자 → 방 순서. 방 키를 못 잡으면 사용자 키를 바로 돌려준다. */
+    @Override
+    public <T> T execute(Long memberId, Long partyId, Supplier<T> operation) {
+        MatchingTransactions.requireNoTransaction();
+        String memberKey = "moyeota:matching:lettuce:member:" + memberId;
+        String partyKey = "moyeota:matching:lettuce:party:" + partyId;
+        String memberToken = UUID.randomUUID().toString();
+        String partyToken = UUID.randomUUID().toString();
+        acquire(memberKey, memberToken);
+        try {
+            acquire(partyKey, partyToken);
+        } catch (RuntimeException e) {
+            release(memberKey, memberToken);
+            throw e;
+        }
+        try {
+            return run(operation);
+        } finally {
+            release(partyKey, partyToken);
+            release(memberKey, memberToken);
+        }
+    }
+    private <T> T run(Supplier<T> operation) {
+        try {
             return transactions.execute(operation);
         } catch (PessimisticLockingFailureException | QueryTimeoutException | TransactionTimedOutException e) {
             throw new BusinessException(MatchingErrorCode.MATCHING_BUSY);
-        } finally {
-            try { redis.execute(RELEASE, List.of(key), token); }
-            catch (RuntimeException e) {
-                log.warn("실험용 잠금 해제 실패 memberId={} errorType={}", memberId, e.getClass().getSimpleName());
-            }
+        }
+    }
+    private void release(String key, String token) {
+        try { redis.execute(RELEASE, List.of(key), token); }
+        catch (RuntimeException e) {
+            log.warn("실험용 잠금 해제 실패 key={} errorType={}", key, e.getClass().getSimpleName());
         }
     }
     private void acquire(String key, String token) {

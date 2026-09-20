@@ -162,6 +162,36 @@ class MatchingConcurrencyTest {
     }
 
     @Test
+    void 한_방에_몰린_참가는_방_잠금에서_대기해_DB_연결을_동시에_점유하지_않는다() throws Exception {
+        // 방 잠금이 DB 행 잠금뿐이면 대기자 전원이 커넥션을 쥔 채 기다린다(이전 측정 한방집중 관측 최대 연결 16).
+        // Redis 방 잠금은 트랜잭션을 열기 전에 대기시키므로 동시에 열린 트랜잭션은 하나여야 한다.
+        Long room = room();
+        List<Supplier<?>> tasks = new ArrayList<>();
+        for (int i = 0; i < 12; i++) { Long member = user(); tasks.add(() -> service.join(room, member)); }
+        var hikari = dataSource.unwrap(com.zaxxer.hikari.HikariDataSource.class);
+        var peakConnections = new java.util.concurrent.atomic.AtomicInteger();
+        List<String> results;
+        try (var sampler = Executors.newSingleThreadScheduledExecutor()) {
+            sampler.scheduleAtFixedRate(() -> peakConnections.accumulateAndGet(
+                    hikari.getHikariPoolMXBean().getActiveConnections(), Math::max), 0, 1, TimeUnit.MILLISECONDS);
+            results = race(tasks);
+            sampler.shutdownNow();
+        }
+        assertThat(results.stream().filter("성공"::equals).count()).isEqualTo(1);
+        assertThat(peakConnections.get()).as("방 잠금 대기자는 DB 트랜잭션을 열기 전에 기다려야 한다").isLessThanOrEqualTo(1);
+    }
+
+    @Test
+    void 서로_다른_방에_참가하는_사용자들은_서로_기다리지_않는다() throws Exception {
+        var barrier = new CyclicBarrier(2);
+        Long a = user(), b = user(), roomA = room(), roomB = room();
+        assertThat(race(List.of(
+                () -> admission.execute(a, roomA, () -> { await(barrier); return true; }),
+                () -> admission.execute(b, roomB, () -> { await(barrier); return true; }))))
+                .containsExactly("성공", "성공");
+    }
+
+    @Test
     void 서로_다른_사용자는_전역_잠금으로_직렬화하지_않는다() throws Exception {
         var barrier = new CyclicBarrier(2);
         Long a = user(), b = user();
