@@ -47,3 +47,19 @@ jwt:
 moyeota:
   taxi:
     enabled: ${TAXI_ENABLED:true}
+
+# 구조화 로그 - 운영에서만 JSON. 로컬(기본 프로필)은 사람이 읽는 텍스트 그대로
+#   logstash 형식: @timestamp, level, message, logger_name, thread_name + MDC(req_id, user_id) + addKeyValue 필드가 최상위 키로 나간다
+#   저장소(CloudWatch Logs)에서 level=ERROR AND user_id=1234 / req_id=... 처럼 필드 단위로 검색·집계·알림
+logging:
+  structured:
+    format:
+      console: logstash
+    json:
+      add:
+        application: moyeota
+      stacktrace:
+        max-length: 4000   # 한 줄에 스택 전체를 실으면 저장소 비용만 든다
+  level:
+    root: INFO   # DEBUG 는 운영에서 끈다. 특정 패키지만 필요하면 LOG_LEVEL 로
+    team.codingforest.moyeota: ${LOG_LEVEL:INFO}

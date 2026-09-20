@@ -6,10 +6,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
+import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
+import team.codingforest.moyeota.common.logging.LogFields;
 import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
 import team.codingforest.moyeota.user.application.AuthService;
 import team.codingforest.moyeota.user.domain.exception.UserException;
@@ -43,6 +45,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             AuthenticatedPrincipal principal = authService.authenticate(header.substring(BEARER_PREFIX.length()).trim());
             SecurityContextHolder.getContext()
                     .setAuthentication(new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+            MDC.put(LogFields.USER_ID, String.valueOf(principal.userId()));   // 이후 이 요청의 모든 로그에 user_id. 정리는 RequestIdFilter
         } catch (UserException e) {
             entryPoint.write(response, e.getErrorCode());
             return;
