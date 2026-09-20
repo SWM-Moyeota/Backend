@@ -1,0 +1,71 @@
+# 매칭 잠금 실험용 Redis Cluster 토폴로지: 마스터 3 + 마스터당 복제본 1 = 6노드, 16384 슬롯을 세 마스터가 나눠 가진다
+#
+# Sentinel 실험과 같은 이유로 노드가 자신을 호스트 LAN IP(HOST_IP)로 알린다(cluster-announce-ip). 클라이언트는 CLUSTER SLOTS 로 받은
+# 그 주소로 각 샤드에 직접 붙는다. 포트 7001~7006(데이터), 17001~17006(클러스터 버스). 기본 docker-compose.yml(6379)과 겹치지 않는다.
+#   infra/matching-lock/up.sh cluster
+#   ./gradlew matchingLockTopologyTest -Dmatching.lock.topology=cluster
+#   ./gradlew matchingLockTopologyTest -Dmatching.lock.topology=cluster -Dmatching.lock.failover=true
+#   docker compose -f infra/matching-lock/compose.cluster.yaml down -v
+name: moyeota-lock-cluster
+x-node: &node
+  image: redis:7-alpine
+  healthcheck:
+    test: ["CMD-SHELL", "redis-cli -p $$REDIS_PORT ping"]
+    interval: 1s
+    timeout: 1s
+    retries: 30
+services:
+  redis-1:
+    <<: *node
+    ports: ["7001:7001", "17001:17001"]
+    environment: { REDIS_PORT: "7001" }
+    command: ["redis-server", "--port", "7001", "--appendonly", "no", "--cluster-enabled", "yes", "--cluster-config-file", "nodes.conf",
+              "--cluster-node-timeout", "3000", "--cluster-announce-ip", "${HOST_IP:?infra/matching-lock/up.sh 로 띄우세요}",
+              "--cluster-announce-port", "7001", "--cluster-announce-bus-port", "17001"]
+  redis-2:
+    <<: *node
+    ports: ["7002:7002", "17002:17002"]
+    environment: { REDIS_PORT: "7002" }
+    command: ["redis-server", "--port", "7002", "--appendonly", "no", "--cluster-enabled", "yes", "--cluster-config-file", "nodes.conf",
+              "--cluster-node-timeout", "3000", "--cluster-announce-ip", "${HOST_IP}",
+              "--cluster-announce-port", "7002", "--cluster-announce-bus-port", "17002"]
+  redis-3:
+    <<: *node
+    ports: ["7003:7003", "17003:17003"]
+    environment: { REDIS_PORT: "7003" }
+    command: ["redis-server", "--port", "7003", "--appendonly", "no", "--cluster-enabled", "yes", "--cluster-config-file", "nodes.conf",
+              "--cluster-node-timeout", "3000", "--cluster-announce-ip", "${HOST_IP}",
+              "--cluster-announce-port", "7003", "--cluster-announce-bus-port", "17003"]
+  redis-4:
+    <<: *node
+    ports: ["7004:7004", "17004:17004"]
+    environment: { REDIS_PORT: "7004" }
+    command: ["redis-server", "--port", "7004", "--appendonly", "no", "--cluster-enabled", "yes", "--cluster-config-file", "nodes.conf",
+              "--cluster-node-timeout", "3000", "--cluster-announce-ip", "${HOST_IP}",
+              "--cluster-announce-port", "7004", "--cluster-announce-bus-port", "17004"]
+  redis-5:
+    <<: *node
+    ports: ["7005:7005", "17005:17005"]
+    environment: { REDIS_PORT: "7005" }
+    command: ["redis-server", "--port", "7005", "--appendonly", "no", "--cluster-enabled", "yes", "--cluster-config-file", "nodes.conf",
+              "--cluster-node-timeout", "3000", "--cluster-announce-ip", "${HOST_IP}",
+              "--cluster-announce-port", "7005", "--cluster-announce-bus-port", "17005"]
+  redis-6:
+    <<: *node
+    ports: ["7006:7006", "17006:17006"]
+    environment: { REDIS_PORT: "7006" }
+    command: ["redis-server", "--port", "7006", "--appendonly", "no", "--cluster-enabled", "yes", "--cluster-config-file", "nodes.conf",
+              "--cluster-node-timeout", "3000", "--cluster-announce-ip", "${HOST_IP}",
+              "--cluster-announce-port", "7006", "--cluster-announce-bus-port", "17006"]
+  cluster-init:
+    image: redis:7-alpine
+    environment: { HOST_IP: "${HOST_IP}" }
+    entrypoint: ["sh", "/init-cluster.sh"]
+    volumes: ["./init-cluster.sh:/init-cluster.sh:ro"]
+    depends_on:
+      redis-1: { condition: service_healthy }
+      redis-2: { condition: service_healthy }
+      redis-3: { condition: service_healthy }
+      redis-4: { condition: service_healthy }
+      redis-5: { condition: service_healthy }
+      redis-6: { condition: service_healthy }
