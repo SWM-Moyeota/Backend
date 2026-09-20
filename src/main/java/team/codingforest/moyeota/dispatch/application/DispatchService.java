@@ -2,12 +2,14 @@ package team.codingforest.moyeota.dispatch.application;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.dispatch.application.event.CallAcceptedEvent;
+import team.codingforest.moyeota.dispatch.application.event.CallOpenedEvent;
 import team.codingforest.moyeota.dispatch.domain.CallCandidates;
-import team.codingforest.moyeota.dispatch.domain.CallNotifier;
 import team.codingforest.moyeota.dispatch.domain.DriverLocations;
 import team.codingforest.moyeota.dispatch.domain.exception.DispatchErrorCode;
 import team.codingforest.moyeota.driver.api.DriverAccess;
@@ -17,6 +19,10 @@ import team.codingforest.moyeota.matching.api.PartySummary;
 import java.time.Duration;
 import java.util.List;
 
+/**
+ *  트랜잭션 안에는 DB 판단과 상태 변경만 둔다. Redis 후보 명단 갱신과 FCM 알림은
+ *  이벤트로 넘겨 커밋 뒤에 {@link DispatchEventListener} 가 처리한다.
+ */
 // TODO 예외처리 작성해야함
 @Service
 @Slf4j
@@ -26,8 +32,8 @@ public class DispatchService {
     private final PartyAccess partyAccess;
     private final DriverAccess driverAccess;
     private final DriverLocations driverLocations;
-    private final CallNotifier callNotifier;
     private final CallCandidates callCandidates;
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final int INITIAL_RADIUS_METERS = 1000;
     private static final int RADIUS_STEP_METERS = 500;
@@ -37,11 +43,15 @@ public class DispatchService {
     /**
      *      매칭방을 기준으로 3km 이내의 기사들을 찾고 콜 뿌리기
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public void dispatch(Long partyId) {
         attempt(partyId, INITIAL_RADIUS_METERS);
     }
 
+    /**
+     *      콜 수락 - 기사 배정만 커밋하고, 후보 정리·탈락 기사 마감 통지는 커밋 후 리스너가 한다.
+     *      assignDriver 가 방 행에 FOR UPDATE 락을 잡으므로 여기서 하는 일이 곧 락 보유 시간이다.
+     */
     @Transactional
     public void acceptCall(Long partyId, Long driverId) {
         if(!callCandidates.contains(partyId, driverId)) throw new BusinessException(DispatchErrorCode.CALL_CLOSED);
@@ -61,11 +71,9 @@ public class DispatchService {
                 .filter(id -> !id.equals(driverId))
                 .toList();
 
-        callCandidates.clear(partyId);
-        driverLocations.remove(driverId);
-        callNotifier.notifyCallClosed(losers, partyId);
+        eventPublisher.publishEvent(new CallAcceptedEvent(partyId, driverId, losers));
 
-        log.info("콜 수락 partyId={}, driverId={}, 콜 알림 취소된 사람 = {}명", partyId, driverId, losers.size());
+        log.info("콜 수락 partyId={}, driverId={}, 커밋 후 마감 통지 예정={}명", partyId, driverId, losers.size());
     }
 
     @Transactional
@@ -78,7 +86,10 @@ public class DispatchService {
         log.info("콜 거절 partyId={}, driverId={}, 남은 후보={}명", partyId, driverId, remaining);
     }
 
-    @Transactional
+    /**
+     *      반경 안의 신규 기사를 고른다. DB 는 읽기만 하고, 후보 등록과 콜 알림은 커밋 후 리스너가 한다.
+     */
+    @Transactional(readOnly = true)
     public void attempt(Long partyId, int radiusMeters) {
         PartySummary party = partyAccess.findSummary(partyId)
                 .orElseThrow(() -> new BusinessException(DispatchErrorCode.PARTY_NOT_FOUND));
@@ -99,10 +110,9 @@ public class DispatchService {
             return;
         }
 
-        callCandidates.add(partyId, fresh);
-        callNotifier.notifyCall(fresh, party);
+        eventPublisher.publishEvent(new CallOpenedEvent(partyId, fresh, party));
 
-        log.info("기사 호출 partyId={}, radius={}m, 신규={}명, 누적={}명", partyId, radiusMeters, fresh.size(), already.size() + fresh.size());
+        log.info("기사 탐색 partyId={}, radius={}m, 신규={}명, 누적={}명 - 커밋 후 호출", partyId, radiusMeters, fresh.size(), already.size() + fresh.size());
     }
 
     public int radiusFor(Duration elapsed) {
