@@ -1,5 +1,3 @@
-# k6 서버에서 띄운다. 대상 서버에는 아무것도 안 띄운다.
-#   docker compose -f infra/monitoring/docker-compose.yml up -d
 services:
   prometheus:
     image: prom/prometheus:v3.5.0
