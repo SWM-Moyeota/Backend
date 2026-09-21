@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DATABASE_HOST}/neondb?sslmode=require
+    url: jdbc:postgresql://${DATABASE_HOST}/${DATABASE_NAME:moyeota}?sslmode=require
     driver-class-name: org.postgresql.Driver
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
@@ -47,3 +47,7 @@ jwt:
 moyeota:
   taxi:
     enabled: ${TAXI_ENABLED:false}
+
+management:
+  server:
+    port: 9091
