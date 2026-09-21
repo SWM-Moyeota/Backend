@@ -10,11 +10,11 @@ import team.codingforest.moyeota.chat.application.dto.ChatMessageResult;
 import team.codingforest.moyeota.chat.application.event.ChatMessageSentEvent;
 import team.codingforest.moyeota.chat.domain.ChatMember;
 import team.codingforest.moyeota.chat.domain.ChatMessageNotification;
-import team.codingforest.moyeota.chat.domain.ChatMessageType;
 import team.codingforest.moyeota.chat.domain.ChatNotifier;
 import team.codingforest.moyeota.chat.domain.ChatRoomUser;
 import team.codingforest.moyeota.chat.domain.ChatRoomUsers;
 import team.codingforest.moyeota.chat.domain.MemberProvider;
+import team.codingforest.moyeota.chat.domain.enums.ChatMessageType;
 
 import java.time.Instant;
 import java.util.List;

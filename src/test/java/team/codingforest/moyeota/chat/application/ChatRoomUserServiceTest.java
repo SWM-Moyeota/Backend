@@ -9,18 +9,19 @@ import team.codingforest.moyeota.chat.application.dto.ChatRoomCommand;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomMemberResult;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomUserResult;
 import team.codingforest.moyeota.chat.application.dto.ReadChatCommand;
+import team.codingforest.moyeota.chat.application.event.ChatRoomJoinedEvent;
 import team.codingforest.moyeota.chat.application.event.ChatRoomLeftEvent;
 import team.codingforest.moyeota.chat.domain.ChatMember;
 import team.codingforest.moyeota.chat.domain.ChatMessage;
-import team.codingforest.moyeota.chat.domain.ChatMessageStatus;
-import team.codingforest.moyeota.chat.domain.ChatMessageType;
 import team.codingforest.moyeota.chat.domain.ChatMessages;
 import team.codingforest.moyeota.chat.domain.ChatRoom;
-import team.codingforest.moyeota.chat.domain.ChatRoomStatus;
 import team.codingforest.moyeota.chat.domain.ChatRoomUser;
 import team.codingforest.moyeota.chat.domain.ChatRoomUsers;
 import team.codingforest.moyeota.chat.domain.ChatRooms;
 import team.codingforest.moyeota.chat.domain.MemberProvider;
+import team.codingforest.moyeota.chat.domain.enums.ChatMessageStatus;
+import team.codingforest.moyeota.chat.domain.enums.ChatMessageType;
+import team.codingforest.moyeota.chat.domain.enums.ChatRoomStatus;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
 
@@ -98,6 +99,7 @@ class ChatRoomUserServiceTest {
         chatRoomUserService.join(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID));
 
         verify(chatRoomUsers).save(any(ChatRoomUser.class));
+        verify(eventPublisher).publishEvent(new ChatRoomJoinedEvent(USER_ID, ROOM_ID));
     }
 
     @Test

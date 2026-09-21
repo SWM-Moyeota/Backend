@@ -8,10 +8,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomResult;
 import team.codingforest.moyeota.chat.application.dto.CreateChatRoomCommand;
 import team.codingforest.moyeota.chat.domain.ChatRoom;
-import team.codingforest.moyeota.chat.domain.ChatRoomStatus;
 import team.codingforest.moyeota.chat.domain.ChatRooms;
 import team.codingforest.moyeota.chat.domain.PartyProvider;
 import team.codingforest.moyeota.chat.domain.PartySnapshot;
+import team.codingforest.moyeota.chat.domain.enums.ChatRoomStatus;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
 
