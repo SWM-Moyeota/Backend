@@ -65,9 +65,21 @@ export function chatMessages(token, chatRoomId) {
   return http.get(`${BASE}/api/v1/chat-rooms/${chatRoomId}/messages?size=30`, auth(token, { tags: { name: 'GET /chat-rooms/{id}/messages' } }));
 }
 
-// 채팅 화면의 폴링 안전망 (소켓이 살아 있으면 20초, 죽으면 3초)
+// 채팅 화면의 폴링. cursor 는 마지막으로 본 메시지 id - 서버는 cursor < 1 을 400(CHAT_INVALID_CURSOR)으로 막는다
 export function chatMessagesAfter(token, chatRoomId, cursor) {
   return http.get(`${BASE}/api/v1/chat-rooms/${chatRoomId}/messages/after?cursor=${cursor}&size=30`, auth(token, { tags: { name: 'GET /chat-rooms/{id}/messages/after' } }));
+}
+
+/** 앱의 폴링 한 번. 아직 메시지를 하나도 못 본 방(cursor 없음)은 after 를 못 쓰므로 첫 페이지를 다시 읽는다 */
+export function pollChat(token, chatRoomId, cursor) {
+  return cursor ? chatMessagesAfter(token, chatRoomId, cursor) : chatMessages(token, chatRoomId);
+}
+
+/** 응답에서 가장 큰 메시지 id. 없으면 넘겨받은 cursor 를 그대로 돌려준다 */
+export function lastMessageId(res, cursor = null) {
+  if (res.status !== 200) return cursor;
+  const ids = res.json('messages').map((m) => m.id);
+  return ids.length ? Math.max(cursor || 0, ...ids) : cursor;
 }
 
 export function sendChatRest(token, chatRoomId, content) {
@@ -99,4 +111,42 @@ export function fillRoom(users, g, destName) {
   joinRoom(a.token, r.id);
   joinRoom(b.token, r.id);
   return r.id;
+}
+
+// ───────── 앱이 화면 진입 때 한 번씩 부르는 것들 ─────────
+
+export function userInfo(token) {
+  return http.get(`${BASE}/api/v1/local/users/info`, auth(token, { tags: { name: 'GET /local/users/info' } }));
+}
+
+export function favoritePlaces(token) {
+  return http.get(`${BASE}/api/v1/users/me/favorite-places`, auth(token, { tags: { name: 'GET /users/me/favorite-places' } }));
+}
+
+// 방 만들기 확인 화면의 경로 미리보기. 좌표가 고정이라 경로 캐시에 적중한다(네이버 호출 없음)
+export function previewRoute(token) {
+  return http.post(`${BASE}/api/v1/matching/routes`, JSON.stringify({
+    departureLat: 강남역.lat, departureLng: 강남역.lng, destinationLat: 판교역.lat, destinationLng: 판교역.lng,
+  }), auth(token, { tags: { name: 'POST /matching/routes' } }));
+}
+
+export function chatRoom(token, chatRoomId) {
+  return http.get(`${BASE}/api/v1/chat-rooms/${chatRoomId}`, auth(token, { tags: { name: 'GET /chat-rooms/{id}' } }));
+}
+
+/** 앱 시작: 설정 → 내 정보 → 즐겨찾기(홈) → 진행 중인 방 찾기(기억이 없으면 채팅방 목록을 훑는다) */
+export function appStart(token) {
+  const config = appConfig();
+  userInfo(token);
+  favoritePlaces(token);
+  myChatRooms(token);
+  return config;
+}
+
+/** 채팅방을 열 때 앱이 부르는 3건: 첫 페이지 · 참여자(헤더 제목) · 방 정보. 마지막으로 본 메시지 id 를 돌려준다 */
+export function openChatRoom(token, chatRoomId) {
+  const page = chatMessages(token, chatRoomId);
+  chatMembers(token, chatRoomId);
+  chatRoom(token, chatRoomId);
+  return { status: page.status, cursor: lastMessageId(page) };
 }

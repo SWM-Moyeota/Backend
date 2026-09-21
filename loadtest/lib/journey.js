@@ -1,16 +1,24 @@
-// 1차 배포(택시 꺼짐) 사용자 여정 - D2(전체 여정)와 D6(지속)가 같이 쓴다.
-// VU 3개가 한 조: (VU-1)%3 == 0 이 방장, 나머지 둘이 참여자. VU 끼리는 메모리를 못 나누므로
-// 참여자는 실제 앱처럼 "지도 목록을 폴링해서" 자기 조 방(destination 이 LT-g<조>- 로 시작)을 찾는다.
+// 1차 배포(택시 꺼짐) 사용자 여정 - 앱(frontend develop)의 화면별 호출을 그대로 따른다. D2(전체 여정)와 D6(지속)가 같이 쓴다.
+//
+//   앱 시작     GET /config · /local/users/info · /users/me/favorite-places · /chat-rooms/me(진행 중인 방 찾기)
+//   17 합승탭   GET /matching/rooms?bounds 즉시 + 4초 폴링
+//   방 만들기   즐겨찾기 → 경로 미리보기(POST /matching/routes) → POST /matching/rooms      ※ 장소 검색(카카오)은 부하에서 뺀다
+//   참여        GET /matching/rooms/{id}(참여 확인 화면) → POST join
+//   21 대기     GET /matching/rooms/{id} 즉시 + 4초 폴링. 1차 배포에선 COMPLETED 에서도 계속 돈다(FINISHED 까지)
+//   채팅        채팅 탭 GET /chat-rooms/me → 방 열기 3건 → 소켓 + 폴링(3초→20초) + 읽음. 그 아래에서 21 의 4초 폴링이 계속 돈다
+//   종료        누군가 POST finish → 나머지는 상세 폴링으로 FINISHED 를 보고 홈으로
+//
+// VU 3개가 한 조: (VU-1)%3 == 0 이 방장. VU 끼리 메모리를 못 나누므로 참여자는 앱처럼 목록을 폴링해 자기 조 방(destination 이 LT-g<조>- 로 시작)을 찾는다.
 import { sleep, check } from 'k6';
 import { Trend, Counter } from 'k6/metrics';
 import {
-  appConfig, listRooms, openRoom, joinRoom, leaveRoom, roomDetail, finishRoom,
-  resolveChatRoomId, chatMessages, 판교역, GROUP,
+  appStart, listRooms, favoritePlaces, previewRoute, openRoom, joinRoom, leaveRoom, roomDetail, finishRoom,
+  myChatRooms, openChatRoom, 판교역, GROUP,
 } from './api.js';
 import { chatSession } from './stomp.js';
 
 export const POLL = Number(__ENV.POLL_SEC || 4);          // 화면 17·21 의 폴링 주기
-const CHAT_SEC = Number(__ENV.CHAT_SEC || 30);            // 채팅 화면에 머무는 시간
+const CHAT_SEC = Number(__ENV.CHAT_SEC || 40);            // 채팅 화면에 머무는 시간
 const WAIT_MAX = Number(__ENV.WAIT_MAX_SEC || 90);        // 방이 안 차면 포기하는 시간
 
 export const fillTime = new Trend('journey_fill_time_ms', true);        // 방 생성 → 정원 충족
@@ -29,29 +37,41 @@ function pollUntil(token, partyId, wanted, maxSec) {
   return null;
 }
 
-function chat(user, who) {
-  const chatRoomId = resolveChatRoomId(user.token, sleep);
-  if (!check(chatRoomId, { '채팅방에 입장돼 있다': (id) => id !== null })) return;
-  check(chatMessages(user.token, chatRoomId), { '채팅 기록 200': (r) => r.status === 200 });
-  chatSession(user.token, chatRoomId, who, {
-    holdSec: CHAT_SEC, sendEverySec: 12,
+/** 채팅 탭으로 들어가 방을 연다. 돌려주는 값은 소켓이 닫힌 이유 */
+function chat(user, who, partyId) {
+  let chatRoomId = null;
+  for (let i = 0; i < 10 && chatRoomId === null; i++) {                  // 채팅방 입장은 비동기라 목록에 늦게 뜰 수 있다
+    const rooms = myChatRooms(user.token);
+    if (rooms.status === 200 && rooms.json().length > 0) chatRoomId = rooms.json()[0].chatRoomId;
+    else sleep(1);
+  }
+  if (!check(chatRoomId, { '채팅방에 입장돼 있다': (id) => id !== null })) return 'no-room';
+
+  const opened = openChatRoom(user.token, chatRoomId);
+  check(opened, { '채팅방 열기 200': (o) => o.status === 200 });
+  const { closedBy } = chatSession(user.token, chatRoomId, who, {
+    holdSec: CHAT_SEC, sendEverySec: 12, cursor: opened.cursor, partyId,
     onLatency: (ms) => chatLatency.add(ms),
     onError: (e) => { wsErrors.add(1); console.error(`WS ${who}: ${e}`); },
   });
+  return closedBy;
 }
 
-/** abandon=true 면 방장이 finish 를 누르지 않고 떠난다(D6) - 30분 뒤 스윕이 닫아야 한다 */
+/** abandon=true 면 아무도 「합승 완료」를 누르지 않는다(D6) - 30분 뒤 스윕이 닫아야 한다 */
 export function journey(users, vu, { abandon = false } = {}) {
   const g = Math.floor((vu - 1) / GROUP);
   const role = (vu - 1) % GROUP;
   const me = users[vu - 1];
   const prefix = `LT-g${g}-`;
 
-  check(appConfig(), { '1차 배포 모드(taxiEnabled=false)': (r) => r.status === 200 && r.json('taxiEnabled') === false });
-  listRooms(me.token); sleep(POLL);                                       // 홈에서 지도를 잠깐 본다
+  check(appStart(me.token), { '1차 배포 모드(taxiEnabled=false)': (r) => r.status === 200 && r.json('taxiEnabled') === false });
 
   let partyId = null;
   if (role === 0) {
+    favoritePlaces(me.token);                                             // 15 목적지 입력
+    sleep(2);
+    check(previewRoute(me.token), { '경로 미리보기 200': (r) => r.status === 200 });   // 16 목적지 확인
+    sleep(2);
     const opened = Date.now();
     const r = openRoom(me.token, 3, 판교역, `${prefix}${opened}`);
     if (!check(r, { '방 생성 200': (x) => x.status === 200 })) { console.error(`open ${r.status}: ${r.body}`); sleep(POLL); return; }
@@ -60,10 +80,12 @@ export function journey(users, vu, { abandon = false } = {}) {
     fillTime.add(Date.now() - opened);
   } else {
     sleep(role);                                                          // 두 참여자가 같은 순간에 몰리지 않게
-    for (let t = 0; t < WAIT_MAX && partyId === null; t += POLL) {
+    for (let t = 0; t < WAIT_MAX && partyId === null; t += POLL) {        // 17 합승 탭 - 4초 폴링
       const res = listRooms(me.token);
       const room = res.status === 200 ? res.json('list').find((p) => p.destination.startsWith(prefix)) : null;
       if (room) {
+        roomDetail(me.token, room.partyId);                               // 18 참여 확인 화면이 상세를 먼저 읽는다
+        sleep(1);
         const j = joinRoom(me.token, room.partyId);
         if (j.status === 200) { joinOutcome.add(1, { result: 'ok' }); partyId = room.partyId; break; }
         if (j.status === 409) joinOutcome.add(1, { result: 'full' });
@@ -75,7 +97,7 @@ export function journey(users, vu, { abandon = false } = {}) {
     if (!pollUntil(me.token, partyId, ['COMPLETED'], WAIT_MAX)) { giveUps.add(1); leaveRoom(me.token, partyId); return; }
   }
 
-  chat(me, `g${g}r${role}`);
+  const closedBy = chat(me, `g${g}r${role}`, partyId);                    // 채팅하는 동안에도 21 의 상세 폴링이 같이 돈다
 
   if (abandon) {                                                          // D6 - 아무도 닫지 않는다
     const left = Date.now();
@@ -89,7 +111,10 @@ export function journey(users, vu, { abandon = false } = {}) {
     return;
   }
 
-  if (role === 0) check(finishRoom(me.token, partyId), { '합승 종료 204': (r) => r.status === 204 });
-  else pollUntil(me.token, partyId, ['FINISHED'], 60);
+  if (closedBy !== 'party-closed') {
+    if (role === 0) check(finishRoom(me.token, partyId), { '합승 완료 204 (또는 이미 닫힘 409)': (r) => r.status === 204 || r.status === 409 });
+    else pollUntil(me.token, partyId, ['FINISHED', 'CANCELED'], 60);
+  }
+  myChatRooms(me.token); favoritePlaces(me.token);                        // 홈으로 돌아오면 진행 중인 방을 다시 찾는다
   sleep(POLL);
 }

@@ -1,25 +1,28 @@
-// D1 - 읽기 폴링. 동시 접속 CONCURRENT 명이 화면별 주기로 폴링할 때의 요청을 재현한다.
-//   화면 17 지도(40%): 목록 4초 + 채팅방 id 10초 / 화면 21 대기(35%): 상세 4초 + 채팅방 id 10초 / 화면 24 채팅(25%): 새 메시지 20초(소켓 정상)
-//   → 1인당 0.275 RPS. CONCURRENT=100 이면 27.5 RPS
+// D1 - 읽기 폴링. 동시 접속 CONCURRENT 명이 앱의 화면별 주기로 폴링할 때의 요청을 재현한다 (frontend develop 기준).
+//   17 합승 탭(40%)            목록 4초                          → 0.25 RPS
+//   21 대기(30%)               상세 4초 (COMPLETED 에서도 계속)   → 0.25 RPS
+//   채팅 열어 둠(30%)          상세 4초(아래 깔린 21) + 새 메시지 20초 → 0.30 RPS
+//   탭 이동·앱 복귀             /chat-rooms/me, 상세 1회           → 전체의 약 3%
+//   → 1인당 약 0.27 RPS. CONCURRENT=100 이면 27 RPS.   ※ 1차 배포에선 /chat-rooms/me 10초 폴링이 돌지 않는다(대기 단계에선 건너뜀)
 //   k6 run -o experimental-prometheus-rw -e CONCURRENT=100 loadtest/d1-polling.js
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import {
-  listRooms, roomDetail, myChatRooms, chatMessagesAfter, openRoom, joinRoom, leaveRoom, finishRoom,
+  listRooms, roomDetail, myChatRooms, pollChat, sendChatRest, openRoom, joinRoom, leaveRoom, finishRoom,
   fillRoom, groupUsers, resolveChatRoomId, 판교역,
 } from './lib/api.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
 const CONCURRENT = Number(__ENV.CONCURRENT || 100);
 const GROUPS = Number(__ENV.GROUPS || 20);                  // 앞 절반은 꽉 찬 방(채팅 중), 뒤 절반은 모집 중인 방(지도에 보임)
-const RPS = Number(__ENV.RPS || Math.ceil(CONCURRENT * 0.275));
+const RPS = Number(__ENV.RPS || Math.ceil(CONCURRENT * 0.27));
 
 // 요청 비율 = 화면 비중 x 주기의 역수
 const MIX = [
-  { upTo: 0.364, name: 'list' },      // 0.40 / 4s
-  { upTo: 0.682, name: 'detail' },    // 0.35 / 4s
-  { upTo: 0.955, name: 'me' },        // 0.75 / 10s
-  { upTo: 1.0,   name: 'after' },     // 0.25 / 20s
+  { upTo: 0.36, name: 'list' },       // 0.40 x 1/4
+  { upTo: 0.91, name: 'detail' },     // 0.60 x 1/4
+  { upTo: 0.97, name: 'chat' },       // 0.30 x 1/20
+  { upTo: 1.0,  name: 'me' },         // 탭 이동·앱 복귀
 ];
 
 export const options = {
@@ -45,7 +48,11 @@ export function setup() {
     if (full) partyId = fillRoom(users, g);
     else { const r = openRoom(host.token, 3, 판교역, `LT-g${g}`); partyId = r.id; if (partyId) joinRoom(a.token, partyId); }
     if (!partyId) { console.error(`조 ${g} 방 준비 실패`); continue; }
-    groups.push({ g, partyId, full, members: full ? 3 : 2, chatRoomId: resolveChatRoomId(host.token, sleep, 5) });
+    const chatRoomId = resolveChatRoomId(host.token, sleep, 5);
+    // 폴링 커서로 쓸 메시지를 하나 심는다 - cursor 없이는 after 를 못 부른다(서버가 cursor < 1 을 400 으로 막는다)
+    let cursor = null;
+    if (chatRoomId) { const sent = sendChatRest(host.token, chatRoomId, 'lt:seed'); if (sent.status === 201) cursor = sent.json('id'); }
+    groups.push({ g, partyId, full, members: full ? 3 : 2, chatRoomId, cursor });
   }
   console.log(`방 ${groups.length}개 준비, 목표 ${RPS} RPS (동시 접속 ${CONCURRENT}명 가정)`);
   return { groups };
@@ -59,7 +66,7 @@ export default function (data) {
   let res;
   if (kind === 'list') res = listRooms(me.token);
   else if (kind === 'detail') res = roomDetail(me.token, grp.partyId);
-  else if (kind === 'after' && grp.chatRoomId) res = chatMessagesAfter(me.token, grp.chatRoomId, 0);
+  else if (kind === 'chat' && grp.chatRoomId) res = pollChat(me.token, grp.chatRoomId, grp.cursor);
   else res = myChatRooms(me.token);
   check(res, { '200': (r) => r.status === 200 });
 }

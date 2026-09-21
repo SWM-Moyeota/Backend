@@ -3,8 +3,8 @@
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import {
-  appConfig, listRooms, openRoom, joinRoom, leaveRoom, roomDetail, finishRoom,
-  resolveChatRoomId, chatMembers, chatMessages, 판교역,
+  appStart, listRooms, favoritePlaces, previewRoute, openRoom, joinRoom, leaveRoom, roomDetail, finishRoom,
+  resolveChatRoomId, chatMembers, chatMessages, openChatRoom, pollChat, 판교역,
 } from './lib/api.js';
 import { chatSession } from './lib/stomp.js';
 
@@ -15,8 +15,10 @@ export const options = { vus: 1, iterations: 1, thresholds: { checks: ['rate==1'
 export default function () {
   const [host, a, b] = [users[0], users[1], users[2]];
 
-  check(appConfig(), { 'taxiEnabled=false (택시 꺼진 서버인가)': (r) => r.status === 200 && r.json('taxiEnabled') === false });
+  check(appStart(host.token), { 'taxiEnabled=false (택시 꺼진 서버인가)': (r) => r.status === 200 && r.json('taxiEnabled') === false });
   check(listRooms(host.token), { '지도 목록 200': (r) => r.status === 200 });
+  check(favoritePlaces(host.token), { '즐겨찾기 200': (r) => r.status === 200 });
+  check(previewRoute(host.token), { '경로 미리보기 200 (캐시가 비어 있으면 네이버를 1회 부른다)': (r) => r.status === 200 });
 
   const room = openRoom(host.token, 3, 판교역, 'LT-smoke');
   if (!check(room, { '방 생성 200': (r) => r.status === 200 })) { console.error(room.body); return; }
@@ -34,11 +36,16 @@ export default function () {
     const members = chatMembers(a.token, chatRoomId);
     check(members, { '채팅방 멤버 3명': (r) => r.status === 200 && r.json().filter((m) => m.active).length === 3 });
 
+    const opened = openChatRoom(a.token, chatRoomId);
+    check(opened, { '채팅방 열기(첫 페이지·참여자·방 정보) 200': (o) => o.status === 200 });
     let got = 0, err = null;
-    chatSession(a.token, chatRoomId, 'smoke', { holdSec: 6, sendEverySec: 60, onLatency: () => { got++; }, onError: (e) => { err = e; } });
+    chatSession(a.token, chatRoomId, 'smoke', { holdSec: 8, sendEverySec: 60, cursor: opened.cursor, partyId: room.id, onLatency: () => { got++; }, onError: (e) => { err = e; } });
     check(null, { 'WebSocket 으로 보낸 메시지를 되받았다': () => got >= 1, 'STOMP 에러 없음': () => err === null });
     if (err) console.error(err);
-    check(chatMessages(a.token, chatRoomId), { '메시지가 저장됐다': (r) => r.status === 200 && r.json('messages').length >= 1 });
+    const saved = chatMessages(a.token, chatRoomId);
+    check(saved, { '메시지가 저장됐다': (r) => r.status === 200 && r.json('messages').length >= 1 });
+    const lastId = saved.status === 200 && saved.json('messages').length ? Math.max(...saved.json('messages').map((m) => m.id)) : null;
+    check(pollChat(a.token, chatRoomId, lastId), { '커서 폴링(after) 200': (r) => r.status === 200 });
   }
 
   check(finishRoom(b.token, room.id), { '아무나 한 명이 종료할 수 있다 (204)': (r) => r.status === 204 });
