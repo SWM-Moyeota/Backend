@@ -1,0 +1,17 @@
+groups:
+  - name: abort
+    rules:
+      - alert: LoadgenSaturated
+        expr: host:cpu_utilization{instance_name="k6-1"} > 0.8
+        for: 30s
+        annotations: { summary: "k6 서버 CPU 80% 초과 - 이후 결과는 부하 발생기의 한계다" }
+
+      - alert: PoolExhausted
+        expr: hikaricp_connections_pending > 0
+        for: 15s
+        annotations: { summary: "커넥션 풀 대기 발생 - 데드락 또는 DB 병목" }
+
+      - alert: ErrorBudgetBurn
+        expr: api:error_ratio > 0.05
+        for: 30s
+        annotations: { summary: "5xx 5% 초과 - 테스트 중단" }

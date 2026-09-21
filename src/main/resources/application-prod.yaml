@@ -49,5 +49,13 @@ moyeota:
     enabled: ${TAXI_ENABLED:false}
 
 management:
+  metrics:
+    tags:
+      application: moyeota
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 100ms, 300ms, 500ms, 1s
   server:
     port: 9091
