@@ -46,4 +46,4 @@ jwt:
 
 moyeota:
   taxi:
-    enabled: ${TAXI_ENABLED:true}
+    enabled: ${TAXI_ENABLED:false}
