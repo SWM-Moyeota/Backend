@@ -46,3 +46,6 @@ application-local.yml
 ### secrets 폴더 내에 json 파일
 /secrets/
 dump.rdb
+
+# 부하 테스트 - seed 가 만드는 계정·토큰 파일
+loadtest/users.json
