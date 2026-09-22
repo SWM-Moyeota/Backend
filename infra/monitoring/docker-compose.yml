@@ -3,20 +3,42 @@ services:
     image: prom/prometheus:v3.5.0
     command:
       - --config.file=/etc/prometheus/prometheus.yml
-      - --web.enable-remote-write-receiver      # k6 가 여기로 push
+      - --web.enable-remote-write-receiver      # /api/v1/write 엔드포인트를 공개
       - --storage.tsdb.retention.time=30d       # 실행 이력 보존
+      - --web.enable-lifecycle                  # /-/reload 엔드포인트 공개 규칙이 바뀌는 경우 재설정
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./rules:/etc/prometheus/rules:ro
       - prom-data:/prometheus
-    ports: ["9090:9090"]
+    ports: ["127.0.0.1:9090:9090"]
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:12.1.0
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
     volumes:
       - grafana-data:/var/lib/grafana
-    ports: ["3000:3000"]
+    ports: ["127.0.0.1:3000:3000"]
     depends_on: [prometheus]
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    command: ["--path.rootfs=/host"]
+    pid: host
+    volumes: ["/:/host:ro,rslave"]
+    restart: unless-stopped
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+    profiles: ["db"]
+    environment:
+      - DATA_SOURCE_URI=${PG_EXPORTER_URI:-}
+      - DATA_SOURCE_USER=${PG_EXPORTER_USER:-}
+      - DATA_SOURCE_PASS=${PG_EXPORTER_PASS:-}
+    command: ["--collector.stat_statements"]
+    restart: unless-stopped
+
 volumes:
   prom-data: {}
   grafana-data: {}

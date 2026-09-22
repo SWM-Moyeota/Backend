@@ -49,3 +49,6 @@ dump.rdb
 
 # 부하 테스트 - seed 가 만드는 계정·토큰 파일
 loadtest/users.json
+
+# 모니터링 - exporter 접속 정보
+infra/monitoring/.env
