@@ -1,0 +1,28 @@
+groups:
+  - name: red
+    interval: 5s
+    rules:
+      - record: api:rps
+        expr: sum by (uri, method) (rate(http_server_requests_seconds_count{job="app"}[30s]))
+
+      - record: api:error_ratio
+        expr: |
+          (sum(rate(http_server_requests_seconds_count{job="app", status=~"5.."}[30s])) or vector(0))
+          / sum(rate(http_server_requests_seconds_count{job="app"}[30s]))
+
+      - record: api:p95_seconds
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, uri) (rate(http_server_requests_seconds_bucket{job="app"}[30s])))
+
+  - name: use
+    interval: 5s
+    rules:
+      - record: host:cpu_utilization
+        expr: 1 - avg by (instance_name) (rate(node_cpu_seconds_total{mode="idle"}[30s]))
+
+      - record: host:memory_utilization
+        expr: 1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes
+
+      - record: db:pool_saturation
+        expr: hikaricp_connections_active / hikaricp_connections_max

@@ -3,7 +3,7 @@ global:
   scrape_timeout: 4s             # 스크랩할때 응답을 얼마나 기다릴지
   evaluation_interval: 5s        # 평가 주기 시간
   external_labels:
-    env: loadtest                # 이 Prometheus 가 모은 모든 지표에 붙는다 - 나중에 운영 지표와 섞여도 구분된다
+    env: loadtest
 
 rule_files:
   - /etc/prometheus/rules/*.yml
