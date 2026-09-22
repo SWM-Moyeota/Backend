@@ -86,8 +86,6 @@ class PartyAccessService implements PartyAccess {
         Party party = parties.findById(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
-        if(!party.isFull()) throw new BusinessException(MatchingErrorCode.PARTY_NOT_COMPLETED);
-
         List<Long> members = party.getMembers().stream()
                 .map(PartyMember::getMemberId).toList();
 
