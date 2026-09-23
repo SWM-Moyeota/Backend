@@ -1,11 +1,11 @@
 package team.codingforest.moyeota.matching.presentation;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.application.PartyApplicationService;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyRequest;
@@ -31,13 +32,13 @@ import team.codingforest.moyeota.user.api.CurrentUser;
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class PartyController {
-    private final PartyApplicationService service;
+    private final PartyApplicationService partyApplicationService;
 
     @Operation(summary = "방 생성", description = "경로·예상 요금을 네이버로 계산해 저장. 생성자는 자동 참여. 진행 중인 방이 이미 있으면 409. body 의 creatorId 는 무시(토큰 사용)")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "생성된 방"), @ApiResponse(responseCode = "400", description = "SAME_DEPARTURE_DESTINATION / INVALID_CAPACITY / INVALID_RADIUS / OUT_OF_SERVICE_AREA"), @ApiResponse(responseCode = "409", description = "ALREADY_JOINED_OTHER_PARTY"), @ApiResponse(responseCode = "502", description = "ROUTE_SEARCH_FAILED - 네이버 경로 API 장애")})
     @PostMapping("/matching/rooms")
     public ResponseEntity<OpenPartyResponse> open(@CurrentUser Long memberId, @RequestBody OpenPartyRequest request) {
-        PartyResult party = service.open(request.toCommand(memberId));
+        PartyResult party = partyApplicationService.open(request.toCommand(memberId));
 
         return ResponseEntity.ok(OpenPartyResponse.from(party));
     }
@@ -46,14 +47,14 @@ public class PartyController {
     @ApiResponses({@ApiResponse(responseCode = "200", description = "참여 후 방 상세(동승자 목록 포함)"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_FULL / PARTY_CLOSED / ALREADY_JOINED_PARTY / ALREADY_JOINED_OTHER_PARTY")})
     @PostMapping("/matching/rooms/{partyId}/join")
     public ResponseEntity<PartyDetailResult> join(@PathVariable Long partyId, @CurrentUser Long memberId) {
-        return ResponseEntity.ok(service.join(partyId, memberId));
+        return ResponseEntity.ok(partyApplicationService.join(partyId, memberId));
     }
 
     @Operation(summary = "방 나가기", description = "모집 중(ACTIVE/COMPLETED)에만 가능. 마지막 멤버가 나가면 방은 CANCELED")
     @ApiResponses({@ApiResponse(responseCode = "204", description = "나감"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_NOT_RECRUITING - 매칭 시작 후")})
     @DeleteMapping("/matching/leave/{partyId}")
     public ResponseEntity<Void> leave(@PathVariable Long partyId, @CurrentUser Long memberId) {
-        service.leave(partyId, memberId);
+        partyApplicationService.leave(partyId, memberId);
 
         return ResponseEntity.noContent().build();
     }
@@ -62,28 +63,28 @@ public class PartyController {
     @ApiResponses({@ApiResponse(responseCode = "200", description = "방 상세"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND")})
     @GetMapping("/matching/rooms/{partyId}")
     public ResponseEntity<PartyDetailResult> detail(@PathVariable Long partyId) {
-        return ResponseEntity.ok(service.getPartyDetail(partyId));
+        return ResponseEntity.ok(partyApplicationService.getPartyDetail(partyId));
     }
 
     @Operation(summary = "모집 중인 방 전체 목록", description = "파라미터 없이 호출하면 ACTIVE 전체. 지도 화면은 아래 영역 조회를 사용")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "방 목록")})
     @GetMapping("/matching/rooms")
     public ResponseEntity<PartyListResponse> list() {
-        return ResponseEntity.ok(PartyListResponse.from(service.findActiveParties()));
+        return ResponseEntity.ok(PartyListResponse.from(partyApplicationService.findActiveParties()));
     }
 
     @Operation(summary = "경로·요금 미리보기", description = "방 생성 전 예상 요금/시간/경로(polyline). 네이버 Directions 사용")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "예상 요금(원)·시간(분)·polyline"), @ApiResponse(responseCode = "400", description = "OUT_OF_SERVICE_AREA / INVALID_ROUTE_ESTIMATE"), @ApiResponse(responseCode = "404", description = "ROUTE_NOT_FOUND"), @ApiResponse(responseCode = "502", description = "ROUTE_SEARCH_FAILED")})
     @PostMapping("/matching/routes")
     public ResponseEntity<RouteEstimate> preView(@RequestBody RouteRequest req) {
-        return ResponseEntity.ok(service.previewRoute(req.departureLat(), req.departureLng(), req.destinationLat(), req.destinationLng()));
+        return ResponseEntity.ok(partyApplicationService.previewRoute(req.departureLat(), req.departureLng(), req.destinationLat(), req.destinationLng()));
     }
 
     @Operation(summary = "배정 기사 차량 정보", description = "좌석·번호판·차종. 배정 전이면 409")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "차량 요약"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND / ASSIGNED_DRIVER_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "DRIVER_NOT_ASSIGNED")})
     @GetMapping("/matching/rooms/{partyId}/driver")
     public ResponseEntity<DriverSummary> findDriverSummary(@PathVariable Long partyId) {
-        return ResponseEntity.ok(service.getAssignDriver(partyId));
+        return ResponseEntity.ok(partyApplicationService.getAssignDriver(partyId));
     }
 
     // 같은 경로의 전체 목록 조회와 쿼리 파라미터 유무로 구분한다 (params 없이 두 개면 Ambiguous mapping으로 기동 실패)
@@ -94,14 +95,21 @@ public class PartyController {
                                                         @RequestParam Double swLng,
                                                         @RequestParam Double neLat,
                                                         @RequestParam Double neLng) {
-        return ResponseEntity.ok(PartyListResponse.from(service.findActivePartiesWithin(swLat, swLng, neLat, neLng)));
+        return ResponseEntity.ok(PartyListResponse.from(partyApplicationService.findActivePartiesWithin(swLat, swLng, neLat, neLng)));
     }
 
     @Operation(summary = "합승 종료", description = "기사 배정 없이 합승만 하고 끝났을 때 참여자가 직접 호출. 정원이 찬(COMPLETED) 방에서만 가능. 기사 기능이 켜진 모드에선 COMPLETED 가 순간이라 사실상 호출할 일이 없다")
     @ApiResponses({@ApiResponse(responseCode = "204", description = "종료됨"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_NOT_COMPLETED / DRIVER_ALREADY_ASSIGNED")})
     @PostMapping("/matching/rooms/{partyId}/finish")
     public ResponseEntity<Void> finish(@PathVariable Long partyId, @CurrentUser Long memberId) {
-        service.finish(partyId, memberId);
+        partyApplicationService.finish(partyId, memberId);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "방 변화 구독(SSE)", description = "멤버 변화 시 `changed`, 방이 닫히면 `closed` 이벤트. 데이터는 partyId 뿐이라 받으면 상세를 다시 조회한다. 15초마다 heartbeat 주석")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "text/event-stream"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND")})
+    @GetMapping(value = "/matching/rooms/{partyId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter events(@PathVariable Long partyId, @CurrentUser Long memberId) {
+        return partyApplicationService.subscribe(partyId, memberId);
     }
 }

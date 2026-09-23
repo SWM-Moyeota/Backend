@@ -8,6 +8,7 @@ import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.api.MatchingStartedEvent;
+import team.codingforest.moyeota.matching.api.PartyClosedEvent;
 import team.codingforest.moyeota.matching.api.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyCommand;
@@ -20,6 +21,7 @@ import team.codingforest.moyeota.matching.domain.Radius;
 import team.codingforest.moyeota.matching.domain.RouteEstimate;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
+import team.codingforest.moyeota.matching.infrastructure.PartySseRegistry;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -43,6 +45,7 @@ class PartyApplicationServiceTest {
     private RecordingEventPublisher events;
     private FakeDriverAccess driverAccess;
     private FakeUserAccess userAccess;
+    private PartySseRegistry sse;
     private PartyApplicationService service;
 
     @BeforeEach
@@ -53,6 +56,7 @@ class PartyApplicationServiceTest {
         userAccess = new FakeUserAccess();
         userAccess.등록(host, "방장");
         userAccess.등록(participant, "동승자");
+        sse = new PartySseRegistry();
         service = serviceWith(new DispatchCompletionPolicy(events));   // 기본은 발표 모드 - 정원이 차면 배차 시작
     }
 
@@ -60,7 +64,7 @@ class PartyApplicationServiceTest {
     private PartyApplicationService serviceWith(PartyCompletionPolicy policy) {
         return new PartyApplicationService(parties, events,
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
-                new RouteCacheTest(), driverAccess, userAccess, policy);
+                new RouteCacheTest(), driverAccess, userAccess, policy, sse);
     }
 
     @Test
@@ -158,6 +162,58 @@ class PartyApplicationServiceTest {
 
         service.leave(party.id(), host);
         assertThat(service.getPartyDetail(party.id()).status()).isEqualTo("CANCELED");
+    }
+
+    // ── 방 닫힘 이벤트 (SSE 대기 화면이 홈으로 돌아가는 신호) ──
+
+    @Test
+    void 마지막_멤버가_나가_취소되면_닫힘_이벤트가_발행된다() {
+        PartyResult party = service.open(createParty(host, 3));
+
+        service.leave(party.id(), host);
+
+        assertThat(events.closedFor(party.id(), "CANCELED")).isEqualTo(1);
+    }
+
+    @Test
+    void 사람이_남아_있으면_나가도_닫힘_이벤트는_없다() {
+        PartyResult party = service.open(createParty(host, 3));
+        service.join(party.id(), participant);
+
+        service.leave(party.id(), participant);
+
+        assertThat(events.leftFor(party.id(), participant)).isEqualTo(1);
+        assertThat(events.closedFor(party.id(), "CANCELED")).as("방은 아직 ACTIVE 다").isZero();
+    }
+
+    // ── SSE 구독 권한 ──
+
+    @Test
+    void 멤버는_방_변화를_구독할_수_있다() {
+        PartyResult party = service.open(createParty(host, 3));
+        service.join(party.id(), participant);
+
+        assertThat(service.subscribe(party.id(), participant)).isNotNull();
+        assertThat(sse.connections()).isEqualTo(1);
+    }
+
+    @Test
+    void 멤버가_아니면_구독할_수_없다() {
+        PartyResult party = service.open(createParty(host, 3));
+
+        assertThatThrownBy(() -> service.subscribe(party.id(), guest))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.NOT_PARTY_MEMBER);
+        assertThat(sse.connections()).as("거절된 요청은 연결을 남기지 않는다").isZero();
+    }
+
+    @Test
+    void 없는_방은_구독할_수_없다() {
+        assertThatThrownBy(() -> service.subscribe(999L, host))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_FOUND);
     }
 
     @Test
@@ -386,6 +442,25 @@ class PartyApplicationServiceTest {
         }
 
         @Test
+        void 합승_완료하면_FINISHED_닫힘_이벤트가_발행된다() {
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);
+
+            service.finish(party.id(), participant);
+
+            assertThat(events.closedFor(party.id(), "FINISHED")).isEqualTo(1);
+        }
+
+        @Test
+        void 자동_종료해도_FINISHED_닫힘_이벤트가_발행된다() {
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);
+
+            service.expire(오래된방);
+
+            assertThat(events.closedFor(오래된방, "FINISHED")).isEqualTo(1);
+        }
+
+        @Test
         void 이미_닫힌_방을_스윕이_다시_닫으려_하면_거부된다() {
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
@@ -549,6 +624,12 @@ class PartyApplicationServiceTest {
         long joinedFor(Long partyId, Long memberId) {
             return published.stream()
                     .filter(e -> e instanceof PartyMemberJoinedEvent j && j.partyId().equals(partyId) && j.memberId().equals(memberId))
+                    .count();
+        }
+
+        long closedFor(Long partyId, String status) {
+            return published.stream()
+                    .filter(e -> e instanceof PartyClosedEvent c && c.partyId().equals(partyId) && c.status().equals(status))
                     .count();
         }
 
