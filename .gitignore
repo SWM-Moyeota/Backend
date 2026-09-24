@@ -52,3 +52,6 @@ loadtest/users.json
 
 # 모니터링 - exporter 접속 정보
 infra/monitoring/.env
+
+# 증거 캡처 이미지는 레포 밖에 보관 (txt 만 커밋)
+docs/evidence/**/*.png
