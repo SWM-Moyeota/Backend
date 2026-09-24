@@ -1,40 +1,30 @@
 package team.codingforest.moyeota.chat.application;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
 import team.codingforest.moyeota.matching.api.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.PartyMemberLeftEvent;
 
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ChatRoomMatchingListener {
     private final MatchingChatRoomService matchingChatRoomService;
 
     /**
-     * 채팅방 생성 및 입장
+     * 예외를 삼키지 않는다. 삼키면 event_publication 이 완료로 기록돼 재발행되지 않는다.
+     * 이미 참여·이미 나감 같은 정상 케이스는 MatchingChatRoomService 가 처리한다.
      */
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @ApplicationModuleListener
     public void on(PartyMemberJoinedEvent event) {
-        try {
-            matchingChatRoomService.joinMember(event.partyId(), event.memberId());
-        } catch (Exception e) {
-            log.error("채팅방 참여 실패 partyId={} memberId={}", event.partyId(), event.memberId(), e);
-        }
+        matchingChatRoomService.joinMember(event.partyId(), event.memberId());
     }
 
     /**
      * 채팅방 나가기
      */
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @ApplicationModuleListener
     public void on(PartyMemberLeftEvent event) {
-        try {
-            matchingChatRoomService.leaveMember(event.partyId(), event.memberId());
-        } catch (Exception e) {
-            log.error("채팅방 퇴장 실패 partyId={} memberId={}", event.partyId(), event.memberId(), e);
-        }
+        matchingChatRoomService.leaveMember(event.partyId(), event.memberId());
     }
 }
