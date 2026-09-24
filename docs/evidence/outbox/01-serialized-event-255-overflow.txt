@@ -1,0 +1,39 @@
+[측정 조건]
+- 브랜치: develop (fb5f630), 코드 수정 없음
+- dev 프로필(로컬 Postgres 16, Flyway V1~V6) + --spring.modulith.events.completion-mode=UPDATE --moyeota.taxi.enabled=false
+- 방 4(ACTIVE)에 테스트 유저(id 3) chat_room_user 직접 INSERT 후 REST POST /api/v1/chat-rooms/4/messages
+- 실행 시각: 2026-09-24 14:24:03
+
+[1] content '짧은 메시지' (6자)
+{"id":10,"chatRoomId":4,"publicId":"01a0d1de-771b-7bea-b78d-2d362c69d676","content":"짧은 메시지","type":"TEXT","createdAt":"2026-09-24T05:23:42.850733Z","deleted":false}
+HTTP 201
+
+[2] content 'b'×100
+{"timestamp":"2026-09-24T05:23:42.925Z","status":500,"error":"Internal Server Error","path":"/api/v1/chat-rooms/4/messages"}
+HTTP 500
+
+[3] content 'a'×300
+{"timestamp":"2026-09-24T05:23:42.944Z","status":500,"error":"Internal Server Error","path":"/api/v1/chat-rooms/4/messages"}
+HTTP 500
+
+[event_publication 전송 직후]
+                                                            listener                                                            |  status   | att | len 
+--------------------------------------------------------------------------------------------------------------------------------+-----------+-----+-----
+ chat.presentation.ChatMessageBroadcaster.onMessageSent(team.codingforest.moyeota.chat.application.event.ChatMessageSentEvent)  | COMPLETED |   1 | 189
+ chat.application.ChatNotificationListener.onMessageSent(team.codingforest.moyeota.chat.application.event.ChatMessageSentEvent) | COMPLETED |   1 | 189
+(2 rows)
+
+[chat_message] 6자만 저장됨 (id 10). 100자·300자는 트랜잭션 롤백
+
+[앱 로그]
+	at java.base/java.lang.Thread.run(Thread.java:1474) ~[na:na]
+
+2026-09-24T14:23:42.943+09:00  WARN 38957 --- [moyeota] [nio-8080-exec-1] org.hibernate.orm.jdbc.error             : HHH000247: ErrorCode: 0, SQLState: 22001
+2026-09-24T14:23:42.943+09:00  WARN 38957 --- [moyeota] [nio-8080-exec-1] org.hibernate.orm.jdbc.error             : ERROR: value too long for type character varying(255)
+2026-09-24T14:23:42.944+09:00 ERROR 38957 --- [moyeota] [nio-8080-exec-1] o.a.c.c.C.[.[.[/].[dispatcherServlet]    : Servlet.service() for servlet [dispatcherServlet] in context with path [] threw exception [Request processing failed: org.springframework.dao.DataIntegrityViolationException: could not execute statement [ERROR: value too long for type character varying(255)] [insert into event_publication (completion_attempts,completion_date,event_type,last_resubmission_date,listener_id,publication_date,serialized_event,status,id) values (?,?,?,?,?,?,?,?,?)]; SQL [insert into event_publication (completion_attempts,completion_date,event_type,last_resubmission_date,listener_id,publication_date,serialized_event,status,id) values (?,?,?,?,?,?,?,?,?)]] with root cause
+
+org.postgresql.util.PSQLException: ERROR: value too long for type character varying(255)
+	at org.postgresql.core.v3.QueryExecutorImpl.receiveErrorResponse(QueryExecutorImpl.java:2904) ~[postgresql-42.7.11.jar:42.7.11]
+	at org.postgresql.core.v3.QueryExecutorImpl.processResults(QueryExecutorImpl.java:2589) ~[postgresql-42.7.11.jar:42.7.11]
+	at org.postgresql.core.v3.QueryExecutorImpl.execute(QueryExecutorImpl.java:431) ~[postgresql-42.7.11.jar:42.7.11]
+	at org.postgresql.jdbc.PgStatement.executeInternal(PgStatement.java:534) ~[postgresql-42.7.11.jar:42.7.11]

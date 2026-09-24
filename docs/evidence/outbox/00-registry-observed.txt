@@ -1,0 +1,13 @@
+[측정 조건]
+- 브랜치: develop (fb5f630), 코드 수정 없음
+- dev 프로필(로컬 Postgres 16, Flyway V1~V6) + SPRING_MODULITH_EVENTS_COMPLETION_MODE=UPDATE (yaml은 DELETE 유지, 관찰용 오버라이드)
+- 실행: ./gradlew test --tests '*ChatRoomAutoCreateIntegrationTest*' --rerun-tasks
+- 실행 시각: 2026-09-24 14:22:44
+
+                                                                      listener_id                                                                      |                              event_type                              |  status   |        completion_date        | completion_attempts | len 
+-------------------------------------------------------------------------------------------------------------------------------------------------------+----------------------------------------------------------------------+-----------+-------------------------------+---------------------+-----
+ team.codingforest.moyeota.chat.presentation.ChatMessageBroadcaster.onRoomJoined(team.codingforest.moyeota.chat.application.event.ChatRoomJoinedEvent) | team.codingforest.moyeota.chat.application.event.ChatRoomJoinedEvent | COMPLETED | 2026-09-24 05:22:22.850131+00 |                   1 |  32
+ team.codingforest.moyeota.chat.application.ChatRoomMatchingListener.on(team.codingforest.moyeota.matching.api.PartyMemberJoinedEvent)                 | team.codingforest.moyeota.matching.api.PartyMemberJoinedEvent        | COMPLETED | 2026-09-24 05:22:22.851267+00 |                   1 |  31
+ team.codingforest.moyeota.dispatch.application.DispatchListener.on(team.codingforest.moyeota.matching.api.MatchingStartedEvent)                       | team.codingforest.moyeota.matching.api.MatchingStartedEvent          | COMPLETED | 2026-09-24 05:22:22.8298+00   |                   1 |  13
+(3 rows)
+
