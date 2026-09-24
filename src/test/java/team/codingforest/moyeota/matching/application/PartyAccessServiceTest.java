@@ -3,6 +3,7 @@ package team.codingforest.moyeota.matching.application;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.api.PartyChatSummary;
 import team.codingforest.moyeota.matching.domain.Capacity;
 import team.codingforest.moyeota.matching.domain.Location;
 import team.codingforest.moyeota.matching.domain.Party;
@@ -131,6 +132,48 @@ class PartyAccessServiceTest {
     void 같은_상황에서_hasMemberOnParty_는_예외를_던진다() {
         // 두 메서드의 계약 차이를 못박아 둔다 - 소비처가 어느 쪽을 써야 하는지 판단 근거
         assertThatThrownBy(() -> access.hasMemberOnParty(없는방, 방장))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_FOUND);
+    }
+
+    // ───────────────────────── findChatSummary - 정원이 차기 전에도 조회된다 ─────────────────────────
+
+    /**
+     *  1차 배포는 참여할 때마다 채팅방에 넣는다(PartyMemberJoinedEvent). 채팅 쪽이 방 요약으로 채팅방을 만들기 때문에
+     *  "정원이 찬 방만" 조회되면 방장·첫 참여자는 채팅방에 못 들어가고 마지막 사람만 들어간다.
+     */
+    @Test
+    void 방장만_있는_방도_채팅_요약이_조회된다() {
+        Long partyId = save(openParty(3));
+
+        PartyChatSummary summary = access.findChatSummary(partyId);
+
+        assertThat(summary.id()).isEqualTo(partyId);
+        assertThat(summary.users()).containsExactly(방장);
+        assertThat(summary.departure()).isEqualTo("강남역");
+        assertThat(summary.destination()).isEqualTo("판교역");
+    }
+
+    @Test
+    void 정원이_덜_찬_방은_지금까지_들어온_멤버만_담긴다() {
+        Party party = openParty(3);
+        party.join(동승자);
+        Long partyId = save(party);
+
+        assertThat(access.findChatSummary(partyId).users()).containsExactly(방장, 동승자);
+    }
+
+    @Test
+    void 정원이_찬_방의_채팅_요약은_전원이_담긴다() {
+        Long partyId = save(completedParty());
+
+        assertThat(access.findChatSummary(partyId).users()).containsExactly(방장, 동승자);
+    }
+
+    @Test
+    void 없는_방의_채팅_요약은_PARTY_NOT_FOUND() {
+        assertThatThrownBy(() -> access.findChatSummary(없는방))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.PARTY_NOT_FOUND);
