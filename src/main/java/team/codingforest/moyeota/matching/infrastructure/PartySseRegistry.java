@@ -22,6 +22,13 @@ public class PartySseRegistry {
         emitter.onCompletion(() -> remove(partyId, emitter));
         emitter.onTimeout(() -> remove(partyId, emitter));
         emitter.onError(e -> remove(partyId, emitter));
+
+        try {
+            emitter.send(SseEmitter.event().name("connected").data(partyId));
+        } catch (Exception ex) {
+            remove(partyId, emitter);
+        }
+
         return emitter;
     }
 
