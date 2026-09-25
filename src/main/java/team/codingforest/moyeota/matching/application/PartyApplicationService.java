@@ -5,9 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.driver.api.DriverSummary;
+import team.codingforest.moyeota.matching.api.PartyClosedEvent;
 import team.codingforest.moyeota.matching.api.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.application.dto.OpenPartyCommand;
@@ -25,6 +27,7 @@ import team.codingforest.moyeota.matching.domain.RouteFinder;
 import team.codingforest.moyeota.matching.domain.RouteKey;
 import team.codingforest.moyeota.matching.domain.enums.PartyStatus;
 import team.codingforest.moyeota.matching.domain.exception.MatchingErrorCode;
+import team.codingforest.moyeota.matching.infrastructure.PartySseRegistry;
 import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.time.Instant;
@@ -41,6 +44,7 @@ public class PartyApplicationService {
     private final DriverAccess driverAccess;
     private final UserAccess userAccess;
     private final PartyCompletionPolicy partyCompletionPolicy;
+    private final PartySseRegistry partySseRegistry;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
@@ -97,6 +101,10 @@ public class PartyApplicationService {
         parties.save(party);
         eventPublisher.publishEvent(new PartyMemberLeftEvent(partyId, memberId));
 
+        if(party.getStatus() == PartyStatus.CANCELED) {
+            eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
+        }
+
         log.info("매칭방에서 사용자 나감 partyId={}, memberId={}, status={}, members={}", partyId, memberId, party.getStatus(), party.getMembers().size());
     }
 
@@ -147,6 +155,7 @@ public class PartyApplicationService {
 
         party.finishWithoutDriver(memberId);
         parties.save(party);
+        eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
 
         log.info("기사 없이 합승 종료 partyId={}, memberId={}", partyId, memberId);
     }
@@ -158,8 +167,16 @@ public class PartyApplicationService {
 
         party.expireCompleted();
         parties.save(party);
+        eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
 
         log.warn("정원 충족 후 방치된 방 자동 종료 partyId={}", partyId);
+    }
+
+    @Transactional(readOnly = true)
+    public SseEmitter subscribe(Long partyId, Long memberId) {
+        Party party = getParty(partyId);
+        if(!party.hasMember(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
+        return partySseRegistry.subscribe(partyId);
     }
 
     private Party getParty(Long partyId) {
