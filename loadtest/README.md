@@ -13,6 +13,13 @@
 4. `curl $BASE_URL/api/v1/config` → `{"taxiEnabled":false}` 인지 확인. `true` 면 D 시나리오는 의미가 없다.
 5. 사용자 생성: `BASE_URL=http://TARGET:8080 USERS=350 node seed.mjs` → `users.json`
    토큰 유효 30분. 지나면 다시 seed (가입은 409 로 건너뛰고 로그인만 한다 — 같은 `RUN_ID` 를 줄 것).
+6. **SSE 시나리오(D1-SSE·D2 `USE_SSE=1`·D7)는 xk6-sse 확장이 든 k6 가 필요하다.** 자동 프로비저닝 카탈로그에 없어 직접 빌드한다 (k6 서버, Docker 만 있으면 됨. Go 불필요):
+   ```
+   mkdir -p ~/k6-sse && cd ~/k6-sse
+   docker run --rm -v "$PWD:/xk6" grafana/xk6 build v1.5.0 --with github.com/phymbert/xk6-sse@v0.2.0
+   ./k6 version        # k6 v1.5.0 … 이 바이너리로 SSE 스크립트를 돌린다. 나머지 스크립트도 이걸로 돌려도 된다
+   ```
+   `-o experimental-prometheus-rw` 는 v1.5.0 에서도 같은 이름이다. 맥에서 검증하려면 `-e GOOS=darwin -e GOARCH=arm64` 를 docker run 에 붙인다.
 
 ## 1차 배포 시나리오 (D)
 
@@ -24,7 +31,8 @@
 | 17 합승 탭 | 목록 즉시 + **4초** 폴링 (카메라가 멈추면 400ms 뒤 재조회) |
 | 방 만들기 | 즐겨찾기 → 경로 미리보기(`POST /matching/routes`) → 방 생성. 장소 검색(카카오)은 부하에서 뺀다 |
 | 참여 | 상세 1회(참여 확인 화면) → join |
-| 21 대기 | 상세 즉시 + **4초** 폴링. 1차 배포에선 `COMPLETED` 에서도 계속 돈다(`FINISHED` 까지) |
+| 21 대기 (폴링, SSE 전) | 상세 즉시 + **4초** 폴링. 1차 배포에선 `COMPLETED` 에서도 계속 돈다(`FINISHED` 까지) |
+| 21 대기 (SSE 후) | `GET /rooms/{id}/events` 연결 1개 유지. `connected`·`changed` 마다 상세 1회, `closed` 면 홈. 서버가 15초마다 `:ping` |
 | 채팅 | 채팅 탭 `/chat-rooms/me` → 방 열기 3건(첫 페이지·참여자·방 정보) → 소켓 + 읽음(소켓) + 폴링. **21 의 4초 폴링은 채팅 화면 아래에서 계속 돈다** |
 | 채팅 폴링 | 소켓으로 메시지를 **한 번이라도 받기 전엔 3초**, 받은 뒤엔 20초. 커서가 없으면 첫 페이지를 다시 읽는다 (`after?cursor=0` 은 서버가 400) |
 
@@ -43,6 +51,11 @@ k6 run -o experimental-prometheus-rw -e VUS=90 d2-journey.js              # 전�
 k6 run -o experimental-prometheus-rw -e CONNS=150 d4-chat-ws.js           # 채팅 WebSocket
 k6 run -o experimental-prometheus-rw -e CONNS=150 -e MODE=fallback d4-chat-ws.js   # 소켓이 죽어 전원 3초 폴링으로 떨어진 상황
 k6 run -o experimental-prometheus-rw -e VUS=30 d6-soak.js                 # 45분 지속 + 방치된 방 자동 종료
+
+# ── SSE 전환 후 (xk6-sse 바이너리로) ──
+./k6 run -o experimental-prometheus-rw -e CONCURRENT=100 d1-polling-sse.js         # D1 과 같은 100명, 요청은 절반·연결 60개
+./k6 run -o experimental-prometheus-rw -e VUS=90 -e USE_SSE=1 d2-journey.js        # 대기를 SSE 로. sse_propagation_ms 가 핵심
+./k6 run -o experimental-prometheus-rw -e CONNS=300 d7-sse-connections.js          # 연결 100→200→300 + 초당 2건 변화
 ```
 
 | # | 확인하는 것 | 합격선 |
@@ -54,8 +67,12 @@ k6 run -o experimental-prometheus-rw -e VUS=30 d6-soak.js                 # 45�
 | D4 | 동시 연결 한계·전달 지연 / fallback 모드의 폴링 폭증 | 전달 p95 < 500ms, STOMP 에러 0 |
 | D5 | 어디서 꺾이는가 | 기준 없음 - `hikaricp_connections_pending`(DB) vs `system_cpu_usage`(앱) |
 | D6 | 메모리·CPU 크레딧, 방치된 방이 30~40분 안에 FINISHED 되고 멤버가 풀려나는가 | 자동 종료 ≤ 42분 |
+| D1-SSE | D1 과 같은 동시 접속에서 요청 수·연결 수·힙이 어떻게 바뀌나 (전후 비교) | 요청별 p95 < 300ms, `sse_connect_ms` p95 < 1s, `sse_errors` 0 |
+| D2 `USE_SSE=1` | **반영 지연** — 남이 join 한 순간부터 내 화면에 신호가 올 때까지 (폴링은 평균 2초) | `sse_propagation_ms` p95 < 500ms |
+| D7 | SSE 동시 연결 한계. `process_open_fds`·힙·`tomcat_threads_busy`(연결이 스레드를 안 잡는지) | 연결 300 에서 propagation p95 유지, `sse_errors` 0 |
 
 순서: D0 → D3 → D5 로 천장 → 그 60~70% 로 D1·D2 → D4 → D6.
+SSE 배포 뒤: 폴링 D1 결과를 baseline 으로 두고 → D1-SSE → D2 `USE_SSE=1` → D7. 같은 `CONCURRENT`·`VUS` 로 돌려야 비교가 된다.
 
 ### 사용자 슬롯
 3명이 한 조다 (방장 `users[3g]`, 참여자 `users[3g+1]`, `users[3g+2]`). **D 시나리오끼리는 동시에 돌리지 말 것** — 같은 사용자를 쓴다.
@@ -67,6 +84,8 @@ k6 run -o experimental-prometheus-rw -e VUS=30 d6-soak.js                 # 45�
 | D2·D6 | 0..`VUS`-1 |
 | D3 | 0..89 (`ROOMS`=10 + `ROOMS`x`RACERS`=80) |
 | D4 | 0..`CONNS`-1 |
+| D1-SSE | 0..59 (`GROUPS`=20, 전부 꽉 찬 방) |
+| D7 | 0..`CONNS`-1 |
 
 ### 주의
 - **외부 API 에 부하를 걸지 않는다.** 방 생성은 좌표를 고정해 경로 캐시(`routes:*`, TTL 10분)에 적중시키고 방 구분은 `destination` 이름으로만 한다. 캐시가 만료되는 10분마다 네이버 호출이 몇 건 나간다. 장소 검색(카카오)은 시나리오에 없다.
@@ -74,6 +93,8 @@ k6 run -o experimental-prometheus-rw -e VUS=30 d6-soak.js                 # 45�
 - 테스트가 중간에 죽으면 `ACTIVE` 방에 갇힌 사용자가 남는다(스윕은 `COMPLETED` 만 닫는다). 새 `RUN_ID` 로 다시 seed 하거나 Neon 브랜치를 새로 뜬다.
 - **D3 은 동시 요청이 Hikari 풀(10)을 넘는다.** 5xx 나 30초 멈춤이 나오면 커넥션 풀 데드락이다 - 서버 로그에서 `Connection is not available` 을 찾을 것. `-e ROOMS=3 -e RACERS=3` 으로 낮춰 스크립트 자체는 확인할 수 있다.
 - D4·D2 의 전달 지연은 보낸 쪽과 받는 쪽이 같은 k6 장비라 시계 오차가 없다. k6 를 여러 대로 나누면 이 지표는 못 쓴다.
+- `sse_propagation_ms` 는 서버가 찍은 `joinedAt` 과 k6 의 `Date.now()` 차이다. 둘 다 AWS NTP 라 ms 단위 오차지만 음수가 보이면 시계가 어긋난 것이니 절대값이 아니라 분포로 본다.
+- xk6-sse 는 `:ping` 주석도 event 콜백으로 올린다(name 빈 문자열). 스크립트는 그걸 15초 틱으로 쓴다. 서버 heartbeat 주기를 바꾸면 `HOLD_SEC` 해상도가 같이 바뀐다.
 
 ## 택시 켜짐 시나리오 (S)
 ```

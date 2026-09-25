@@ -1,6 +1,10 @@
 package team.codingforest.moyeota.common.exception;
 
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -17,7 +21,7 @@ public class GlobalExceptionHandler {
     private static final String BAD_REQUEST = "잘못된 요청입니다.";
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ErrorResponse> handleBusiness(BusinessException e) {
+    public ResponseEntity<ErrorResponse> handleBusiness(BusinessException e, HttpServletRequest request) {
         ErrorCode errorCode = e.getErrorCode();
 
         if(errorCode.getHttpStatus().is5xxServerError()) {
@@ -25,6 +29,12 @@ public class GlobalExceptionHandler {
         }
         else {
             log.info("비즈니스 예외 code={} message={}", errorCode.getCode(), errorCode.getMessage());
+        }
+
+        if(acceptsOnlyEventStream(request)) {
+            return ResponseEntity.status(errorCode.getHttpStatus())
+                    .header("X-Error-Code", errorCode.getCode())
+                    .build();
         }
 
         return ResponseEntity.status(errorCode.getHttpStatus())
@@ -56,6 +66,16 @@ public class GlobalExceptionHandler {
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .reduce((a, b) -> a + ", " + b)
                 .orElse(BAD_REQUEST);
+    }
+
+    // 이벤트 형식의 요청인 경우
+    private static  boolean acceptsOnlyEventStream(HttpServletRequest request) {
+        String accept = request.getHeader(HttpHeaders.ACCEPT);
+        if(accept == null) return false;
+
+        return accept.contains(MediaType.TEXT_EVENT_STREAM_VALUE)
+                && !accept.contains(MediaType.APPLICATION_JSON_VALUE)
+                && !accept.contains(MediaType.ALL_VALUE);
     }
 }
 
