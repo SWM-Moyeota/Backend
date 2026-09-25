@@ -5,6 +5,7 @@
 //   방 만들기   즐겨찾기 → 경로 미리보기(POST /matching/routes) → POST /matching/rooms      ※ 장소 검색(카카오)은 부하에서 뺀다
 //   참여        GET /matching/rooms/{id}(참여 확인 화면) → POST join
 //   21 대기     GET /matching/rooms/{id} 즉시 + 4초 폴링. 1차 배포에선 COMPLETED 에서도 계속 돈다(FINISHED 까지)
+//              USE_SSE=1 이면 폴링 대신 /events 구독 - changed 신호마다 상세 1회, closed 면 홈으로
 //   채팅        채팅 탭 GET /chat-rooms/me → 방 열기 3건 → 소켓 + 폴링(3초→20초) + 읽음. 그 아래에서 21 의 4초 폴링이 계속 돈다
 //   종료        누군가 POST finish → 나머지는 상세 폴링으로 FINISHED 를 보고 홈으로
 //
@@ -16,6 +17,9 @@ import {
   myChatRooms, openChatRoom, 판교역, GROUP,
 } from './api.js';
 import { chatSession } from './stomp.js';
+import { watchParty, latestJoinedAt, propagationOf as propagation } from './sse.js';
+
+export const USE_SSE = __ENV.USE_SSE === '1';                     // 대기 화면을 폴링 대신 SSE 로 (서버·앱 모두 SSE 배포 후)
 
 export const POLL = Number(__ENV.POLL_SEC || 4);          // 화면 17·21 의 폴링 주기
 const CHAT_SEC = Number(__ENV.CHAT_SEC || 40);            // 채팅 화면에 머무는 시간
@@ -36,6 +40,33 @@ function pollUntil(token, partyId, wanted, maxSec) {
   }
   return null;
 }
+
+/** SSE 로 기다린다. changed 마다 상세를 다시 읽어(앱과 같다) 원하는 상태가 되면 끝. 반영 지연도 여기서 잰다 */
+function sseUntil(token, partyId, wanted, maxSec) {
+  let reached = null;
+  let seenMembers = -1;
+  const first = roomDetail(token, partyId);                              // 앱은 connected 직후 한 번 재조회한다
+  if (first.status === 200) { seenMembers = first.json('members').length; if (wanted.includes(first.json('status'))) return first.json('status'); }
+  watchParty(token, partyId, {
+    holdSec: maxSec,
+    onEvent: (name) => {
+      if (name !== 'changed' && name !== 'connected') return true;
+      const res = roomDetail(token, partyId);
+      if (res.status !== 200) return true;
+      const members = res.json('members').length;
+      if (name === 'changed' && members > seenMembers) {                 // 누가 들어왔다 - 그 사람의 joinedAt 기준으로 지연
+        const at = latestJoinedAt(res);
+        if (at) propagation.add(Date.now() - at);
+      }
+      seenMembers = members;
+      if (wanted.includes(res.json('status'))) { reached = res.json('status'); return false; }
+      return true;
+    },
+  });
+  return reached;
+}
+
+const waitUntil = (token, partyId, wanted, maxSec) => (USE_SSE ? sseUntil(token, partyId, wanted, maxSec) : pollUntil(token, partyId, wanted, maxSec));
 
 /** 채팅 탭으로 들어가 방을 연다. 돌려주는 값은 소켓이 닫힌 이유 */
 function chat(user, who, partyId) {
@@ -76,7 +107,7 @@ export function journey(users, vu, { abandon = false } = {}) {
     const r = openRoom(me.token, 3, 판교역, `${prefix}${opened}`);
     if (!check(r, { '방 생성 200': (x) => x.status === 200 })) { console.error(`open ${r.status}: ${r.body}`); sleep(POLL); return; }
     partyId = r.id;
-    if (!pollUntil(me.token, partyId, ['COMPLETED'], WAIT_MAX)) { giveUps.add(1); leaveRoom(me.token, partyId); return; }
+    if (!waitUntil(me.token, partyId, ['COMPLETED'], WAIT_MAX)) { giveUps.add(1); leaveRoom(me.token, partyId); return; }
     fillTime.add(Date.now() - opened);
   } else {
     sleep(role);                                                          // 두 참여자가 같은 순간에 몰리지 않게
@@ -94,7 +125,7 @@ export function journey(users, vu, { abandon = false } = {}) {
       sleep(POLL);
     }
     if (partyId === null) { giveUps.add(1); return; }
-    if (!pollUntil(me.token, partyId, ['COMPLETED'], WAIT_MAX)) { giveUps.add(1); leaveRoom(me.token, partyId); return; }
+    if (!waitUntil(me.token, partyId, ['COMPLETED'], WAIT_MAX)) { giveUps.add(1); leaveRoom(me.token, partyId); return; }
   }
 
   const closedBy = chat(me, `g${g}r${role}`, partyId);                    // 채팅하는 동안에도 21 의 상세 폴링이 같이 돈다
