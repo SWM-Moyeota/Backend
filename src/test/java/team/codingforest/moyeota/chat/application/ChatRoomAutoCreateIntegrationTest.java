@@ -15,14 +15,18 @@ import team.codingforest.moyeota.matching.domain.Party;
 import team.codingforest.moyeota.matching.domain.Radius;
 
 import java.time.Instant;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 /**
  *  정원이 차서 MatchingStartedEvent 가 커밋 뒤 발행되면 채팅방이 "실제 DB 에" 남아야 한다.
  *  AFTER_COMMIT 리스너 안에서 @Transactional(REQUIRED) 를 부르면 이미 끝난 트랜잭션에 참여해 커밋이 안 되는 함정을 잡는 테스트.
  *  실제 DB(로컬 Postgres)로 돌아야 의미가 있어 @Transactional 을 붙이지 않는다.
+ *  리스너가 @ApplicationModuleListener(@Async) 라 커밋 직후엔 아직 안 돌았을 수 있어 await 로 기다린다.
  */
+
 @SpringBootTest
 class ChatRoomAutoCreateIntegrationTest {
     @Autowired PartyApplicationService partyService;
@@ -43,12 +47,14 @@ class ChatRoomAutoCreateIntegrationTest {
 
         partyService.join(party.getId(), joiner);
 
-        ChatRoom chatRoom = chatRooms.findByPartyId(party.getId())
-                .orElseThrow(() -> new AssertionError("리스너 로그엔 생성됐다고 찍혀도 커밋이 안 되면 여기서 비어 있다"));
+        await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
+            ChatRoom chatRoom = chatRooms.findByPartyId(party.getId())
+                    .orElseThrow(() -> new AssertionError("리스너 로그엔 생성됐다고 찍혀도 커밋이 안 되면 여기서 비어 있다"));
 
-        assertThat(chatRoomUsers.findAllByChatRoomId(chatRoom.getId()))
-                .as("방만 만들어지고 참여가 커밋되지 않으면 비어 있다")
-                .extracting(ChatRoomUser::getUserId)
-                .containsExactly(joiner);
+            assertThat(chatRoomUsers.findAllByChatRoomId(chatRoom.getId()))
+                    .as("방만 만들어지고 참여가 커밋되지 않으면 비어 있다")
+                    .extracting(ChatRoomUser::getUserId)
+                    .containsExactly(joiner);
+        });
     }
 }
