@@ -14,4 +14,6 @@ public interface ChatRooms {
     boolean existsByPartyId(Long partyId);
 
     Optional<ChatRoom> findByPartyId(Long partyId);
+
+    Optional<ChatRoom> findByPartyIdForUpdate(Long partyId);
 }

@@ -44,4 +44,9 @@ public class ChatRoomJpa implements ChatRooms {
     public boolean existsByPartyId(Long partyId) {
         return jpaRepository.existsByPartyId(partyId);
     }
+
+    @Override
+    public Optional<ChatRoom> findByPartyIdForUpdate(Long partyId) {
+        return jpaRepository.findByPartyIdForUpdate(partyId).map(ChatRoomEntity::toDomain);
+    }
 }

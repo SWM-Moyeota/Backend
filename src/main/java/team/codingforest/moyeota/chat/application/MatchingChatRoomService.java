@@ -14,46 +14,32 @@ public class MatchingChatRoomService {
 
     private final MatchingChatRoomSteps steps;
 
-    /**
-     * 파티원이 들어올 때마다 호출된다. 방이 없으면 만들고 그 사람만 참여시킨다.
-     */
+    /** 파티원이 들어왔다는 신호. 무엇을 할지는 파티 현재 상태로 정한다 */
     public void joinMember(Long partyId, Long memberId) {
-        Long chatRoomId;
-        try {
-            chatRoomId = steps.findOrCreateRoom(partyId);
-        } catch (ChatException | DataIntegrityViolationException e) {
-            chatRoomId = steps.findRoom(partyId);
-        }
+        syncWithRetry(partyId, memberId);
+    }
 
-        try {
-            steps.join(chatRoomId, memberId);
-        } catch (ChatException e) {
-            if (e.getErrorCode() != ChatErrorCode.CHAT_ROOM_ALREADY_JOINED) {
-                throw e;
-            }
-        }
+    /** 파티원이 나갔다는 신호. 무엇을 할지는 파티 현재 상태로 정한다 */
+    public void leaveMember(Long partyId, Long memberId) {
+        syncWithRetry(partyId, memberId);
     }
 
     /**
-     * 파티에서 나가면 채팅방에서도 나간다. 방이 없거나 이미 나갔으면 무시
+     * 방이 없던 순간 두 이벤트가 동시에 방을 만들면 한쪽이 선체크나 UNIQUE 에 걸린다.
+     * 그때는 방이 이미 생긴 것이므로 한 번 더 돌리면 락을 잡고 정상 처리된다
      */
-    public void leaveMember(Long partyId, Long memberId) {
-        Long chatRoomId;
+    private void syncWithRetry(Long partyId, Long memberId) {
         try {
-            chatRoomId = steps.findRoom(partyId);
+            steps.sync(partyId, memberId);
+        } catch (DataIntegrityViolationException e) {
+            log.info("채팅방 동시 생성 충돌, 재동기화 partyId={}, memberId={}", partyId, memberId);
+            steps.sync(partyId, memberId);
         } catch (ChatException e) {
-            if (e.getErrorCode() == ChatErrorCode.CHAT_ROOM_NOT_FOUND) {
-                return;
-            }
-            throw e;
-        }
-
-        try {
-            steps.leave(chatRoomId, memberId);
-        } catch (ChatException e) {
-            if (e.getErrorCode() != ChatErrorCode.CHAT_NOT_PARTICIPANT) {
+            if (e.getErrorCode() != ChatErrorCode.CHAT_ROOM_ALREADY_EXISTS) {
                 throw e;
             }
+            log.info("채팅방 동시 생성 충돌, 재동기화 partyId={}, memberId={}", partyId, memberId);
+            steps.sync(partyId, memberId);
         }
     }
 }
