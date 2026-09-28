@@ -2,18 +2,31 @@ package team.codingforest.moyeota.common.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 @Configuration
 public class AsyncConfig {
 
-    @Bean(name = "taskExecutor")
+    public static final String REALTIME_EXECUTOR = "realtimeExecutor";
+
+    @Bean
+    @Primary
     public ThreadPoolTaskExecutor taskExecutor() {
+        return executor("async-", 3, 1000);
+    }
+
+    @Bean
+    public ThreadPoolTaskExecutor realtimeExecutor() {
+        return executor("realtime-", 1, 10000);
+    }
+
+    private static ThreadPoolTaskExecutor executor(String prefix, int threads, int queueCapacity) {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(4);
-        executor.setMaxPoolSize(4);
-        executor.setQueueCapacity(1000);
-        executor.setThreadNamePrefix("async-");
+        executor.setCorePoolSize(threads);
+        executor.setMaxPoolSize(threads);
+        executor.setQueueCapacity(queueCapacity);
+        executor.setThreadNamePrefix(prefix);
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(20);
         return executor;

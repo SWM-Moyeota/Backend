@@ -3,6 +3,7 @@ package team.codingforest.moyeota.chat.presentation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -17,6 +18,7 @@ import team.codingforest.moyeota.chat.domain.enums.MemberChangeType;
 import team.codingforest.moyeota.chat.infrastructure.ChatEventEnvelope;
 import team.codingforest.moyeota.chat.infrastructure.ChatRoomLeftResult;
 import team.codingforest.moyeota.chat.infrastructure.MemberChangedPayload;
+import team.codingforest.moyeota.common.config.AsyncConfig;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
