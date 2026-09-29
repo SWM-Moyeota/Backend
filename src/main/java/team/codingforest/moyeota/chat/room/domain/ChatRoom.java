@@ -1,8 +1,8 @@
 package team.codingforest.moyeota.chat.room.domain;
 
 import lombok.Getter;
-import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
-import team.codingforest.moyeota.chat.domain.exception.ChatException;
+import team.codingforest.moyeota.chat.common.exception.ChatErrorCode;
+import team.codingforest.moyeota.chat.common.exception.ChatException;
 
 import java.time.Instant;
 
