@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.chat.domain;
+package team.codingforest.moyeota.chat.room.domain;
 
 import lombok.Getter;
 import team.codingforest.moyeota.chat.domain.enums.ChatRoomStatus;

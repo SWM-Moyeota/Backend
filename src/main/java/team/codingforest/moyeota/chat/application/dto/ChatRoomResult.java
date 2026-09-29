@@ -1,6 +1,6 @@
 package team.codingforest.moyeota.chat.application.dto;
 
-import team.codingforest.moyeota.chat.domain.ChatRoom;
+import team.codingforest.moyeota.chat.room.domain.ChatRoom;
 import team.codingforest.moyeota.chat.domain.enums.ChatRoomStatus;
 
 import java.time.Instant;

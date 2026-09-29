@@ -1,10 +1,9 @@
-package team.codingforest.moyeota.chat.infrastructure;
+package team.codingforest.moyeota.chat.room.infrastructure;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
-import team.codingforest.moyeota.chat.domain.ChatRoom;
-import team.codingforest.moyeota.chat.domain.ChatRooms;
 import team.codingforest.moyeota.chat.infrastructure.entity.ChatRoomEntity;
+import team.codingforest.moyeota.chat.room.domain.ChatRoom;
 
 import java.util.List;
 import java.util.Map;

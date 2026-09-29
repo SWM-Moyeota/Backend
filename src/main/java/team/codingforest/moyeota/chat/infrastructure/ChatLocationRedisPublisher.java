@@ -5,8 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import team.codingforest.moyeota.chat.config.RedisConfig;
-import team.codingforest.moyeota.chat.domain.ChatLocation;
-import team.codingforest.moyeota.chat.domain.ChatLocationPublisher;
+import team.codingforest.moyeota.chat.location.domain.ChatLocation;
+import team.codingforest.moyeota.chat.location.domain.ChatLocationPublisher;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 

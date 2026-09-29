@@ -6,7 +6,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-import team.codingforest.moyeota.common.config.AsyncConfig;
+import team.codingforest.moyeota._config.AsyncConfig;
 import team.codingforest.moyeota.matching.api.PartyClosedEvent;
 import team.codingforest.moyeota.matching.api.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.PartyMemberLeftEvent;

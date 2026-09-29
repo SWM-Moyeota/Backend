@@ -1,4 +1,6 @@
-package team.codingforest.moyeota.chat.domain;
+package team.codingforest.moyeota.chat.room.infrastructure;
+
+import team.codingforest.moyeota.chat.room.domain.ChatRoom;
 
 import java.util.List;
 import java.util.Map;

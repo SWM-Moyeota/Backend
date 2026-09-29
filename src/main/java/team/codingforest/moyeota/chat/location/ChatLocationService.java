@@ -1,18 +1,18 @@
-package team.codingforest.moyeota.chat.application;
+package team.codingforest.moyeota.chat.location;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import team.codingforest.moyeota.chat.application.dto.ChatLocationResult;
-import team.codingforest.moyeota.chat.domain.ChatLocation;
-import team.codingforest.moyeota.chat.domain.ChatLocationPublisher;
-import team.codingforest.moyeota.chat.domain.ChatLocations;
 import team.codingforest.moyeota.chat.domain.ChatMember;
-import team.codingforest.moyeota.chat.domain.ChatRooms;
+import team.codingforest.moyeota.chat.room.infrastructure.ChatRooms;
 import team.codingforest.moyeota.chat.domain.MemberProvider;
 import team.codingforest.moyeota.chat.domain.PartyProvider;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
+import team.codingforest.moyeota.chat.location.domain.ChatLocation;
+import team.codingforest.moyeota.chat.location.domain.ChatLocationPublisher;
+import team.codingforest.moyeota.chat.location.domain.ChatLocations;
 
 import java.time.Instant;
 import java.util.List;
@@ -31,7 +31,9 @@ public class ChatLocationService {
     private final ChatLocationPublisher locationPublisher;
 
     /**
-     * 위치 공유 토글 ON. 세션이 살아있는 동안만 발행할 수 있다.
+     * sdkfjaskdjfaksdjfk
+     * @param userId
+     * @param chatRoomId
      */
     public void startSharing(Long userId, Long chatRoomId) {
         validateMember(userId, chatRoomId);

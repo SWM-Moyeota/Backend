@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.common.config;
+package team.codingforest.moyeota._config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

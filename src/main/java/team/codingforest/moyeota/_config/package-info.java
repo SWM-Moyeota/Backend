@@ -1,2 +1,2 @@
 @org.springframework.modulith.NamedInterface("common")
-package team.codingforest.moyeota.common.config;
+package team.codingforest.moyeota._config;

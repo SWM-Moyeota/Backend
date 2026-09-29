@@ -7,7 +7,7 @@ import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.stereotype.Controller;
-import team.codingforest.moyeota.chat.application.ChatLocationService;
+import team.codingforest.moyeota.chat.location.ChatLocationService;
 import team.codingforest.moyeota.chat.application.ChatMessageService;
 import team.codingforest.moyeota.chat.application.ChatRoomUserService;
 import team.codingforest.moyeota.chat.application.dto.ChatLocationResult;

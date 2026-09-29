@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.chat.domain;
+package team.codingforest.moyeota.chat.location.domain;
 
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
