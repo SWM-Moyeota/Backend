@@ -6,18 +6,18 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.web.servlet.MockMvc;
-import team.codingforest.moyeota.dispatch.application.DispatchListener;
-import team.codingforest.moyeota.dispatch.application.DispatchService;
-import team.codingforest.moyeota.dispatch.application.MatchingSweeper;
-import team.codingforest.moyeota.dispatch.presentation.DispatchCallController;
-import team.codingforest.moyeota.dispatch.presentation.DriverLocationController;
-import team.codingforest.moyeota.dispatch.presentation.RideController;
-import team.codingforest.moyeota.driver.application.DriverApplicationService;
-import team.codingforest.moyeota.driver.presentation.DriverController;
-import team.codingforest.moyeota.matching.application.ChatOnlyCompletionPolicy;
-import team.codingforest.moyeota.matching.application.CompletedPartySweeper;
-import team.codingforest.moyeota.matching.application.DispatchCompletionPolicy;
-import team.codingforest.moyeota.matching.application.PartyCompletionPolicy;
+import team.codingforest.moyeota.dispatch.call.DispatchListener;
+import team.codingforest.moyeota.dispatch.call.DispatchService;
+import team.codingforest.moyeota.dispatch.call.MatchingSweeper;
+import team.codingforest.moyeota.dispatch.call.DispatchCallController;
+import team.codingforest.moyeota.dispatch.location.DriverLocationController;
+import team.codingforest.moyeota.dispatch.ride.RideController;
+import team.codingforest.moyeota.driver.DriverService;
+import team.codingforest.moyeota.driver.DriverController;
+import team.codingforest.moyeota.matching.party.completion.ChatOnlyCompletionPolicy;
+import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
+import team.codingforest.moyeota.matching.party.completion.DispatchCompletionPolicy;
+import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -59,8 +59,8 @@ class TaxiDisabledContextTest {
 
     @Test
     void 다른_모듈이_의존하는_서비스는_남아_있다() {
-        // ReportApplicationService·PartyApplicationService 가 DriverAccess 를 주입받으므로 driver 서비스는 살아 있어야 한다
-        assertThat(ctx.getBeanNamesForType(DriverApplicationService.class)).isNotEmpty();
+        // ReportService·PartyService 가 DriverAccess 를 주입받으므로 driver 서비스는 살아 있어야 한다
+        assertThat(ctx.getBeanNamesForType(DriverService.class)).isNotEmpty();
         assertThat(ctx.getBeanNamesForType(DispatchService.class)).isNotEmpty();
     }
 

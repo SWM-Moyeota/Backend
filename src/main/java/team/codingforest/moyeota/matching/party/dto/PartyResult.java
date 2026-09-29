@@ -1,0 +1,32 @@
+package team.codingforest.moyeota.matching.party.dto;
+
+import team.codingforest.moyeota.matching.party.domain.Party;
+
+import java.time.Instant;
+
+public record PartyResult(Long id, Double departureLat, Double departureLng,
+                          Double destinationLat, Double destinationLng, String departure, String destination,
+                          Integer capacity, Integer currentMembers, Integer departureRadius, Integer destinationRadius,
+                          String status, Instant createdAt, Integer estimateFare, Integer estimateTime, String route, Long taxiDriverId) {
+
+    public static PartyResult from(Party party) {
+        return new PartyResult(
+                party.getId(),
+                party.getDepartureLocation().latitude(),
+                party.getDepartureLocation().longitude(),
+                party.getDestinationLocation().latitude(),
+                party.getDestinationLocation().longitude(),
+                party.getDeparture(),
+                party.getDestination(),
+                party.getCapacity().value(),
+                party.getMembers().size(),
+                party.getDepartureRadius().meters(),
+                party.getDestinationRadius().meters(),
+                party.getStatus().name(),
+                party.getCreatedAt(),
+                party.getEstimatedFare(),
+                party.getEstimatedTime(),
+                party.getRoute(),
+                party.getTaxiDriverId());
+    }
+}

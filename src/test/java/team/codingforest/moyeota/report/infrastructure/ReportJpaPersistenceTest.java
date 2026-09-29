@@ -6,7 +6,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import team.codingforest.moyeota.common.JpaAuditingConfig;
 import team.codingforest.moyeota.report.domain.Report;
-import team.codingforest.moyeota.report.domain.enums.ReportStatus;
+import team.codingforest.moyeota.report.domain.ReportStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

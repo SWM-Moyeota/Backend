@@ -1,6 +1,8 @@
 package team.codingforest.moyeota.common.config;
 
 import org.junit.jupiter.api.Test;
+import team.codingforest.moyeota._config.AppConfigController;
+import team.codingforest.moyeota._config.AppConfigResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

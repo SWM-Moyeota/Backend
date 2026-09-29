@@ -1,0 +1,4 @@
+package team.codingforest.moyeota.matching.api.dto;
+
+public record PartySummary(Long id, double departureLatitude, double departureLongitude, double destinationLatitude, double destinationLongitude, String departure, String destination, int memberCount, Integer estimatedFare, Integer estimatedTime, Long driverId) {
+}

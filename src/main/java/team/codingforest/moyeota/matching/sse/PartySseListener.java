@@ -1,0 +1,39 @@
+package team.codingforest.moyeota.matching.sse;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
+import team.codingforest.moyeota._config.AsyncConfig;
+import team.codingforest.moyeota.matching.api.dto.PartyClosedEvent;
+import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
+import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
+import team.codingforest.moyeota.matching.sse.infrastructure.PartySseChannel;
+
+@Component
+@RequiredArgsConstructor
+@Async(AsyncConfig.REALTIME_EXECUTOR)
+public class PartySseListener {
+    private final StringRedisTemplate redisTemplate;
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void on(PartyMemberJoinedEvent event) {
+        publish(event.partyId(), "changed");
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void on(PartyMemberLeftEvent event) {
+        publish(event.partyId(), "changed");
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void on(PartyClosedEvent event) {
+        publish(event.partyId(), "closed");
+    }
+
+    private void publish(Long partyId, String event) {
+        redisTemplate.convertAndSend(PartySseChannel.TOPIC, partyId + ":" + event);
+    }
+}

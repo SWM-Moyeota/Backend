@@ -10,7 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.common.BaseTimeEntity;
 import team.codingforest.moyeota.report.domain.Report;
-import team.codingforest.moyeota.report.domain.enums.ReportStatus;
+import team.codingforest.moyeota.report.domain.ReportStatus;
 
 @Table(name = "driver_report")
 @Entity

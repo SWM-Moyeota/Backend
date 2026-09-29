@@ -2,8 +2,7 @@ package team.codingforest.moyeota.report.domain;
 
 import lombok.Getter;
 import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.report.domain.enums.ReportStatus;
-import team.codingforest.moyeota.report.domain.exception.ReportErrorCode;
+import team.codingforest.moyeota.report.exception.ReportErrorCode;
 
 @Getter
 public class Report {

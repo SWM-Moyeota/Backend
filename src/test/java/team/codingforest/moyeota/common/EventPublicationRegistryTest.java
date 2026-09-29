@@ -6,7 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
-import team.codingforest.moyeota.matching.api.MatchingStartedEvent;
+import team.codingforest.moyeota.matching.api.dto.MatchingStartedEvent;
 
 import java.time.Duration;
 import java.time.Instant;

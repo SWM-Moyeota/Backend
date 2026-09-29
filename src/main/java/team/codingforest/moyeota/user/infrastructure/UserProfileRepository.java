@@ -1,7 +1,0 @@
-package team.codingforest.moyeota.user.infrastructure;
-
-import org.springframework.data.jpa.repository.JpaRepository;
-
-public interface UserProfileRepository extends JpaRepository<UserProfileEntity, Long> {
-    boolean existsByPhoneNumber(String phoneNumber);
-}
