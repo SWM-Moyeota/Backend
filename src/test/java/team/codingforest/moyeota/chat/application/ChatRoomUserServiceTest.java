@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
-import team.codingforest.moyeota.chat.application.dto.ChatRoomCommand;
+import team.codingforest.moyeota.chat.room.dto.ChatRoomCommand;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomMemberResult;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomUserResult;
 import team.codingforest.moyeota.chat.application.dto.ReadChatCommand;
@@ -21,7 +21,7 @@ import team.codingforest.moyeota.chat.room.infrastructure.ChatRooms;
 import team.codingforest.moyeota.chat.domain.MemberProvider;
 import team.codingforest.moyeota.chat.domain.enums.ChatMessageStatus;
 import team.codingforest.moyeota.chat.domain.enums.ChatMessageType;
-import team.codingforest.moyeota.chat.domain.enums.ChatRoomStatus;
+import team.codingforest.moyeota.chat.room.domain.ChatRoomStatus;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
 

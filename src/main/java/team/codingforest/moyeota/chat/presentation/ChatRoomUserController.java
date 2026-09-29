@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import team.codingforest.moyeota.chat.application.ChatRoomUserService;
-import team.codingforest.moyeota.chat.application.dto.ChatRoomCommand;
+import team.codingforest.moyeota.chat.room.dto.ChatRoomCommand;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomMemberResult;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomUserResult;
 import team.codingforest.moyeota.chat.application.dto.ReadChatCommand;

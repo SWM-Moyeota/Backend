@@ -4,7 +4,7 @@ import team.codingforest.moyeota.chat.domain.ChatMessage;
 import team.codingforest.moyeota.chat.room.domain.ChatRoom;
 import team.codingforest.moyeota.chat.domain.ChatRoomUser;
 import team.codingforest.moyeota.chat.domain.enums.ChatMessageType;
-import team.codingforest.moyeota.chat.domain.enums.ChatRoomStatus;
+import team.codingforest.moyeota.chat.room.domain.ChatRoomStatus;
 
 import java.time.Instant;
 import java.util.List;

@@ -6,7 +6,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import team.codingforest.moyeota.chat.application.dto.ChatRoomCommand;
+import team.codingforest.moyeota.chat.room.dto.ChatRoomCommand;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomMemberResult;
 import team.codingforest.moyeota.chat.application.dto.ChatRoomUserResult;
 import team.codingforest.moyeota.chat.application.dto.ReadChatCommand;
