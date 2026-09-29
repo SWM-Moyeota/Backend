@@ -1,7 +1,7 @@
 package team.codingforest.moyeota.driver.domain;
 
 import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.driver.domain.exception.DriverErrorCode;
+import team.codingforest.moyeota.driver.exception.DriverErrorCode;
 
 public record Vehicle(Integer seats, String plateNumber, String type) {
     public Vehicle {

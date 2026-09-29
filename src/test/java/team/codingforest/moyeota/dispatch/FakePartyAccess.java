@@ -1,0 +1,127 @@
+package team.codingforest.moyeota.dispatch;
+
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
+import team.codingforest.moyeota.matching.api.PartyAccess;
+import team.codingforest.moyeota.matching.api.dto.PartyChatSummary;
+import team.codingforest.moyeota.matching.api.dto.PartySummary;
+import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ *  방 요약을 돌려주고 배정/되돌림을 기록하는 가짜.
+ *  assignDriver/cancelMatching 은 실제 도메인 가드(배정 후 불가)를 흉내낸다.
+ */
+public class FakePartyAccess implements PartyAccess {
+    private final Map<Long, PartySummary> summaries = new HashMap<>();
+    public final List<MatchingTarget> matchingTargets = new ArrayList<>();
+    public Long assignedDriverId;
+    public final List<Long> matchingCanceled = new ArrayList<>();
+    public final Set<Long> cancelRejected = new HashSet<>();   // cancelMatching 이 예외를 던질 방 (스윕 중 수락 경합 재현)
+    public final Set<Long> members = new HashSet<>();          // 방 승객 명단 (단일 방 시나리오용)
+
+    public FakePartyAccess(PartySummary... summaries) {
+        for(PartySummary s : summaries) {
+            this.summaries.put(s.id(), s);
+        }
+    }
+
+    @Override
+    public Optional<PartySummary> findSummary(Long partyId) {
+        PartySummary s = summaries.get(partyId);
+        if(s == null) return Optional.empty();
+        // 배정 상태를 요약에 반영 (실제 toSummary가 taxiDriverId를 싣는 것과 동일)
+        return Optional.of(new PartySummary(s.id(), s.departureLatitude(), s.departureLongitude(),
+                s.destinationLatitude(), s.destinationLongitude(), s.departure(), s.destination(),
+                s.memberCount(), s.estimatedFare(), s.estimatedTime(), assignedDriverId));
+    }
+
+    @Override
+    public boolean hasMemberOnParty(Long partyId, Long memberId) {
+        if(!summaries.containsKey(partyId)) throw new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND);
+        return members.contains(memberId);
+    }
+
+    @Override
+    public void assignDriver(Long partyId, Long driverId) {
+        if(assignedDriverId != null) {
+            throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
+        }
+        assignedDriverId = driverId;
+    }
+
+    @Override
+    public void failMatching(Long partyId) {
+        if(cancelRejected.contains(partyId) || assignedDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
+        matchingCanceled.add(partyId);
+    }
+
+    @Override
+    public List<MatchingTarget> findMatchingTargets() {
+        return List.copyOf(matchingTargets);
+    }
+
+    // ───── 운행 흐름 - 도메인 가드(배정 기사만, 순서 위반 불가)를 흉내낸다 ─────
+
+    public boolean rideStarted;
+    public Integer completedFare;
+
+    @Override
+    public void startRide(Long partyId, Long driverId) {
+        ensureAssignedDriver(driverId);
+        if(rideStarted) throw new BusinessException(MatchingErrorCode.NOT_AWAITING_PICKUP);
+        rideStarted = true;
+    }
+
+    @Override
+    public void completeRide(Long partyId, Long driverId, int fare) {
+        ensureAssignedDriver(driverId);
+        if(!rideStarted) throw new BusinessException(MatchingErrorCode.NOT_RIDING);
+        completedFare = fare;
+    }
+
+    @Override
+    public boolean isAwaitingPickup(Long partyId, Long driverId) {
+        return driverId.equals(assignedDriverId) && !rideStarted && completedFare == null;
+    }
+
+    @Override
+    public boolean isRidingMember(Long partyId, Long memberId) {
+        return summaries.containsKey(partyId) && members.contains(memberId) && rideStarted && completedFare == null;
+    }
+
+    @Override
+    public boolean isOnboardingMember(Long partyId, Long memberId) {
+        // 종료(FINISHED) 전까지 true - 실제 구현의 isOngoing() 과 같은 의미. 방이 없으면 예외 없이 false
+        return summaries.containsKey(partyId) && members.contains(memberId) && completedFare == null;
+    }
+
+    @Override
+    public boolean hasOngoingRide(Long driverId) {
+        // 배정~운행 구간만 true, 운행이 끝나면(FINISHED) 자동으로 자유 - 실제 쿼리 의미 그대로
+        return driverId.equals(assignedDriverId) && completedFare == null;
+    }
+
+    @Override
+    public PartyChatSummary findChatSummary(Long partyId) {
+        PartySummary summary = summaries.get(partyId);
+        if(summary == null) throw new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND);
+        return new PartyChatSummary(partyId, List.of(), summary.departure(), summary.destination());
+    }
+
+    @Override
+    public List<Long> findMemberIds(Long partyId) {
+        return summaries.containsKey(partyId) ? List.copyOf(members) : List.of();
+    }
+
+    private void ensureAssignedDriver(Long driverId) {
+        if(assignedDriverId == null || !assignedDriverId.equals(driverId)) throw new BusinessException(MatchingErrorCode.NOT_ASSIGNED_DRIVER);
+    }
+}

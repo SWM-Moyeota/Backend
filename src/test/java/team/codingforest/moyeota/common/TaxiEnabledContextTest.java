@@ -6,12 +6,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.web.servlet.MockMvc;
-import team.codingforest.moyeota.dispatch.application.DispatchListener;
-import team.codingforest.moyeota.dispatch.application.MatchingSweeper;
-import team.codingforest.moyeota.matching.application.ChatOnlyCompletionPolicy;
-import team.codingforest.moyeota.matching.application.CompletedPartySweeper;
-import team.codingforest.moyeota.matching.application.DispatchCompletionPolicy;
-import team.codingforest.moyeota.matching.application.PartyCompletionPolicy;
+import team.codingforest.moyeota.dispatch.call.DispatchListener;
+import team.codingforest.moyeota.dispatch.call.MatchingSweeper;
+import team.codingforest.moyeota.matching.party.completion.ChatOnlyCompletionPolicy;
+import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
+import team.codingforest.moyeota.matching.party.completion.DispatchCompletionPolicy;
+import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;

@@ -13,10 +13,10 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import team.codingforest.moyeota.driver.api.CurrentDriver;
-import team.codingforest.moyeota.driver.application.DriverApplicationService;
+import team.codingforest.moyeota.driver.DriverService;
 import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Drivers;
-import team.codingforest.moyeota.driver.presentation.DriverController;
+import team.codingforest.moyeota.driver.DriverController;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
 import java.util.HashMap;
@@ -38,7 +38,7 @@ class GlobalExceptionHandlerTest {
 
     @BeforeEach
     void setUp() {
-        DriverApplicationService service = new DriverApplicationService(new InMemoryDrivers(), new team.codingforest.moyeota.user.api.UserAccess() {
+        DriverService service = new DriverService(new InMemoryDrivers(), new team.codingforest.moyeota.user.api.UserAccess() {
             public java.util.Optional<String> findNickname(Long userId) { return java.util.Optional.empty(); }
             public java.util.Map<Long, String> findFcmTokens(java.util.List<Long> userIds) { return java.util.Map.of(); }
             public java.util.Map<Long, team.codingforest.moyeota.user.api.MemberSummary> findMemberSummaries(java.util.List<Long> userIds) { return java.util.Map.of(); }

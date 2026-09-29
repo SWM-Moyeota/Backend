@@ -5,7 +5,7 @@ import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Drivers;
-import team.codingforest.moyeota.driver.domain.exception.DriverErrorCode;
+import team.codingforest.moyeota.driver.exception.DriverErrorCode;
 
 import java.util.Optional;
 

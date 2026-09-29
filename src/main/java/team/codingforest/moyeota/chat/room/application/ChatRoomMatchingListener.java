@@ -4,8 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
-import team.codingforest.moyeota.matching.api.PartyMemberJoinedEvent;
-import team.codingforest.moyeota.matching.api.PartyMemberLeftEvent;
+import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
+import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
 
 @Component
 @RequiredArgsConstructor
