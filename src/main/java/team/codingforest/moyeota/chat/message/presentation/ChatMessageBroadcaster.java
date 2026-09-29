@@ -3,9 +3,11 @@ package team.codingforest.moyeota.chat.message.presentation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import team.codingforest.moyeota._config.AsyncConfig;
 import team.codingforest.moyeota.chat.message.event.ChatMessageDeleteEvent;
 import team.codingforest.moyeota.chat.message.event.ChatMessageSentEvent;
 import team.codingforest.moyeota.chat.member.event.ChatRoomJoinedEvent;
@@ -26,6 +28,7 @@ import java.util.UUID;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Async(AsyncConfig.REALTIME_EXECUTOR)
 public class ChatMessageBroadcaster {
 
     private final StringRedisTemplate redisTemplate;

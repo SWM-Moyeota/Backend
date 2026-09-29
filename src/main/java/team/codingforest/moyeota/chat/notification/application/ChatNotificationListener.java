@@ -2,20 +2,18 @@ package team.codingforest.moyeota.chat.notification.application;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
-import team.codingforest.moyeota.chat.message.dto.ChatMessageResult;
-import team.codingforest.moyeota.chat.message.event.ChatMessageSentEvent;
 import team.codingforest.moyeota.chat.member.domain.ChatMember;
-import team.codingforest.moyeota.chat.notification.domain.ChatMessageNotification;
-import team.codingforest.moyeota.chat.notification.domain.ChatNotifier;
 import team.codingforest.moyeota.chat.member.domain.ChatRoomUser;
 import team.codingforest.moyeota.chat.member.domain.ChatRoomUsers;
 import team.codingforest.moyeota.chat.member.domain.MemberProvider;
 import team.codingforest.moyeota.chat.message.domain.enums.ChatMessageType;
+import team.codingforest.moyeota.chat.message.dto.ChatMessageResult;
+import team.codingforest.moyeota.chat.message.event.ChatMessageSentEvent;
+import team.codingforest.moyeota.chat.notification.domain.ChatMessageNotification;
+import team.codingforest.moyeota.chat.notification.domain.ChatNotifier;
 
 import java.util.List;
 
@@ -31,8 +29,7 @@ public class ChatNotificationListener {
     private static final String UNKNOWN_SENDER = "알 수 없음";
     private static final String LOCATION_PREVIEW = "위치를 공유했습니다";
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    @ApplicationModuleListener(propagation =  Propagation.NOT_SUPPORTED)
     public void onMessageSent(ChatMessageSentEvent event) {
         try {
             notifyReceiver(event);
