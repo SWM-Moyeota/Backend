@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import team.codingforest.moyeota.chat.infrastructure.entity.ChatRoomEntity;
+import team.codingforest.moyeota.chat.room.infrastructure.entity.ChatRoomEntity;
 
 import java.util.Optional;
 

@@ -1,7 +1,7 @@
 package team.codingforest.moyeota.chat.location.domain;
 
-import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
-import team.codingforest.moyeota.chat.domain.exception.ChatException;
+import team.codingforest.moyeota.chat.common.exception.ChatErrorCode;
+import team.codingforest.moyeota.chat.common.exception.ChatException;
 
 import java.time.Duration;
 import java.time.Instant;
