@@ -7,7 +7,7 @@ import team.codingforest.moyeota.chat.room.domain.PartyProvider;
 import team.codingforest.moyeota.chat.room.domain.PartySnapshot;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.api.PartyAccess;
-import team.codingforest.moyeota.matching.api.PartyChatSummary;
+import team.codingforest.moyeota.matching.api.dto.PartyChatSummary;
 
 import java.util.Optional;
 

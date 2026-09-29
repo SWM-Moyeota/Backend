@@ -7,12 +7,12 @@ import team.codingforest.moyeota.chat.room.domain.ChatRoom;
 import team.codingforest.moyeota.chat.member.domain.ChatRoomUser;
 import team.codingforest.moyeota.chat.member.domain.ChatRoomUsers;
 import team.codingforest.moyeota.chat.room.infrastructure.ChatRooms;
-import team.codingforest.moyeota.matching.application.PartyApplicationService;
-import team.codingforest.moyeota.matching.domain.Capacity;
-import team.codingforest.moyeota.matching.domain.Location;
-import team.codingforest.moyeota.matching.domain.Parties;
-import team.codingforest.moyeota.matching.domain.Party;
-import team.codingforest.moyeota.matching.domain.Radius;
+import team.codingforest.moyeota.matching.party.PartyService;
+import team.codingforest.moyeota.matching.party.domain.Capacity;
+import team.codingforest.moyeota.matching.party.domain.Location;
+import team.codingforest.moyeota.matching.party.domain.Parties;
+import team.codingforest.moyeota.matching.party.domain.Party;
+import team.codingforest.moyeota.matching.party.domain.Radius;
 
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
@@ -29,7 +29,7 @@ import static org.awaitility.Awaitility.await;
 
 @SpringBootTest
 class ChatRoomAutoCreateIntegrationTest {
-    @Autowired PartyApplicationService partyService;
+    @Autowired PartyService partyService;
     @Autowired Parties parties;
     @Autowired
     ChatRooms chatRooms;

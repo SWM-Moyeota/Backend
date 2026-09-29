@@ -1,5 +1,9 @@
 package team.codingforest.moyeota.matching.api;
 
+import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
+import team.codingforest.moyeota.matching.api.dto.PartyChatSummary;
+import team.codingforest.moyeota.matching.api.dto.PartySummary;
+
 import java.util.List;
 import java.util.Optional;
 

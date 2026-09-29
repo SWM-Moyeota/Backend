@@ -2,8 +2,7 @@ package team.codingforest.moyeota.driver.domain;
 
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.driver.domain.enums.DriverStatus;
-import team.codingforest.moyeota.driver.domain.exception.DriverErrorCode;
+import team.codingforest.moyeota.driver.exception.DriverErrorCode;
 
 import java.time.Instant;
 

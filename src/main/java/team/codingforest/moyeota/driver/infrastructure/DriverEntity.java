@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.common.BaseTimeEntity;
 import team.codingforest.moyeota.driver.domain.BankAccount;
 import team.codingforest.moyeota.driver.domain.Driver;
-import team.codingforest.moyeota.driver.domain.enums.DriverStatus;
+import team.codingforest.moyeota.driver.domain.DriverStatus;
 
 import java.time.Instant;
 
