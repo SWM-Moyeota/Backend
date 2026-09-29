@@ -32,6 +32,8 @@ dependencies {
 	implementation 'org.springframework.modulith:spring-modulith-starter-core'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.modulith:spring-modulith-starter-jpa'       // 아웃박스 패턴 적용하기 위한 이벤트 발생 기록을 JPA로 저장
+    implementation 'net.javacrumbs.shedlock:shedlock-spring:7.10.1'                 // 다중 인스턴스에서 스케줄 작업을 한 곳에서만 실행
+    implementation 'net.javacrumbs.shedlock:shedlock-provider-jdbc-template:7.10.1'
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	implementation 'com.fasterxml.uuid:java-uuid-generator:5.1.0'	// UUID v7
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
