@@ -51,7 +51,9 @@ class FakePartyAccess implements PartyAccess {
 
     @Override
     public void assignDriver(Long partyId, Long driverId) {
-        if(assignedDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
+        if(assignedDriverId != null) {
+            throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
+        }
         assignedDriverId = driverId;
     }
 

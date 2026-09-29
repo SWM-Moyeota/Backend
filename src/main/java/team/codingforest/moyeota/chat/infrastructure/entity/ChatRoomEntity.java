@@ -9,8 +9,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
-import team.codingforest.moyeota.chat.domain.ChatRoom;
-import team.codingforest.moyeota.chat.domain.enums.ChatRoomStatus;
+import team.codingforest.moyeota.chat.room.domain.ChatRoom;
+import team.codingforest.moyeota.chat.room.domain.ChatRoomStatus;
 
 import java.time.Instant;
 

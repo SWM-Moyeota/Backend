@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.chat.presentation;
+package team.codingforest.moyeota.chat.location;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import team.codingforest.moyeota.chat.application.ChatLocationService;
 import team.codingforest.moyeota.chat.presentation.dto.LocationRequest;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
@@ -24,7 +23,9 @@ public class ChatLocationController {
     private final ChatLocationService chatLocationService;
 
     /**
-     * 위치 공유 토글 ON
+     *
+     * @param userId
+     * @param chatRoomId
      */
     @PostMapping("/sharing")
     @ResponseStatus(HttpStatus.CREATED)

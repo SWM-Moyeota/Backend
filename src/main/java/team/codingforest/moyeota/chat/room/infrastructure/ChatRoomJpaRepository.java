@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.chat.infrastructure;
+package team.codingforest.moyeota.chat.room.infrastructure;
 
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;

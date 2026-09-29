@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.chat.application.dto;
+package team.codingforest.moyeota.chat.room.dto;
 
 import java.util.UUID;
 

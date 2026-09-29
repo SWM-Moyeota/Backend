@@ -1,6 +1,6 @@
-package team.codingforest.moyeota.chat.application.dto;
+package team.codingforest.moyeota.chat.location.dto;
 
-import team.codingforest.moyeota.chat.domain.ChatLocation;
+import team.codingforest.moyeota.chat.location.domain.ChatLocation;
 import team.codingforest.moyeota.chat.domain.ChatMember;
 
 import java.time.Instant;

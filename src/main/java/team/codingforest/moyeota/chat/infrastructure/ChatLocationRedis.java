@@ -3,8 +3,8 @@ package team.codingforest.moyeota.chat.infrastructure;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
-import team.codingforest.moyeota.chat.domain.ChatLocation;
-import team.codingforest.moyeota.chat.domain.ChatLocations;
+import team.codingforest.moyeota.chat.location.domain.ChatLocation;
+import team.codingforest.moyeota.chat.location.domain.ChatLocations;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;

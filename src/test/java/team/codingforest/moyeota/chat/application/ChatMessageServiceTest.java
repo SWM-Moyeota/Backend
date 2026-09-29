@@ -16,12 +16,12 @@ import team.codingforest.moyeota.chat.application.event.ChatMessageSentEvent;
 import team.codingforest.moyeota.chat.domain.ChatMember;
 import team.codingforest.moyeota.chat.domain.ChatMessage;
 import team.codingforest.moyeota.chat.domain.ChatMessages;
-import team.codingforest.moyeota.chat.domain.ChatRoom;
-import team.codingforest.moyeota.chat.domain.ChatRooms;
+import team.codingforest.moyeota.chat.room.domain.ChatRoom;
+import team.codingforest.moyeota.chat.room.infrastructure.ChatRooms;
 import team.codingforest.moyeota.chat.domain.MemberProvider;
 import team.codingforest.moyeota.chat.domain.enums.ChatMessageStatus;
 import team.codingforest.moyeota.chat.domain.enums.ChatMessageType;
-import team.codingforest.moyeota.chat.domain.enums.ChatRoomStatus;
+import team.codingforest.moyeota.chat.room.domain.ChatRoomStatus;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
 

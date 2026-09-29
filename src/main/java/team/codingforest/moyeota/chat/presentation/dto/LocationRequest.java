@@ -3,7 +3,7 @@ package team.codingforest.moyeota.chat.presentation.dto;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
-import team.codingforest.moyeota.chat.domain.ChatLocation;
+import team.codingforest.moyeota.chat.location.domain.ChatLocation;
 
 import java.time.Instant;
 

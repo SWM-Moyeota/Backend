@@ -5,8 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import team.codingforest.moyeota.chat.domain.ChatLocation;
-import team.codingforest.moyeota.chat.domain.ChatLocations;
+import team.codingforest.moyeota.chat.location.domain.ChatLocation;
+import team.codingforest.moyeota.chat.location.domain.ChatLocations;
 
 import java.time.Instant;
 

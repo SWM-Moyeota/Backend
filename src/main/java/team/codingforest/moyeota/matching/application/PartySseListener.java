@@ -2,9 +2,11 @@ package team.codingforest.moyeota.matching.application;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import team.codingforest.moyeota._config.AsyncConfig;
 import team.codingforest.moyeota.matching.api.PartyClosedEvent;
 import team.codingforest.moyeota.matching.api.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.PartyMemberLeftEvent;
@@ -12,6 +14,7 @@ import team.codingforest.moyeota.matching.infrastructure.PartySseChannel;
 
 @Component
 @RequiredArgsConstructor
+@Async(AsyncConfig.REALTIME_EXECUTOR)
 public class PartySseListener {
     private final StringRedisTemplate redisTemplate;
 

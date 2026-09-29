@@ -1,17 +1,18 @@
-package team.codingforest.moyeota.chat.application;
+package team.codingforest.moyeota.chat.room;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import team.codingforest.moyeota.chat.application.dto.ChatRoomResult;
-import team.codingforest.moyeota.chat.application.dto.CreateChatRoomCommand;
-import team.codingforest.moyeota.chat.domain.ChatRoom;
-import team.codingforest.moyeota.chat.domain.ChatRooms;
+import team.codingforest.moyeota.chat.room.dto.ChatRoomResult;
+import team.codingforest.moyeota.chat.room.dto.CreateChatRoomCommand;
 import team.codingforest.moyeota.chat.domain.PartyProvider;
 import team.codingforest.moyeota.chat.domain.PartySnapshot;
 import team.codingforest.moyeota.chat.domain.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.domain.exception.ChatException;
+import team.codingforest.moyeota.chat.room.domain.ChatRoom;
+import team.codingforest.moyeota.chat.room.infrastructure.ChatRooms;
+
 import java.time.Instant;
 
 @Slf4j

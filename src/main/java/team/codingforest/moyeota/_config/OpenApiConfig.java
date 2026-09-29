@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.common.openapi;
+package team.codingforest.moyeota._config;
 
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -12,11 +12,15 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.util.CollectionUtils;
+
+import java.util.Objects;
 
 /**
- *  Swagger UI: /swagger-ui.html, 스펙: /v3/api-docs
- *  - 모든 API 는 기본적으로 Bearer(access 토큰) 필요. /api/v1/auth/** 는 컨트롤러에서 @SecurityRequirements 로 제외
- *  - 4xx/5xx 응답은 전부 {code, message} 규격이라 커스터마이저가 ErrorResponse 스키마를 일괄로 붙인다
+ * Swagger UI: /swagger-ui.html, 스펙: /v3/api-docs
+ * - 모든 API 는 기본적으로 Bearer(access 토큰) 필요. /api/v1/auth/** 는 컨트롤러에서 @SecurityRequirements 로 제외
+ * - 4xx/5xx 응답은 전부 {code, message} 규격이라 커스터마이저가 ErrorResponse 스키마를 일괄로 붙인다
  */
 @Configuration
 public class OpenApiConfig {
@@ -43,19 +47,23 @@ public class OpenApiConfig {
                 .addSecurityItem(new SecurityRequirement().addList(BEARER));
     }
 
-    /** 컨트롤러가 적은 4xx/5xx 응답에 ErrorResponse 스키마를 붙이고, 인증이 필요한 오퍼레이션에 401 을 일괄 추가 */
+    /**
+     * 컨트롤러가 적은 4xx/5xx 응답에 ErrorResponse 스키마를 붙이고, 인증이 필요한 오퍼레이션에 401 을 일괄 추가
+     */
     @Bean
     public OpenApiCustomizer errorResponseCustomizer() {
         return openApi -> {
-            if(openApi.getPaths() == null) return;
+            if (Objects.isNull(openApi.getPaths())) {
+                return;
+            }
 
             openApi.getPaths().values().forEach(path -> path.readOperations().forEach(op -> {
-                boolean secured = op.getSecurity() == null || !op.getSecurity().isEmpty();   // 전역 요구사항 상속 = 인증 필요
-                if(secured && !op.getResponses().containsKey("401")) {
+                boolean secured = !CollectionUtils.isEmpty(op.getSecurity());
+                if (secured && !op.getResponses().containsKey(HttpStatus.UNAUTHORIZED.name())) {
                     op.getResponses().addApiResponse("401", new ApiResponse().description("인증 필요 - 토큰 없음/만료(USER002)/무효"));
                 }
                 op.getResponses().forEach((code, response) -> {
-                    if(code.startsWith("4") || code.startsWith("5")) {
+                    if (code.startsWith("4") || code.startsWith("5")) {
                         response.setContent(new Content().addMediaType("application/json",
                                 new MediaType().schema(new Schema<>().$ref("#/components/schemas/" + ERROR_SCHEMA))));
                     }

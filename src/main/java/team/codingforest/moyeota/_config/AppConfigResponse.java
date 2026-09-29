@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.common.config;
+package team.codingforest.moyeota._config;
 
 public record AppConfigResponse(boolean taxiEnabled) {
     public static AppConfigResponse from(boolean taxiEnabled) {

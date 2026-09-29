@@ -5,11 +5,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import team.codingforest.moyeota.chat.application.dto.ChatRoomCommand;
-import team.codingforest.moyeota.chat.application.dto.CreateChatRoomCommand;
-import team.codingforest.moyeota.chat.domain.ChatRoom;
+import team.codingforest.moyeota.chat.room.dto.ChatRoomCommand;
+import team.codingforest.moyeota.chat.room.dto.CreateChatRoomCommand;
+import team.codingforest.moyeota.chat.room.domain.ChatRoom;
 import team.codingforest.moyeota.chat.domain.ChatRoomUsers;
-import team.codingforest.moyeota.chat.domain.ChatRooms;
+import team.codingforest.moyeota.chat.room.ChatRoomService;
+import team.codingforest.moyeota.chat.room.infrastructure.ChatRooms;
 import team.codingforest.moyeota.chat.domain.PartyProvider;
 import team.codingforest.moyeota.chat.domain.PartySnapshot;
 
