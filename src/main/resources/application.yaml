@@ -18,7 +18,7 @@ spring:
       port: 6379
   modulith:
     events:
-      republish-outstanding-events-on-restart: true
+      republish-outstanding-events-on-restart: false
       completion-mode: DELETE
 
 kakao:
