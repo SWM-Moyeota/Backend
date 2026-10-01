@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import team.codingforest.moyeota.chat.member.domain.ChatRoomUser;
@@ -12,7 +13,7 @@ import java.time.Instant;
 
 @Entity
 @Getter
-@Table(name = "chat_room_user")
+@Table(name = "chat_room_user", indexes = @Index(name = "idx_chat_room_user_user_id", columnList = "user_id"))
 @IdClass(ChatRoomUserId.class)
 public class ChatRoomUserEntity {
 
