@@ -53,6 +53,9 @@ jobs:
       - name: Upload to S3
         run: aws s3 cp moyeota-${{ github.sha }}.zip s3://$S3_BUCKET/
 
+      - name: Sync EC2 bootstrap files
+        run: aws s3 sync infra/ec2 s3://$S3_BUCKET/ec2/ --delete
+
       - name: Deploy
         run: |
           DEPLOY_ID=$(aws deploy create-deployment \

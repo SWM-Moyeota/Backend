@@ -1,0 +1,17 @@
+loki.source.journal "moyeota" {
+  path       = "/var/log/journal"
+  max_age    = "12h"
+  matches    = "_SYSTEMD_UNIT=moyeota.service"
+  labels     = {
+    unit = "moyeota",
+    env  = sys.env("DEPLOY_ENV"),
+    host = constants.hostname,
+  }
+  forward_to = [loki.write.monitoring.receiver]
+}
+
+loki.write "monitoring" {
+  endpoint {
+    url = sys.env("LOKI_URL")
+  }
+}
