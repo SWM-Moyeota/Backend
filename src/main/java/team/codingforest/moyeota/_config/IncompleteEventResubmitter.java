@@ -7,6 +7,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 @RequiredArgsConstructor
@@ -19,11 +21,11 @@ public class IncompleteEventResubmitter {
 
     @Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
     public void resubmit() {
-        publications.resubmitIncompletePublications(
-                ResubmissionOptions.defaults()
-                        .withMinAge(MIN_AGE)
-                        .withBatchSize(BATCH_SIZE)
-                        .withFilter(p -> p.getCompletionAttempts() < 5)
-        );
+        Instant cutoff = Instant.now().minus(Duration.ofMinutes(5));
+        AtomicInteger budget = new AtomicInteger(200);
+        publications.resubmitIncompletePublications(p ->
+                p.getPublicationDate().isBefore(cutoff)
+                        && p.getCompletionAttempts() < 5
+                        && budget.getAndDecrement() > 0);
     }
 }
