@@ -1,0 +1,15 @@
+[Unit]
+Description=Moyeota Backend
+After=network.target redis-server.service
+
+[Service]
+User=root
+WorkingDirectory=/opt/moyeota
+EnvironmentFile=/etc/moyeota/moyeota.env
+ExecStart=/usr/bin/java -jar /opt/moyeota/app.jar
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+
