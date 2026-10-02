@@ -19,6 +19,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
     ports: ["127.0.0.1:3000:3000"]
     depends_on: [prometheus]
     restart: unless-stopped
@@ -33,6 +34,16 @@ services:
     command: ["--collector.stat_statements"]
     restart: unless-stopped
 
+  loki:
+    image: grafana/loki:3.5
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+    ports: [ "172.16.1.21:3100:3100" ]      # ec2가 push할 수 있도록 구성
+    restart: unless-stopped
+
 volumes:
   prom-data: {}
   grafana-data: {}
+  loki-data: {}
