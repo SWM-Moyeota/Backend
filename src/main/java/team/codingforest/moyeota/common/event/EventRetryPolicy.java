@@ -1,14 +1,15 @@
-package team.codingforest.moyeota.chat.room.application;
+package team.codingforest.moyeota.common.event;
 
 import java.time.Duration;
 import java.time.Instant;
 
-public class ChatEventRetryPolicy {
+/** 1분, 2분 간격으로 재시도하고 3회에서 멈춤 */
+public class EventRetryPolicy {
 
-    public static final int MAX_ATTEMPTS = 5;
+    public static final int MAX_ATTEMPTS = 3;
     private static final Duration BASE_DELAY = Duration.ofMinutes(1);
 
-    private ChatEventRetryPolicy() {
+    private EventRetryPolicy() {
     }
 
     public static boolean isExhausted(int attempts) {
@@ -20,7 +21,7 @@ public class ChatEventRetryPolicy {
             return false;
         }
 
-        Instant lastTry = lastResubmittedAt == null ? publishedAt: lastResubmittedAt;
+        Instant lastTry = lastResubmittedAt == null ? publishedAt : lastResubmittedAt;
         Duration wait = BASE_DELAY.multipliedBy(1L << Math.max(0, attempts - 1));
         return !now.isBefore(lastTry.plus(wait));
     }

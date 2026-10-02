@@ -1,6 +1,6 @@
--- 재시도 상한을 넘어서 재발행을 포기한 채팅 이벤트
+-- 재시도 상한을 넘어서 재발행을 포기한 outbox 이벤트
 -- event_publication에 남기면 재발행 배치의 앞에 두어 새로운 이벤트가 재실행 되지 않음
-CREATE TABLE chat_event_dead_letter (
+CREATE TABLE event_dead_letter (
     id                     uuid PRIMARY KEY,
     listener_id            varchar(255) NOT NULL,
     event_type             varchar(255) NOT NULL,
