@@ -18,7 +18,7 @@ public class AsyncConfig {
 
     @Bean
     public ThreadPoolTaskExecutor realtimeExecutor() {
-        return executor("realtime-", 1, 10000);
+        return executor("realtime-", 100, 10000);
     }
 
     private static ThreadPoolTaskExecutor executor(String prefix, int threads, int queueCapacity) {
