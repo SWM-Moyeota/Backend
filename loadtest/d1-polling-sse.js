@@ -9,7 +9,7 @@ import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import {
   listRooms, roomDetail, myChatRooms, pollChat, sendChatRest, finishRoom,
-  fillRoom, groupUsers, resolveChatRoomId,
+  fillRoom, groupUsers, resolveChatRoomId, spotOf, viewportAround,
 } from './lib/api.js';
 import { watchParty } from './lib/sse.js';
 
@@ -30,7 +30,7 @@ const MIX = [
 
 export const options = {
   scenarios: {
-    polling: { executor: 'constant-arrival-rate', rate: RPS, timeUnit: '1s', duration: DURATION, preAllocatedVUs: 30, maxVUs: 200 },
+    polling: { executor: 'constant-arrival-rate', rate: RPS, timeUnit: '1s', duration: DURATION, preAllocatedVUs: 200, maxVUs: 1000 },
     sse:     { executor: 'constant-vus', vus: SSE_VUS, duration: DURATION, gracefulStop: '20s', exec: 'sseHolder' },
   },
   thresholds: {
@@ -65,7 +65,7 @@ export default function (data) {
   const pick = Math.random();
   const kind = MIX.find((m) => pick < m.upTo).name;
   let res;
-  if (kind === 'list') res = listRooms(me.token);
+  if (kind === 'list') res = listRooms(me.token, viewportAround(spotOf(grp.g)));   // 그 조가 서 있는 곳 주변
   else if (kind === 'chat' && grp.chatRoomId) res = pollChat(me.token, grp.chatRoomId, grp.cursor);
   else if (kind === 'detail') res = roomDetail(me.token, grp.partyId);
   else res = myChatRooms(me.token);

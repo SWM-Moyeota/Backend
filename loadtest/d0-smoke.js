@@ -4,7 +4,7 @@ import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import {
   appStart, listRooms, favoritePlaces, previewRoute, openRoom, joinRoom, leaveRoom, roomDetail, finishRoom,
-  resolveChatRoomId, chatMembers, chatMessages, openChatRoom, pollChat, 판교역,
+  resolveChatRoomId, chatMembers, chatMessages, openChatRoom, pollChat, 판교역, 출발지들, SPOTS,
 } from './lib/api.js';
 import { chatSession } from './lib/stomp.js';
 
@@ -19,6 +19,14 @@ export default function () {
   check(listRooms(host.token), { '지도 목록 200': (r) => r.status === 200 });
   check(favoritePlaces(host.token), { '즐겨찾기 200': (r) => r.status === 200 });
   check(previewRoute(host.token), { '경로 미리보기 200 (캐시가 비어 있으면 네이버를 1회 부른다)': (r) => r.status === 200 });
+
+  // CHECK_SPOTS=1 - 분산 출발지 전부(출발지 → 같은 도시의 짝)의 경로가 구해지는지 확인한다(네이버 최대 SPOTS 회). 좌표를 바꿨을 때 한 번만 돌린다
+  if (__ENV.CHECK_SPOTS === '1') {
+    for (const spot of 출발지들.slice(0, SPOTS)) {
+      const res = previewRoute(host.token, spot);
+      if (!check(res, { '출발지별 경로 200': (r) => r.status === 200 })) console.error(`경로 실패 ${spot.city} ${spot.name} → ${spot.dest.name} ${res.status}: ${res.body}`);
+    }
+  }
 
   const room = openRoom(host.token, 3, 판교역, 'LT-smoke');
   if (!check(room, { '방 생성 200': (r) => r.status === 200 })) { console.error(room.body); return; }

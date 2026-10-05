@@ -38,12 +38,34 @@
 
 1차 배포에선 `/chat-rooms/me` 10초 폴링이 **돌지 않는다**(앱이 대기 단계에선 건너뛴다). 그래서 21 화면의 「채팅 열기」 버튼도 뜨지 않고, 채팅은 채팅 탭으로 들어간다.
 
+### 방의 위치 - 한 점에 몰지 않는다
+
+방은 전국 21개 도시 100곳(`lib/api.js` 의 `출발지들`)에 조 번호로 나눠 만든다. 참여자는 앱처럼 **자기 출발지 주변 약 ±500m**(`viewportAround`)만 조회한다. 목적지는 같은 도시의 다음 출발지다(평균 직선 4km) - 부산에서 판교로 가는 400km 경로가 생기지 않게 한다.
+
+- 전부 강남역 한 점에 만들면 뷰포트가 아무것도 걸러내지 못해 ACTIVE 방 전체가 목록 응답에 실린다. 5,000명(1,666조)에서 목록 조회가 10ms → 2초로 늘고 DB CPU 가 100% 가 됐다. 100곳으로 나누면 한 응답에 약 17개(1/100)만 들어온다.
+- 무작위 좌표를 쓰지 않는 이유는 경로 캐시다. 캐시 키가 좌표(소수 5자리)라 좌표가 다르면 방마다 네이버를 부른다. 정해진 100곳이면 경로도 100개로 끝난다(TTL 10분마다 최대 100회).
+- 채팅방은 `/chat-rooms/me` 의 첫 항목이 아니라 **이번 방의 목적지 이름**으로 찾는다. 입장이 늦을 때 지난 반복의 옛 방에 붙어 체크가 거짓 통과하는 것을 막는다.
+
+| 환경변수 | 기본 | 뜻 |
+|---|---|---|
+| `SPOTS` | 100 | 쓸 출발지 수. 도시를 번갈아 가며 앞에서부터 쓴다. `1` 이면 예전처럼 전부 강남역 → 판교역(분산 전 결과와 비교할 때만) |
+| `VIEW_DEG` | 0.005 | 조회 뷰포트 반경(도). 약 500m |
+| `CHECK_SPOTS` | - | `1` 이면 `d0-smoke.js` 가 출발지 전부의 경로가 구해지는지 확인한다. 좌표를 바꾼 뒤 한 번만 |
+
+**돌리기 전에 지난 실행의 잔여를 지운다.** 포기·중단으로 남은 ACTIVE 방과 미완료 이벤트가 있으면 시작부터 결과가 오염된다.
+
+```sql
+UPDATE match_room SET status = 'CANCELED', updated_at = now() WHERE status = 'ACTIVE' AND destination LIKE 'LT-g%';
+DELETE FROM event_publication WHERE completion_date IS NULL;
+```
+
 화면 비중을 합승 탭 40% · 대기 30% · 채팅 30% 로 잡으면 **1인당 약 0.27 RPS** (상세 55% · 목록 36% · 채팅 폴링 6% · 기타 3%) → 동시 접속 100명 = 27 RPS + WebSocket 30연결.
 
 ```
 export BASE_URL=http://172.16.1.30:8080          # 프라이빗 IP - CloudFront 를 거치지 않는다
 export K6_PROMETHEUS_RW_SERVER_URL=http://localhost:9090/api/v1/write
 k6 run d0-smoke.js                                                        # 여정 1회 - 반드시 먼저
+k6 run -e CHECK_SPOTS=1 d0-smoke.js                                       # 출발지 100곳 경로 확인 - 좌표를 바꿨을 때만
 k6 run d3-join-consistency.js                                             # 정합성 - 방마다 2명만 성공 + 채팅방 멤버 = 방 멤버
 k6 run -o experimental-prometheus-rw d5-breakpoint.js                     # 한계 찾기 (10 → 200 RPS)
 k6 run -o experimental-prometheus-rw -e CONCURRENT=100 d1-polling.js      # 읽기 폴링 5분

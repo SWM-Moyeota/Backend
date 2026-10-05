@@ -3,7 +3,7 @@
 //   k6 run -o experimental-prometheus-rw loadtest/d5-breakpoint.js
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
-import { listRooms, roomDetail, myChatRooms, pollChat, sendChatRest, fillRoom, groupUsers, finishRoom, resolveChatRoomId } from './lib/api.js';
+import { listRooms, roomDetail, myChatRooms, pollChat, sendChatRest, fillRoom, groupUsers, finishRoom, resolveChatRoomId, spotOf, viewportAround } from './lib/api.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
 const GROUPS = Number(__ENV.GROUPS || 20);
@@ -12,7 +12,7 @@ const PEAK = Number(__ENV.PEAK || 200);
 export const options = {
   scenarios: {
     ramp: {
-      executor: 'ramping-arrival-rate', startRate: 10, timeUnit: '1s', preAllocatedVUs: 100, maxVUs: 600,
+      executor: 'ramping-arrival-rate', startRate: 10, timeUnit: '1s', preAllocatedVUs: 500, maxVUs: 3000,
       stages: [
         { target: 10, duration: '1m' }, { target: PEAK / 4, duration: '2m' }, { target: PEAK / 2, duration: '2m' },
         { target: PEAK, duration: '2m' }, { target: PEAK, duration: '1m' }, { target: 0, duration: '30s' },
@@ -42,7 +42,7 @@ export default function (data) {
   const pick = Math.random();
   let res;
   if (pick < 0.10 && grp.chatRoomId) res = sendChatRest(me.token, grp.chatRoomId, `lt:${Date.now()}:bp`);   // 쓰기 10%
-  else if (pick < 0.42) res = listRooms(me.token);             // 아래 비율은 D1 과 같다 (목록 36 : 상세 55 : 채팅 폴링 6 : 채팅방 목록 3)
+  else if (pick < 0.42) res = listRooms(me.token, viewportAround(spotOf(grp.g)));             // 아래 비율은 D1 과 같다 (목록 36 : 상세 55 : 채팅 폴링 6 : 채팅방 목록 3)
   else if (pick < 0.92 || !grp.chatRoomId) res = roomDetail(me.token, grp.partyId);
   else if (pick < 0.97) res = pollChat(me.token, grp.chatRoomId, grp.cursor);
   else res = myChatRooms(me.token);
