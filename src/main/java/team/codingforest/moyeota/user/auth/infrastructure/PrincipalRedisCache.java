@@ -16,7 +16,7 @@ import java.util.UUID;
 public class PrincipalRedisCache implements PrincipalCache {
 
     static final String PREFIX = "auth:principal:";
-    // 탈퇴·정지 기능이 생기면 그 사용자가 최대 이 시간만큼 더 통과한다 - 그때는 해당 키를 지우는 처리를 함께 넣는다
+
     static final Duration TTL = Duration.ofMinutes(10);
 
     private final StringRedisTemplate redisTemplate;
