@@ -110,6 +110,11 @@ export function listRooms(token, view = 뷰포트) {
   return http.get(`${BASE}/api/v1/matching/rooms?${q}`, auth(token, { tags: { name: 'GET /matching/rooms (viewport)' } }));
 }
 
+// 상태·인원·지문만 (쿼리 1개). 채팅 화면의 안전망 확인이 방 상세 대신 부른다
+export function roomStatus(token, partyId) {
+  return http.get(`${BASE}/api/v1/matching/rooms/${partyId}/status`, auth(token, { tags: { name: 'GET /matching/rooms/{id}/status' } }));
+}
+
 export function roomDetail(token, partyId) {
   return http.get(`${BASE}/api/v1/matching/rooms/${partyId}`, auth(token, { tags: { name: 'GET /matching/rooms/{id}' } }));
 }

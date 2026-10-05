@@ -33,7 +33,8 @@
 | 참여 | 상세 1회(참여 확인 화면) → join |
 | 21 대기 (폴링, SSE 전) | 상세 즉시 + **4초** 폴링. 1차 배포에선 `COMPLETED` 에서도 계속 돈다(`FINISHED` 까지) |
 | 21 대기 (SSE 후) | `GET /rooms/{id}/events` 연결 1개 유지. `connected`·`changed` 마다 상세 1회, `closed` 면 홈. 서버가 15초마다 `:ping` |
-| 채팅 | 채팅 탭 `/chat-rooms/me` → 방 열기 3건(첫 페이지·참여자·방 정보) → 소켓 + 읽음(소켓) + 폴링. **21 의 4초 폴링은 채팅 화면 아래에서 계속 돈다** |
+| 채팅 (폴링, SSE 전) | 채팅 탭 `/chat-rooms/me` → 방 열기 3건(첫 페이지·참여자·방 정보) → 소켓 + 읽음(소켓) + 폴링. **21 의 4초 폴링은 채팅 화면 아래에서 계속 돈다** |
+| 채팅 (SSE 후) | 위와 같되 방 상세 4초 폴링이 없다. 방 변화는 SSE 로 받고, 놓친 신호에 대비해 `GET /rooms/{id}/status`(상태·인원·지문)만 **30초**마다 확인한다. 지문이 방 상세에서 받은 값과 다르면 그때 상세 1회 |
 | 채팅 폴링 | 소켓으로 메시지를 **한 번이라도 받기 전엔 3초**, 받은 뒤엔 20초. 커서가 없으면 첫 페이지를 다시 읽는다 (`after?cursor=0` 은 서버가 400) |
 
 1차 배포에선 `/chat-rooms/me` 10초 폴링이 **돌지 않는다**(앱이 대기 단계에선 건너뛴다). 그래서 21 화면의 「채팅 열기」 버튼도 뜨지 않고, 채팅은 채팅 탭으로 들어간다.
@@ -89,7 +90,8 @@ k6 run -o experimental-prometheus-rw -e VUS=30 d6-soak.js                 # 45�
 
 # ── SSE 전환 후 (xk6-sse 바이너리로) ──
 ./k6 run -o experimental-prometheus-rw -e CONCURRENT=100 d1-polling-sse.js         # D1 과 같은 100명, 요청은 절반·연결 60개
-./k6 run -o experimental-prometheus-rw -e VUS=90 -e USE_SSE=1 d2-journey.js        # 대기를 SSE 로. sse_propagation_ms 가 핵심
+./k6 run -o experimental-prometheus-rw -e VUS=90 -e USE_SSE=1 d2-journey.js        # 대기를 SSE 로, 채팅 중에는 방 상태만 30초마다. sse_propagation_ms 가 핵심
+./k6 run -o experimental-prometheus-rw -e VUS=90 -e USE_SSE=1 -e LEGACY_DETAIL_POLL=1 d2-journey.js   # 비교용 - 채팅 중 방 상세 4초 폴링(앱이 바뀌기 전)
 ./k6 run -o experimental-prometheus-rw -e CONNS=300 d7-sse-connections.js          # 연결 100→200→300 + 초당 2건 변화
 ```
 
