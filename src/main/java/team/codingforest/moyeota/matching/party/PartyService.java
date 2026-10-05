@@ -113,6 +113,8 @@ public class PartyService {
             afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
         }
         else {
+            // 나간 사람의 연결을 먼저 닫는다 - 순서가 반대면 나간 사람도 changed 를 받아 쓸데없이 상세를 다시 읽는다
+            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.left(partyId, memberId));
             afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.changed(partyId));
         }
 
