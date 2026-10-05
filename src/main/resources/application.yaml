@@ -16,6 +16,9 @@ spring:
     redis:
       host: localhost
       port: 6379
+      # 기본 명령 타임아웃은 60초 - Redis 가 멈추면 캐시를 거치는 요청(인증 포함)이 그만큼 매달린다
+      timeout: 1s
+      connect-timeout: 1s
   modulith:
     events:
       republish-outstanding-events-on-restart: false

@@ -26,6 +26,7 @@ import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
 import java.time.Duration;
@@ -630,7 +631,7 @@ class PartyServiceTest {
         service.open(createPartyAt(host, 37.4979, 127.0276, 3));        // 강남역 - 영역 안
         service.open(createPartyAt(anotherHost, 37.5665, 126.9780, 3)); // 시청 - 영역 밖
 
-        List<PartyResult> result = service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06);
+        List<PartySummary> result = service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).departure()).isEqualTo("강남역");
@@ -651,6 +652,34 @@ class PartyServiceTest {
         service.join(party.id(), participant);   // 정원 충족 → COMPLETED + 자동 매칭
 
         assertThat(service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06)).isEmpty();
+    }
+
+    @Test
+    void 목록의_현재_인원은_참여한_사람_수다() {
+        PartyResult party = service.open(createPartyAt(host, 37.4979, 127.0276, 3));
+        service.join(party.id(), participant);
+
+        List<PartySummary> result = service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06);
+
+        assertThat(result).singleElement()
+                .satisfies(s -> {
+                    assertThat(s.currentMembers()).isEqualTo(2L);
+                    assertThat(s.capacity()).isEqualTo(3);
+                });
+    }
+
+    @Test
+    void 영역_안의_방이_상한을_넘으면_최신_방부터_상한까지만_돌려준다() {
+        // 상한이 없으면 방이 쌓일수록 목록 쿼리가 느려져 DB 를 독점한다(부하테스트에서 DB 시간의 대부분이 이 쿼리였다)
+        Long last = null;
+        for(long creator = 1000; creator < 1000 + PartyService.MAP_LIST_LIMIT + 5; creator++) {
+            last = service.open(createPartyAt(creator, 37.4979, 127.0276, 3)).id();
+        }
+
+        List<PartySummary> result = service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06);
+
+        assertThat(result).hasSize(PartyService.MAP_LIST_LIMIT);
+        assertThat(result.get(0).id()).isEqualTo(last);
     }
 
     @Test

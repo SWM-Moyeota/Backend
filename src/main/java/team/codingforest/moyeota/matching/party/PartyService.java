@@ -22,6 +22,7 @@ import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
+import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
@@ -36,6 +37,9 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 public class PartyService {
+    /** 지도 한 화면에 내려주는 방 수 상한. 넘으면 최신순으로 자른다 */
+    static final int MAP_LIST_LIMIT = 100;
+
     private final Parties parties;
     private final ApplicationEventPublisher eventPublisher;
     private final RouteService routeService;
@@ -141,12 +145,10 @@ public class PartyService {
     }
 
     @Transactional(readOnly = true)
-    public List<PartyResult> findActivePartiesWithin(double swLat, double swLng, double neLat, double neLng) {
+    public List<PartySummary> findActivePartiesWithin(double swLat, double swLng, double neLat, double neLng) {
         if(swLat >= neLat || swLng >= neLng) throw new BusinessException(MatchingErrorCode.INVALID_MAP_BOUNDS);
 
-        return parties.findAllByStatusWithinBounds(PartyStatus.ACTIVE, swLat, neLat, swLng, neLng)
-                .stream().map(PartyResult::from)
-                .toList();
+        return parties.findSummariesWithinBounds(PartyStatus.ACTIVE, swLat, neLat, swLng, neLng, MAP_LIST_LIMIT);
     }
 
     @Transactional
