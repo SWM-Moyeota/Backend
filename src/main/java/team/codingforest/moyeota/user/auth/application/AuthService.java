@@ -44,9 +44,9 @@ public class AuthService {
     }
 
     /**
-     *  Security 필터가 매 요청 호출. access 토큰엔 publicId 만 있어서 내부 userId 로 바꿔야 한다.
-     *  여기에 @Transactional 을 붙이지 않는다 - 붙이면 캐시에서 값을 찾아도 트랜잭션이 먼저 열려 DB 커넥션을 얻고,
-     *  커넥션 풀이 붐빌 때 모든 요청이 서비스 진입 전에 한 번 더 줄을 선다.
+     *
+     * @param accessToken
+     * @return Redis에서 uuid값을 id값으로 캐싱해서 사용 -> uuid 값을 id 값으로 변환할때 DB 한번 더 조회하는것을 없애기 위함
      */
     public AuthenticatedPrincipal authenticate(String accessToken) {
         UUID publicId = jwtProvider.parseAccess(accessToken);   // 서명·만료 검증은 매번 한다
