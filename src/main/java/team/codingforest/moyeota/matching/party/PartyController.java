@@ -19,6 +19,7 @@ import team.codingforest.moyeota.matching.party.dto.OpenPartyRequest;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyResponse;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyListResponse;
+import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
@@ -54,11 +55,18 @@ public class PartyController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "방 상세", description = "대기 화면 폴링용. members 에 동승자 publicId·닉네임·이미지·탑승 횟수. 본인 판별은 publicId 와 토큰 sub 비교")
+    @Operation(summary = "방 상세", description = "대기 화면 폴링용. members 에 동승자 publicId·닉네임·이미지·탑승 횟수. 본인 판별은 publicId 와 토큰 sub 비교. fingerprint 는 상태·멤버 구성이 바뀌면 달라지는 값으로, 방 상태 조회(/status)의 값과 비교한다")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "방 상세"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND")})
     @GetMapping("/matching/rooms/{partyId}")
     public ResponseEntity<PartyDetailResult> detail(@PathVariable Long partyId) {
         return ResponseEntity.ok(partyService.getPartyDetail(partyId));
+    }
+
+    @Operation(summary = "방 상태", description = "상태·현재 인원·지문(fingerprint)만. 방 변화는 SSE(/events)로 받고, 신호를 놓쳤을 때를 대비한 느린 주기(예: 30초) 확인에 쓴다. fingerprint 가 방 상세에서 받은 값과 다르면 그때 방 상세를 다시 읽는다. fingerprint 는 해석하지 말고 같은지만 비교한다")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "방 상태"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND")})
+    @GetMapping("/matching/rooms/{partyId}/status")
+    public ResponseEntity<PartyStatusResponse> status(@PathVariable Long partyId) {
+        return ResponseEntity.ok(partyService.getPartyStatus(partyId));
     }
 
     @Operation(summary = "모집 중인 방 전체 목록", description = "파라미터 없이 호출하면 ACTIVE 전체. 지도 화면은 아래 영역 조회를 사용")
