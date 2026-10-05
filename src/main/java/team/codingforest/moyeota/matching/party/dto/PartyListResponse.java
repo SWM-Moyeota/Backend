@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.matching.party.dto;
 
+import team.codingforest.moyeota.matching.party.domain.PartySummary;
+
 import java.util.List;
 
 public record PartyListResponse(List<PartyItem> list) {
@@ -10,6 +12,13 @@ public record PartyListResponse(List<PartyItem> list) {
             return new PartyItem(r.id(), r.departure(), r.destination(), r.currentMembers(), r.capacity(), r.status(),
                     r.departureLat(), r.departureLng());
         }
+    }
+
+    public static PartyListResponse fromSummaries(List<PartySummary> summaries) {
+        return new PartyListResponse(summaries.stream()
+                .map(s -> new PartyItem(s.id(), s.departure(), s.destination(), s.currentMembers().intValue(), s.capacity(),
+                        s.status().name(), s.departureLat(), s.departureLng()))
+                .toList());
     }
 
     public static PartyListResponse from(List<PartyResult> results) {

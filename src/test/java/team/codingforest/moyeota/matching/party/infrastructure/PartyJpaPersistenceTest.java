@@ -10,6 +10,7 @@ import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.PartySummary;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -74,6 +75,70 @@ class PartyJpaPersistenceTest {
         List<Long> targets = parties.findCompletedBefore(Instant.now().minus(Duration.ofMinutes(1)));
 
         assertThat(targets).contains(오래된방.getId()).doesNotContain(방금찬방.getId());
+    }
+
+    // ───────────────────────── 지도 목록(요약) 조회 ─────────────────────────
+
+    @Test
+    void 요약_조회는_멤버가_여럿이어도_방_하나를_한_건으로_돌려주고_인원수를_센다() {
+        // join fetch 였을 때는 방 하나가 멤버 수만큼 행으로 불어났다 - 요약은 방당 한 건이고 인원은 DB 가 센다
+        Party 세명방 = openAndSave();
+        세명방.join(2L);
+        parties.save(세명방);
+        Party 혼자방 = parties.save(openAt(10L, 37.4980, 127.0277));
+
+        List<PartySummary> result = parties.findSummariesWithinBounds(PartyStatus.ACTIVE, 37.49, 37.51, 127.02, 127.06, 100);
+
+        assertThat(result).extracting(PartySummary::id, PartySummary::currentMembers)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple(세명방.getId(), 2L),
+                        org.assertj.core.groups.Tuple.tuple(혼자방.getId(), 1L));
+    }
+
+    @Test
+    void 요약_조회는_마커에_필요한_값을_그대로_담는다() {
+        Party saved = openAndSave();
+
+        PartySummary summary = parties.findSummariesWithinBounds(PartyStatus.ACTIVE, 37.49, 37.51, 127.02, 127.06, 100).get(0);
+
+        assertThat(summary.id()).isEqualTo(saved.getId());
+        assertThat(summary.departure()).isEqualTo("강남역");
+        assertThat(summary.destination()).isEqualTo("판교역");
+        assertThat(summary.capacity()).isEqualTo(3);
+        assertThat(summary.status()).isEqualTo(PartyStatus.ACTIVE);
+        assertThat(summary.departureLat()).isEqualTo(37.4979);
+        assertThat(summary.departureLng()).isEqualTo(127.0276);
+    }
+
+    @Test
+    void 요약_조회는_영역_밖이거나_상태가_다른_방을_빼고_경계는_포함한다() {
+        Party 경계 = parties.save(openAt(1L, 37.49, 127.02));
+        parties.save(openAt(2L, 37.5665, 126.9780));   // 시청 - 영역 밖
+        Party 정원찬방 = parties.save(openAt(3L, 37.4979, 127.0276));
+        정원찬방.join(4L);
+        정원찬방.join(5L);   // capacity 3 충족 → COMPLETED
+        parties.save(정원찬방);
+
+        List<PartySummary> result = parties.findSummariesWithinBounds(PartyStatus.ACTIVE, 37.49, 37.51, 127.02, 127.06, 100);
+
+        assertThat(result).extracting(PartySummary::id).containsExactly(경계.getId());
+    }
+
+    @Test
+    void 요약_조회는_최신_방부터_상한까지만_돌려준다() {
+        parties.save(openAt(1L, 37.4979, 127.0276));
+        Party 둘째 = parties.save(openAt(2L, 37.4979, 127.0276));
+        Party 셋째 = parties.save(openAt(3L, 37.4979, 127.0276));
+
+        List<PartySummary> result = parties.findSummariesWithinBounds(PartyStatus.ACTIVE, 37.49, 37.51, 127.02, 127.06, 2);
+
+        assertThat(result).extracting(PartySummary::id).containsExactly(셋째.getId(), 둘째.getId());
+    }
+
+    private Party openAt(Long creatorId, double lat, double lng) {
+        return Party.open(creatorId, new Location(lat, lng), new Location(37.3948, 127.1112),
+                "강남역", "판교역", new Capacity(3), Instant.now(), new Radius(100), new Radius(100),
+                12000, 25, "_p~iF~ps|U_ulLnnqC");
     }
 
     private Party openAndSave() {

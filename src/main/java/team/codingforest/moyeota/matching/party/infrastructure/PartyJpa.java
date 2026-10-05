@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.matching.party.infrastructure;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
@@ -8,6 +9,7 @@ import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.PartySummary;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -79,10 +81,8 @@ public class PartyJpa implements Parties {
     }
 
     @Override
-    public List<Party> findAllByStatusWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng) {
-        return delegate.findAllByStatusWithinBounds(status, swLat, neLat, swLng, neLng)
-                .stream().map(PartyEntity::toDomain)
-                .toList();
+    public List<PartySummary> findSummariesWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng, int limit) {
+        return delegate.findSummariesWithinBounds(status, swLat, neLat, swLng, neLng, Limit.of(limit));
     }
 
     @Override
