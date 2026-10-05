@@ -53,20 +53,24 @@
 | `CHECK_SPOTS` | - | `1` 이면 `d0-smoke.js` 가 출발지 전부의 경로가 구해지는지 확인한다. 좌표를 바꾼 뒤 한 번만 |
 | `CHAT_TAB_DELAY_SEC` | 2 | 방이 찬 걸 보고 채팅 탭으로 넘어가기까지의 시간. 그 뒤 `/chat-rooms/me` 를 **한 번만** 부르고, 이번 방의 채팅방이 없으면 실패로 남기고 채팅을 건너뛴다 |
 
-**돌리기 전에 지난 실행의 잔여를 지운다.** 포기·중단으로 남은 ACTIVE 방과 미완료 이벤트가 있으면 시작부터 결과가 오염된다.
+**돌리기 전에 지난 실행의 잔여를 지운다.** 포기·중단으로 남은 방과 미완료 이벤트가 있으면 시작부터 결과가 오염된다. 운영 EC2 의 psql 에서 [`sql/reset.sql`](sql/reset.sql) 을 붙여 넣는다.
 
-```sql
--- 1) 열려 있는 테스트 방. COMPLETED 를 빼먹으면 그 멤버가 "이미 진행 중인 방이 있다"(409)로 새 방을 못 만들어
---    방 생성의 대부분이 거절되고, 서버는 한가해 보이지만 여정은 돌지 않은 실행이 된다
-UPDATE match_room SET status = 'CANCELED', updated_at = now() WHERE status IN ('ACTIVE', 'COMPLETED') AND destination LIKE 'LT-%';
--- 2) 처리되지 못한 이벤트
-DELETE FROM event_publication WHERE completion_date IS NULL;
--- 3) 테스트 사용자를 옛 채팅방에서 내보낸다. 방이 끝나도 채팅방에는 남아 있어 반복할수록 /chat-rooms/me 가 길어진다
---    (테스트 사용자는 닉네임이 lt 로 시작한다 - 먼저 SELECT count(*) 로 대상만 잡히는지 확인)
-UPDATE chat_room_user SET left_at = now(), updated_at = now() WHERE left_at IS NULL AND user_id IN (SELECT id FROM users WHERE nickname LIKE 'lt%');
-```
+- `COMPLETED` 로 남은 방을 빼먹으면 그 멤버가 409 로 새 방을 못 만든다. 방 생성의 대부분이 거절되고 서버는 한가해 보이지만 여정은 돌지 않은 실행이 된다
+- 방이 끝나도 채팅방에는 남아 있어 반복할수록 `/chat-rooms/me` 가 길어진다. 테스트 사용자를 옛 채팅방에서 내보낸다
+- 실행을 중간에 끊었다면 반드시 다시 정리한다
 
-실행을 중간에 끊었다면 반드시 다시 정리한다. 정원이 찬 방은 자동 종료 스윕이 돌 때까지 `COMPLETED` 로 남는다.
+### 비동기 입장이 제때 되는지 - 탐침과 사후 대조
+
+방에 참여하면 채팅방 입장은 커밋 뒤에 리스너가 따로 처리한다. 이게 밀리면 사용자는 채팅 탭에서 방을 못 본다.
+
+**여정은 앱처럼 `/chat-rooms/me` 를 한 번만 부른다.** 전원이 생길 때까지 다시 두드리면 확인 자체가 부하가 된다(1초 x 10번일 때 5,000명에서 초당 720건, 전체 요청의 40%). 그래서 확인은 부하와 떼어 두 가지로 한다.
+
+| | 무엇을 | 어떻게 |
+|---|---|---|
+| 탐침 `chat_join_lag_ms` | **얼마나 늦었나** (표본) | 앞쪽 `PROBE_GROUPS` 개 조(기본 10조 = 30명)만 방 생성·참여 직후 채팅방이 뜰 때까지 잰다. 호출은 `GET /chat-rooms/me (probe)` 로 따로 잡힌다. 끝내 안 뜨면 한도(`PROBE_WAIT_SEC`, 60초)를 기록하고 `chat_join_lag_timeout` 을 올린다 |
+| 사후 대조 [`sql/verify.sql`](sql/verify.sql) | **몇 건이 끝내 안 됐나** (전수) | 실행 뒤 "방 멤버 수 = 채팅방 멤버 수" 를 DB 로 맞춘다. `missing_members` 가 0 이어야 한다 |
+
+D2 의 임계값은 `chat_join_lag_ms p(95) < 2s` 다 - 채팅 탭으로 넘어가는 2초(`CHAT_TAB_DELAY_SEC`) 안에 입장이 끝나야 사용자가 방을 본다. 탐침은 여정을 그대로 돌면서 재기만 하므로 부하 모양은 바뀌지 않는다. `PROBE_GROUPS=0` 이면 끈다.
 
 화면 비중을 합승 탭 40% · 대기 30% · 채팅 30% 로 잡으면 **1인당 약 0.27 RPS** (상세 55% · 목록 36% · 채팅 폴링 6% · 기타 3%) → 동시 접속 100명 = 27 RPS + WebSocket 30연결.
 

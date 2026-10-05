@@ -22,6 +22,7 @@ export const options = {
     http_req_duration: ['p(95)<500'],
     'journey_join{result:other}': ['count==0'],      // 409(PARTY_FULL) 말고 다른 실패는 없어야 한다
     chat_delivery_ms: ['p(95)<500'],
+    chat_join_lag_ms: ['p(95)<2000'],                 // 탐침 - 채팅 탭으로 넘어가는 2초 안에 입장이 끝나야 사용자가 방을 본다
     ws_errors: ['count==0'],
     checks: ['rate>0.99'],
   },
