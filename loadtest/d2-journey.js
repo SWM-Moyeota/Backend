@@ -5,7 +5,10 @@ import { SharedArray } from 'k6/data';
 import { journey } from './lib/journey.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
-const VUS = Number(__ENV.VUS || 90);
+const ASKED = Number(__ENV.VUS || 90);
+const VUS = Math.floor(ASKED / 3) * 3;                    // 3명이 한 조 - 남는 1~2명은 방을 못 채워 매번 포기만 한다
+if (VUS !== ASKED) console.warn(`VUS=${ASKED} 는 3의 배수가 아니다 - ${VUS} 로 돌린다`);
+if (users.length < VUS) throw new Error(`users.json 에 ${users.length}명뿐이다 - VUS=${VUS} 를 돌리려면 seed 를 USERS=${VUS} 이상으로 다시 돌린다`);
 
 export const options = {
   scenarios: {

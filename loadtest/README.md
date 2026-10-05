@@ -51,13 +51,23 @@
 | `SPOTS` | 100 | 쓸 출발지 수. 도시를 번갈아 가며 앞에서부터 쓴다. `1` 이면 예전처럼 전부 강남역 → 판교역(분산 전 결과와 비교할 때만) |
 | `VIEW_DEG` | 0.005 | 조회 뷰포트 반경(도). 약 500m |
 | `CHECK_SPOTS` | - | `1` 이면 `d0-smoke.js` 가 출발지 전부의 경로가 구해지는지 확인한다. 좌표를 바꾼 뒤 한 번만 |
+| `CHAT_ROOM_POLL_SEC` | 2 | 채팅방이 목록에 안 보일 때 `/chat-rooms/me` 를 다시 부르는 첫 간격. 매번 두 배로 늘어난다(0·2·6·14·30초 시점에 5번) |
+| `CHAT_ROOM_WAIT_SEC` | 30 | 채팅방을 기다리다 포기하는 시간. 걸린 시간은 `chat_room_ready_ms` 로 남는다(재확인 시점에만 알 수 있어 값이 계단식이다) |
 
 **돌리기 전에 지난 실행의 잔여를 지운다.** 포기·중단으로 남은 ACTIVE 방과 미완료 이벤트가 있으면 시작부터 결과가 오염된다.
 
 ```sql
-UPDATE match_room SET status = 'CANCELED', updated_at = now() WHERE status = 'ACTIVE' AND destination LIKE 'LT-g%';
+-- 1) 열려 있는 테스트 방. COMPLETED 를 빼먹으면 그 멤버가 "이미 진행 중인 방이 있다"(409)로 새 방을 못 만들어
+--    방 생성의 대부분이 거절되고, 서버는 한가해 보이지만 여정은 돌지 않은 실행이 된다
+UPDATE match_room SET status = 'CANCELED', updated_at = now() WHERE status IN ('ACTIVE', 'COMPLETED') AND destination LIKE 'LT-%';
+-- 2) 처리되지 못한 이벤트
 DELETE FROM event_publication WHERE completion_date IS NULL;
+-- 3) 테스트 사용자를 옛 채팅방에서 내보낸다. 방이 끝나도 채팅방에는 남아 있어 반복할수록 /chat-rooms/me 가 길어진다
+--    (테스트 사용자는 닉네임이 lt 로 시작한다 - 먼저 SELECT count(*) 로 대상만 잡히는지 확인)
+UPDATE chat_room_user SET left_at = now(), updated_at = now() WHERE left_at IS NULL AND user_id IN (SELECT id FROM users WHERE nickname LIKE 'lt%');
 ```
+
+실행을 중간에 끊었다면 반드시 다시 정리한다. 정원이 찬 방은 자동 종료 스윕이 돌 때까지 `COMPLETED` 로 남는다.
 
 화면 비중을 합승 탭 40% · 대기 30% · 채팅 30% 로 잡으면 **1인당 약 0.27 RPS** (상세 55% · 목록 36% · 채팅 폴링 6% · 기타 3%) → 동시 접속 100명 = 27 RPS + WebSocket 30연결.
 
