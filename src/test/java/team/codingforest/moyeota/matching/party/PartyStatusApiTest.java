@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.matching.party;
 
+import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,6 +20,7 @@ import team.codingforest.moyeota.user.common.domain.enums.LoginType;
 import java.time.Instant;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -36,19 +38,39 @@ class PartyStatusApiTest {
     @Autowired JwtProvider jwtProvider;
 
     @Test
-    void 상태와_현재_인원만_돌려준다() throws Exception {
-        Party party = Party.open(1L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
-                "강남역", "판교역", new Capacity(3), Instant.now(), new Radius(100), new Radius(100),
-                12000, 25, "_p~iF~ps|U_ulLnnqC");
-        party.join(2L);
-        Long partyId = parties.save(party).getId();
+    void 상태와_현재_인원과_지문만_돌려준다() throws Exception {
+        Long partyId = saveRoomWithTwoMembers();
 
         mvc.perform(get("/api/v1/matching/rooms/{id}/status", partyId).header(HttpHeaders.AUTHORIZATION, bearer()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.currentMembers").value(2))
+                .andExpect(jsonPath("$.fingerprint").value(matchesPattern("[0-9a-f]{16}")))
                 .andExpect(jsonPath("$.members").doesNotExist())   // 상세와 달리 멤버·경로는 싣지 않는다
                 .andExpect(jsonPath("$.route").doesNotExist());
+    }
+
+    @Test
+    void 방_상세와_방_상태가_같은_지문을_내려준다() throws Exception {
+        // 실제 빈으로 본다 - 두 API 가 서로 다른 키나 재료를 쓰면 앱이 매번 상세를 다시 읽는다
+        Long partyId = saveRoomWithTwoMembers();
+        String token = bearer();
+
+        String detail = mvc.perform(get("/api/v1/matching/rooms/{id}", partyId).header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String fingerprint = JsonPath.read(detail, "$.fingerprint");
+
+        mvc.perform(get("/api/v1/matching/rooms/{id}/status", partyId).header(HttpHeaders.AUTHORIZATION, token))
+                .andExpect(jsonPath("$.fingerprint").value(fingerprint));
+    }
+
+    private Long saveRoomWithTwoMembers() {
+        Party party = Party.open(1L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
+                "강남역", "판교역", new Capacity(3), Instant.now(), new Radius(100), new Radius(100),
+                12000, 25, "_p~iF~ps|U_ulLnnqC");
+        party.join(2L);
+        return parties.save(party).getId();
     }
 
     @Test

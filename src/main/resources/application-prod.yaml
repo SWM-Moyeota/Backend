@@ -49,6 +49,9 @@ jwt:
 moyeota:
   taxi:
     enabled: ${TAXI_ENABLED:false}
+  party:
+    # 방 지문(fingerprint) HMAC 키. 운영은 기본값을 두지 않는다 - 없으면 기동 실패로 드러나야 한다
+    fingerprint-secret: ${PARTY_FINGERPRINT_SECRET}
 
 management:
   server:

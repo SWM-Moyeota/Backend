@@ -26,7 +26,8 @@ public class PartyJpaTest implements Parties {
 
     @Override
     public Optional<PartyStatusSnapshot> findStatusSnapshotById(Long id) {
-        return findById(id).map(p -> new PartyStatusSnapshot(p.getStatus(), (long) p.getMembers().size()));
+        return findById(id).map(p -> new PartyStatusSnapshot(p.getId(), p.getStatus(),
+                p.getMembers().stream().map(m -> m.getMemberId()).toList()));
     }
 
     @Override

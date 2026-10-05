@@ -121,7 +121,7 @@ class PartyJpaPersistenceTest {
     // ───────────────────────── 방 상태 ─────────────────────────
 
     @Test
-    void 방_상태는_상태와_인원수를_한_행으로_읽는다() {
+    void 방_상태는_상태와_멤버_ID만_읽는다() {
         Party saved = openAndSave();
         saved.join(2L);
         parties.save(saved);
@@ -130,8 +130,9 @@ class PartyJpaPersistenceTest {
 
         PartyStatusSnapshot snapshot = parties.findStatusSnapshotById(saved.getId()).orElseThrow();
 
+        assertThat(snapshot.partyId()).isEqualTo(saved.getId());
         assertThat(snapshot.status()).isEqualTo(PartyStatus.ACTIVE);
-        assertThat(snapshot.currentMembers()).isEqualTo(2L);
+        assertThat(snapshot.memberIds()).containsExactlyInAnyOrder(1L, 2L);
     }
 
     @Test
@@ -146,7 +147,22 @@ class PartyJpaPersistenceTest {
         PartyStatusSnapshot snapshot = parties.findStatusSnapshotById(saved.getId()).orElseThrow();
 
         assertThat(snapshot.status()).isEqualTo(PartyStatus.COMPLETED);
-        assertThat(snapshot.currentMembers()).isEqualTo(3L);
+        assertThat(snapshot.memberIds()).hasSize(3);
+    }
+
+    @Test
+    void 멤버가_모두_나간_방도_상태는_읽힌다() {
+        // inner join 이면 멤버 없는 방이 "없는 방"으로 보여 닫힘을 알릴 수 없다
+        Party saved = openAndSave();
+        saved.leave(1L);   // 마지막 멤버가 나가 CANCELED
+        parties.save(saved);
+        em.flush();
+        em.clear();
+
+        PartyStatusSnapshot snapshot = parties.findStatusSnapshotById(saved.getId()).orElseThrow();
+
+        assertThat(snapshot.status()).isEqualTo(PartyStatus.CANCELED);
+        assertThat(snapshot.memberIds()).isEmpty();
     }
 
     @Test

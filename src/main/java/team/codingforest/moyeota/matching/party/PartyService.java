@@ -17,6 +17,7 @@ import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
+import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
@@ -49,6 +50,7 @@ public class PartyService {
     private final PartyCompletionPolicy partyCompletionPolicy;
     private final AfterCommitExecutor afterCommitExecutor;
     private final PartyChangeNotifier partyChangeNotifier;
+    private final PartyFingerprint partyFingerprint;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
@@ -123,14 +125,20 @@ public class PartyService {
 
         List<Long> memberIds = party.getMembers().stream().map(PartyMember::getMemberId).toList();
 
-        return PartyDetailResult.from(party, userAccess.findMemberSummaries(memberIds), parties.countFinishedRides(memberIds));
+        return PartyDetailResult.from(party, userAccess.findMemberSummaries(memberIds), parties.countFinishedRides(memberIds),
+                partyFingerprint.of(party.getId(), party.getStatus(), memberIds));
     }
 
-    /** 상태와 인원수만. 놓친 SSE 신호를 잡는 안전망 폴링이 상세(쿼리 3개) 대신 부른다 */
+    /**
+     *  상태·인원수·지문만. 놓친 SSE 신호를 잡는 안전망 폴링이 상세(쿼리 3개) 대신 부른다.
+     *  지문은 방 상세의 것과 같은 재료로 만든다 - 앱이 화면에 그린 상세의 지문과 비교할 수 있어야 한다.
+     */
     @Transactional(readOnly = true)
-    public PartyStatusSnapshot getPartyStatus(Long partyId) {
-        return parties.findStatusSnapshotById(partyId)
+    public PartyStatusResponse getPartyStatus(Long partyId) {
+        PartyStatusSnapshot snapshot = parties.findStatusSnapshotById(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+
+        return PartyStatusResponse.of(snapshot, partyFingerprint.of(snapshot.partyId(), snapshot.status(), snapshot.memberIds()));
     }
 
     @Transactional(readOnly = true)

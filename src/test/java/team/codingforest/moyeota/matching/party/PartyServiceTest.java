@@ -18,6 +18,7 @@ import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
+import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
@@ -26,7 +27,6 @@ import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.PartyStatusSnapshot;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
@@ -77,7 +77,8 @@ class PartyServiceTest {
         RouteService routeService = new RouteService(
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
                 new RouteCacheTest());
-        return new PartyService(parties, events, routeService, driverAccess, userAccess, policy, afterCommit, signals);
+        return new PartyService(parties, events, routeService, driverAccess, userAccess, policy, afterCommit, signals,
+                new PartyFingerprint("test-fingerprint-secret"));
     }
 
     @Test
@@ -417,6 +418,19 @@ class PartyServiceTest {
             assertThat(events.joinedFor(party.id(), participant)).isEqualTo(1);
         }
 
+        @Test
+        void 멤버는_그대로여도_상태가_바뀌면_지문이_달라진다() {
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);   // 정원 충족 → COMPLETED
+            PartyStatusResponse completed = service.getPartyStatus(party.id());
+
+            service.finish(party.id(), host);
+
+            PartyStatusResponse finished = service.getPartyStatus(party.id());
+            assertThat(finished.currentMembers()).isEqualTo(completed.currentMembers());
+            assertThat(finished.fingerprint()).isNotEqualTo(completed.fingerprint());
+        }
+
         // ── 합승 완료 (참여자가 직접) ──
 
         @Test
@@ -632,10 +646,44 @@ class PartyServiceTest {
         PartyResult party = service.open(createParty(host, 3));
         service.join(party.id(), participant);
 
-        PartyStatusSnapshot status = service.getPartyStatus(party.id());
+        PartyStatusResponse status = service.getPartyStatus(party.id());
 
-        assertThat(status.status()).isEqualTo(PartyStatus.ACTIVE);
-        assertThat(status.currentMembers()).isEqualTo(2L);
+        assertThat(status.status()).isEqualTo("ACTIVE");
+        assertThat(status.currentMembers()).isEqualTo(2);
+    }
+
+    @Test
+    void 방_상태의_지문은_같은_시점의_방_상세_지문과_같다() {
+        // 앱은 상세에서 받은 지문을 기억했다가 상태 조회의 지문과 비교한다 - 재료가 다르면 매번 다르다고 나와 상세를 계속 다시 읽는다
+        PartyResult party = service.open(createParty(host, 3));
+        PartyDetailResult detail = service.join(party.id(), participant);
+
+        assertThat(service.getPartyStatus(party.id()).fingerprint())
+                .isEqualTo(detail.fingerprint())
+                .isEqualTo(service.getPartyDetail(party.id()).fingerprint());
+    }
+
+    @Test
+    void 한_명이_나가고_다른_한_명이_들어와_인원이_같아도_지문은_달라진다() {
+        // 인원수만 비교하면 놓치는 경우 - 화면에 나간 사람이 계속 보인다
+        PartyResult party = service.open(createParty(host, 3));
+        service.join(party.id(), participant);
+        PartyStatusResponse before = service.getPartyStatus(party.id());
+
+        service.leave(party.id(), participant);
+        service.join(party.id(), anotherHost);
+        PartyStatusResponse after = service.getPartyStatus(party.id());
+
+        assertThat(after.currentMembers()).isEqualTo(before.currentMembers());
+        assertThat(after.fingerprint()).isNotEqualTo(before.fingerprint());
+    }
+
+    @Test
+    void 아무것도_바뀌지_않으면_지문은_그대로다() {
+        PartyResult party = service.open(createParty(host, 3));
+
+        assertThat(service.getPartyStatus(party.id()).fingerprint())
+                .isEqualTo(service.getPartyStatus(party.id()).fingerprint());
     }
 
     @Test
@@ -644,7 +692,10 @@ class PartyServiceTest {
         PartyResult party = service.open(createParty(host, 3));
         service.leave(party.id(), host);   // 마지막 멤버가 나가면 CANCELED
 
-        assertThat(service.getPartyStatus(party.id()).status()).isEqualTo(PartyStatus.CANCELED);
+        PartyStatusResponse status = service.getPartyStatus(party.id());
+
+        assertThat(status.status()).isEqualTo("CANCELED");
+        assertThat(status.currentMembers()).isZero();
     }
 
     @Test
