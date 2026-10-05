@@ -26,9 +26,8 @@ public class PartyJpa implements Parties {
 
     @Override
     public Optional<Party> findById(Long id) {
-
-        return delegate.findById(id)
-                .map(jpa -> jpa.toDomain());
+        return delegate.findWithMembersById(id)
+                .map(PartyEntity::toDomain);
     }
 
     @Override
