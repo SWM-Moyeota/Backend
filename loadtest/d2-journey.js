@@ -5,7 +5,10 @@ import { SharedArray } from 'k6/data';
 import { journey } from './lib/journey.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
-const VUS = Number(__ENV.VUS || 90);
+const ASKED = Number(__ENV.VUS || 90);
+const VUS = Math.floor(ASKED / 3) * 3;                    // 3명이 한 조 - 남는 1~2명은 방을 못 채워 매번 포기만 한다
+if (VUS !== ASKED) console.warn(`VUS=${ASKED} 는 3의 배수가 아니다 - ${VUS} 로 돌린다`);
+if (users.length < VUS) throw new Error(`users.json 에 ${users.length}명뿐이다 - VUS=${VUS} 를 돌리려면 seed 를 USERS=${VUS} 이상으로 다시 돌린다`);
 
 export const options = {
   scenarios: {
@@ -19,6 +22,7 @@ export const options = {
     http_req_duration: ['p(95)<500'],
     'journey_join{result:other}': ['count==0'],      // 409(PARTY_FULL) 말고 다른 실패는 없어야 한다
     chat_delivery_ms: ['p(95)<500'],
+    chat_join_lag_ms: ['p(95)<2000'],                 // 탐침 - 채팅 탭으로 넘어가는 2초 안에 입장이 끝나야 사용자가 방을 본다
     ws_errors: ['count==0'],
     checks: ['rate>0.99'],
   },

@@ -51,3 +51,10 @@ moyeota:
 management:
   server:
     port: 9091
+
+# 로그에 추적 ID 를 찍는다. OpenTelemetry 에이전트가 요청마다 trace_id·span_id 를 로그 컨텍스트(MDC)에 넣어 준다.
+# Grafana 에서 로그 줄의 trace_id 를 누르면 그 요청의 추적(Tempo)으로 넘어간다 - Loki 데이터 소스의 derivedFields 가 이 형식을 읽는다.
+# 에이전트는 운영에만 붙으므로 prod 에만 둔다(로컬에 두면 빈 값이 매 줄에 찍힌다).
+logging:
+  pattern:
+    correlation: "[trace_id=%X{trace_id:-} span_id=%X{span_id:-}] "
