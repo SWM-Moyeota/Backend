@@ -19,6 +19,7 @@ import team.codingforest.moyeota.matching.party.dto.OpenPartyRequest;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyResponse;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyListResponse;
+import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
@@ -59,6 +60,13 @@ public class PartyController {
     @GetMapping("/matching/rooms/{partyId}")
     public ResponseEntity<PartyDetailResult> detail(@PathVariable Long partyId) {
         return ResponseEntity.ok(partyService.getPartyDetail(partyId));
+    }
+
+    @Operation(summary = "방 상태", description = "상태와 현재 인원만. 방 변화는 SSE(/events)로 받고, 신호를 놓쳤을 때를 대비한 느린 주기(예: 30초) 확인에 쓴다. 값이 화면과 다르면 그때 방 상세를 다시 읽는다")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "방 상태"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND")})
+    @GetMapping("/matching/rooms/{partyId}/status")
+    public ResponseEntity<PartyStatusResponse> status(@PathVariable Long partyId) {
+        return ResponseEntity.ok(PartyStatusResponse.from(partyService.getPartyStatus(partyId)));
     }
 
     @Operation(summary = "모집 중인 방 전체 목록", description = "파라미터 없이 호출하면 ACTIVE 전체. 지도 화면은 아래 영역 조회를 사용")

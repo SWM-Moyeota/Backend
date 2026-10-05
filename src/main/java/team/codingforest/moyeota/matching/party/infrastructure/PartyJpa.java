@@ -9,6 +9,7 @@ import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.PartyStatusSnapshot;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 
 import java.time.Instant;
@@ -72,6 +73,11 @@ public class PartyJpa implements Parties {
     public List<MatchingTarget> findMatchingTargets() {
         return delegate.findTargetsByStatus(PartyStatus.MATCHING)
                 .stream().map(PartyEntity::toMatchTarget).toList();
+    }
+
+    @Override
+    public Optional<PartyStatusSnapshot> findStatusSnapshotById(Long id) {
+        return delegate.findStatusSnapshotById(id);
     }
 
     @Override

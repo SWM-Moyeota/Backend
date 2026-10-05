@@ -22,6 +22,7 @@ import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
+import team.codingforest.moyeota.matching.party.domain.PartyStatusSnapshot;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.route.RouteService;
@@ -123,6 +124,13 @@ public class PartyService {
         List<Long> memberIds = party.getMembers().stream().map(PartyMember::getMemberId).toList();
 
         return PartyDetailResult.from(party, userAccess.findMemberSummaries(memberIds), parties.countFinishedRides(memberIds));
+    }
+
+    /** 상태와 인원수만. 놓친 SSE 신호를 잡는 안전망 폴링이 상세(쿼리 3개) 대신 부른다 */
+    @Transactional(readOnly = true)
+    public PartyStatusSnapshot getPartyStatus(Long partyId) {
+        return parties.findStatusSnapshotById(partyId)
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
     }
 
     @Transactional(readOnly = true)

@@ -26,6 +26,7 @@ import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.PartyStatusSnapshot;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
@@ -622,6 +623,36 @@ class PartyServiceTest {
         DriverSummary summary = service.getAssignDriver(party.id());
 
         assertThat(summary.plateNumber()).isEqualTo("12가3456");
+    }
+
+    // ───────────────────────── 방 상태(안전망 폴링) ─────────────────────────
+
+    @Test
+    void 방_상태는_상태와_현재_인원을_돌려준다() {
+        PartyResult party = service.open(createParty(host, 3));
+        service.join(party.id(), participant);
+
+        PartyStatusSnapshot status = service.getPartyStatus(party.id());
+
+        assertThat(status.status()).isEqualTo(PartyStatus.ACTIVE);
+        assertThat(status.currentMembers()).isEqualTo(2L);
+    }
+
+    @Test
+    void 방이_닫히면_방_상태로_알_수_있다() {
+        // closed 신호를 놓친 앱이 이 조회로 닫힘을 알아챈다
+        PartyResult party = service.open(createParty(host, 3));
+        service.leave(party.id(), host);   // 마지막 멤버가 나가면 CANCELED
+
+        assertThat(service.getPartyStatus(party.id()).status()).isEqualTo(PartyStatus.CANCELED);
+    }
+
+    @Test
+    void 없는_방의_상태는_조회할_수_없다() {
+        assertThatThrownBy(() -> service.getPartyStatus(999_999L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.PARTY_NOT_FOUND);
     }
 
     // ───────────────────────── 지도 영역(뷰포트) 조회 ─────────────────────────

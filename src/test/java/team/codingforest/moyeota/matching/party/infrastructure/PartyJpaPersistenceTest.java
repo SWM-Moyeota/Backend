@@ -12,6 +12,7 @@ import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.PartyStatusSnapshot;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 
 import java.time.Duration;
@@ -115,6 +116,42 @@ class PartyJpaPersistenceTest {
         List<Long> targets = parties.findCompletedBefore(Instant.now().minus(Duration.ofMinutes(1)));
 
         assertThat(targets).contains(오래된방.getId()).doesNotContain(방금찬방.getId());
+    }
+
+    // ───────────────────────── 방 상태 ─────────────────────────
+
+    @Test
+    void 방_상태는_상태와_인원수를_한_행으로_읽는다() {
+        Party saved = openAndSave();
+        saved.join(2L);
+        parties.save(saved);
+        em.flush();
+        em.clear();
+
+        PartyStatusSnapshot snapshot = parties.findStatusSnapshotById(saved.getId()).orElseThrow();
+
+        assertThat(snapshot.status()).isEqualTo(PartyStatus.ACTIVE);
+        assertThat(snapshot.currentMembers()).isEqualTo(2L);
+    }
+
+    @Test
+    void 방_상태는_상태_변경을_반영한다() {
+        Party saved = openAndSave();
+        saved.join(2L);
+        saved.join(3L);   // capacity 3 충족 → COMPLETED
+        parties.save(saved);
+        em.flush();
+        em.clear();
+
+        PartyStatusSnapshot snapshot = parties.findStatusSnapshotById(saved.getId()).orElseThrow();
+
+        assertThat(snapshot.status()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(snapshot.currentMembers()).isEqualTo(3L);
+    }
+
+    @Test
+    void 없는_방의_상태는_비어_있다() {
+        assertThat(parties.findStatusSnapshotById(999_999L)).isEmpty();
     }
 
     // ───────────────────────── 지도 목록(요약) 조회 ─────────────────────────

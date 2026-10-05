@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.PartyStatusSnapshot;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 
 import java.time.Instant;
@@ -25,6 +26,15 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     // 잠금 조회(findByForUpdate)에는 쓰지 않는다 - PostgreSQL 은 left join 의 nullable 쪽에 FOR UPDATE 를 걸 수 없다
     @Query("select p from PartyEntity p left join fetch p.members where p.id = :id")
     Optional<PartyEntity> findWithMembersById(@Param("id") Long id);
+
+    // 상태 확인만 하는 폴링용 - 엔티티·멤버·route 를 읽지 않고 한 행만 가져온다
+    @Query("""
+        select new team.codingforest.moyeota.matching.party.domain.PartyStatusSnapshot(
+            p.status, (select count(m) from PartyMemberEntity m where m.party = p))
+        from PartyEntity p
+        where p.id = :id
+""")
+    Optional<PartyStatusSnapshot> findStatusSnapshotById(@Param("id") Long id);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from PartyEntity p where p.id = :id")
