@@ -335,14 +335,45 @@ class PartyServiceTest {
     }
 
     @Test
-    void 사람이_남아_있는_방에서_나가면_changed_신호를_보낸다() {
+    void 사람이_남아_있는_방에서_나가면_나간_사람의_연결을_닫고_남은_사람에게_changed_를_보낸다() {
         PartyResult party = service.open(createParty(host, 3));
         service.join(party.id(), participant);
         signals.sent.clear();
 
         service.leave(party.id(), participant);
 
-        assertThat(signals.sent).containsExactly(party.id() + ":changed");
+        // 순서가 반대면 나간 사람도 changed 를 받아 쓸데없이 상세를 다시 읽는다
+        assertThat(signals.sent).containsExactly(party.id() + ":left:" + participant, party.id() + ":changed");
+    }
+
+    @Test
+    void 나간_사람의_연결_닫기도_커밋_후에_한다() {
+        // 나가기가 롤백됐는데 연결부터 닫으면, 아직 멤버인 사람이 방 변화를 못 받는다
+        List<Runnable> deferred = new ArrayList<>();
+        service = serviceWith(new DispatchCompletionPolicy(events), (name, task) -> deferred.add(task));
+        PartyResult party = service.open(createParty(host, 3));
+        service.join(party.id(), participant);
+        deferred.clear();
+
+        service.leave(party.id(), participant);
+
+        assertThat(signals.sent).isEmpty();
+        deferred.forEach(Runnable::run);
+        assertThat(signals.sent).contains(party.id() + ":left:" + participant);
+    }
+
+    @Test
+    void 연결_닫기가_실패해도_남은_사람에게_가는_changed_는_나간다() {
+        // 두 신호를 한 작업에 묶으면 앞의 것이 실패할 때 뒤의 것까지 사라진다
+        List<Runnable> deferred = new ArrayList<>();
+        service = serviceWith(new DispatchCompletionPolicy(events), (name, task) -> deferred.add(task));
+        PartyResult party = service.open(createParty(host, 3));
+        service.join(party.id(), participant);
+        deferred.clear();
+
+        service.leave(party.id(), participant);
+
+        assertThat(deferred).as("신호마다 따로 맡긴다").hasSize(2);
     }
 
     @Test
@@ -798,6 +829,11 @@ class PartyServiceTest {
         @Override
         public void closed(Long partyId) {
             sent.add(partyId + ":closed");
+        }
+
+        @Override
+        public void left(Long partyId, Long memberId) {
+            sent.add(partyId + ":left:" + memberId);
         }
     }
 

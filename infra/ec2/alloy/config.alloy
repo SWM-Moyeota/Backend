@@ -43,8 +43,23 @@ otelcol.processor.tail_sampling "keep" {
   }
   policy {
     name = "slow"
-    type = "latency"
-    latency { threshold_ms = 500 }
+    type = "and"
+    and {
+      and_sub_policy {
+        name = "latency"
+        type = "latency"
+        latency { threshold_ms = 500 }
+      }
+      and_sub_policy {
+        name = "not-sse"
+        type = "string_attribute"
+        string_attribute {
+          key          = "http.route"
+          values       = ["/api/v1/matching/rooms/{partyId}/events"]
+          invert_match = true
+        }
+      }
+    }
   }
   policy {
     name = "baseline"

@@ -27,6 +27,14 @@ class RedisPartyChangeNotifierTest {
     }
 
     @Test
+    void left_는_나간_사람의_번호를_실어_채널에_낸다() {
+        // 연결을 들고 있는 인스턴스가 따로일 수 있어 로컬에서 닫지 않고 채널로 낸다
+        notifier.left(방, 7L);
+
+        assertThat(redis.sent).containsExactly(PartySseChannel.TOPIC + "|42:left:7");
+    }
+
+    @Test
     void closed_는_closed_신호를_채널에_낸다() {
         notifier.closed(방);
 

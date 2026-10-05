@@ -21,6 +21,11 @@ public class RedisPartyChangeNotifier implements PartyChangeNotifier {
         publish(partyId, "closed");
     }
 
+    @Override
+    public void left(Long partyId, Long memberId) {
+        publish(partyId, PartySseChannel.LEFT_PREFIX + memberId);
+    }
+
     private void publish(Long partyId, String event) {
         redisTemplate.convertAndSend(PartySseChannel.TOPIC, partyId + ":" + event);
     }

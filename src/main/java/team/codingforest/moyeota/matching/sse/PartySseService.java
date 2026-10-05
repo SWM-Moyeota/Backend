@@ -22,6 +22,6 @@ public class PartySseService {
         Party party = parties.findById(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
         if(!party.hasMember(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
-        return partySseRegistry.subscribe(partyId);
+        return partySseRegistry.subscribe(partyId, memberId);
     }
 }
