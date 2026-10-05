@@ -1,8 +1,10 @@
 package team.codingforest.moyeota.matching.party.infrastructure;
 
+import org.hibernate.Hibernate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import team.codingforest.moyeota.common.JpaAuditingConfig;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
@@ -24,11 +26,49 @@ import static org.assertj.core.api.Assertions.entry;
 class PartyJpaPersistenceTest {
     private final PartyJpa parties;
     private final PartyJpaRepository repository;
+    private final TestEntityManager em;
 
     @Autowired
-    PartyJpaPersistenceTest(PartyJpa parties, PartyJpaRepository repository) {
+    PartyJpaPersistenceTest(PartyJpa parties, PartyJpaRepository repository, TestEntityManager em) {
         this.parties = parties;
         this.repository = repository;
+        this.em = em;
+    }
+
+    // ───────────────────────── 단건 조회 ─────────────────────────
+
+    @Test
+    void 단건_조회는_멤버까지_한_번에_읽는다() {
+        // 상세 화면이 폴링으로 자주 부른다 - 멤버가 지연 로딩이면 조회마다 쿼리가 한 번 더 나간다
+        Party saved = openAndSave();
+        saved.join(2L);
+        parties.save(saved);
+        em.flush();
+        em.clear();   // 1차 캐시를 비워야 실제 조회 쿼리가 나간다
+
+        PartyEntity found = repository.findWithMembersById(saved.getId()).orElseThrow();
+
+        assertThat(Hibernate.isInitialized(found.getMembers())).as("멤버가 같은 쿼리로 채워져야 한다").isTrue();
+        assertThat(found.getMembers()).hasSize(2);
+    }
+
+    @Test
+    void 단건_조회는_방_하나를_멤버_수와_무관하게_한_건으로_돌려준다() {
+        Party saved = openAndSave();
+        saved.join(2L);
+        parties.save(saved);
+        em.flush();
+        em.clear();
+
+        Party found = parties.findById(saved.getId()).orElseThrow();
+
+        assertThat(found.getId()).isEqualTo(saved.getId());
+        assertThat(found.getMembers()).extracting("memberId").containsExactlyInAnyOrder(1L, 2L);
+    }
+
+    @Test
+    void 없는_방을_단건_조회하면_비어_있다() {
+        assertThat(parties.findById(999_999L)).isEmpty();
     }
 
     @Test

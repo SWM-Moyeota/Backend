@@ -21,6 +21,11 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     @Query("select count(m) > 0 from PartyMemberEntity m where m.memberId = :memberId and m.party.status in :statuses")
     boolean existsByMemberIdAndStatusIn(@Param("memberId") Long memberId, @Param("statuses") Collection<PartyStatus> statuses);
 
+    // 단건이라 행은 많아야 정원 수 - 멤버를 지연 로딩으로 따로 읽던 왕복을 없앤다.
+    // 잠금 조회(findByForUpdate)에는 쓰지 않는다 - PostgreSQL 은 left join 의 nullable 쪽에 FOR UPDATE 를 걸 수 없다
+    @Query("select p from PartyEntity p left join fetch p.members where p.id = :id")
+    Optional<PartyEntity> findWithMembersById(@Param("id") Long id);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from PartyEntity p where p.id = :id")
     Optional<PartyEntity> findByForUpdate(@Param("id") Long id);
