@@ -20,11 +20,11 @@ export default function () {
   check(favoritePlaces(host.token), { '즐겨찾기 200': (r) => r.status === 200 });
   check(previewRoute(host.token), { '경로 미리보기 200 (캐시가 비어 있으면 네이버를 1회 부른다)': (r) => r.status === 200 });
 
-  // CHECK_SPOTS=1 - 분산 출발지 전부의 경로가 구해지는지 확인한다(네이버 최대 SPOTS 회). 좌표를 바꿨을 때 한 번만 돌린다
+  // CHECK_SPOTS=1 - 분산 출발지 전부(출발지 → 같은 도시의 짝)의 경로가 구해지는지 확인한다(네이버 최대 SPOTS 회). 좌표를 바꿨을 때 한 번만 돌린다
   if (__ENV.CHECK_SPOTS === '1') {
     for (const spot of 출발지들.slice(0, SPOTS)) {
       const res = previewRoute(host.token, spot);
-      if (!check(res, { '출발지별 경로 200': (r) => r.status === 200 })) console.error(`경로 실패 ${spot.name} ${res.status}: ${res.body}`);
+      if (!check(res, { '출발지별 경로 200': (r) => r.status === 200 })) console.error(`경로 실패 ${spot.city} ${spot.name} → ${spot.dest.name} ${res.status}: ${res.body}`);
     }
   }
 

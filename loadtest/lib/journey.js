@@ -112,7 +112,7 @@ export function journey(users, vu, { abandon = false } = {}) {
     sleep(2);
     const opened = Date.now();
     destName = `${prefix}${opened}`;
-    const r = openRoom(me.token, 3, 판교역, destName, from);
+    const r = openRoom(me.token, 3, from.dest, destName, from);
     if (!check(r, { '방 생성 200': (x) => x.status === 200 })) { console.error(`open ${r.status}: ${r.body}`); sleep(POLL); return; }
     partyId = r.id;
     if (!waitUntil(me.token, partyId, ['COMPLETED'], WAIT_MAX)) { giveUps.add(1); leaveRoom(me.token, partyId); return; }
@@ -144,7 +144,7 @@ export function journey(users, vu, { abandon = false } = {}) {
     const status = pollUntil(me.token, partyId, ['FINISHED'], 45 * 60);
     if (check(status, { '방치된 방이 자동 종료된다': (s) => s === 'FINISHED' })) sweepMinutes.add((Date.now() - left) / 60000);
     if (role === 0) {                                                     // 풀려났으면 새 방을 만들 수 있어야 한다
-      const again = openRoom(me.token, 3, 판교역, `${prefix}again`, from);
+      const again = openRoom(me.token, 3, from.dest, `${prefix}again`, from);
       check(again, { '자동 종료 뒤 새 방을 만들 수 있다': (x) => x.status === 200 });
       if (again.id) leaveRoom(me.token, again.id);
     }

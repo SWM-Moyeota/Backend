@@ -46,7 +46,7 @@ export function setup() {
     const [host, a] = groupUsers(users, g);
     let partyId;
     if (full) partyId = fillRoom(users, g);
-    else { const r = openRoom(host.token, 3, 판교역, `LT-g${g}`, spotOf(g)); partyId = r.id; if (partyId) joinRoom(a.token, partyId); }
+    else { const from = spotOf(g); const r = openRoom(host.token, 3, from.dest, `LT-g${g}`, from); partyId = r.id; if (partyId) joinRoom(a.token, partyId); }
     if (!partyId) { console.error(`조 ${g} 방 준비 실패`); continue; }
     const chatRoomId = resolveChatRoomId(host.token, sleep, 5);
     // 폴링 커서로 쓸 메시지를 하나 심는다 - cursor 없이는 after 를 못 부른다(서버가 cursor < 1 을 400 으로 막는다)
