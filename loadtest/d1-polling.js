@@ -9,7 +9,7 @@ import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import {
   listRooms, roomDetail, myChatRooms, pollChat, sendChatRest, openRoom, joinRoom, leaveRoom, finishRoom,
-  fillRoom, groupUsers, resolveChatRoomId, 판교역,
+  fillRoom, groupUsers, resolveChatRoomId, 판교역, spotOf, viewportAround,
 } from './lib/api.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
@@ -27,7 +27,7 @@ const MIX = [
 
 export const options = {
   scenarios: {
-    polling: { executor: 'constant-arrival-rate', rate: RPS, timeUnit: '1s', duration: __ENV.DURATION || '5m', preAllocatedVUs: 50, maxVUs: 300 },
+    polling: { executor: 'constant-arrival-rate', rate: RPS, timeUnit: '1s', duration: __ENV.DURATION || '5m', preAllocatedVUs: 200, maxVUs: 1000 },
   },
   thresholds: {
     http_req_failed: ['rate<0.01'],
@@ -46,7 +46,7 @@ export function setup() {
     const [host, a] = groupUsers(users, g);
     let partyId;
     if (full) partyId = fillRoom(users, g);
-    else { const r = openRoom(host.token, 3, 판교역, `LT-g${g}`); partyId = r.id; if (partyId) joinRoom(a.token, partyId); }
+    else { const r = openRoom(host.token, 3, 판교역, `LT-g${g}`, spotOf(g)); partyId = r.id; if (partyId) joinRoom(a.token, partyId); }
     if (!partyId) { console.error(`조 ${g} 방 준비 실패`); continue; }
     const chatRoomId = resolveChatRoomId(host.token, sleep, 5);
     // 폴링 커서로 쓸 메시지를 하나 심는다 - cursor 없이는 after 를 못 부른다(서버가 cursor < 1 을 400 으로 막는다)
@@ -64,7 +64,7 @@ export default function (data) {
   const pick = Math.random();
   const kind = MIX.find((m) => pick < m.upTo).name;
   let res;
-  if (kind === 'list') res = listRooms(me.token);
+  if (kind === 'list') res = listRooms(me.token, viewportAround(spotOf(grp.g)));   // 그 조가 서 있는 곳 주변
   else if (kind === 'detail') res = roomDetail(me.token, grp.partyId);
   else if (kind === 'chat' && grp.chatRoomId) res = pollChat(me.token, grp.chatRoomId, grp.cursor);
   else res = myChatRooms(me.token);
