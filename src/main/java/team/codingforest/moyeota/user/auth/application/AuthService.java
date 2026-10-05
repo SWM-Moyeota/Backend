@@ -9,6 +9,8 @@ import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
 import team.codingforest.moyeota.user.auth.dto.AuthenticatedUser;
 import team.codingforest.moyeota.user.auth.dto.TokenResponse;
 import team.codingforest.moyeota.user.auth.dto.UserLoginCommand;
+import team.codingforest.moyeota.user.auth.domain.PrincipalCache;
+import team.codingforest.moyeota.user.common.domain.User;
 import team.codingforest.moyeota.user.common.domain.Users;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
@@ -24,6 +26,7 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final JwtProvider jwtProvider;
     private final Users users;
+    private final PrincipalCache principalCache;
 
     @Transactional
     public TokenResponse login(UserLoginCommand command) {
@@ -40,14 +43,27 @@ public class AuthService {
         refreshTokenService.logout(refreshToken);
     }
 
-    /** Security 필터가 매 요청 호출. access 토큰엔 publicId 만 있어서 DB 로 내부 userId 를 찾는다 */
-    @Transactional(readOnly = true)
+    /**
+     *  Security 필터가 매 요청 호출. access 토큰엔 publicId 만 있어서 내부 userId 로 바꿔야 한다.
+     *  여기에 @Transactional 을 붙이지 않는다 - 붙이면 캐시에서 값을 찾아도 트랜잭션이 먼저 열려 DB 커넥션을 얻고,
+     *  커넥션 풀이 붐빌 때 모든 요청이 서비스 진입 전에 한 번 더 줄을 선다.
+     */
     public AuthenticatedPrincipal authenticate(String accessToken) {
-        UUID publicId = jwtProvider.parseAccess(accessToken);
+        UUID publicId = jwtProvider.parseAccess(accessToken);   // 서명·만료 검증은 매번 한다
 
-        return users.findByPublicId(publicId)
-                .map(user -> new AuthenticatedPrincipal(user.getId(), user.getPublicId()))
-                .orElseThrow(() -> new UserException(UserErrorCode.TOKEN_INVALID));
+        Long userId = principalCache.findUserId(publicId)
+                .orElseGet(() -> loadAndCache(publicId));
+
+        return new AuthenticatedPrincipal(userId, publicId);
+    }
+
+    private Long loadAndCache(UUID publicId) {
+        Long userId = users.findByPublicId(publicId)
+                .map(User::getId)
+                .orElseThrow(() -> new UserException(UserErrorCode.TOKEN_INVALID));   // 없는 사용자는 캐시하지 않는다
+
+        principalCache.save(publicId, userId);
+        return userId;
     }
 
     private TokenResponse issue(AuthenticatedUser user) {
