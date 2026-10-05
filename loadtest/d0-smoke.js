@@ -3,7 +3,7 @@
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import {
-  appStart, listRooms, favoritePlaces, previewRoute, openRoom, joinRoom, leaveRoom, roomDetail, finishRoom,
+  appStart, listRooms, favoritePlaces, previewRoute, openRoom, joinRoom, leaveRoom, roomDetail, roomStatus, finishRoom,
   resolveChatRoomId, chatMembers, chatMessages, openChatRoom, pollChat, 판교역, 출발지들, SPOTS,
 } from './lib/api.js';
 import { chatSession } from './lib/stomp.js';
@@ -37,6 +37,14 @@ export default function () {
   check(detail, {
     '정원이 차면 COMPLETED 에 머문다 (MATCHING 이면 택시가 켜진 서버)': (r) => r.json('status') === 'COMPLETED',
     '멤버 3명': (r) => r.json('members').length === 3,
+  });
+
+  // D2 USE_SSE=1 은 채팅 구간에서 방 상태(/status)와 지문을 쓴다 - 여기서 떨어지면 서버에 아직 배포되지 않은 것이다
+  const st = roomStatus(host.token, room.id);
+  check(st, {
+    '방 상태 200 (/status 가 배포된 서버인가)': (r) => r.status === 200,
+    '방 상태가 상세와 같다 (상태·인원)': (r) => r.status === 200 && r.json('status') === 'COMPLETED' && r.json('currentMembers') === 3,
+    '방 상태의 지문이 방 상세의 지문과 같다': (r) => r.status === 200 && !!r.json('fingerprint') && r.json('fingerprint') === detail.json('fingerprint'),
   });
 
   const chatRoomId = resolveChatRoomId(a.token, sleep);

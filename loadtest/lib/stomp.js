@@ -2,14 +2,17 @@
 //   · CONNECT(Authorization 헤더, heartbeat 없음) → /sub/chat-rooms/{id} 와 /user/queue/errors 구독
 //   · 메시지는 소켓으로 보내고, 새 메시지를 받을 때마다 읽음 지점을 소켓으로 올린다(/pub/.../read)
 //   · 폴링 안전망: 소켓으로 메시지를 "한 번이라도 받기 전"에는 3초, 받은 뒤에는 20초
-//   · 채팅 화면은 대기 화면 위에 쌓이므로 그 아래에서 방 상세 4초 폴링이 계속 돈다
+//   · 채팅 화면은 대기 화면 위에 쌓인다. 그 아래에서 방이 닫혔는지 확인하는 방식은 둘이다
+//       statusPollSec 을 주면   방 상태(/status)를 그 주기로만 확인하고, 지문이 달라졌을 때만 방 상세를 다시 읽는다 (SSE 를 쓰는 앱의 안전망)
+//       안 주면                 방 상세를 4초마다 폴링한다 (SSE 를 쓰기 전의 앱)
 import ws from 'k6/ws';
-import { BASE, pollChat, lastMessageId, roomDetail } from './api.js';
+import { BASE, pollChat, lastMessageId, roomDetail, roomStatus } from './api.js';
 
 const NUL = String.fromCharCode(0);   // STOMP 프레임 종료 문자
 const POLL_BEFORE_REALTIME = 3;       // ChatRoute.POLL_INTERVAL_MS
 const POLL_REALTIME = 20;             // ChatRoute.POLL_INTERVAL_REALTIME_MS
 const DETAIL_POLL = 4;                // MatchWaitingRoute.PARTY_POLL_INTERVAL_MS
+const CLOSED = ['FINISHED', 'CANCELED'];
 
 export function wsUrl() {
   return `${BASE.replace(/^http/, 'ws')}/ws-chat`;
@@ -24,11 +27,13 @@ function frame(command, headers, body = '') {
  * 채팅방 하나에 붙어 holdSec 동안 머문다.
  *   sendEverySec  메시지 전송 주기(0 이면 듣기만). 본문은 "lt:<보낸 시각 ms>:<보낸 사람>" - 보내는 쪽과 받는 쪽이 같은 장비라 시계가 같다
  *   cursor        채팅방을 열 때 읽은 마지막 메시지 id (openChatRoom 의 결과)
- *   partyId       주면 방 상세를 4초마다 폴링하고, FINISHED·CANCELED 를 보면 소켓을 닫는다(다른 사람이 합승 완료를 누른 경우)
+ *   partyId       주면 방이 닫혔는지 확인하고, FINISHED·CANCELED 를 보면 소켓을 닫는다(다른 사람이 합승 완료를 누른 경우)
+ *   statusPollSec 주면 방 상태(/status)를 이 주기로 확인한다. 안 주면 방 상세를 4초마다 폴링한다
+ *   fingerprint   화면에 그려 둔 방 상세의 지문. 방 상태의 지문이 이와 다르면 방 상세를 한 번 다시 읽는다
  * 돌려주는 값: { res, closedBy } - closedBy 는 'timeout' | 'party-closed' | 'error'
  */
 export function chatSession(token, chatRoomId, who, {
-  holdSec = 30, sendEverySec = 15, cursor = null, partyId = null, onLatency, onError, onConnected,
+  holdSec = 30, sendEverySec = 15, cursor = null, partyId = null, statusPollSec = null, fingerprint = null, onLatency, onError, onConnected,
 } = {}) {
   let closedBy = 'timeout';
   const res = ws.connect(wsUrl(), { tags: { name: 'WS /ws-chat' } }, (socket) => {
@@ -79,10 +84,21 @@ export function chatSession(token, chatRoomId, who, {
         sinceChatPoll = 0;
         markRead(lastMessageId(pollChat(token, chatRoomId, cursor), cursor));
       }
-      if (partyId && sinceDetailPoll >= DETAIL_POLL) {
+      if (partyId && statusPollSec && sinceDetailPoll >= statusPollSec) {
+        sinceDetailPoll = 0;
+        const st = roomStatus(token, partyId);
+        if (st.status === 200) {
+          if (CLOSED.includes(st.json('status'))) { closedBy = 'party-closed'; socket.close(); }
+          else if ((st.json('fingerprint') || null) !== fingerprint) {       // 놓친 변화가 있다 - 그때만 무거운 상세를 읽는다
+            const detail = roomDetail(token, partyId);
+            if (detail.status === 200) fingerprint = detail.json('fingerprint') || null;
+          }
+        }
+      }
+      if (partyId && !statusPollSec && sinceDetailPoll >= DETAIL_POLL) {
         sinceDetailPoll = 0;
         const detail = roomDetail(token, partyId);
-        if (detail.status === 200 && ['FINISHED', 'CANCELED'].includes(detail.json('status'))) { closedBy = 'party-closed'; socket.close(); }
+        if (detail.status === 200 && CLOSED.includes(detail.json('status'))) { closedBy = 'party-closed'; socket.close(); }
       }
     }, 1000);
 
