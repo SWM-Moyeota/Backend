@@ -26,6 +26,10 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     @Query("select p from PartyEntity p left join fetch p.members where p.id = :id")
     Optional<PartyEntity> findWithMembersById(@Param("id") Long id);
 
+    // 상태 확인만 하는 폴링용 - 엔티티·route 를 읽지 않고 상태와 멤버 ID 만 가져온다. 멤버가 없어도 한 행은 나오도록 left join
+    @Query("select p.status as status, m.memberId as memberId from PartyEntity p left join p.members m where p.id = :id")
+    List<PartyStatusRow> findStatusRowsById(@Param("id") Long id);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from PartyEntity p where p.id = :id")
     Optional<PartyEntity> findByForUpdate(@Param("id") Long id);

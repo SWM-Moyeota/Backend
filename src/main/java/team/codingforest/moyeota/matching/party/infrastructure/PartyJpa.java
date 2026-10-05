@@ -9,6 +9,7 @@ import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.PartyStatusSnapshot;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 
 import java.time.Instant;
@@ -16,6 +17,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Repository
@@ -72,6 +74,20 @@ public class PartyJpa implements Parties {
     public List<MatchingTarget> findMatchingTargets() {
         return delegate.findTargetsByStatus(PartyStatus.MATCHING)
                 .stream().map(PartyEntity::toMatchTarget).toList();
+    }
+
+    @Override
+    public Optional<PartyStatusSnapshot> findStatusSnapshotById(Long id) {
+        List<PartyStatusRow> rows = delegate.findStatusRowsById(id);
+
+        if(rows.isEmpty()) return Optional.empty();
+
+        List<Long> memberIds = rows.stream()
+                .map(PartyStatusRow::getMemberId)
+                .filter(Objects::nonNull)           // 멤버가 없는 방(마지막 사람이 나가 CANCELED)
+                .toList();
+
+        return Optional.of(new PartyStatusSnapshot(id, rows.get(0).getStatus(), memberIds));
     }
 
     @Override
