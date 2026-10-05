@@ -114,8 +114,9 @@ export function roomDetail(token, partyId) {
   return http.get(`${BASE}/api/v1/matching/rooms/${partyId}`, auth(token, { tags: { name: 'GET /matching/rooms/{id}' } }));
 }
 
-export function myChatRooms(token) {
-  return http.get(`${BASE}/api/v1/chat-rooms/me`, auth(token, { tags: { name: 'GET /chat-rooms/me' } }));
+// name 을 바꿔 부르면 지표에서 따로 잡힌다 - 탐침(측정용) 호출이 앱이 만드는 호출 수에 섞이지 않게 한다
+export function myChatRooms(token, name = 'GET /chat-rooms/me') {
+  return http.get(`${BASE}/api/v1/chat-rooms/me`, auth(token, { tags: { name } }));
 }
 
 export function joinRoom(token, partyId) {
