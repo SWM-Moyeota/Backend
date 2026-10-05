@@ -24,12 +24,10 @@ export const USE_SSE = __ENV.USE_SSE === '1';                     // 대기 화�
 export const POLL = Number(__ENV.POLL_SEC || 4);          // 화면 17·21 의 폴링 주기
 const CHAT_SEC = Number(__ENV.CHAT_SEC || 40);            // 채팅 화면에 머무는 시간
 const WAIT_MAX = Number(__ENV.WAIT_MAX_SEC || 90);        // 방이 안 차면 포기하는 시간
-const CHAT_ROOM_POLL = Number(__ENV.CHAT_ROOM_POLL_SEC || 2);    // 채팅방이 목록에 안 보일 때 다시 여는 첫 간격 - 매번 두 배로 늘린다(2·4·8·16초)
-const CHAT_ROOM_WAIT = Number(__ENV.CHAT_ROOM_WAIT_SEC || 30);   // 그래도 안 보이면 포기하는 시간
+const CHAT_TAB_DELAY = Number(__ENV.CHAT_TAB_DELAY_SEC || 2);    // 방이 찬 걸 보고 채팅 탭으로 넘어가기까지 - 사람의 화면 전환 시간
 
 export const fillTime = new Trend('journey_fill_time_ms', true);        // 방 생성 → 정원 충족
 export const chatLatency = new Trend('chat_delivery_ms', true);         // 메시지 전달 지연
-export const chatRoomReady = new Trend('chat_room_ready_ms', true);     // 채팅 탭 진입 → 이번 방의 채팅방이 목록에 뜰 때까지 (비동기 입장 지연)
 export const joinOutcome = new Counter('journey_join');                 // result 태그: ok / full / other
 export const wsErrors = new Counter('ws_errors');
 export const giveUps = new Counter('journey_give_up');                  // 시간 안에 방이 안 차서 포기
@@ -77,21 +75,20 @@ const waitUntil = (token, partyId, wanted, maxSec) => (USE_SSE ? sseUntil(token,
  * 거기에 붙으면 입장 체크가 거짓으로 통과하고 몇 분 전 메시지가 전달 지연으로 잡힌다.
  */
 function chat(user, who, partyId, destName) {
-  // 채팅방 입장은 비동기라 목록에 늦게 뜰 수 있다. 앱은 채팅 탭에 들어갈 때 한 번 조회하고, 안 보이면 사용자가 다시 연다 -
-  // 1초마다 두드리지 않는다. /chat-rooms/me 는 쿼리 5개짜리 무거운 조회라, 입장이 밀릴 때 1초 간격으로 재시도하면
-  // 전체 요청의 40% 를 차지하며 DB 를 더 눌러 입장을 더 늦추는 악순환이 된다(5,000명에서 초당 720건).
-  // 그래서 간격을 두 배씩 늘린다: 0 · 2 · 6 · 14 · 30초 시점에 5번. 끝내 안 생겨도 예전(1초 x 10번)의 절반만 부르고, 기다려 주는 시간은 10초 → 30초로 길다.
-  let chatRoomId = null;
-  const entered = Date.now();
-  for (let waited = 0, gap = CHAT_ROOM_POLL; ; waited += gap, gap *= 2) {
-    const rooms = myChatRooms(user.token);
-    const mine = rooms.status === 200 ? rooms.json().find((r) => r.destination === destName) : null;
-    if (mine) { chatRoomId = mine.chatRoomId; break; }
-    if (waited + gap > CHAT_ROOM_WAIT) break;
-    sleep(gap);
+  // 앱은 채팅 탭에 들어갈 때 /chat-rooms/me 를 한 번 부른다. 방이 안 보이면 사용자는 "방이 없다"를 본다 - 그게 실제 장애다.
+  // 그래서 여기서도 한 번만 부르고, 없으면 실패로 남긴 채 채팅을 건너뛴다. 다시 두드려 가며 기다리면
+  //   · 늦게라도 생기면 통과해 문제가 가려지고
+  //   · 입장이 밀릴수록 이 무거운 조회(쿼리 5개)가 늘어 DB 를 더 누른다(1초 x 10번일 때 5,000명에서 초당 720건, 전체의 40%).
+  // 채팅방 입장은 커밋 직후 비동기로 처리된다. 마지막 참여자는 join 과 동시에 방이 차서 곧바로 여기로 오므로,
+  // 사람이 화면을 넘기는 시간만큼은 둔다 - 이게 없으면 정상인 서버에서도 수십 ms 차이로 거짓 실패가 난다.
+  sleep(CHAT_TAB_DELAY);
+  const rooms = myChatRooms(user.token);
+  const mine = rooms.status === 200 ? rooms.json().find((r) => r.destination === destName) : null;
+  const chatRoomId = mine ? mine.chatRoomId : null;
+  if (!check(chatRoomId, { '채팅방에 입장돼 있다': (id) => id !== null })) {
+    sleep(CHAT_SEC);              // 채팅을 못 해도 합승 시간은 같다 - 바로 끝내면 실패한 조만 빨리 돌아 방 생성이 부풀려진다
+    return 'no-room';
   }
-  if (!check(chatRoomId, { '채팅방에 입장돼 있다': (id) => id !== null })) return 'no-room';
-  chatRoomReady.add(Date.now() - entered);
 
   const opened = openChatRoom(user.token, chatRoomId);
   check(opened, { '채팅방 열기 200': (o) => o.status === 200 });
