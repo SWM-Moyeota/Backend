@@ -5,7 +5,29 @@ datasources:
     uid: cfz083ozhjrpcb
     url: http://prometheus:9090
     isDefault: true
+
   - name: Loki
     type: loki
     uid: loki
     url: http://loki:3100
+    jsonData:
+      derivedFields:                        # 로그 줄의 trace_id 를 누르면 그 요청의 추적으로 간다
+        - name: trace
+          matcherRegex: 'trace_id=(\w{32})'
+          datasourceUid: tempo
+          url: '$${__value.raw}'
+
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    url: http://tempo:3200
+    jsonData:
+      tracesToLogsV2:                       # 추적에서 그 요청의 로그로 간다
+        datasourceUid: loki
+        filterByTraceID: true
+        customQuery: true
+        query: '{unit="moyeota"} |= "$${__trace.traceId}"'
+      serviceMap:
+        datasourceUid: cfz083ozhjrpcb
+      nodeGraph:
+        enabled: true

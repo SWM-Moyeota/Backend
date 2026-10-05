@@ -6,7 +6,8 @@ After=network.target redis-server.service
 User=root
 WorkingDirectory=/opt/moyeota
 EnvironmentFile=/etc/moyeota/moyeota.env
-ExecStart=/usr/bin/java -jar /opt/moyeota/app.jar
+EnvironmentFile=/etc/moyeota/otel.env
+ExecStart=/usr/bin/java -javaagent:/opt/otel/opentelemetry-javaagent.jar -jar /opt/moyeota/app.jar
 Restart=on-failure
 RestartSec=5
 
