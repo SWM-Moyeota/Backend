@@ -84,7 +84,7 @@ public class PartyController {
                                                         @RequestParam Double swLng,
                                                         @RequestParam Double neLat,
                                                         @RequestParam Double neLng) {
-        return ResponseEntity.ok(PartyListResponse.from(partyService.findActivePartiesWithin(swLat, swLng, neLat, neLng)));
+        return ResponseEntity.ok(PartyListResponse.fromSummaries(partyService.findActivePartiesWithin(swLat, swLng, neLat, neLng)));
     }
 
     @Operation(summary = "합승 종료", description = "기사 배정 없이 합승만 하고 끝났을 때 참여자가 직접 호출. 정원이 찬(COMPLETED) 방에서만 가능. 기사 기능이 켜진 모드에선 COMPLETED 가 순간이라 사실상 호출할 일이 없다")

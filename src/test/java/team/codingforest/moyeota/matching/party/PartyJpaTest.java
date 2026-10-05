@@ -4,8 +4,10 @@ import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.PartySummary;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,12 +44,16 @@ public class PartyJpaTest implements Parties {
     }
 
     @Override
-    public List<Party> findAllByStatusWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng) {
-        // 실제 쿼리(between: 양끝 포함)와 같은 규칙 - 출발지 좌표 기준
+    public List<PartySummary> findSummariesWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng, int limit) {
+        // 실제 쿼리(between: 양끝 포함, 최신순, 상한)와 같은 규칙 - 출발지 좌표 기준. 메모리에서는 id 가 클수록 최신이다
         return store.values().stream()
                 .filter(p -> p.getStatus() == status)
                 .filter(p -> p.getDepartureLocation().latitude() >= swLat && p.getDepartureLocation().latitude() <= neLat)
                 .filter(p -> p.getDepartureLocation().longitude() >= swLng && p.getDepartureLocation().longitude() <= neLng)
+                .sorted(Comparator.comparing(Party::getId).reversed())
+                .limit(limit)
+                .map(p -> new PartySummary(p.getId(), p.getDeparture(), p.getDestination(), (long) p.getMembers().size(),
+                        p.getCapacity().value(), p.getStatus(), p.getDepartureLocation().latitude(), p.getDepartureLocation().longitude()))
                 .toList();
     }
 
