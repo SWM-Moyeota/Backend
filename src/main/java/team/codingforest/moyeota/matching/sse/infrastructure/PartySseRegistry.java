@@ -18,7 +18,7 @@ public class PartySseRegistry {
 
     private final Map<Long, Set<Subscription>> byParty = new ConcurrentHashMap<>();
 
-    /** 누가 붙였는지 함께 적는다 - 방을 나간 사람의 연결만 골라 닫으려면 필요하다 */
+    /** 어떤 방에 어떤 유저의 연결이 맺었는지 알기위함 **/
     private record Subscription(Long memberId, SseEmitter emitter) {}
 
     public SseEmitter subscribe(Long partyId, Long memberId) {
