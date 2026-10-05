@@ -14,6 +14,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PartySseRegistryTest {
     private static final Long 방 = 42L;
     private static final Long 다른방 = 43L;
+    private static final Long 철수 = 1L;
+    private static final Long 영희 = 2L;
 
     private PartySseRegistry registry;
 
@@ -24,26 +26,26 @@ class PartySseRegistryTest {
 
     @Test
     void 구독하면_그_방의_연결로_등록된다() {
-        registry.subscribe(방);
-        registry.subscribe(방);
-        registry.subscribe(다른방);
+        registry.subscribe(방, 철수);
+        registry.subscribe(방, 철수);
+        registry.subscribe(다른방, 철수);
 
         assertThat(registry.connections()).isEqualTo(3);
     }
 
     @Test
     void 구독마다_새_연결을_돌려준다() {
-        SseEmitter a = registry.subscribe(방);
-        SseEmitter b = registry.subscribe(방);
+        SseEmitter a = registry.subscribe(방, 철수);
+        SseEmitter b = registry.subscribe(방, 철수);
 
         assertThat(a).isNotSameAs(b);
     }
 
     @Test
     void 방을_닫으면_그_방의_연결만_전부_빠진다() {
-        registry.subscribe(방);
-        registry.subscribe(방);
-        registry.subscribe(다른방);
+        registry.subscribe(방, 철수);
+        registry.subscribe(방, 철수);
+        registry.subscribe(다른방, 철수);
 
         registry.closeAll(방);
 
@@ -52,10 +54,10 @@ class PartySseRegistryTest {
 
     @Test
     void 닫은_방에_다시_구독할_수_있다() {
-        registry.subscribe(방);
+        registry.subscribe(방, 철수);
         registry.closeAll(방);
 
-        registry.subscribe(방);
+        registry.subscribe(방, 철수);
 
         assertThat(registry.connections()).isEqualTo(1);
     }
@@ -77,12 +79,76 @@ class PartySseRegistryTest {
 
     @Test
     void 알림과_heartbeat_는_살아_있는_연결을_지우지_않는다() {
-        registry.subscribe(방);
-        registry.subscribe(다른방);
+        registry.subscribe(방, 철수);
+        registry.subscribe(다른방, 철수);
 
         registry.notify(방, "changed");
         registry.heartbeat();
 
         assertThat(registry.connections()).isEqualTo(2);
+    }
+
+    // ───────────────────────── 나간 사람의 연결 닫기 ─────────────────────────
+
+    @Test
+    void 나간_사람의_연결만_빠지고_남은_사람의_연결은_그대로다() {
+        registry.subscribe(방, 철수);
+        registry.subscribe(방, 영희);
+
+        registry.closeMember(방, 영희);
+
+        assertThat(registry.connections()).isEqualTo(1);
+    }
+
+    @Test
+    void 한_사람이_여러_개를_붙여_뒀으면_전부_닫는다() {
+        // 기기 두 대, 또는 재연결 뒤 아직 정리되지 않은 옛 연결
+        registry.subscribe(방, 영희);
+        registry.subscribe(방, 영희);
+        registry.subscribe(방, 철수);
+
+        registry.closeMember(방, 영희);
+
+        assertThat(registry.connections()).isEqualTo(1);
+    }
+
+    @Test
+    void 같은_사람이_다른_방에_붙여_둔_연결은_건드리지_않는다() {
+        registry.subscribe(방, 영희);
+        registry.subscribe(다른방, 영희);
+
+        registry.closeMember(방, 영희);
+
+        assertThat(registry.connections()).isEqualTo(1);
+    }
+
+    @Test
+    void 마지막_연결이_빠지면_빈_방도_장부에서_지운다() {
+        registry.subscribe(방, 영희);
+
+        registry.closeMember(방, 영희);
+        registry.closeAll(방);   // 빈 방이 남아 있어도 예외는 없어야 하고
+
+        assertThat(registry.connections()).isZero();
+    }
+
+    @Test
+    void 연결이_없는_사람이나_방을_닫아도_아무_일도_없다() {
+        registry.subscribe(방, 철수);
+
+        registry.closeMember(방, 영희);
+        registry.closeMember(다른방, 철수);
+
+        assertThat(registry.connections()).isEqualTo(1);
+    }
+
+    @Test
+    void 닫힌_사람이_다시_구독할_수_있다() {
+        registry.subscribe(방, 영희);
+        registry.closeMember(방, 영희);
+
+        registry.subscribe(방, 영희);
+
+        assertThat(registry.connections()).isEqualTo(1);
     }
 }

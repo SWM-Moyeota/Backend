@@ -40,6 +40,21 @@ class PartySseChannelTest {
     }
 
     @Test
+    void left_신호는_나간_사람의_연결만_닫고_앱에는_알리지_않는다() {
+        // 남은 사람에게는 뒤따라 오는 changed 가 알린다. left 까지 알리면 앱이 모르는 이벤트를 받는다
+        channel.onMessage(msg("42:left:7"), null);
+
+        assertThat(registry.calls).containsExactly("closeMember:42:7");
+    }
+
+    @Test
+    void left_의_memberId_가_숫자가_아니면_구독_스레드를_죽이지_않고_무시한다() {
+        channel.onMessage(msg("42:left:abc"), null);
+
+        assertThat(registry.calls).isEmpty();
+    }
+
+    @Test
     void 콜론이_없는_메시지는_무시한다() {
         channel.onMessage(msg("garbage"), null);
 
@@ -77,6 +92,11 @@ class PartySseChannelTest {
         @Override
         public void closeAll(Long partyId) {
             calls.add("closeAll:" + partyId);
+        }
+
+        @Override
+        public void closeMember(Long partyId, Long memberId) {
+            calls.add("closeMember:" + partyId + ":" + memberId);
         }
     }
 }

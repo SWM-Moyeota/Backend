@@ -1,6 +1,6 @@
 // 대기 화면(21)의 SSE 구독 - 서버 GET /matching/rooms/{id}/events 를 xk6-sse 로 붙잡는다.
-//   서버는 구독 직후 `connected`, 멤버 변화에 `changed`, 방이 닫히면 `closed` 를 보내고 15초마다 `:ping` 주석을 흘린다.
-//   xk6-sse 는 주석도 event 콜백으로 올린다(name 이 빈 문자열) - 그걸 15초 틱으로 써서 holdSec 뒤에 닫는다.
+//   서버는 구독 직후 `connected`, 멤버 변화에 `changed`, 방이 닫히면 `closed` 를 보내고 5초마다 `:ping` 주석을 흘린다.
+//   xk6-sse 는 주석도 event 콜백으로 올린다(name 이 빈 문자열) - 그걸 5초 틱으로 써서 holdSec 뒤에 닫는다.
 //   읽기 에러가 나면 반드시 client.close() 를 불러야 open() 이 돌아온다 (안 부르면 VU 가 끝날 때까지 블로킹).
 import sse from 'k6/x/sse';
 import { Trend, Counter } from 'k6/metrics';
@@ -27,7 +27,7 @@ export function watchParty(token, partyId, { holdSec = 60, onEvent } = {}) {
     timeout: `${holdSec + 30}s`,                                   // 안전망 - 주석 틱이 끊겨도 언젠가는 돌아온다
   }, (client) => {
     client.on('event', (ev) => {
-      if (!ev.name) {                                              // :ping 주석 = 15초 틱
+      if (!ev.name) {                                              // :ping 주석 = 5초 틱
         if (Date.now() - started >= holdSec * 1000) client.close();
         return;
       }

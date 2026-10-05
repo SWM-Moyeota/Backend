@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class PartySseChannel implements MessageListener {
     public static final String TOPIC = "party:events";
+    static final String LEFT_PREFIX = "left:";
 
     private final PartySseRegistry partySseRegistry;
 
@@ -28,6 +29,12 @@ public class PartySseChannel implements MessageListener {
 
             Long partyId = Long.valueOf(body.substring(0, sep));
             String event = body.substring(sep+1);
+
+            // "left:<memberId>" 는 앱에 알리는 신호가 아니다 - 나간 사람의 연결을 이 인스턴스가 들고 있으면 닫는다
+            if(event.startsWith(LEFT_PREFIX)) {
+                partySseRegistry.closeMember(partyId, Long.valueOf(event.substring(LEFT_PREFIX.length())));
+                return;
+            }
 
             partySseRegistry.notify(partyId, event);
             if("closed".equals(event)) partySseRegistry.closeAll(partyId);
