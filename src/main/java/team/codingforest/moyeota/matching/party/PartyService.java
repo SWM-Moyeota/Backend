@@ -6,12 +6,14 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.api.dto.PartyClosedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
+import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
@@ -40,6 +42,8 @@ public class PartyService {
     private final DriverAccess driverAccess;
     private final UserAccess userAccess;
     private final PartyCompletionPolicy partyCompletionPolicy;
+    private final AfterCommitExecutor afterCommitExecutor;
+    private final PartyChangeNotifier partyChangeNotifier;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
@@ -83,6 +87,7 @@ public class PartyService {
         log.info("매칭방에 사용자 참가됨 partyId={}, memberId={}, status={}", partyId, memberId, party.getStatus());
         parties.save(party);
         eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.changed(partyId));
 
         return getPartyDetail(partyId);
     }
@@ -98,6 +103,10 @@ public class PartyService {
 
         if(party.getStatus() == PartyStatus.CANCELED) {
             eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
+            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
+        }
+        else {
+            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.changed(partyId));
         }
 
         log.info("매칭방에서 사용자 나감 partyId={}, memberId={}, status={}, members={}", partyId, memberId, party.getStatus(), party.getMembers().size());
@@ -148,6 +157,7 @@ public class PartyService {
         party.finishWithoutDriver(memberId);
         parties.save(party);
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
 
         log.info("기사 없이 합승 종료 partyId={}, memberId={}", partyId, memberId);
     }
@@ -160,6 +170,7 @@ public class PartyService {
         party.expireCompleted();
         parties.save(party);
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
 
         log.warn("정원 충족 후 방치된 방 자동 종료 partyId={}", partyId);
     }

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.api.dto.MatchingStartedEvent;
@@ -20,6 +21,7 @@ import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
+import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
@@ -48,6 +50,7 @@ class PartyServiceTest {
     private RecordingEventPublisher events;
     private FakeDriverAccess driverAccess;
     private FakeUserAccess userAccess;
+    private RecordingPartyChangeNotifier signals;
     private PartyService service;
 
     @BeforeEach
@@ -56,6 +59,7 @@ class PartyServiceTest {
         events = new RecordingEventPublisher();
         driverAccess = new FakeDriverAccess();
         userAccess = new FakeUserAccess();
+        signals = new RecordingPartyChangeNotifier();
         userAccess.등록(host, "방장");
         userAccess.등록(participant, "동승자");
         service = serviceWith(new DispatchCompletionPolicy(events));   // 기본은 발표 모드 - 정원이 차면 배차 시작
@@ -63,10 +67,15 @@ class PartyServiceTest {
 
     /** 정원 충족 정책만 갈아끼운 서비스. 정책이 쏘는 MatchingStartedEvent 도 같은 기록기에 쌓인다 */
     private PartyService serviceWith(PartyCompletionPolicy policy) {
+        return serviceWith(policy, IMMEDIATE);
+    }
+
+    /** 커밋 후 실행기까지 갈아끼운 서비스 - 단위 테스트에는 트랜잭션이 없으므로 기본은 즉시 실행(IMMEDIATE) */
+    private PartyService serviceWith(PartyCompletionPolicy policy, AfterCommitExecutor afterCommit) {
         RouteService routeService = new RouteService(
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
                 new RouteCacheTest());
-        return new PartyService(parties, events, routeService, driverAccess, userAccess, policy);
+        return new PartyService(parties, events, routeService, driverAccess, userAccess, policy, afterCommit, signals);
     }
 
     @Test
@@ -304,6 +313,69 @@ class PartyServiceTest {
         assertThat(events.matchingStartedFor(party.id())).isEqualTo(1);
     }
 
+    // ───────────────────────── SSE 신호 (아웃박스에 남기지 않는 실시간 전파) ─────────────────────────
+
+    @Test
+    void 참여하면_changed_신호를_보낸다() {
+        PartyResult party = service.open(createParty(host, 3));
+
+        service.join(party.id(), participant);
+
+        assertThat(signals.sent).containsExactly(party.id() + ":changed");
+    }
+
+    @Test
+    void 방을_만들_때는_신호를_보내지_않는다() {
+        service.open(createParty(host, 3));
+
+        assertThat(signals.sent).as("방금 만든 방은 구독자가 없다").isEmpty();
+    }
+
+    @Test
+    void 사람이_남아_있는_방에서_나가면_changed_신호를_보낸다() {
+        PartyResult party = service.open(createParty(host, 3));
+        service.join(party.id(), participant);
+        signals.sent.clear();
+
+        service.leave(party.id(), participant);
+
+        assertThat(signals.sent).containsExactly(party.id() + ":changed");
+    }
+
+    @Test
+    void 마지막_멤버가_나가_취소되면_closed_신호만_보낸다() {
+        PartyResult party = service.open(createParty(host, 3));
+
+        service.leave(party.id(), host);
+
+        assertThat(signals.sent)
+                .as("닫힐 방의 상세를 다시 조회하게 만드는 changed 는 내지 않는다")
+                .containsExactly(party.id() + ":closed");
+    }
+
+    @Test
+    void 신호는_직접_내지_않고_커밋_후_실행기에_맡긴다() {
+        List<Runnable> deferred = new ArrayList<>();
+        service = serviceWith(new DispatchCompletionPolicy(events), (name, task) -> deferred.add(task));
+        PartyResult party = service.open(createParty(host, 3));
+
+        service.join(party.id(), participant);
+
+        assertThat(signals.sent).as("커밋 전에는 나가지 않는다 - 롤백되면 영영 안 나간다").isEmpty();
+        deferred.forEach(Runnable::run);
+        assertThat(signals.sent).containsExactly(party.id() + ":changed");
+    }
+
+    @Test
+    void 참여에_실패하면_신호를_맡기지도_않는다() {
+        List<Runnable> deferred = new ArrayList<>();
+        service = serviceWith(new DispatchCompletionPolicy(events), (name, task) -> deferred.add(task));
+
+        assertThatThrownBy(() -> service.join(999L, participant)).isInstanceOf(BusinessException.class);
+
+        assertThat(deferred).isEmpty();
+    }
+
     // ───────────────────────── 배포 모드 (TAXI_ENABLED=false) ─────────────────────────
 
     /** 기사 기능이 없는 1차 배포. 정원이 차도 배차 없이 COMPLETED 에 머물러야 한다 - MATCHING 으로 가면 받는 리스너가 없어 계정이 잠긴다 */
@@ -430,6 +502,28 @@ class PartyServiceTest {
             service.expire(오래된방);
 
             assertThat(events.closedFor(오래된방, "FINISHED")).isEqualTo(1);
+        }
+
+        @Test
+        void 합승_완료하면_closed_신호를_보낸다() {
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);
+            signals.sent.clear();
+
+            service.finish(party.id(), participant);
+
+            assertThat(signals.sent).containsExactly(party.id() + ":closed");
+        }
+
+        @Test
+        void 자동_종료해도_closed_신호를_보낸다() {
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);
+
+            service.expire(오래된방);
+
+            assertThat(signals.sent)
+                    .as("대기 화면에 남아 있는 사용자가 홈으로 돌아가야 한다")
+                    .containsExactly(오래된방 + ":closed");
         }
 
         @Test
@@ -576,6 +670,24 @@ class PartyServiceTest {
     private OpenPartyCommand createParty(Long creatorId, int capacity) {
         return new OpenPartyCommand(creatorId, 37.4979, 127.0276, 37.3948, 127.1112,
                 "강남역", "판교역", capacity, 100, 100);
+    }
+
+    /** 트랜잭션이 없는 단위 테스트용 - 맡긴 작업을 그 자리에서 실행한다 */
+    private static final AfterCommitExecutor IMMEDIATE = (name, task) -> task.run();
+
+    /** 나간 SSE 신호를 "partyId:이름" 으로 기록한다 */
+    static class RecordingPartyChangeNotifier implements PartyChangeNotifier {
+        final List<String> sent = new ArrayList<>();
+
+        @Override
+        public void changed(Long partyId) {
+            sent.add(partyId + ":changed");
+        }
+
+        @Override
+        public void closed(Long partyId) {
+            sent.add(partyId + ":closed");
+        }
     }
 
     /** 발행된 이벤트를 기록하는 가짜 발행기 */
