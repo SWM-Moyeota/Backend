@@ -45,11 +45,11 @@ class SchedulerLockIntegrationTest {
         SimpleLock held = lockProvider.lock(new LockConfiguration(Instant.now(), NAME, Duration.ofSeconds(30), Duration.ZERO)).orElseThrow();
 
         job.run();
-        assertThat(job.runs.get()).as("잠긴 동안").isZero();
+        assertThat(job.runs()).as("잠긴 동안").isZero();
 
         held.unlock();
         job.run();
-        assertThat(job.runs.get()).as("풀린 뒤").isEqualTo(1);
+        assertThat(job.runs()).as("풀린 뒤").isEqualTo(1);
     }
 
     @Test
@@ -77,11 +77,16 @@ class SchedulerLockIntegrationTest {
     }
 
     static class TestJob {
-        final AtomicInteger runs = new AtomicInteger();
+        private final AtomicInteger runs = new AtomicInteger();
 
         @SchedulerLock(name = NAME, lockAtMostFor = "PT10S")
         public void run() {
             runs.incrementAndGet();
+        }
+
+        // 필드를 직접 읽으면 안 된다 - 주입되는 빈은 CGLIB 프록시(하위 클래스)라 프록시 자신의 필드는 비어 있다(NPE). 메서드는 원본으로 전달된다
+        public int runs() {
+            return runs.get();
         }
     }
 
