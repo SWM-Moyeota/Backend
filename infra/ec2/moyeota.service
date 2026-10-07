@@ -1,6 +1,6 @@
 [Unit]
 Description=Moyeota Backend
-After=network.target redis-server.service
+After=network.target
 
 [Service]
 User=root

@@ -13,7 +13,8 @@ mkdir -p /etc/apt/keyrings
 wget -qO- https://apt.grafana.com/gpg.key | gpg --dearmor > /etc/apt/keyrings/grafana.gpg
 echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main" > /etc/apt/sources.list.d/grafana.list
 apt-get update -q
-apt-get install -y -q openjdk-25-jre-headless redis-server prometheus-node-exporter prometheus-redis-exporter alloy ruby unzip
+# Redis 는 서버 안에 두지 않는다 - ElastiCache(REDIS_HOST)를 쓴다. 서버가 여러 대일 때 SSE 신호·채팅·캐시가 한 곳을 봐야 한다
+apt-get install -y -q openjdk-25-jre-headless prometheus-node-exporter prometheus-redis-exporter alloy ruby unzip
 usermod -aG systemd-journal alloy
 
 # 2. AWS CLI v2 (stub이 깔지만, 기존 서버에서 직접 돌릴 때를 위해 확인)
@@ -50,12 +51,16 @@ aws s3 cp "$S3/alloy/config.alloy" /etc/alloy/config.alloy
 # 6. Parameter Store → env. 앱은 전체, Alloy는 필요한 값만 (비밀값을 Alloy에 넘기지 않는다)
 /opt/moyeota/bin/load-env.sh
 grep -E '^(LOKI_URL|DEPLOY_ENV|TEMPO_URL)=' /etc/moyeota/moyeota.env > /etc/alloy/env
+# Redis 지표 수집기는 ElastiCache 를 본다. 전송 중 암호화가 켜져 있어 rediss:// 로 붙는다 (인증서는 Amazon CA, 시스템 신뢰 저장소로 검증)
+REDIS_HOST=$(grep -E '^REDIS_HOST=' /etc/moyeota/moyeota.env | cut -d= -f2- | tr -d '"')
+printf 'ARGS="--redis.addr=rediss://%s:6379"\n' "$REDIS_HOST" > /etc/default/prometheus-redis-exporter
 chown root:alloy /etc/alloy/env && chmod 640 /etc/alloy/env
 mkdir -p /etc/systemd/system/alloy.service.d
 printf '[Service]\nEnvironmentFile=/etc/alloy/env\n' > /etc/systemd/system/alloy.service.d/env.conf
 
 # 7. 기동
 systemctl daemon-reload
-systemctl enable --now redis-server prometheus-node-exporter prometheus-redis-exporter
+systemctl enable --now prometheus-node-exporter prometheus-redis-exporter
+systemctl restart prometheus-redis-exporter   # 바뀐 주소를 읽게
 systemctl enable moyeota                 # jar는 CodeDeploy가 놓고 시작한다 (이미 떠 있는 앱은 여기서 재시작하지 않는다)
 systemctl enable alloy && systemctl restart alloy
