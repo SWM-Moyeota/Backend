@@ -1,0 +1,65 @@
+# 2026-10-06 21:58 KST, VUS=4000 USE_SSE=1, RUN_ID=7070. develop 5c3485d(Tomcat 20000·추적 설정·SSE 정리 적용). 409 2.2% 는 어제 중단된 실행의 잔여 방에 참여자 222명이 갇힌 테스트 오염
+
+█ THRESHOLDS
+  chat_delivery_ms                           ✓ 'p(95)<500'  p(95)=101.00ms
+  chat_join_lag_ms                           ✓ 'p(95)<2000'  p(95)=798.55ms
+  checks                                     ✓ 'rate>0.99'  rate=99.99%
+  http_req_duration                          ✓ 'p(95)<500'  p(95)=49.78ms
+  http_req_failed                            ✗ 'rate<0.01'  rate=2.19%
+  journey_join{result:other}                 ✓ 'count==0'  count=0
+  ws_errors                                  ✓ 'count==0'  count=0
+
+█ TOTAL RESULTS
+  checks_total.......: 131058
+  checks_succeeded...: 99.99%  131057 out of 131058
+  checks_failed......: 0.00%  1 out of 131058
+  ✓ 1차 배포 모드(taxiEnabled=false)
+  ✓ 경로 미리보기 200
+  ✓ 방 생성 200
+  ✗ 채팅방에 입장돼 있다
+    ↳ 99% — ✓ 31922 / ✗ 1
+  ✓ 채팅방 열기 200
+  ✓ 합승 완료 204 (또는 이미 닫힘 409)
+
+  CUSTOM
+  chat_delivery_ms                   avg=27.94ms  min=4.00ms  med=10.00ms  max=973.00ms  p(90)=52.00ms  p(95)=101.00ms
+  chat_join_lag_ms                   avg=212.59ms  min=110.00ms  med=128.00ms  max=1.57s  p(90)=416.10ms  p(95)=798.55ms
+  journey_fill_time_ms               avg=3.07s  min=2.42s  med=3.05s  max=3.82s  p(90)=3.13s  p(95)=3.17s
+  journey_give_up                    1997  3.14/s
+  journey_join                       37483  58.97/s
+    {result:other}                   0  0/s
+  sse_connect_ms                     avg=6.76ms  min=1.00ms  med=4.00ms  max=318.00ms  p(90)=13.00ms  p(95)=21.00ms
+  sse_event                          113952  179.29/s
+  sse_events                         78501  123.51/s
+  sse_propagation_ms                 avg=23.19ms  min=7.00ms  med=18.00ms  max=362.00ms  p(90)=39.00ms  p(95)=54.00ms
+
+  HTTP
+  http_req_duration                  avg=238.19ms  min=496.83µs  med=5.24ms  max=1m35s  p(90)=24.92ms  p(95)=49.78ms
+    {expected_response:true}         avg=9.27ms  min=496.83µs  med=4.93ms  max=557.48ms  p(90)=20.24ms  p(95)=29.94ms
+  http_req_failed                    2.19%  15663 out of 712645
+  http_reqs                          751192  1181.89/s
+  http_req_blocked                   avg=9.47µs  min=1.06µs  med=2.95µs  max=6.40ms  p(90)=4.59µs  p(95)=5.38µs
+  http_req_connecting                avg=5.57µs  min=0.00µs  med=0.00µs  max=6.36ms  p(90)=0.00µs  p(95)=0.00µs
+  http_req_tls_handshaking           avg=0.00µs  min=0.00µs  med=0.00µs  max=0.00µs  p(90)=0.00µs  p(95)=0.00µs
+  http_req_sending                   avg=660.84µs  min=3.39µs  med=9.22µs  max=318.24ms  p(90)=60.84µs  p(95)=3.36ms
+  http_req_waiting                   avg=9.17ms  min=444.44µs  med=4.84ms  max=557.37ms  p(90)=20.10ms  p(95)=29.78ms
+  http_req_receiving                 avg=92.83µs  min=8.42µs  med=72.53µs  max=39.02ms  p(90)=166.89µs  p(95)=262.72µs
+
+  EXECUTION
+  iteration_duration                 avg=56.49s  min=52.37s  med=53.16s  max=1m58s  p(90)=53.44s  p(95)=1m35s
+  iterations                         33920  53.37/s
+  vus                                2  min=0  max=3999
+  vus_max                            3999  min=1542  max=3999
+
+  NETWORK
+  data_received                      960 MB  2 MB/s
+  data_sent                          364 MB  573 kB/s
+
+  WEBSOCKET
+  ws_connecting                      avg=1.59ms  min=905.27µs  med=1.29ms  max=68.21ms  p(90)=1.98ms  p(95)=2.65ms
+  ws_errors                          0  0/s
+  ws_msgs_received                   413722  650.93/s
+  ws_msgs_sent                       605254  952.28/s
+  ws_session_duration                avg=40.01s  min=40.00s  med=40.00s  max=40.28s  p(90)=40.01s  p(95)=40.02s
+  ws_sessions                        31922  50.22/s
+

@@ -90,7 +90,7 @@ k6 run -o experimental-prometheus-rw -e VUS=30 d6-soak.js                 # 45�
 
 # ── SSE 전환 후 (xk6-sse 바이너리로) ──
 ./k6 run -o experimental-prometheus-rw -e CONCURRENT=100 d1-polling-sse.js         # D1 과 같은 100명, 요청은 절반·연결 60개
-./k6 run -o experimental-prometheus-rw -e VUS=90 -e USE_SSE=1 d2-journey.js        # 대기를 SSE 로, 채팅 중에는 방 상태만 30초마다. sse_propagation_ms 가 핵심
+./k6 run -o experimental-prometheus-rw -e VUS=90 -e USE_SSE=1 --summary-export=results/d2-sse-90.json d2-journey.js   # 대기를 SSE 로, 채팅 중에는 방 상태만 30초마다. sse_propagation_ms 가 핵심
 ./k6 run -o experimental-prometheus-rw -e VUS=90 -e USE_SSE=1 -e LEGACY_DETAIL_POLL=1 d2-journey.js   # 비교용 - 채팅 중 방 상세 4초 폴링(앱이 바뀌기 전)
 ./k6 run -o experimental-prometheus-rw -e CONNS=300 d7-sse-connections.js          # 연결 100→200→300 + 초당 2건 변화
 ```
@@ -132,6 +132,18 @@ SSE 배포 뒤: 폴링 D1 결과를 baseline 으로 두고 → D1-SSE → D2 `US
 - D4·D2 의 전달 지연은 보낸 쪽과 받는 쪽이 같은 k6 장비라 시계 오차가 없다. k6 를 여러 대로 나누면 이 지표는 못 쓴다.
 - `sse_propagation_ms` 는 서버가 찍은 `joinedAt` 과 k6 의 `Date.now()` 차이다. 둘 다 AWS NTP 라 ms 단위 오차지만 음수가 보이면 시계가 어긋난 것이니 절대값이 아니라 분포로 본다.
 - xk6-sse 는 `:ping` 주석도 event 콜백으로 올린다(name 빈 문자열). 스크립트는 그걸 5초 틱으로 쓴다. 서버 heartbeat 주기를 바꾸면 `HOLD_SEC` 해상도가 같이 바뀐다.
+
+
+## 결과 보관
+
+터미널 끝에 찍히는 요약은 세션이 끝나면 사라진다. `--summary-export=results/<testid>.json` 으로 JSON 을 남기고, 사람이 읽을 형식으로 바꿔 함께 둔다.
+
+```bash
+node summarize.mjs results/d2-sse-4000-r7070.json "2026-10-06 21:58 KST, VUS=4000 USE_SSE=1" > results/d2-sse-4000-r7070.txt
+```
+
+`results/` 의 `.json` 은 정본(모든 지표·분위수), `.txt` 는 터미널 요약과 같은 형식이다. 파일 이름은 `--tag testid=` 와 같게 둔다 - Grafana 에서 같은 이름으로 찾는다.
+Grafana 에는 k6 가 미리 계산한 분위수(p95·p99)만 있고 avg·med 는 없다. 그 값은 여기 파일에서 본다.
 
 ## 택시 켜짐 시나리오 (S)
 ```
