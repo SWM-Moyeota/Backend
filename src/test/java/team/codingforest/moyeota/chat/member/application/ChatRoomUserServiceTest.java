@@ -40,6 +40,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class ChatRoomUserServiceTest {
@@ -57,6 +58,7 @@ class ChatRoomUserServiceTest {
     private ChatRoomUserService chatRoomUserService;
     private MemberProvider memberProvider;
     private ApplicationEventPublisher eventPublisher;
+    private ChatReadBuffer chatReadBuffer;
 
     private ChatRoomUser activeUser(Long chatRoomId, Long userId) {
         return ChatRoomUser.restore(userId, chatRoomId, null, false, NOW, NOW, null);
@@ -80,7 +82,8 @@ class ChatRoomUserServiceTest {
         chatMessages = mock(ChatMessages.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
         memberProvider = mock(MemberProvider.class);
-        chatRoomUserService = new ChatRoomUserService(eventPublisher, chatRoomUsers, chatRooms, chatMessages, memberProvider);
+        chatReadBuffer = mock(ChatReadBuffer.class);
+        chatRoomUserService = new ChatRoomUserService(eventPublisher, chatRoomUsers, chatRooms, chatMessages, memberProvider, chatReadBuffer);
     }
 
     private ChatRoom room(ChatRoomStatus status) {
@@ -156,14 +159,11 @@ class ChatRoomUserServiceTest {
     }
 
     @Test
-    void 읽음_처리_성공() {
-        ChatRoomUser user = activeUser(ROOM_ID);
-        given(chatRoomUsers.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.of(user));
-
+    void 읽음_처리는_버퍼에_기록만_한다() {
         chatRoomUserService.read(new ReadChatCommand(USER_ID, ROOM_ID, 5L));
 
-        assertThat(user.getLastReadMessageId()).isEqualTo(5L);
-        verify(chatRoomUsers).save(user);
+        verify(chatReadBuffer).record(USER_ID, ROOM_ID, 5L);
+        verifyNoInteractions(chatRoomUsers);
     }
 
     @Test

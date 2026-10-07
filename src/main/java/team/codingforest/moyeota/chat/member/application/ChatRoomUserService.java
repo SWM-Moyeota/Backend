@@ -6,22 +6,22 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import team.codingforest.moyeota.chat.room.dto.ChatRoomCommand;
-import team.codingforest.moyeota.chat.member.dto.ChatRoomMemberResult;
-import team.codingforest.moyeota.chat.member.dto.ChatRoomUserResult;
-import team.codingforest.moyeota.chat.message.dto.ReadChatCommand;
-import team.codingforest.moyeota.chat.member.event.ChatRoomJoinedEvent;
-import team.codingforest.moyeota.chat.member.event.ChatRoomLeftEvent;
-import team.codingforest.moyeota.chat.member.domain.ChatMember;
-import team.codingforest.moyeota.chat.message.domain.ChatMessage;
-import team.codingforest.moyeota.chat.message.domain.ChatMessages;
-import team.codingforest.moyeota.chat.room.domain.ChatRoom;
-import team.codingforest.moyeota.chat.member.domain.ChatRoomUser;
-import team.codingforest.moyeota.chat.member.domain.ChatRoomUsers;
-import team.codingforest.moyeota.chat.room.infrastructure.ChatRooms;
-import team.codingforest.moyeota.chat.member.domain.MemberProvider;
 import team.codingforest.moyeota.chat.common.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.common.exception.ChatException;
+import team.codingforest.moyeota.chat.member.domain.ChatMember;
+import team.codingforest.moyeota.chat.member.domain.ChatRoomUser;
+import team.codingforest.moyeota.chat.member.domain.ChatRoomUsers;
+import team.codingforest.moyeota.chat.member.domain.MemberProvider;
+import team.codingforest.moyeota.chat.member.dto.ChatRoomMemberResult;
+import team.codingforest.moyeota.chat.member.dto.ChatRoomUserResult;
+import team.codingforest.moyeota.chat.member.event.ChatRoomJoinedEvent;
+import team.codingforest.moyeota.chat.member.event.ChatRoomLeftEvent;
+import team.codingforest.moyeota.chat.message.domain.ChatMessage;
+import team.codingforest.moyeota.chat.message.domain.ChatMessages;
+import team.codingforest.moyeota.chat.message.dto.ReadChatCommand;
+import team.codingforest.moyeota.chat.room.domain.ChatRoom;
+import team.codingforest.moyeota.chat.room.dto.ChatRoomCommand;
+import team.codingforest.moyeota.chat.room.infrastructure.ChatRooms;
 
 import java.time.Instant;
 import java.util.List;
@@ -38,6 +38,7 @@ public class ChatRoomUserService {
     private final ChatRooms chatRooms;
     private final ChatMessages chatMessages;
     private final MemberProvider memberProvider;
+    private final ChatReadBuffer chatReadBuffer;
 
     @Transactional
     public void join(ChatRoomCommand command) {
@@ -78,13 +79,8 @@ public class ChatRoomUserService {
         log.info("채팅방 나감 chatRoomId={} userID={}", command.chatRoomId(), command.userId());
     }
 
-    @Transactional
     public void read(ReadChatCommand command) {
-        ChatRoomUser chatRoomUser = getActiveUser(command.userId(), command.chatRoomId());
-
-        chatRoomUser.read(command.lastReadMessageId(), Instant.now());
-
-        chatRoomUsers.save(chatRoomUser);
+        chatReadBuffer.record(command.userId(), command.chatRoomId(), command.lastReadMessageId());
     }
 
     @Transactional(readOnly = true)
