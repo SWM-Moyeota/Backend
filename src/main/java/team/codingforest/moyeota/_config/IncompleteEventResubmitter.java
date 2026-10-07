@@ -17,18 +17,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RequiredArgsConstructor
 public class IncompleteEventResubmitter {
 
-    private static final Duration MIN_AGE = Duration.ofSeconds(30);   // 방금 발행돼 아직 큐에 들어가는 중인 것은 건드리지 않는다
+    private static final Duration MIN_AGE = Duration.ofSeconds(30);
     private static final int MAX_ATTEMPTS = 5;
-    private static final int LOW_WATERMARK = 100;                     // 큐에 이만큼 이하로 남았을 때만 채운다
-    // 방금 다시 넣은 것은 처리될 시간을 준다. MIN_AGE 보다 길게 잡으면 안 된다 - Modulith 는 처음 저장할 때
-    // 마지막 재제출 시각을 발행 시각으로 채우므로, 이 값이 더 길면 한 번도 다시 넣지 않은 이벤트까지 이만큼 기다리게 된다
+    private static final int LOW_WATERMARK = 100;
     private static final Duration RESUBMIT_COOLDOWN = MIN_AGE;
 
     private final IncompleteEventPublications publications;
-    private final ThreadPoolTaskExecutor taskExecutor;                // 리스너가 도는 그 실행기
+    private final ThreadPoolTaskExecutor taskExecutor;
 
-    // 서버가 여러 대면 한 대만 돈다 - 둘이 같은 행을 집으면 같은 이벤트가 두 번 처리된다.
-    // lockAtMostFor: 돌던 서버가 죽어도 이 시간 뒤엔 다른 서버가 이어받는다. lockAtLeastFor: 두 대가 번갈아 돌아 주기가 절반이 되지 않게
     @SchedulerLock(name = "event-resubmit", lockAtMostFor = "PT30S", lockAtLeastFor = "PT4S")
     @Scheduled(fixedDelay = 5_000, initialDelay = 60_000)
     public void resubmit() {
