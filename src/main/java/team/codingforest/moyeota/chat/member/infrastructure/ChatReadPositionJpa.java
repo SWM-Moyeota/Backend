@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.chat.member.domain.ReadPosition;
 import team.codingforest.moyeota.chat.member.domain.ReadPositions;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
 
@@ -20,9 +21,14 @@ public class ChatReadPositionJpa implements ReadPositions {
     @Override
     @Transactional
     public int advance(List<ReadPosition> positions) {
+        List<ReadPosition> sorted = positions.stream()
+                .sorted(Comparator.comparing(ReadPosition::chatRoomId).thenComparing(ReadPosition::userId))
+                .toList();
+
         int updated = 0;
-        for (int from = 0; from < positions.size(); from += CHUNK) {
-            List<ReadPosition> chunk = positions.subList(from, Math.min(from + CHUNK, positions.size()));
+
+        for (int from = 0; from < sorted.size(); from += CHUNK) {
+            List<ReadPosition> chunk = sorted.subList(from, Math.min(from + CHUNK, sorted.size()));
             updated += jpaRepository.advanceReadPositions(
                     ids(chunk, ReadPosition::chatRoomId),
                     ids(chunk, ReadPosition::userId),

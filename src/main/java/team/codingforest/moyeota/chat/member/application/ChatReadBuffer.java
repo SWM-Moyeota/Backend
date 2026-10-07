@@ -29,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ChatReadBuffer {
 
     private static final int MAX_PENDING_USERS = 10_000;   // 넘으면 모으지 않고 바로 씀
+    private static final int MAX_ROOMS_PER_USER = 50;      // 한 사람이 5초 안에 읽음을 보낼 방 수의 현실적인 상한. 없는 방 id 를 대량으로 보내 메모리를 늘리는 것을 막음
 
     private final ReadPositions readPositions;
     private final MeterRegistry meterRegistry;
@@ -52,23 +53,28 @@ public class ChatReadBuffer {
         if (messageId == null) {
             return;
         }
+
         if (pending.size() >= MAX_PENDING_USERS && !pending.containsKey(userId)) {
             write(List.of(new ReadPosition(chatRoomId, userId, messageId)));   // 비우는 쪽이 밀린 상태 - 쌓지 않음
             return;
         }
-        pending.compute(userId, (id, rooms) -> {
-            Map<Long, Long> next = rooms == null ? new HashMap<>() : rooms;
-            next.merge(chatRoomId, messageId, Math::max);
-            return next;
-        });
+
+        Map<Long, Long> rooms = pending.get(userId);
+        if (rooms != null && rooms.size() >= MAX_ROOMS_PER_USER && !rooms.containsKey(chatRoomId)) {
+            write(List.of(new ReadPosition(chatRoomId, userId, messageId)));   // 방이 비정상적으로 많음 - 쌓지 않음
+            return;
+        }
+        merge(userId, chatRoomId, messageId);
     }
 
     @Scheduled(fixedDelay = 5_000)
     public void flush() {
         List<ReadPosition> batch = new ArrayList<>();
+
         for (Long userId : pending.keySet()) {
             batch.addAll(take(userId));
         }
+
         write(batch);
     }
 
