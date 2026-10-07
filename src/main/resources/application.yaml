@@ -26,7 +26,6 @@ spring:
 
 server:
   tomcat:
-    # 기본 8192. 사용자 한 명이 일반 연결·웹소켓·SSE 를 함께 써서 4,000명 부하테스트에서 상한에 닿아 새 연결이 밀렸다
     max-connections: 20000
     mbeanregistry:
       enabled: true       # Grafana에서 tomcat 연결 수와 바쁜 스레드 수 보기위함
