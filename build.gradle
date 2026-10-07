@@ -39,6 +39,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-flyway'          // Boot 4.1 은 starter 없이는 auto-config 가 안 붙음
 	implementation 'org.flywaydb:flyway-database-postgresql'
     implementation 'io.micrometer:micrometer-registry-prometheus'                   // 지표 수집
+    implementation 'net.javacrumbs.shedlock:shedlock-spring:6.6.0'                  // 스케줄러 분산 잠금 - 서버가 여러 대여도 한 대만 돈다
+    implementation 'net.javacrumbs.shedlock:shedlock-provider-redis-spring:6.6.0'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 	implementation 'com.google.firebase:firebase-admin:9.10.0'		// fcm 의존성 추가

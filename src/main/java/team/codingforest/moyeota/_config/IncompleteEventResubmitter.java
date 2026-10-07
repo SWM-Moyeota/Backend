@@ -3,6 +3,7 @@ package team.codingforest.moyeota._config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.modulith.events.EventPublication;
 import org.springframework.modulith.events.IncompleteEventPublications;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
@@ -26,6 +27,9 @@ public class IncompleteEventResubmitter {
     private final IncompleteEventPublications publications;
     private final ThreadPoolTaskExecutor taskExecutor;                // 리스너가 도는 그 실행기
 
+    // 서버가 여러 대면 한 대만 돈다 - 둘이 같은 행을 집으면 같은 이벤트가 두 번 처리된다.
+    // lockAtMostFor: 돌던 서버가 죽어도 이 시간 뒤엔 다른 서버가 이어받는다. lockAtLeastFor: 두 대가 번갈아 돌아 주기가 절반이 되지 않게
+    @SchedulerLock(name = "event-resubmit", lockAtMostFor = "PT30S", lockAtLeastFor = "PT4S")
     @Scheduled(fixedDelay = 5_000, initialDelay = 60_000)
     public void resubmit() {
         BlockingQueue<Runnable> queue = taskExecutor.getThreadPoolExecutor().getQueue();
