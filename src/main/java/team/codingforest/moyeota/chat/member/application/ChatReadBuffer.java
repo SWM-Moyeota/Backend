@@ -117,7 +117,20 @@ public class ChatReadBuffer {
             readPositions.advance(batch);
         } catch (Exception e) {
             log.warn("읽음 위치 반영 실패, 다음 주기에 다시 씀 count={}", batch.size(), e);
-            batch.forEach(p -> record(p.userId(), p.chatRoomId(), p.messageId()));
+            requeue(batch);
         }
+    }
+
+    // 상한을 검사하지 않음 - 검사하면 상한에서 write 로 되돌아가 재귀가 끝나지 않음
+    private void requeue(List<ReadPosition> batch) {
+        batch.forEach(p -> merge(p.userId(), p.chatRoomId(), p.messageId()));
+    }
+
+    private void merge(Long userId, Long chatRoomId, Long messageId) {
+        pending.compute(userId, (ignored, rooms) -> {
+            Map<Long, Long> next = rooms == null ? new HashMap<>() : rooms;
+            next.merge(chatRoomId, messageId, Math::max);
+            return next;
+        });
     }
 }
