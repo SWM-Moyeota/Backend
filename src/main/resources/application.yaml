@@ -23,6 +23,10 @@ spring:
     events:
       republish-outstanding-events-on-restart: false
       completion-mode: DELETE
+  task:
+    scheduling:
+      pool:
+        size: 4
 
 server:
   tomcat:

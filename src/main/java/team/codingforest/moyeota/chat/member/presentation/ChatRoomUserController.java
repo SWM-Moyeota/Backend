@@ -1,7 +1,5 @@
 package team.codingforest.moyeota.chat.member.presentation;
 
-import team.codingforest.moyeota.chat.member.application.ChatRoomUserService;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -11,10 +9,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import team.codingforest.moyeota.chat.room.dto.ChatRoomCommand;
+import team.codingforest.moyeota.chat.member.application.ChatReadBuffer;
+import team.codingforest.moyeota.chat.member.application.ChatRoomUserService;
 import team.codingforest.moyeota.chat.member.dto.ChatRoomMemberResult;
 import team.codingforest.moyeota.chat.member.dto.ChatRoomUserResult;
 import team.codingforest.moyeota.chat.message.dto.ReadChatCommand;
+import team.codingforest.moyeota.chat.room.dto.ChatRoomCommand;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
 import java.util.List;
@@ -25,9 +25,11 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ChatRoomUserController {
     private final ChatRoomUserService chatRoomUserService;
+    private final ChatReadBuffer chatReadBuffer;
 
     @GetMapping("/me")
     public List<ChatRoomUserResult> getMyActiveRooms(@CurrentUser Long userId) {
+        chatReadBuffer.flushUser(userId);
         return chatRoomUserService.findMyActiveRooms(userId);
     }
 
