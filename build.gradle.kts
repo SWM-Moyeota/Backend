@@ -97,26 +97,46 @@ tasks.jar {
     enabled = false
 }
 
-val integrationTag = "integration"
+// 테스트를 두 suite 로 나눈다 (JVM Test Suite 플러그인 - java 플러그인이 자동 적용).
+//   test            : src/unitTest        단위·슬라이스 테스트. 외부 서비스 없이 어디서나 돈다
+//   integrationTest : src/integrationTest @SpringBootTest 처럼 Redis·Postgres 가 필요한 것.
+//                     로컬에 서비스가 없으면 실행 단계에서 건너뛴다(onlyIf). CI 는 서비스 컨테이너로 돈다
+testing {
+    suites {
+        val test by getting(JvmTestSuite::class) {
+            useJUnitJupiter()
+            sources {
+                java { setSrcDirs(listOf("src/unitTest/java")) }
+                resources { setSrcDirs(listOf("src/unitTest/resources")) }
+            }
+        }
 
-tasks.test {
-    useJUnitPlatform { excludeTags(integrationTag) }
-}
-
-val integrationTest by tasks.registering(Test::class) {
-    description = "Redis·Postgres 가 필요한 @IntegrationTest. 서비스가 없으면 SKIPPED"
-    group = "verification"
-    testClassesDirs = sourceSets.test.get().output.classesDirs
-    classpath = sourceSets.test.get().runtimeClasspath
-    useJUnitPlatform { includeTags(integrationTag) }
-    shouldRunAfter(tasks.test)
-    onlyIf("localhost:6379(Redis)·5432(Postgres) 가 열려 있을 때만") {
-        listOf(6379, 5432).all { port ->
-            runCatching { Socket("localhost", port).close() }.isSuccess
+        register<JvmTestSuite>("integrationTest") {
+            useJUnitJupiter()
+            sources {
+                // project() 의존은 plain jar 를 거치는데 jar 태스크를 꺼 두었다. main 출력물을 직접 올린다
+                compileClasspath += sourceSets.main.get().output
+                runtimeClasspath += sourceSets.main.get().output
+            }
+            targets.all {
+                testTask.configure {
+                    shouldRunAfter(test)
+                    onlyIf("localhost:6379(Redis)·5432(Postgres) 가 열려 있을 때만") {
+                        listOf(6379, 5432).all { port ->
+                            runCatching { Socket("localhost", port).close() }.isSuccess
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
+// 통합 suite 는 단위 suite 와 같은 테스트 라이브러리(Boot test starter, Modulith test, Lombok)를 쓴다
+listOf("Implementation", "CompileOnly", "RuntimeOnly", "AnnotationProcessor").forEach { kind ->
+    configurations["integrationTest$kind"].extendsFrom(configurations["test$kind"])
+}
+
 tasks.check {
-    dependsOn(integrationTest)
+    dependsOn(testing.suites.named("integrationTest"))
 }
