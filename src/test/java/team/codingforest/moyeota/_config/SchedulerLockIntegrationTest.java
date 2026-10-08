@@ -1,5 +1,6 @@
 package team.codingforest.moyeota._config;
 
+import team.codingforest.moyeota.IntegrationTest;
 import net.javacrumbs.shedlock.core.LockConfiguration;
 import net.javacrumbs.shedlock.core.LockProvider;
 import net.javacrumbs.shedlock.core.SimpleLock;
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *  실제 Redis 로 잠금이 동작하는지 본다. 다른 서버가 잠근 동안에는 @SchedulerLock 메서드의 본문이 실행되지 않아야 하고,
  *  풀리면 실행돼야 한다. "다른 서버"는 LockProvider 로 직접 잠가서 흉내 낸다.
  */
+@IntegrationTest
 @SpringBootTest
 @Import(SchedulerLockIntegrationTest.TestJobs.class)
 class SchedulerLockIntegrationTest {

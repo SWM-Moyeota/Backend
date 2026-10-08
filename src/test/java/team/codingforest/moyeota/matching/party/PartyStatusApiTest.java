@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.matching.party;
 
+import team.codingforest.moyeota.IntegrationTest;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *  방 상태 API 를 실제 필터 체인으로 본다. 경로가 /matching/rooms/{partyId} 아래라
  *  매핑 충돌·인가 누락·응답 필드 이름은 서비스 단위 테스트로는 잡히지 않는다.
  */
+@IntegrationTest
 @SpringBootTest
 @AutoConfigureMockMvc
 class PartyStatusApiTest {

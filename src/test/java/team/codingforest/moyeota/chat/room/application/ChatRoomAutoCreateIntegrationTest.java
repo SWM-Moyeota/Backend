@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.chat.room.application;
 
+import team.codingforest.moyeota.IntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -27,6 +28,7 @@ import static org.awaitility.Awaitility.await;
  *  리스너가 @ApplicationModuleListener(@Async) 라 커밋 직후엔 아직 안 돌았을 수 있어 await 로 기다린다.
  */
 
+@IntegrationTest
 @SpringBootTest
 class ChatRoomAutoCreateIntegrationTest {
     @Autowired PartyService partyService;

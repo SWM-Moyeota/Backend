@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.common;
 
+import team.codingforest.moyeota.IntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,6 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *  실사용자 릴리즈(택시 배차 없이 매칭+채팅만)는 TAXI_ENABLED=false 로 뜬다.
  *  입구(리스너·스케줄러·컨트롤러)만 빠지고, 다른 모듈이 주입받는 서비스는 남아 있어야 컨텍스트가 뜬다.
  */
+@IntegrationTest
 @SpringBootTest(properties = "moyeota.taxi.enabled=false")
 @AutoConfigureMockMvc   // 시큐리티 필터 체인까지 태워야 permitAll 누락이 잡힌다
 class TaxiDisabledContextTest {

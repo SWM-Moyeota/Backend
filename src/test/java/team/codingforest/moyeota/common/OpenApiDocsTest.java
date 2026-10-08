@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.common;
 
+import team.codingforest.moyeota.IntegrationTest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *  프론트가 보는 문서가 실제 계약과 어긋나는 세 가지를 막는다:
  *  토큰 없이 문서를 못 보는 것, 토큰에서 오는 파라미터가 쿼리로 노출되는 것, 인증 그룹에 Bearer 가 요구되는 것.
  */
+@IntegrationTest
 @SpringBootTest
 @AutoConfigureMockMvc
 class OpenApiDocsTest {

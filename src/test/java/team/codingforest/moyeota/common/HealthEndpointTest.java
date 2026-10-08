@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.common;
 
+import team.codingforest.moyeota.IntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *  CodeDeploy ValidateService(scripts/validate.sh)가 토큰 없이 GET /health 200 을 기대한다.
  *  actuator 경로(base-path)·시큐리티 화이트리스트·show-details 세 설정이 같이 맞아야 통과한다.
  */
+@IntegrationTest
 @SpringBootTest
 @AutoConfigureMockMvc   // 시큐리티 필터 체인까지 태운 MockMvc
 class HealthEndpointTest {

@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.common;
 
+import team.codingforest.moyeota.IntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -18,6 +19,7 @@ import static org.assertj.core.api.Assertions.*;
  *  발행은 발행자 트랜잭션과 함께 event_publication 에 기록되고, 리스너가 실패하면 "미완료"로 남아 재시도 대상이 된다.
  *  (리스너가 예외를 삼키면 완료로 기록돼 이 보장이 깨진다)
  */
+@IntegrationTest
 @SpringBootTest
 class EventPublicationRegistryTest {
     @Autowired ApplicationEventPublisher publisher;

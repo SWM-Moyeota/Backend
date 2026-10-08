@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.user.auth;
 
+import team.codingforest.moyeota.IntegrationTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *  실제 필터 체인 + 실제 Redis 로 인증 캐시가 이어지는지 본다.
  *  단위 테스트는 가짜 캐시를 꽂으므로 빈 연결·키 형식·만료가 실제로 맞는지는 여기서만 잡힌다.
  */
+@IntegrationTest
 @SpringBootTest
 @AutoConfigureMockMvc
 class AuthPrincipalCacheIntegrationTest {

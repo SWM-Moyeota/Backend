@@ -28,12 +28,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build
-        run: ./gradlew build -x test
+        run: ./gradlew bootJar --no-daemon
 
       - name: Package
         run: |
           mkdir -p deploy
-          cp build/libs/moyeota-0.0.1-SNAPSHOT.jar deploy/app.jar
+          cp build/libs/app.jar deploy/app.jar
           cp appspec.yml deploy/
           cp -r scripts deploy/
           chmod +x deploy/scripts/*.sh

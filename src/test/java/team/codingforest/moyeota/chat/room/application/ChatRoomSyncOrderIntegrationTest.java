@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.chat.room.application;
 
+import team.codingforest.moyeota.IntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,6 +24,7 @@ import static org.awaitility.Awaitility.await;
  * 비동기 경합에 기대지 않고, 파티 퇴장까지 커밋한 뒤 서비스를 역순으로 직접 불러 결정적으로 재현한다.
  * 실제 DB(로컬 Postgres)로 돌아야 의미가 있어 @Transactional 을 붙이지 않는다.
  */
+@IntegrationTest
 @SpringBootTest
 class ChatRoomSyncOrderIntegrationTest {
     @Autowired PartyService partyService;

@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.common;
 
+import team.codingforest.moyeota.IntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,6 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *  기본(발표) 모드 - 프로퍼티를 안 주면 matchIfMissing 으로 택시 기능이 켜진다.
  *  TaxiDisabledContextTest 의 반대편. 둘 다 있어야 조건이 서로 바뀐 실수가 양쪽에서 잡힌다.
  */
+@IntegrationTest
 @SpringBootTest
 @AutoConfigureMockMvc   // 시큐리티 필터 체인까지 태워야 permitAll 누락이 잡힌다
 class TaxiEnabledContextTest {

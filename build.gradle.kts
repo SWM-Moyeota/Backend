@@ -1,3 +1,5 @@
+import java.net.Socket
+
 plugins {
     java
     id("org.springframework.boot") version "4.1.0"
@@ -5,7 +7,14 @@ plugins {
 }
 
 group = "team.codingforest"
-version = "0.0.1-SNAPSHOT"
+// 릴리스 워크플로가 -PappVersion=YYYY.MMDD.N 으로 넘기면 그 값, 아니면 SNAPSHOT
+version = providers.gradleProperty("appVersion").getOrElse("0.0.1-SNAPSHOT")
+
+// 구성 단계에서 git 커밋을 읽어 build-info 에 싣는다 (providers.exec 는 configuration cache 호환)
+val gitCommit = providers.exec {
+    commandLine("git", "rev-parse", "--short", "HEAD")
+    isIgnoreExitValue = true
+}.standardOutput.asText.map { it.trim().ifEmpty { "unknown" } }
 
 java {
     toolchain {
@@ -73,6 +82,46 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+springBoot {
+    // META-INF/build-info.properties → /info 에 version·commit·빌드 시각. "지금 운영에 뭐가 떠 있지?" 를 한 번에 답한다
+    buildInfo {
+        properties {
+            additional.put("commit", gitCommit)
+        }
+    }
+}
+
+tasks.bootJar {
+    archiveFileName = "app.jar"   // 배포 스크립트가 버전을 몰라도 되게 이름을 고정
+}
+
+tasks.jar {
+    enabled = false               // -plain.jar 는 아무도 쓰지 않는다
+}
+
+// 테스트를 두 단계로 나눈다.
+//   test            : 외부 서비스 없이 도는 단위·슬라이스 테스트. 어디서나 돈다
+//   integrationTest : @IntegrationTest(Redis·Postgres 필요). 로컬에 서비스가 없으면 실행 단계에서 건너뛴다(onlyIf)
+val integrationTag = "integration"
+
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform { excludeTags(integrationTag) }
+}
+
+val integrationTest by tasks.registering(Test::class) {
+    description = "Redis·Postgres 가 필요한 @IntegrationTest. 서비스가 없으면 SKIPPED"
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform { includeTags(integrationTag) }
+    shouldRunAfter(tasks.test)
+    onlyIf("localhost:6379(Redis)·5432(Postgres) 가 열려 있을 때만") {
+        listOf(6379, 5432).all { port ->
+            runCatching { Socket("localhost", port).close() }.isSuccess
+        }
+    }
+}
+
+tasks.check {
+    dependsOn(integrationTest)
 }

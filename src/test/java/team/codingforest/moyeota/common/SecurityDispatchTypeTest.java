@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.common;
 
+import team.codingforest.moyeota.IntegrationTest;
 import jakarta.servlet.DispatcherType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *  그때는 인증 정보(1회차 스레드의 ThreadLocal)가 없어 인가 검사를 하면 실패하고, 응답은 이미 나가서 401 도 못 쓴다.
  *  ERROR 디스패치처럼 ASYNC 도 인가에서 빼야 한다. @CurrentUser 가 없는 상세 조회로 확인한다 - 인가만 통과하면 404 까지 간다.
  */
+@IntegrationTest
 @SpringBootTest
 @AutoConfigureMockMvc
 class SecurityDispatchTypeTest {

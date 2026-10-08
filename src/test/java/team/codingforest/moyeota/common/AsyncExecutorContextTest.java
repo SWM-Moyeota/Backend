@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.common;
 
+import team.codingforest.moyeota.IntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *  비동기 메서드가 처음 불리는 순간에야 NoSuchBeanDefinitionException 으로 터진다 - 실시간 전파가 통째로 사라진다.
  *  실행기 빈을 지우거나 이름을 바꿀 때 여기서 걸리게 한다.
  */
+@IntegrationTest
 @SpringBootTest
 class AsyncExecutorContextTest {
     private static final String BASE_PACKAGE = "team.codingforest.moyeota";

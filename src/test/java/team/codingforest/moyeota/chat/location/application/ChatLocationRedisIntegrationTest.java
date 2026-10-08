@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.chat.location.application;
 
+import team.codingforest.moyeota.IntegrationTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +13,7 @@ import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@IntegrationTest
 @SpringBootTest
 class ChatLocationRedisIntegrationTest {
 
