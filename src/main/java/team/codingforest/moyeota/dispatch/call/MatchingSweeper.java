@@ -3,6 +3,7 @@ package team.codingforest.moyeota.dispatch.call;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import team.codingforest.moyeota.common.exception.BusinessException;
@@ -28,6 +29,7 @@ public class MatchingSweeper {
     private final CallCandidates callCandidates;
     private final CallNotifier callNotifier;
 
+    @SchedulerLock(name = "matching-sweep", lockAtMostFor = "PT25S", lockAtLeastFor = "PT10S")
     @Scheduled(fixedDelay = 30_000)
     public void sweep() {
         for(MatchingTarget target : partyAccess.findMatchingTargets()) {

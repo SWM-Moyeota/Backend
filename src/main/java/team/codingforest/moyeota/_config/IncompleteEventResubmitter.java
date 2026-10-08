@@ -3,6 +3,7 @@ package team.codingforest.moyeota._config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.modulith.events.EventPublication;
 import org.springframework.modulith.events.IncompleteEventPublications;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
@@ -16,16 +17,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RequiredArgsConstructor
 public class IncompleteEventResubmitter {
 
-    private static final Duration MIN_AGE = Duration.ofSeconds(30);   // 방금 발행돼 아직 큐에 들어가는 중인 것은 건드리지 않는다
+    private static final Duration MIN_AGE = Duration.ofSeconds(30);
     private static final int MAX_ATTEMPTS = 5;
-    private static final int LOW_WATERMARK = 100;                     // 큐에 이만큼 이하로 남았을 때만 채운다
-    // 방금 다시 넣은 것은 처리될 시간을 준다. MIN_AGE 보다 길게 잡으면 안 된다 - Modulith 는 처음 저장할 때
-    // 마지막 재제출 시각을 발행 시각으로 채우므로, 이 값이 더 길면 한 번도 다시 넣지 않은 이벤트까지 이만큼 기다리게 된다
+    private static final int LOW_WATERMARK = 100;
     private static final Duration RESUBMIT_COOLDOWN = MIN_AGE;
 
     private final IncompleteEventPublications publications;
-    private final ThreadPoolTaskExecutor taskExecutor;                // 리스너가 도는 그 실행기
+    private final ThreadPoolTaskExecutor taskExecutor;
 
+    @SchedulerLock(name = "event-resubmit", lockAtMostFor = "PT30S", lockAtLeastFor = "PT4S")
     @Scheduled(fixedDelay = 5_000, initialDelay = 60_000)
     public void resubmit() {
         BlockingQueue<Runnable> queue = taskExecutor.getThreadPoolExecutor().getQueue();

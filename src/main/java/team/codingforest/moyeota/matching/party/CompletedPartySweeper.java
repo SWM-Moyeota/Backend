@@ -3,6 +3,7 @@ package team.codingforest.moyeota.matching.party;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import team.codingforest.moyeota.common.exception.BusinessException;
@@ -21,6 +22,7 @@ public class CompletedPartySweeper {
     private final Parties parties;
     private final PartyService partyService;
 
+    @SchedulerLock(name = "completed-party-sweep", lockAtMostFor = "PT9M", lockAtLeastFor = "PT1M")
     @Scheduled(fixedDelay = 600_000)
     public void sweep() {
         Instant cutoff = Instant.now().minus(COMPLETED_TTL);
