@@ -1,19 +1,20 @@
 package team.codingforest.moyeota.user.local.application;
 
-import team.codingforest.moyeota.user.common.application.FakeUsers;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
-import team.codingforest.moyeota.user.local.dto.UserResponse;
+import team.codingforest.moyeota.user.common.application.FakeUsers;
+import team.codingforest.moyeota.user.common.domain.User;
+import team.codingforest.moyeota.user.common.domain.enums.Gender;
+import team.codingforest.moyeota.user.common.domain.enums.LoginType;
+import team.codingforest.moyeota.user.common.exception.UserErrorCode;
+import team.codingforest.moyeota.user.common.exception.UserException;
 import team.codingforest.moyeota.user.local.domain.LocalUser;
 import team.codingforest.moyeota.user.local.domain.LocalUsers;
 import team.codingforest.moyeota.user.local.domain.PasswordHasher;
+import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
+import team.codingforest.moyeota.user.local.dto.UserResponse;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
-import team.codingforest.moyeota.user.common.domain.enums.Gender;
-import team.codingforest.moyeota.user.common.exception.UserErrorCode;
-import team.codingforest.moyeota.user.common.exception.UserException;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -88,6 +89,15 @@ class LocalUserServiceTest {
                 .isInstanceOf(UserException.class)
                 .extracting("errorCode")
                 .isEqualTo(UserErrorCode.INVALID_NICKNAME);
+    }
+
+    @Test
+    void 닉네임이_없으면_가린_실명을_보여준다() {
+        User user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL));
+        userProfiles.save(UserProfile.of(user.getId(), "홍길동",
+                Instant.parse("2000-01-01T00:00:00Z"), "010-1234-5678", Gender.MALE, "hong@test.com"));
+
+        assertThat(service.getProfile(user.getId()).name()).isEqualTo("홍*동");
     }
 
     // ───────────────────────── 페이크 ─────────────────────────
