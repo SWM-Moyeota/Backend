@@ -7,7 +7,6 @@ plugins {
 }
 
 group = "team.codingforest"
-// 릴리스 워크플로가 -PappVersion=YYYY.MMDD.N 으로 넘기면 그 값, 아니면 SNAPSHOT
 version = providers.gradleProperty("appVersion").getOrElse("0.0.1-SNAPSHOT")
 
 // 구성 단계에서 git 커밋을 읽어 build-info 에 싣는다 (providers.exec 는 configuration cache 호환)
@@ -83,7 +82,6 @@ dependencies {
 }
 
 springBoot {
-    // META-INF/build-info.properties → /info 에 version·commit·빌드 시각. "지금 운영에 뭐가 떠 있지?" 를 한 번에 답한다
     buildInfo {
         properties {
             additional.put("commit", gitCommit)
@@ -92,16 +90,13 @@ springBoot {
 }
 
 tasks.bootJar {
-    archiveFileName = "app.jar"   // 배포 스크립트가 버전을 몰라도 되게 이름을 고정
+    archiveFileName = "app.jar"
 }
 
 tasks.jar {
-    enabled = false               // -plain.jar 는 아무도 쓰지 않는다
+    enabled = false
 }
 
-// 테스트를 두 단계로 나눈다.
-//   test            : 외부 서비스 없이 도는 단위·슬라이스 테스트. 어디서나 돈다
-//   integrationTest : @IntegrationTest(Redis·Postgres 필요). 로컬에 서비스가 없으면 실행 단계에서 건너뛴다(onlyIf)
 val integrationTag = "integration"
 
 tasks.test {
