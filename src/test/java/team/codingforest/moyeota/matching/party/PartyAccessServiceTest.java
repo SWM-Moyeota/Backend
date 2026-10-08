@@ -37,7 +37,7 @@ class PartyAccessServiceTest {
     @BeforeEach
     void setUp() {
         parties = new PartyJpaTest();
-        access = new PartyAccessService(parties);
+        access = new PartyAccessService(parties, event -> {});
     }
 
     // ───────────────────────── 종료 전 상태는 전부 true ─────────────────────────

@@ -1,0 +1,54 @@
+### 변수
+@host = http://localhost:8080
+@token = {{accessToken}}
+
+### 1. 결제수단 등록 - 앱이 포트원 SDK(requestIssueBillingKey, customer.id = 유저 publicId)로 받은 빌링키
+POST {{host}}/api/v1/payments/methods
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "billingKey": "billing-key-0196a3c2-xxxx"
+}
+
+### 2. 내 결제수단 조회 (없으면 404 PAYMENT_METHOD_NOT_FOUND)
+GET {{host}}/api/v1/payments/methods/me
+Authorization: Bearer {{token}}
+
+### 3. 결제수단 삭제 (포트원 빌링키도 삭제)
+DELETE {{host}}/api/v1/payments/methods/me
+Authorization: Bearer {{token}}
+
+### 4. 운행 종료 → 자동 분할 청구 (기사 토큰). 결제 모듈이 RideCompletedEvent 를 받아 구성원별로 청구한다
+POST {{host}}/api/v1/dispatch/rides/1/complete
+Authorization: Bearer {{driverToken}}
+Content-Type: application/json
+
+{
+  "fare": 12000
+}
+
+### 5. 내 결제 내역
+GET {{host}}/api/v1/payments/me
+Authorization: Bearer {{token}}
+
+### 6. 결제 그룹 상세 - 구성원별 상태·미수금
+GET {{host}}/api/v1/payments/groups/1
+Authorization: Bearer {{token}}
+
+### 7. 실패한 분담금 재시도 (결제수단 등록/교체 후)
+POST {{host}}/api/v1/payments/1/retry
+Authorization: Bearer {{token}}
+
+### 8. 미수금 대납 - 그룹이 PARTIALLY_FAILED 일 때 멤버 한 명이 남은 요금 전액 결제
+POST {{host}}/api/v1/payments/groups/1/cover
+Authorization: Bearer {{token}}
+
+### 9. 포트원 웹훅 (토큰 없음, Standard Webhooks 서명). 로컬 테스트는 포트원 콘솔 > 웹훅 > 테스트 전송 또는 ngrok 로
+POST {{host}}/api/v1/payments/webhook
+Content-Type: application/json
+webhook-id: msg_test
+webhook-timestamp: 1760000000
+webhook-signature: v1,BASE64_HMAC
+
+{"type":"Transaction.Paid","timestamp":"2026-10-09T10:00:00Z","data":{"storeId":"store-1","paymentId":"moyeota-...","transactionId":"tx-1"}}

@@ -45,6 +45,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                         .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.ASYNC).permitAll()     // ASYNC -> emitter complete 메서드 호출할때 필터에 다시 탐
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**", "/api/v1/config","/ws-chat/**", "/health", "/prometheus").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook").permitAll()     // 포트원 웹훅 - 토큰 대신 서명으로 검증
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthenticationFilter(authService, entryPoint), AuthorizationFilter.class)

@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.matching.party;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
@@ -8,6 +9,7 @@ import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.dto.PartyChatSummary;
 import team.codingforest.moyeota.matching.api.dto.PartySummary;
+import team.codingforest.moyeota.matching.api.dto.RideCompletedEvent;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
@@ -20,6 +22,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 class PartyAccessService implements PartyAccess {
     private final Parties parties;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     @Override
@@ -70,6 +73,10 @@ class PartyAccessService implements PartyAccess {
 
         party.completeRide(driverId, fare);
         parties.save(party);
+
+        // 결제 모듈이 받아 분할 청구 - 아웃박스(event_publication)로 기록되므로 결제사 장애 시 재시도된다
+        List<Long> memberIds = party.getMembers().stream().map(PartyMember::getMemberId).toList();
+        eventPublisher.publishEvent(new RideCompletedEvent(partyId, driverId, fare, party.getDeparture(), party.getDestination(), memberIds));
     }
 
     @Transactional(readOnly = true)

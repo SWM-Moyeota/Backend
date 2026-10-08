@@ -26,6 +26,7 @@ public enum MatchingErrorCode implements ErrorCode {
     NOT_ASSIGNED_DRIVER(HttpStatus.FORBIDDEN, "이 방에 배정된 기사가 아닙니다."),
     NOT_AWAITING_PICKUP(HttpStatus.CONFLICT, "탑승 대기 상태가 아닙니다."),
     NOT_RIDING(HttpStatus.CONFLICT, "운행 중이 아닙니다."),
+    INVALID_FARE(HttpStatus.BAD_REQUEST, "요금은 0보다 커야 합니다."),
 
     // 지도 영역 조회 검증
     INVALID_MAP_BOUNDS(HttpStatus.BAD_REQUEST, "영역 좌표가 올바르지 않습니다."),

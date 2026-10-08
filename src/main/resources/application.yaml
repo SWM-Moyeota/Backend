@@ -39,7 +39,10 @@ fcm:
 
 portone:
   api:
-    secret: ${PORTONE_SECRET:}
+    secret: ${PORTONE_SECRET:}                 # 포트원 콘솔 > 결제 연동 > API Secret (V2)
+    base-url: ${PORTONE_BASE_URL:https://api.portone.io}
+  webhook:
+    secret: ${PORTONE_WEBHOOK_SECRET:}         # 포트원 콘솔 > 웹훅 > 시크릿(whsec_...). 비어 있으면 웹훅을 전부 거부한다
 
 jwt:
   secret: ${JWT_SECRET:deXiPUTSbvL2Qg673qn22K4S6fjf6VSBMLfW54E16DrUPty9aapfs/PGqoO+NdP9}
@@ -76,3 +79,5 @@ management:
 moyeota:
   taxi:
     enabled: ${TAXI_ENABLED:true}
+  payment:
+    platform-charge: ${PAYMENT_PLATFORM_CHARGE:0}   # 분담금 1건마다 얹는 플랫폼 이용료(원). 0 이면 요금만 청구

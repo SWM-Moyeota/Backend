@@ -189,9 +189,9 @@ public class Party {
     public void completeRide(Long driverId, int fare) {
         ensureAssignDriver(driverId);
         if(status != PartyStatus.IN_RIDE) throw new BusinessException(MatchingErrorCode.NOT_RIDING);
+        if(fare <= 0) throw new BusinessException(MatchingErrorCode.INVALID_FARE);
 
-        // TODO 결제쪽이 완료된 후 완성
-
+        // 요금 수금은 결제 모듈이 RideCompletedEvent 를 받아 비동기로 진행한다 - 방은 여기서 종료
         status = PartyStatus.FINISHED;
     }
 
