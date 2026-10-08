@@ -9,8 +9,8 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.common.domain.enums.Gender;
+import team.codingforest.moyeota.user.profile.domain.UserProfile;
 
 import java.time.Instant;
 
@@ -23,8 +23,6 @@ public class UserProfileEntity {
     @Id
     @Column(nullable = false)
     private Long id;
-
-    private String passCi;
 
     @Column(nullable = false)
     private String name;
@@ -47,9 +45,8 @@ public class UserProfileEntity {
 
     private Instant updatedAt;
 
-    private UserProfileEntity(Long id, String passCi, String name, Instant birthDate, String phoneNumber, Gender gender, String email, Instant createdAt, Instant updatedAt) {
+    private UserProfileEntity(Long id, String name, Instant birthDate, String phoneNumber, Gender gender, String email, Instant createdAt, Instant updatedAt) {
         this.id = id;
-        this.passCi = passCi;
         this.name = name;
         this.birthDate = birthDate;
         this.phoneNumber = phoneNumber;
@@ -60,13 +57,12 @@ public class UserProfileEntity {
     }
 
     public static UserProfileEntity from(UserProfile user) {
-        return new UserProfileEntity(user.getUserId(), user.getPassCi(), user.getName(), user.getBirthDate(), user.getPhoneNumber(), user.getGender(), user.getEmail(), user.getCreatedAt(), user.getUpdatedAt());
+        return new UserProfileEntity(user.getUserId(), user.getName(), user.getBirthDate(), user.getPhoneNumber(), user.getGender(), user.getEmail(), user.getCreatedAt(), user.getUpdatedAt());
     }
 
     public UserProfile toDomain() {
         return UserProfile.restore(
                 id,
-                passCi,
                 name,
                 birthDate,
                 phoneNumber,
