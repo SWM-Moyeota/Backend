@@ -43,6 +43,9 @@ moyeota:
     enabled: ${TAXI_ENABLED:false}
   party:
     fingerprint-secret: ${PARTY_FINGERPRINT_SECRET}
+  crypto:
+    field-key: ${FIELD_ENCRYPTION_KEY}
+    hash-key: ${FIELD_HASH_KEY}
 
 # 로그에 추적 ID 를 찍는다. OpenTelemetry 에이전트가 요청마다 trace_id·span_id 를 로그 컨텍스트(MDC)에 넣어 준다.
 # Grafana 에서 로그 줄의 trace_id 를 누르면 그 요청의 추적(Tempo)으로 넘어간다 - Loki 데이터 소스의 derivedFields 가 이 형식을 읽는다.
