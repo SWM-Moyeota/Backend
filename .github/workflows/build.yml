@@ -4,8 +4,8 @@ on:
   pull_request:
     paths:
       - 'src/**'
-      - 'build.gradle'
-      - 'settings.gradle'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
       - 'gradle/**'
       - 'gradlew'
       - '.github/workflows/build.yml'
@@ -14,8 +14,8 @@ on:
     branches: [develop]
     paths:
       - 'src/**'
-      - 'build.gradle'
-      - 'settings.gradle'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
       - 'gradle/**'
       - 'gradlew'
       - '.github/workflows/build.yml'
@@ -78,5 +78,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: test-report
-          path: build/reports/tests/test
+          path: |
+            build/reports/tests/test
+            build/reports/tests/integrationTest
           retention-days: 7

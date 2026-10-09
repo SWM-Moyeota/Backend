@@ -73,7 +73,7 @@ management:
     web:
       base-path: /
       exposure:
-        include: health, prometheus
+        include: health, prometheus, info
   endpoint:
     health:
       show-details: never
@@ -91,3 +91,6 @@ moyeota:
     enabled: ${TAXI_ENABLED:true}
   party:
     fingerprint-secret: ${PARTY_FINGERPRINT_SECRET:local-only-party-fingerprint-secret}
+  crypto:
+    field-key: ${FIELD_ENCRYPTION_KEY:XgIsaebhS+OFGOUd4l16AnNPZgXIydBInUv5yyQvmMY=}
+    hash-key: ${FIELD_HASH_KEY:local-only-field-hash-key}
