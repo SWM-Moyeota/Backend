@@ -12,6 +12,7 @@ import team.codingforest.moyeota.chat.member.domain.PendingReads;
 import team.codingforest.moyeota.chat.member.domain.ReadPosition;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -60,30 +61,40 @@ public class PendingReadsRedis implements PendingReads {
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<ReadPosition> take(Long userId) {
-        String key = key(userId);
+    public List<ReadPosition> takeAll(List<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return List.of();
+        }
 
         List<Object> results = redisTemplate.execute(new SessionCallback<>() {
             @Override
             public <K, V> List<Object> execute(RedisOperations<K, V> operations) {
                 RedisOperations<String, String> ops = (RedisOperations<String, String>) operations;
                 ops.multi();
-                ops.opsForZSet().rangeWithScores(key, 0, -1);
-                ops.delete(key);
-                ops.opsForSet().remove(USERS_KEY, String.valueOf(userId));
+                for (Long userId : userIds) {
+                    ops.opsForZSet().rangeWithScores(key(userId), 0, -1);
+                    ops.delete(key(userId));
+                }
+                ops.opsForSet().remove(USERS_KEY, userIds.stream().map(String::valueOf).toArray());
                 return ops.exec();
             }
         });
-        if (results == null || results.isEmpty() || results.get(0) == null) {
+        if (results == null || results.isEmpty()) {
             return List.of();
         }
 
-        Set<TypedTuple<String>> rooms = (Set<TypedTuple<String>>) results.get(0);
-        return rooms.stream()
-                .map(t -> new ReadPosition(Long.valueOf(t.getValue()), userId, t.getScore().longValue()))
-                .toList();
+        List<ReadPosition> positions = new ArrayList<>();
+        for (int i = 0; i < userIds.size(); i++) {
+            Long userId = userIds.get(i);
+            Set<TypedTuple<String>> rooms = (Set<TypedTuple<String>>) results.get(i * 2);
+            if (rooms == null) {
+                continue;
+            }
+            rooms.forEach(t -> positions.add(
+                    new ReadPosition(Long.valueOf(t.getValue()), userId, t.getScore().longValue())));
+        }
+        return positions;
     }
-
     @Override
     public long countUsers() {
         Long size = redisTemplate.opsForSet().size(USERS_KEY);

@@ -131,7 +131,7 @@ public class ChatReadBuffer {
 
     private void recordOrWrite(PendingReads store, ReadPosition position) {
         if (!store.record(position, MAX_ROOMS_PER_USER)) {
-            write(List.of(position));   // 방이 비정상적으로 많음 - 쌓지 않음
+            write(List.of(position));   // 방이 비정상적으로 많음
         }
     }
 
@@ -139,11 +139,7 @@ public class ChatReadBuffer {
         List<Long> users;
         do {
             users = store.popUsers(FLUSH_BATCH);
-            List<ReadPosition> batch = new ArrayList<>();
-            for (Long userId : users) {
-                batch.addAll(store.take(userId));
-            }
-            write(batch);
+            write(store.takeAll(users));
         } while (users.size() == FLUSH_BATCH);
     }
 

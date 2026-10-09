@@ -3,6 +3,7 @@ package team.codingforest.moyeota.chat.member.infrastructure;
 import team.codingforest.moyeota.chat.member.domain.PendingReads;
 import team.codingforest.moyeota.chat.member.domain.ReadPosition;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,14 +42,15 @@ public class PendingReadsMemory implements PendingReads {
 
     // remove 와 compute 가 같은 키에서 원자적이라, 꺼낸 뒤 들어온 값은 새 맵에 쌓여 다음 주기에 나감
     @Override
-    public List<ReadPosition> take(Long userId) {
-        Map<Long, Long> rooms = pending.remove(userId);
-        if (rooms == null) {
-            return List.of();
+    public List<ReadPosition> takeAll(List<Long> userIds) {
+        List<ReadPosition> positions = new ArrayList<>();
+        for (Long userId : userIds) {
+            Map<Long, Long> rooms = pending.remove(userId);
+            if (rooms != null) {
+                rooms.forEach((room, message) -> positions.add(new ReadPosition(room, userId, message)));
+            }
         }
-        return rooms.entrySet().stream()
-                .map(e -> new ReadPosition(e.getKey(), userId, e.getValue()))
-                .toList();
+        return positions;
     }
 
     @Override

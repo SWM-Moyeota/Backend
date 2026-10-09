@@ -22,12 +22,22 @@ public interface PendingReads {
     List<Long> popUsers(int count);
 
     /**
+     * 여러 사람 것을 한 번에 꺼내고 비움. Redis 왕복을 사람 수만큼 하지 않으려고 묶음
+     *
+     * @param userIds 꺼낼 사람들
+     * @return 방별 읽음 위치. 없으면 빈 목록
+     */
+    List<ReadPosition> takeAll(List<Long> userIds);
+
+    /**
      * 그 사람 것을 꺼내고 비움
      *
      * @param userId 꺼낼 사람
      * @return 방별 읽음 위치. 없으면 빈 목록
      */
-    List<ReadPosition> take(Long userId);
+    default List<ReadPosition> take(Long userId) {
+        return takeAll(List.of(userId));
+    }
 
     long countUsers();
 }
