@@ -1,45 +1,55 @@
 package team.codingforest.moyeota.chat.member.application;
 
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
+import org.springframework.dao.DataAccessException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import team.codingforest.moyeota.chat.common.config.ChatPrincipal;
+import team.codingforest.moyeota.chat.member.domain.PendingReads;
 import team.codingforest.moyeota.chat.member.domain.ReadPosition;
 import team.codingforest.moyeota.chat.member.domain.ReadPositions;
+import team.codingforest.moyeota.chat.member.infrastructure.PendingReadsMemory;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 읽음 위치를 서버 메모리에 모았다가 5초마다 한 번에 씀
- * 서버가 비정상 종료되면 아직 안 쓴 최대 5초 분량이 사라짐. 안 읽은 수가 잠깐 더 보이는 정도이고 다음 읽음에서 회복됨
+ * 읽음 위치를 Redis 에 모았다가 5초마다 한 번에 씀
+ * 어느 서버에서 읽었든 같은 곳에 모이므로 목록 직전 flushUser 가 다른 서버에 쌓인 읽음도 반영함
+ * Redis 가 실패하면 잠시 이 서버 메모리에 모음. DB 부하는 평소와 같고, 장애 중에만 서버 간 반영이 최대 5초 늦어짐
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class ChatReadBuffer {
 
-    private static final int MAX_PENDING_USERS = 10_000;   // 넘으면 모으지 않고 바로 씀
     private static final int MAX_ROOMS_PER_USER = 50;      // 한 사람이 5초 안에 읽음을 보낼 방 수의 현실적인 상한. 없는 방 id 를 대량으로 보내 메모리를 늘리는 것을 막음
+    private static final int NO_LIMIT = Integer.MAX_VALUE;
+    private static final int FLUSH_BATCH = 500;
+    private static final long REDIS_SKIP_MILLIS = 10_000;  // 실패 뒤 이만큼은 Redis 를 부르지 않음 - 요청마다 타임아웃(1초)을 기다리지 않게
 
+    private final PendingReads pendingReads;
     private final ReadPositions readPositions;
     private final MeterRegistry meterRegistry;
 
-    // 사용자 id → (채팅방 id → 가장 큰 메시지 id)
-    private final ConcurrentHashMap<Long, Map<Long, Long>> pending = new ConcurrentHashMap<>();
+    private final PendingReads fallback = new PendingReadsMemory();
+    private volatile long skipRedisUntil = 0;
 
     @PostConstruct
-    void registerGauge() {
-        meterRegistry.gauge("chat.read.pending.users", pending, Map::size);
+    void registerGauges() {
+        Gauge.builder("chat.read.pending.users", this, ChatReadBuffer::sharedPendingUsers)
+                .tag("store", "redis")
+                .register(meterRegistry);
+        Gauge.builder("chat.read.pending.users", fallback, PendingReads::countUsers)
+                .tag("store", "local")
+                .register(meterRegistry);
     }
 
     /**
@@ -54,28 +64,33 @@ public class ChatReadBuffer {
             return;
         }
 
-        if (pending.size() >= MAX_PENDING_USERS && !pending.containsKey(userId)) {
-            write(List.of(new ReadPosition(chatRoomId, userId, messageId)));   // 비우는 쪽이 밀린 상태 - 쌓지 않음
+        ReadPosition position = new ReadPosition(chatRoomId, userId, messageId);
+        if (redisSkipped()) {
+            recordOrWrite(fallback, position);
             return;
         }
 
-        Map<Long, Long> rooms = pending.get(userId);
-        if (rooms != null && rooms.size() >= MAX_ROOMS_PER_USER && !rooms.containsKey(chatRoomId)) {
-            write(List.of(new ReadPosition(chatRoomId, userId, messageId)));   // 방이 비정상적으로 많음 - 쌓지 않음
-            return;
+        try {
+            recordOrWrite(pendingReads, position);
+        } catch (DataAccessException e) {
+            skipRedis(e);
+            recordOrWrite(fallback, position);
         }
-        merge(userId, chatRoomId, messageId);
     }
 
+    // 서버마다 돌지만 popUsers 가 사람을 나눠 꺼내 같은 사람을 두 서버가 쓰지 않음
     @Scheduled(fixedDelay = 5_000)
     public void flush() {
-        List<ReadPosition> batch = new ArrayList<>();
+        drain(fallback);   // 장애 중에 이 서버에 모인 것 - Redis 가 살아난 뒤에도 남은 것을 비움
 
-        for (Long userId : pending.keySet()) {
-            batch.addAll(take(userId));
+        if (redisSkipped()) {
+            return;
         }
-
-        write(batch);
+        try {
+            drain(pendingReads);
+        } catch (DataAccessException e) {
+            skipRedis(e);
+        }
     }
 
     /**
@@ -84,7 +99,16 @@ public class ChatReadBuffer {
      * @param userId 반영할 사람
      */
     public void flushUser(Long userId) {
-        write(take(userId));
+        List<ReadPosition> batch = new ArrayList<>(fallback.take(userId));
+
+        if (!redisSkipped()) {
+            try {
+                batch.addAll(pendingReads.take(userId));
+            } catch (DataAccessException e) {
+                skipRedis(e);
+            }
+        }
+        write(batch);
     }
 
     /**
@@ -99,20 +123,28 @@ public class ChatReadBuffer {
         }
     }
 
+    // Redis 에 있는 것은 다른 서버가 가져가지만 이 서버 메모리에 있는 것은 꺼지면 사라짐
     @PreDestroy
     public void flushOnShutdown() {
-        flush();
+        drain(fallback);
     }
 
-    // remove 와 compute 가 같은 키에서 원자적이라, 꺼낸 뒤 들어온 값은 새 맵에 쌓여 다음 주기에 나감
-    private List<ReadPosition> take(Long userId) {
-        Map<Long, Long> rooms = pending.remove(userId);
-        if (rooms == null) {
-            return List.of();
+    private void recordOrWrite(PendingReads store, ReadPosition position) {
+        if (!store.record(position, MAX_ROOMS_PER_USER)) {
+            write(List.of(position));   // 방이 비정상적으로 많음 - 쌓지 않음
         }
-        return rooms.entrySet().stream()
-                .map(e -> new ReadPosition(e.getKey(), userId, e.getValue()))
-                .toList();
+    }
+
+    private void drain(PendingReads store) {
+        List<Long> users;
+        do {
+            users = store.popUsers(FLUSH_BATCH);
+            List<ReadPosition> batch = new ArrayList<>();
+            for (Long userId : users) {
+                batch.addAll(store.take(userId));
+            }
+            write(batch);
+        } while (users.size() == FLUSH_BATCH);
     }
 
     private void write(List<ReadPosition> batch) {
@@ -129,14 +161,34 @@ public class ChatReadBuffer {
 
     // 상한을 검사하지 않음 - 검사하면 상한에서 write 로 되돌아가 재귀가 끝나지 않음
     private void requeue(List<ReadPosition> batch) {
-        batch.forEach(p -> merge(p.userId(), p.chatRoomId(), p.messageId()));
+        if (!redisSkipped()) {
+            try {
+                batch.forEach(p -> pendingReads.record(p, NO_LIMIT));
+                return;
+            } catch (DataAccessException e) {
+                skipRedis(e);
+            }
+        }
+        batch.forEach(p -> fallback.record(p, NO_LIMIT));   // 일부가 Redis 에 이미 들어갔어도 큰 값만 남아 겹쳐도 됨
     }
 
-    private void merge(Long userId, Long chatRoomId, Long messageId) {
-        pending.compute(userId, (ignored, rooms) -> {
-            Map<Long, Long> next = rooms == null ? new HashMap<>() : rooms;
-            next.merge(chatRoomId, messageId, Math::max);
-            return next;
-        });
+    private boolean redisSkipped() {
+        return System.currentTimeMillis() < skipRedisUntil;
+    }
+
+    private void skipRedis(DataAccessException e) {
+        skipRedisUntil = System.currentTimeMillis() + REDIS_SKIP_MILLIS;
+        log.warn("읽음 버퍼 Redis 실패, {}ms 동안 이 서버 메모리에 모음", REDIS_SKIP_MILLIS, e);
+    }
+
+    private double sharedPendingUsers() {
+        if (redisSkipped()) {
+            return Double.NaN;
+        }
+        try {
+            return pendingReads.countUsers();
+        } catch (DataAccessException e) {
+            return Double.NaN;
+        }
     }
 }
