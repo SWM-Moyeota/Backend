@@ -62,9 +62,7 @@ jobs:
       - name: 애플리케이션 JAR 빌드
         run: |
           ./gradlew bootJar --no-daemon -PappVersion=${{ needs.calculate-version.outputs.version }}
-          BOOT_JAR=$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' | head -n 1)
-          test -n "$BOOT_JAR"
-          cp "$BOOT_JAR" build/libs/app.jar
+          test -f build/libs/app.jar
 
   release:
     needs: [ calculate-version, build-and-deploy ]
