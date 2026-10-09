@@ -62,7 +62,7 @@ jobs:
       - name: 애플리케이션 JAR 빌드
         run: |
           ./gradlew bootJar --no-daemon -PappVersion=${{ needs.calculate-version.outputs.version }}
-          test -f build/libs/app.jar   # bootJar 가 app.jar 로 고정돼 있다 - 복사 불필요
+          test -f build/libs/app.jar
 
   release:
     needs: [ calculate-version, build-and-deploy ]
