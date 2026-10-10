@@ -3,6 +3,7 @@ package team.codingforest.moyeota._config;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.junit.jupiter.api.Test;
 import org.springframework.scheduling.annotation.Scheduled;
+import team.codingforest.moyeota.common.event.EventResubmitter;
 import team.codingforest.moyeota.dispatch.call.MatchingSweeper;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
 import team.codingforest.moyeota.matching.sse.infrastructure.PartySseRegistry;
@@ -22,7 +23,7 @@ class SchedulerLockAnnotationTest {
 
     @Test
     void DB를_건드리는_스케줄러는_전부_잠근다() {
-        assertLocked(IncompleteEventResubmitter.class, "resubmit", "event-resubmit");
+        assertLocked(EventResubmitter.class, "run", "event-resubmit");
         assertLocked(CompletedPartySweeper.class, "sweep", "completed-party-sweep");
         assertLocked(MatchingSweeper.class, "sweep", "matching-sweep");
     }
@@ -39,7 +40,7 @@ class SchedulerLockAnnotationTest {
     void 잠금_상한은_실행_주기보다_길지_않다() {
         // lockAtMostFor 가 주기보다 길면 돌던 서버가 죽었을 때 다음 실행이 그만큼 늦어진다.
         // lockAtLeastFor 는 주기보다 짧아야 한다 - 길면 매 주기 잠금이 안 풀려 건너뛴다
-        for (Method m : List.of(scheduled(IncompleteEventResubmitter.class, "resubmit"),
+        for (Method m : List.of(scheduled(EventResubmitter.class, "run"),
                 scheduled(CompletedPartySweeper.class, "sweep"), scheduled(MatchingSweeper.class, "sweep"))) {
             Duration period = Duration.ofMillis(m.getAnnotation(Scheduled.class).fixedDelay());
             SchedulerLock lock = m.getAnnotation(SchedulerLock.class);
@@ -51,7 +52,7 @@ class SchedulerLockAnnotationTest {
 
     @Test
     void 잠금_이름은_서로_다르다() {
-        List<String> names = List.of(lockName(IncompleteEventResubmitter.class, "resubmit"),
+        List<String> names = List.of(lockName(EventResubmitter.class, "run"),
                 lockName(CompletedPartySweeper.class, "sweep"), lockName(MatchingSweeper.class, "sweep"));
 
         assertThat(names).doesNotHaveDuplicates();

@@ -23,6 +23,11 @@ spring:
     events:
       republish-outstanding-events-on-restart: false
       completion-mode: DELETE
+      staleness:
+        published: PT5M
+        processing: PT5M
+        resubmission: PT30M
+        check-intervall: PT1M
   task:
     scheduling:
       pool:

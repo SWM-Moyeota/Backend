@@ -57,6 +57,7 @@ dependencies {
     implementation("io.micrometer:micrometer-registry-prometheus")                // 지표 수집
     implementation("net.javacrumbs.shedlock:shedlock-spring:6.6.0")              // 서버가 여러 대여도 한 대만 돈다
     implementation("net.javacrumbs.shedlock:shedlock-provider-redis-spring:6.6.0")
+    implementation("org.springframework.modulith:spring-modulith-events-core")
 
     // 외부 서비스
     implementation("com.google.firebase:firebase-admin:9.10.0")                  // FCM

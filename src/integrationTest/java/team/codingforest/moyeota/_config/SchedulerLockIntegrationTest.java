@@ -13,6 +13,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import team.codingforest.moyeota.common.event.EventResubmitter;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -32,7 +33,7 @@ class SchedulerLockIntegrationTest {
 
     @Autowired LockProvider lockProvider;
     @Autowired TestJob job;
-    @Autowired IncompleteEventResubmitter resubmitter;
+    @Autowired EventResubmitter resubmitter;
     @Autowired StringRedisTemplate redis;
 
     @AfterEach
