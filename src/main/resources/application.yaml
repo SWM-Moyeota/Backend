@@ -99,3 +99,9 @@ moyeota:
   crypto:
     field-key: ${FIELD_ENCRYPTION_KEY:XgIsaebhS+OFGOUd4l16AnNPZgXIydBInUv5yyQvmMY=}
     hash-key: ${FIELD_HASH_KEY:local-only-field-hash-key}
+  sms:
+    provider: ${SMS_PROVIDER:log}   # log | solapi
+    solapi:
+      api-key: ${SOLAPI_API_KEY:}
+      api-secret: ${SOLAPI_API_SECRET:}
+      from: ${SOLAPI_FROM:}

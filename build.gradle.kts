@@ -61,6 +61,7 @@ dependencies {
 
     // 외부 서비스
     implementation("com.google.firebase:firebase-admin:9.10.0")                  // FCM
+    implementation("com.solapi:sdk:1.0.3")                              //SOLAPI
 
     // DB 드라이버
     implementation("org.flywaydb:flyway-database-postgresql")
