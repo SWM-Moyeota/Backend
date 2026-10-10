@@ -34,3 +34,7 @@ management:
 logging:
   pattern:
     correlation: "[trace_id=%X{trace_id:-} span_id=%X{span_id:-}] "
+
+moyeota:
+  sms:
+    fixed-code: ${SMS_FIXED_CODE:000000}

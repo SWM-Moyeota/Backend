@@ -1,9 +1,11 @@
 package team.codingforest.moyeota.user.verification.application;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
 import team.codingforest.moyeota.user.common.crypto.FieldHasher;
 import team.codingforest.moyeota.user.common.domain.PhoneNumber;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
@@ -20,7 +22,6 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class SmsVerificationService {
     private static final Duration CODE_TTL = Duration.ofMinutes(3);
     private static final Duration COOLDOWN = Duration.ofSeconds(60);
@@ -34,6 +35,22 @@ public class SmsVerificationService {
     private final SmsSender smsSender;
     private final UserProfiles userProfiles;
     private final FieldHasher fieldHasher;
+    private final String fixedCode;
+
+    public SmsVerificationService(SmsVerifications smsVerifications, SmsSender smsSender,
+                                  UserProfiles userProfiles, FieldHasher fieldHasher,
+                                  @Value("${moyeota.sms.provider:log}") String provider,
+                                  @Value("${moyeota.sms.fixed-code:}") String fixedCode) {
+        Assert.isTrue(!StringUtils.hasText(fixedCode) || "log".equals(provider),
+                "moyeota.sms.fixed-code 는 provider=log 에서만 쓸 수 있습니다");
+        Assert.isTrue(!StringUtils.hasText(fixedCode) || fixedCode.matches("^\\d{6}$"),
+                "moyeota.sms.fixed-code 는 숫자 6자리여야 합니다");
+        this.smsVerifications = smsVerifications;
+        this.smsSender = smsSender;
+        this.userProfiles = userProfiles;
+        this.fieldHasher = fieldHasher;
+        this.fixedCode = fixedCode;
+    }
 
     public void send(String rawPhoneNumber) {
         String phone = new PhoneNumber(rawPhoneNumber).value();
@@ -42,7 +59,7 @@ public class SmsVerificationService {
         }
 
         String phoneHash = fieldHasher.hash(phone);
-        String code = "%06d".formatted(RANDOM.nextInt(1_000_000));
+        String code = newCode();
         try {
             if (!smsVerifications.tryStartCooldown(phoneHash, COOLDOWN)) {
                 throw new UserException(UserErrorCode.SMS_COOLDOWN);
@@ -133,5 +150,12 @@ public class SmsVerificationService {
     private UserException unavailable(DataAccessException e) {
         log.warn("문자 인증 Redis 실패", e);
         return new UserException(UserErrorCode.SMS_UNAVAILABLE);
+    }
+
+    private String newCode() {
+        if (StringUtils.hasText(fixedCode)) {
+            return fixedCode;
+        }
+        return "%06d".formatted(RANDOM.nextInt(1_000_000));
     }
 }
