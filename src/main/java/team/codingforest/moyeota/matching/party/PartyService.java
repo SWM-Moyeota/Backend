@@ -80,7 +80,7 @@ public class PartyService {
     }
 
     @Transactional
-    public PartyDetailResult join(Long partyId, Long memberId) {
+    public PartyStatusResponse join(Long partyId, Long memberId) {
         validateNotInOngoingParty(memberId);
         Party party = parties.findByIdForUpdate(partyId)
                         .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
@@ -92,11 +92,14 @@ public class PartyService {
         }
 
         log.info("매칭방에 사용자 참가됨 partyId={}, memberId={}, status={}", partyId, memberId, party.getStatus());
-        parties.save(party);
+        Party saved = parties.save(party);
         eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.changed(partyId));
 
-        return getPartyDetail(partyId);
+        List<Long> memberIds = saved.getMembers().stream().map(PartyMember::getMemberId).toList();
+
+        return PartyStatusResponse.of(new PartyStatusSnapshot(saved.getId(), saved.getStatus(), memberIds),
+                partyFingerprint.of(saved.getId(), saved.getStatus(), memberIds));
     }
 
     @Transactional
