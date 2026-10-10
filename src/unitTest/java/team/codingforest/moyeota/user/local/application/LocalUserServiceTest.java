@@ -25,12 +25,16 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 
 class LocalUserServiceTest {
     private FakeUsers users;
     private FakeLocalUsers localUsers;
     private FakeUserProfiles userProfiles;
+    private SmsVerificationService smsVerificationService;
     private LocalUserService service;
 
     @BeforeEach
@@ -38,13 +42,14 @@ class LocalUserServiceTest {
         users = new FakeUsers();
         localUsers = new FakeLocalUsers();
         userProfiles = new FakeUserProfiles();
+        smsVerificationService = mock(SmsVerificationService.class);   // 기본은 인증 통과
         service = new LocalUserService(users, localUsers, userProfiles,
                 new PasswordHasher() {
                     public String hash(String p) { return "hashed:" + p; }
                     public boolean matches(String raw, String hashed) { return hashed.equals("hashed:" + raw); }
                 },
                 UUID::randomUUID,
-                mock(SmsVerificationService.class));   // 기존 테스트는 인증 통과로 둠
+                smsVerificationService);
     }
 
     private UserRegisterCommand 가입(String loginId, String nickname, String phone) {
@@ -101,6 +106,34 @@ class LocalUserServiceTest {
                 Instant.parse("2000-01-01T00:00:00Z"), "010-1234-5678", Gender.MALE, "hong@test.com"));
 
         assertThat(service.getProfile(user.getId()).name()).isEqualTo("홍*동");
+    }
+
+    @Test
+    void 문자_인증이_안_됐으면_가입하지_않는다() {
+        willThrow(new UserException(UserErrorCode.SMS_NOT_VERIFIED))
+                .given(smsVerificationService).checkVerified("token", "010-1234-5678");
+
+        assertThatThrownBy(() -> service.register(가입("hong", "길동이", "010-1234-5678")))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.SMS_NOT_VERIFIED);
+        assertThat(localUsers.existsByLoginId("hong")).isFalse();
+    }
+
+    @Test
+    void 가입이_끝나면_인증_토큰을_소비한다() {
+        service.register(가입("hong", "길동이", "010-1234-5678"));
+
+        then(smsVerificationService).should().consume("token");
+    }
+
+    @Test
+    void 가입이_실패하면_인증_토큰을_남겨_다시_시도할_수_있게_한다() {
+        service.register(가입("hong", "길동이", "010-1234-5678"));
+
+        assertThatThrownBy(() -> service.register(가입("kim", "길동이", "010-9999-8888")))
+                .isInstanceOf(UserException.class);
+        then(smsVerificationService).should(times(1)).consume("token");   // 성공한 첫 가입에서만
     }
 
     // ───────────────────────── 페이크 ─────────────────────────
