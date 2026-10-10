@@ -14,7 +14,7 @@ public class AsyncConfig {
     @Primary
     public ThreadPoolTaskExecutor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(8);
+        executor.setCorePoolSize(1);
         executor.setMaxPoolSize(8);
         executor.setQueueCapacity(5000);
         executor.setThreadNamePrefix("async-");
@@ -26,7 +26,7 @@ public class AsyncConfig {
     @Bean
     public ThreadPoolTaskExecutor realtimeExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(4);
+        executor.setCorePoolSize(1);
         executor.setMaxPoolSize(4);
         executor.setQueueCapacity(10000);
         executor.setThreadNamePrefix("realtime-");
