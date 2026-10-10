@@ -16,7 +16,7 @@ services:
   grafana:
     image: grafana/grafana:12.1.0
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD 필요 - infra/monitoring/up.sh 로 띄운다}
       - GF_SERVER_ROOT_URL=https://grafana.moyeota.p-e.kr
     volumes:
       - grafana-data:/var/lib/grafana
