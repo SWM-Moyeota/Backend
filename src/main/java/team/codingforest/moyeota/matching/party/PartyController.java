@@ -40,9 +40,9 @@ public class PartyController {
     }
 
     @Operation(summary = "방 참여", description = "정원이 차면 COMPLETED → MATCHING 으로 넘어가며 기사 콜이 시작되고 채팅방이 열린다")
-    @ApiResponses({@ApiResponse(responseCode = "200", description = "참여 후 방 상세(동승자 목록 포함)"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_FULL / PARTY_CLOSED / ALREADY_JOINED_PARTY / ALREADY_JOINED_OTHER_PARTY")})
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "참여 후 상태·인원·지문. 동승자 목록은 GET /matching/rooms/{partyId}"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_FULL / PARTY_CLOSED / ALREADY_JOINED_PARTY / ALREADY_JOINED_OTHER_PARTY")})
     @PostMapping("/matching/rooms/{partyId}/join")
-    public ResponseEntity<PartyDetailResult> join(@PathVariable Long partyId, @CurrentUser Long memberId) {
+    public ResponseEntity<PartyStatusResponse> join(@PathVariable Long partyId, @CurrentUser Long memberId) {
         return ResponseEntity.ok(partyService.join(partyId, memberId));
     }
 

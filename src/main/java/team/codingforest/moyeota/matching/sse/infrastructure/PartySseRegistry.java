@@ -52,10 +52,6 @@ public class PartySseRegistry {
         if(subscriptions != null) subscriptions.forEach(s -> s.emitter().complete());
     }
 
-    /**
-     *  방을 나간 사람의 연결을 닫는다. 나간 사람은 더 받을 신호가 없는데, 앱이 연결을 끊지 않거나(다른 기기 등)
-     *  끊었어도 서버가 heartbeat 실패로 알아챌 때까지 연결이 남는다. 나감은 서버가 아는 사건이라 그때 바로 정리한다.
-     */
     public void closeMember(Long partyId, Long memberId) {
         Set<Subscription> subscriptions = byParty.get(partyId);
         if(subscriptions == null) return;

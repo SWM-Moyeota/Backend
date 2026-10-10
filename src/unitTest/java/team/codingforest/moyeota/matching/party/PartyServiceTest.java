@@ -687,11 +687,32 @@ class PartyServiceTest {
     void 방_상태의_지문은_같은_시점의_방_상세_지문과_같다() {
         // 앱은 상세에서 받은 지문을 기억했다가 상태 조회의 지문과 비교한다 - 재료가 다르면 매번 다르다고 나와 상세를 계속 다시 읽는다
         PartyResult party = service.open(createParty(host, 3));
-        PartyDetailResult detail = service.join(party.id(), participant);
+        PartyStatusResponse joined = service.join(party.id(), participant);
 
-        assertThat(service.getPartyStatus(party.id()).fingerprint())
-                .isEqualTo(detail.fingerprint())
+        assertThat(joined.fingerprint())
+                .isEqualTo(service.getPartyStatus(party.id()).fingerprint())
                 .isEqualTo(service.getPartyDetail(party.id()).fingerprint());
+    }
+
+    @Test
+    void 참여_응답은_상태와_현재_인원을_돌려준다() {
+        PartyResult party = service.open(createParty(host, 3));
+
+        PartyStatusResponse joined = service.join(party.id(), participant);
+
+        assertThat(joined.status()).isEqualTo("ACTIVE");
+        assertThat(joined.currentMembers()).isEqualTo(2);
+    }
+
+    @Test
+    void 정원이_차면_참여_응답이_완료_처리된_상태를_돌려준다() {
+        PartyResult party = service.open(createParty(host, 2));
+
+        PartyStatusResponse joined = service.join(party.id(), participant);
+
+        assertThat(joined.status()).isEqualTo("MATCHING");
+        assertThat(joined.currentMembers()).isEqualTo(2);
+        assertThat(service.getPartyStatus(party.id()).status()).isEqualTo("MATCHING");
     }
 
     @Test

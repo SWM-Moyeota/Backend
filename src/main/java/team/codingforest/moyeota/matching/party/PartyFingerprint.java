@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @Component
 public class PartyFingerprint {
     private static final String ALGORITHM = "HmacSHA256";
-    private static final int BYTES = 8;   // 16진수 16글자. 방 하나의 변화를 구분하는 용도라 충분하다
+    private static final int BYTES = 8;
 
     private final SecretKeySpec key;
 
@@ -33,7 +33,6 @@ public class PartyFingerprint {
     }
 
     public String of(Long partyId, PartyStatus status, Collection<Long> memberIds) {
-        // 정렬 - 조회 순서가 달라도 같은 멤버 구성이면 같은 값이어야 한다
         String members = memberIds.stream().sorted().map(String::valueOf).collect(Collectors.joining(","));
         String material = partyId + "|" + status.name() + "|" + members;
 
