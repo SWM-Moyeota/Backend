@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import team.codingforest.moyeota.user.api.CurrentUser;
-import team.codingforest.moyeota.user.auth.application.AuthService;
 import team.codingforest.moyeota.user.local.application.LocalUserService;
 import team.codingforest.moyeota.user.local.dto.UserResponse;
 
@@ -20,7 +19,6 @@ import team.codingforest.moyeota.user.local.dto.UserResponse;
 @RequiredArgsConstructor
 public class LocalUserController {
     private final LocalUserService service;
-    private final AuthService authService;
 
     @Operation(summary = "내 프로필", description = "publicId 와 표시 이름(닉네임, 없으면 실명)")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "프로필"), @ApiResponse(responseCode = "404", description = "USER_NOT_FOUND(USER103)")})
