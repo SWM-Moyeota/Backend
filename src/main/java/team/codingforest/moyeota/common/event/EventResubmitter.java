@@ -27,7 +27,7 @@ public class EventResubmitter {
 
     private static final int BATCH_SIZE = 200;
     private static final int LOW_WATERMARK = 100;   // 실행기 큐에 이보다 많이 밀려 있으면 이번 회차는 재발행을 쉼
-
+    private static final Duration ABANDONED_AFTER = Duration.ofMinutes(1);   // 큐가 비었는데 해당시간만큼 PUBLISHED 면 거절돼 버려진 것으로 봄
     /**
      * 알림 리스너. 늦게 보내면 의미가 없어서 재발행하지 않고 버림
      * 클라이언트가 재연결이나 SYNC 때 다시 조회해서 맞춤
@@ -48,6 +48,7 @@ public class EventResubmitter {
         Timer.Sample sample = Timer.start(meterRegistry);
         int moved = 0;
         int discarded = 0;
+        int abandoned = 0;
         try {
             discarded = deadLetters.discardFailed(NO_RESUBMIT_LISTENERS);
             if (discarded > 0) {
@@ -63,6 +64,11 @@ public class EventResubmitter {
             int room = resubmitRoom();
             if (room > 0) {
                 Instant now = Instant.now();
+                abandoned = deadLetters.markAbandonedFailed(now.minus(ABANDONED_AFTER), room);
+                if (abandoned > 0) {
+                    meterRegistry.counter("event.abandoned").increment(abandoned);
+                }
+
                 AtomicInteger budget = new AtomicInteger(room);
                 publications.resubmitIncompletePublications(ResubmissionOptions.defaults()
                         .withMinAge(Duration.ofMinutes(1))
@@ -74,8 +80,8 @@ public class EventResubmitter {
                     .description("outbox 이벤트 재발행 작업 1회 실행 시간")
                     .publishPercentiles(0.5, 0.99)
                     .register(meterRegistry));
-            log.info("이벤트 재발행 실행 {}ms, dead letter {}건, 폐기 {}건",
-                    nanos / 1_000_000, moved, discarded);
+            log.info("이벤트 재발행 실행 {}ms, dead letter {}건, 폐기 {}건, 버려진 건 {}건",
+                    nanos / 1_000_000, moved, discarded, abandoned);
         }
     }
 

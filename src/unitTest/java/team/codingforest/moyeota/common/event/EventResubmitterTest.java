@@ -87,7 +87,23 @@ class EventResubmitterTest {
         verify(deadLetters).discardFailed(EventResubmitter.NO_RESUBMIT_LISTENERS);
         verify(deadLetters).moveExhausted(EventRetryPolicy.MAX_ATTEMPTS);
         verify(publications, never()).resubmitIncompletePublications(any(ResubmissionOptions.class));
+        verify(deadLetters, never()).markAbandonedFailed(any(), anyInt());
         busy.shutdown();
+    }
+
+    @Test
+    void 큐가_비어_있으면_버려진_PUBLISHED_를_FAILED_로_올린_뒤_재발행한다() {
+        IncompleteEventPublications publications = mock(IncompleteEventPublications.class);
+        EventDeadLetters deadLetters = mock(EventDeadLetters.class);
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        given(deadLetters.markAbandonedFailed(any(), anyInt())).willReturn(4);
+
+        new EventResubmitter(publications, deadLetters, idleExecutor(), registry).run();
+
+        InOrder order = inOrder(deadLetters, publications);
+        order.verify(deadLetters).markAbandonedFailed(any(), anyInt());
+        order.verify(publications).resubmitIncompletePublications(any(ResubmissionOptions.class));
+        assertThat(registry.counter("event.abandoned").count()).isEqualTo(4.0);
     }
 
     private static ThreadPoolTaskExecutor idleExecutor() {
