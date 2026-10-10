@@ -15,6 +15,7 @@ import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
 import team.codingforest.moyeota.user.local.dto.UserResponse;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
+import team.codingforest.moyeota.user.verification.application.SmsVerificationService;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -24,6 +25,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 class LocalUserServiceTest {
     private FakeUsers users;
@@ -41,12 +43,13 @@ class LocalUserServiceTest {
                     public String hash(String p) { return "hashed:" + p; }
                     public boolean matches(String raw, String hashed) { return hashed.equals("hashed:" + raw); }
                 },
-                UUID::randomUUID);
+                UUID::randomUUID,
+                mock(SmsVerificationService.class));   // 기존 테스트는 인증 통과로 둠
     }
 
     private UserRegisterCommand 가입(String loginId, String nickname, String phone) {
         return new UserRegisterCommand(loginId, "Passw0rd!", nickname, "홍길동",
-                Instant.parse("2000-01-01T00:00:00Z"), phone, Gender.MALE, loginId + "@test.com");
+                Instant.parse("2000-01-01T00:00:00Z"), phone, Gender.MALE, loginId + "@test.com", "token");
     }
 
     @Test
