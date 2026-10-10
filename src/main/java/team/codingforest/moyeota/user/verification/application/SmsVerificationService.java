@@ -58,7 +58,7 @@ public class SmsVerificationService {
         try {
             smsSender.send(phone, "[모여타] 인증번호 [%s]를 입력해 주세요.".formatted(code));
         } catch (UserException e) {
-            releaseCooldown(phoneHash);   // 우리 쪽 실패로 1분을 기다리게 하지 않음
+            releaseCooldown(phoneHash);
             throw e;
         }
     }
