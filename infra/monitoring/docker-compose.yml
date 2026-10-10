@@ -16,11 +16,13 @@ services:
   grafana:
     image: grafana/grafana:12.1.0
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      # 비밀번호는 파라미터 스토어(/moyeota/monitoring/GRAFANA_PASSWORD)에서 up.sh 가 넘긴다. 없으면 기동하지 않는다
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD 가 필요합니다 - infra/monitoring/up.sh 로 띄우세요}
+      - GF_SERVER_ROOT_URL=https://grafana.moyeota.p-e.kr     # 로그인 리다이렉트·공유 링크가 이 주소로 만들어진다
     volumes:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
-    ports: ["127.0.0.1:3000:3000"]
+    ports: ["3000:3000"]      # ALB(grafana.moyeota.p-e.kr) 가 들어온다. 외부 노출은 보안 그룹(k6-sg: ALB 에서만 3000)이 막는다
     depends_on: [prometheus, loki, tempo]
     restart: unless-stopped
 
