@@ -191,5 +191,17 @@ class ChatReadBufferTest {
 
             assertThat(flushed()).containsExactly(new ReadPosition(1L, 7L, 5L));
         }
+
+        @Test
+        void DB가_계속_실패하면_이번_주기는_한_번만_시도하고_멈춘다() {
+            given(readPositions.advance(anyList())).willThrow(new RuntimeException("DB 장애"));
+            for (long user = 0; user < 500; user++) {
+                buffer.record(user, 1L, 1L);
+            }
+
+            buffer.flush();
+
+            verify(readPositions, times(1)).advance(anyList());
+        }
     }
 }

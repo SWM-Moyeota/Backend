@@ -139,19 +139,23 @@ public class ChatReadBuffer {
         List<Long> users;
         do {
             users = store.popUsers(FLUSH_BATCH);
-            write(store.takeAll(users));
+            if (!write(store.takeAll(users))) {
+                return;
+            }
         } while (users.size() == FLUSH_BATCH);
     }
 
-    private void write(List<ReadPosition> batch) {
+    private boolean write(List<ReadPosition> batch) {
         if (batch.isEmpty()) {
-            return;
+            return true;
         }
         try {
             readPositions.advance(batch);
+            return true;
         } catch (Exception e) {
             log.warn("읽음 위치 반영 실패, 다음 주기에 다시 씀 count={}", batch.size(), e);
             requeue(batch);
+            return false;
         }
     }
 
