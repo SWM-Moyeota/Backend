@@ -24,9 +24,19 @@ if ! command -v aws >/dev/null; then
 fi
 
 # 3. CodeDeploy 에이전트
+#    공식 설치 스크립트(latest/install)는 Ubuntu 26.04 의 Ruby 3.3.8 을 지원 버전이 아니라고 잘못 거부하고,
+#    deb 자체도 Depends 가 ruby3.2 까지라 그대로는 설치되지 않는다. 설치 스크립트가 하는 일(deb 의 Depends 를
+#    설치된 ruby 패키지로 고쳐 설치)을 직접 한다. 에이전트는 Ruby 3.3 에서 정상 동작한다(dev·prod 서버에서 확인).
 if ! systemctl is-active -q codedeploy-agent; then
-  wget -q "https://aws-codedeploy-$REGION.s3.$REGION.amazonaws.com/latest/install" -O /tmp/codedeploy-install
-  chmod +x /tmp/codedeploy-install && /tmp/codedeploy-install auto
+  CD_BUCKET="https://aws-codedeploy-$REGION.s3.$REGION.amazonaws.com"
+  CD_DEB=$(curl -fsSL "$CD_BUCKET/latest/LATEST_VERSION" | python3 -c 'import json,sys; print(json.load(sys.stdin)["deb"])')
+  RUBY_PKG=$(dpkg-query -W -f='${Package}\n' 'ruby3.*' 2>/dev/null | grep -E '^ruby3\.[0-9]+$' | head -n1)
+  curl -fsSL -o /tmp/codedeploy-agent.deb "$CD_BUCKET/$CD_DEB"
+  rm -rf /tmp/codedeploy-pkg && dpkg-deb -R /tmp/codedeploy-agent.deb /tmp/codedeploy-pkg
+  sed -i "s/^Depends: .*/Depends: $RUBY_PKG/" /tmp/codedeploy-pkg/DEBIAN/control
+  dpkg-deb -b /tmp/codedeploy-pkg /tmp/codedeploy-agent-fixed.deb
+  dpkg -i /tmp/codedeploy-agent-fixed.deb
+  systemctl enable --now codedeploy-agent
 fi
 
 # 4. OpenTelemetry Java 에이전트 (추적). jar 는 20MB 라 저장소에 두지 않고 버전을 고정해 받는다.
