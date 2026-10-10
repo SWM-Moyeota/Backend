@@ -1,14 +1,36 @@
-# dev 프로필 - 로컬 Postgres(docker compose)로 배포와 같은 조건(Flyway + validate)에서 앱을 띄운다
-#   docker compose up -d && ./gradlew bootRun --args='--spring.profiles.active=dev'
-# application.yaml 과 다른 값만 둔다. 시크릿(kakao/naver/jwt...)은 application-local.yaml 에서 그대로 import 된다
+# dev 프로필 - 두 곳에서 쓴다. application.yaml 과 다른 값만 둔다.
+#   1) dev 서버: load-env.sh 가 EC2 태그 Env=dev 를 보고 /moyeota/dev/* 파라미터를 환경 변수로 넣어 준다 (prod 와 같은 구조)
+#   2) 로컬: docker compose up -d 뒤 ./gradlew bootRun --args='--spring.profiles.active=dev'
+#      환경 변수가 없으면 아래 기본값(localhost, moyeota/moyeota)으로 로컬 Postgres·Redis 에 붙는다
+# 시크릿(kakao/naver/jwt...)은 application.yaml 이 환경 변수로 받고, 로컬은 application-local.yaml 에서 import 된다
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/moyeota
+    url: jdbc:postgresql://${DATABASE_HOST:localhost}/${DATABASE_NAME:moyeota}?sslmode=prefer   # RDS 는 TLS, 로컬 Postgres 는 평문 - prefer 가 둘 다 된다
     driver-class-name: org.postgresql.Driver
-    username: moyeota
-    password: moyeota
+    username: ${DATABASE_USERNAME:moyeota}
+    password: ${DATABASE_PASSWORD:moyeota}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
   jpa:
     hibernate:
       ddl-auto: validate   # 스키마는 Flyway 가 만든다. 엔티티와 어긋나면 기동 실패 - 그게 목적
   flyway:
     enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}   # ElastiCache 는 true (파라미터 /moyeota/dev/REDIS_SSL_ENABLED), 로컬 Redis 는 false
+
+chat:
+  websocket:
+    allowed-origins: ${WS_ALLOWED_ORIGINS:http://localhost:*}
+
+management:
+  server:
+    port: 9091   # prod 와 같게 - CodeDeploy validate.sh 와 대상 그룹 상태 검사가 9091/health 를 본다
+
+# OpenTelemetry 에이전트가 붙는 서버(bootstrap 으로 준비한 dev/prod)에서 로그에 추적 ID 를 찍는다. 로컬에서는 빈 값이 찍힌다
+logging:
+  pattern:
+    correlation: "[trace_id=%X{trace_id:-} span_id=%X{span_id:-}] "
