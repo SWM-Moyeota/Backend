@@ -6,7 +6,7 @@
 
 ## 준비
 1. 대상 서버: `micrometer-registry-prometheus` 추가, `exposure.include` 에 `prometheus`, prod 는 `management.server.port: 9091` (CloudFront VPC origin 이 8080 을 통째로 전달하므로 관리 포트를 분리해야 인터넷에 안 노출됨). actuator base-path 가 `/` 라 지표는 `http://IP:9091/prometheus`.
-2. k6 서버: `infra/monitoring/prometheus.yml` 의 대상 IP 확인(운영 EC2 172.16.1.30) → 레포 루트에서 `docker compose -f infra/monitoring/docker-compose.yml up -d`
+2. k6 서버: `infra/monitoring/prometheus.yml` 의 대상 IP 확인(dev 서버 A 172.16.1.30, C 172.16.1.46) → 레포 루트에서 `docker compose -f infra/monitoring/docker-compose.yml up -d`
    Grafana(3000) 데이터소스에 `http://prometheus:9090` 추가. 대시보드는 Spring Boot(ID 19004)·k6(ID 18030) 템플릿 import.
 3. DB 는 Neon `loadtest` 브랜치로 전환 (서버 env 의 `DATABASE_HOST` 만 교체 → 끝나면 `load-env.sh` 로 원복 후 브랜치 삭제).
    D6 를 돌릴 거면 같은 env 파일에 `JWT_ACCESS_VALIDITY=2h` 도 임시로 넣는다 (기본 30분이면 도중에 토큰 만료).
@@ -76,7 +76,7 @@ D2 의 임계값은 `chat_join_lag_ms p(95) < 2s` 다 - 채팅 탭으로 넘어�
 화면 비중을 합승 탭 40% · 대기 30% · 채팅 30% 로 잡으면 **1인당 약 0.27 RPS** (상세 55% · 목록 36% · 채팅 폴링 6% · 기타 3%) → 동시 접속 100명 = 27 RPS + WebSocket 30연결.
 
 ```
-export BASE_URL=http://172.16.1.30:8080          # 프라이빗 IP - CloudFront 를 거치지 않는다
+export BASE_URL=http://internal-moyeota-dev-alb-1803675880.ap-northeast-2.elb.amazonaws.com   # 내부 ALB → dev 서버 A·C. 서버 한 대만 때리려면 http://172.16.1.30:8080
 export K6_PROMETHEUS_RW_SERVER_URL=http://localhost:9090/api/v1/write
 k6 run d0-smoke.js                                                        # 여정 1회 - 반드시 먼저
 k6 run -e CHECK_SPOTS=1 d0-smoke.js                                       # 출발지 100곳 경로 확인 - 좌표를 바꿨을 때만
@@ -154,3 +154,19 @@ k6 run -o experimental-prometheus-rw s5-open-party.js      # loadtest 프로필 
 k6 run -o experimental-prometheus-rw s6-breakpoint.js      # 한계 찾기
 ```
 슬롯: 0..19 S1·S6 방장 / 1..10 S2 참여자 (S1 과 동시 실행 금지) / 100..149 S3 기사 / 150..179 S5 방 생성자.
+
+## WAS 1대 vs 2대 비교
+
+dev 서버 A(2a)·C(2c) 앞에 내부 ALB `moyeota-dev-alb` 가 있다. k6 는 VPC 안에서 ALB 의 프라이빗 IP 로 바로 가므로 NAT·IGW 를 거치지 않는다. 비교는 대상 그룹 `moyeota-dev-tg` 에서 C 를 **등록 해제 / 등록**만 바꿔 가며 같은 시나리오를 돌린다.
+
+| 실행 | 대상 그룹 | 보는 것 |
+|---|---|---|
+| ① 직접 | `BASE_URL=http://172.16.1.30:8080` (ALB 없음) | 기준선 |
+| ② ALB + 1대 | A 만 등록 | ALB 오버헤드 (①과 p95 차이) |
+| ③ ALB + 2대 | A + C 등록 | 스케일아웃 효과. 서버 CPU 는 instance_name 으로 갈라 보고, RDS CPU 가 다음 병목인지 확인 |
+
+- 세 실행은 **같은 인스턴스 사양·같은 VUS·같은 RUN_ID 규칙**으로 돌린다. 사양을 바꿨으면 ①부터 다시 잰다
+- 2대일 때 확인할 것: SSE(`sse_propagation_ms`)가 어느 서버에 붙었든 전파되는지(Redis pub/sub), ShedLock 으로 스케줄러가 한 대만 도는지(`job-lock:moyeota:*` 키), `sql/verify.sql` 의 `missing_members` 0
+- 등록 해제 뒤 ALB 가 기존 연결(SSE)을 끊는 데 등록 취소 지연(기본 300초)이 걸린다. 실행 사이에 그만큼 기다리거나 대상 그룹 속성에서 줄인다
+- ALB 유휴 제한 시간은 60초. SSE 하트비트(5초)가 있어 끊기지 않는다
+

@@ -9,22 +9,27 @@ rule_files:
   - /etc/prometheus/rules/*.yml
 
 scrape_configs:
+  # dev 서버 두 대(내부 ALB moyeota-dev-alb 뒤). Grafana 에서는 instance_name 으로 갈라 본다
   - job_name: app
     metrics_path: /prometheus
     static_configs:
       - targets: ['172.16.1.30:9091']
-        labels: { service: moyeota-api, instance_name: prod-api-1 }
+        labels: { service: moyeota-api, instance_name: dev-api-a }
+      - targets: ['172.16.1.46:9091']
+        labels: { service: moyeota-api, instance_name: dev-api-c }
 
   - job_name: node
     static_configs:
       - targets: ['172.16.1.30:9100']
-        labels: { role: target, instance_name: prod-api-1 }
+        labels: { role: target, instance_name: dev-api-a }
+      - targets: ['172.16.1.46:9100']
+        labels: { role: target, instance_name: dev-api-c }
       - targets: ['172.16.1.21:9100']
         labels: { role: loadgen, instance_name: k6-1 }
 
   - job_name: redis
     static_configs:
-      - targets: ['172.16.1.30:9121']
+      - targets: ['172.16.1.30:9121']   # exporter 는 ElastiCache 를 본다 - 서버마다 같은 Redis 라 한 대만 긁는다
 
   - job_name: postgres
     static_configs:
