@@ -1,8 +1,14 @@
 name: Deploy to EC2
 
+# develop 머지 → dev 서버(배포 그룹 moyeota-dev, EC2 태그 Env=dev), main 머지 → 운영(moyeota-prod, Env=prod)
 on:
   push:
-    branches: [main]
+    branches: [develop, main]
+
+# 같은 환경에 배포가 겹치지 않게. dev 와 prod 는 서로 독립
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
 
 permissions:
   id-token: write
@@ -12,7 +18,7 @@ env:
   AWS_REGION: ap-northeast-2
   S3_BUCKET: moyeota-deploy-bucket
   CD_APP: moyeota
-  CD_GROUP: moyeota-prod
+  CD_GROUP: ${{ github.ref_name == 'main' && 'moyeota-prod' || 'moyeota-dev' }}
 
 jobs:
   deploy:
