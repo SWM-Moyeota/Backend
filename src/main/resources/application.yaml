@@ -16,6 +16,9 @@ spring:
     redis:
       host: localhost
       port: 6379
+      # 기본 명령 타임아웃은 60초 - Redis 가 멈추면 캐시를 거치는 요청(인증 포함)이 그만큼 매달린다
+      timeout: 1s
+      connect-timeout: 1s
   modulith:
     events:
       republish-outstanding-events-on-restart: false
@@ -25,6 +28,16 @@ spring:
         processing: PT5M
         resubmission: PT30M
         check-intervall: PT1M
+  task:
+    scheduling:
+      pool:
+        size: 4
+
+server:
+  tomcat:
+    max-connections: 20000
+    mbeanregistry:
+      enabled: true       # Grafana에서 tomcat 연결 수와 바쁜 스레드 수 보기위함
 
 kakao:
   api:
@@ -47,7 +60,7 @@ portone:
     secret: ${PORTONE_SECRET:}
 
 jwt:
-  secret: ${JWT_SECRET:deXiPUTSbvL2Qg673qn22K4S6fjf6VSBMLfW54E16DrUPty9aapfs/PGqoO+NdP9}
+  secret: ${JWT_SECRET:deXiPUTSbvL2Qg673qn22K4S6fjf6VSBMLfW54E16DrUPty9aapfs/PGqoO+NdP9}   # 로컬 전용 기본값
   access-token-validity: ${JWT_ACCESS_VALIDITY:30m}
   refresh-token-validity: ${JWT_REFRESH_VALIDITY:14d}
 
@@ -65,7 +78,7 @@ management:
     web:
       base-path: /
       exposure:
-        include: health, prometheus
+        include: health, prometheus, info
   endpoint:
     health:
       show-details: never
@@ -81,3 +94,8 @@ management:
 moyeota:
   taxi:
     enabled: ${TAXI_ENABLED:true}
+  party:
+    fingerprint-secret: ${PARTY_FINGERPRINT_SECRET:local-only-party-fingerprint-secret}
+  crypto:
+    field-key: ${FIELD_ENCRYPTION_KEY:XgIsaebhS+OFGOUd4l16AnNPZgXIydBInUv5yyQvmMY=}
+    hash-key: ${FIELD_HASH_KEY:local-only-field-hash-key}

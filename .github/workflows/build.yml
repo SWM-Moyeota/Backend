@@ -4,14 +4,30 @@ on:
   pull_request:
     paths:
       - 'src/**'
-      - 'build.gradle'
-      - 'settings.gradle'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
       - 'gradle/**'
       - 'gradlew'
+      - '.github/workflows/build.yml'
+  # setup-gradle 은 기본 브랜치(develop)에서 돌 때만 캐시를 저장한다 - PR 에서만 돌면 캐시가 영영 안 생겨 매번 의존성을 전부 내려받는다
+  push:
+    branches: [develop]
+    paths:
+      - 'src/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle/**'
+      - 'gradlew'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+# 같은 PR 에 다시 push 하면 앞선 실행은 취소한다. develop 실행은 캐시를 저장해야 하므로 취소하지 않는다
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -62,5 +78,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: test-report
-          path: build/reports/tests/test
+          path: |
+            build/reports/tests/test
+            build/reports/tests/integrationTest
           retention-days: 7

@@ -10,11 +10,14 @@ import org.springframework.modulith.events.IncompleteEventPublications;
 import org.springframework.modulith.events.ResubmissionOptions;
 import org.springframework.modulith.events.core.TargetEventPublication;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** 미완료 outbox 이벤트를 백오프로 재발행하고, 상한을 넘은 건 dead letter 로 옮김 */
 @Slf4j
@@ -23,6 +26,7 @@ import java.util.List;
 public class EventResubmitter {
 
     private static final int BATCH_SIZE = 200;
+    private static final int LOW_WATERMARK = 100;   // 실행기 큐에 이보다 많이 밀려 있으면 이번 회차는 재발행을 쉼
 
     /**
      * 알림 리스너. 늦게 보내면 의미가 없어서 재발행하지 않고 버림
@@ -35,10 +39,11 @@ public class EventResubmitter {
 
     private final IncompleteEventPublications publications;
     private final EventDeadLetters deadLetters;
+    private final ThreadPoolTaskExecutor taskExecutor;
     private final MeterRegistry meterRegistry;
 
-    @Scheduled(cron = "${moyeota.event.resubmit.cron: 0 * * * * *}")
-    @SchedulerLock(name = "event-resubmit", lockAtMostFor = "PT4M", lockAtLeastFor = "PT30S")
+    @Scheduled(fixedDelay = 5_000, initialDelay = 60_000)
+    @SchedulerLock(name = "event-resubmit", lockAtMostFor = "PT30S", lockAtLeastFor = "PT4S")
     public void run() {
         Timer.Sample sample = Timer.start(meterRegistry);
         int moved = 0;
@@ -55,11 +60,15 @@ public class EventResubmitter {
                 meterRegistry.counter("event.dead_letter").increment(moved);
             }
 
-            Instant now = Instant.now();
-            publications.resubmitIncompletePublications(ResubmissionOptions.defaults()
-                    .withMinAge(Duration.ofMinutes(1))
-                    .withBatchSize(BATCH_SIZE)
-                    .withFilter(publication -> shouldResubmit(publication, now)));
+            int room = resubmitRoom();
+            if (room > 0) {
+                Instant now = Instant.now();
+                AtomicInteger budget = new AtomicInteger(room);
+                publications.resubmitIncompletePublications(ResubmissionOptions.defaults()
+                        .withMinAge(Duration.ofMinutes(1))
+                        .withBatchSize(BATCH_SIZE)
+                        .withFilter(publication -> shouldResubmit(publication, now) && budget.getAndDecrement() > 0));
+            }
         } finally {
             long nanos = sample.stop(Timer.builder("event.resubmit.duration")
                     .description("outbox 이벤트 재발행 작업 1회 실행 시간")
@@ -68,6 +77,18 @@ public class EventResubmitter {
             log.info("이벤트 재발행 실행 {}ms, dead letter {}건, 폐기 {}건",
                     nanos / 1_000_000, moved, discarded);
         }
+    }
+
+    /**
+     * 메모리에 일이 밀려 있으면 그게 먼저 빠져야 버려진 것만 남음
+     * 남은 자리의 절반만 채워 새로 들어오는 이벤트 자리를 남김
+     */
+    private int resubmitRoom() {
+        BlockingQueue<Runnable> queue = taskExecutor.getThreadPoolExecutor().getQueue();
+        if (queue.size() > LOW_WATERMARK) {
+            return 0;
+        }
+        return queue.remainingCapacity() / 2;
     }
 
     static boolean shouldResubmit(EventPublication publication, Instant now) {

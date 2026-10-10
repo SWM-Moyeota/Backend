@@ -8,16 +8,16 @@ spring:
       maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
   jpa:
     hibernate:
-      ddl-auto: validate
-    open-in-view: false
+      ddl-auto: validate   # 스키마는 Flyway 가 만든다. 엔티티와 어긋나면 기동 실패 - 그게 목적
   flyway:
     enabled: true
     baseline-on-migrate: true   # 이미 테이블이 있는 기존 DB: V1 을 적용된 것으로 기록하고 V2 부터 실행
     baseline-version: 1
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST}
+      ssl:
+        enabled: true
   modulith:
     events:
       republish-outstanding-events-on-restart: false
@@ -32,27 +32,29 @@ kakao:
   api:
     key: ${KAKAO_API_KEY}
 
-naver:
-  api:
-    key-id: ${NAVER_API_KEY_ID:}
-    key: ${NAVER_API_KEY:}
-
 chat:
   websocket:
     allowed-origins: ${WS_ALLOWED_ORIGINS}
 
-fcm:
-  service-account-path: ${FCM_SERVICE_ACCOUNT_PATH:}
-
 jwt:
   secret: ${JWT_SECRET}
-  access-token-validity: ${JWT_ACCESS_VALIDITY:30m}
-  refresh-token-validity: ${JWT_REFRESH_VALIDITY:14d}
+
+management:
+  server:
+    port: 9091   # 지표·헬스는 앱 포트(8080)와 분리 - 외부에 열지 않는다
 
 moyeota:
   taxi:
     enabled: ${TAXI_ENABLED:false}
+  party:
+    fingerprint-secret: ${PARTY_FINGERPRINT_SECRET}
+  crypto:
+    field-key: ${FIELD_ENCRYPTION_KEY}
+    hash-key: ${FIELD_HASH_KEY}
 
-management:
-  server:
-    port: 9091
+# 로그에 추적 ID 를 찍는다. OpenTelemetry 에이전트가 요청마다 trace_id·span_id 를 로그 컨텍스트(MDC)에 넣어 준다.
+# Grafana 에서 로그 줄의 trace_id 를 누르면 그 요청의 추적(Tempo)으로 넘어간다 - Loki 데이터 소스의 derivedFields 가 이 형식을 읽는다.
+# 에이전트는 운영에만 붙으므로 prod 에만 둔다(로컬에 두면 빈 값이 매 줄에 찍힌다).
+logging:
+  pattern:
+    correlation: "[trace_id=%X{trace_id:-} span_id=%X{span_id:-}] "

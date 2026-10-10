@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.matching.party.infrastructure;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
@@ -8,12 +9,15 @@ import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.PartyStatusSnapshot;
+import team.codingforest.moyeota.matching.party.domain.PartySummary;
 
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Repository
@@ -24,9 +28,8 @@ public class PartyJpa implements Parties {
 
     @Override
     public Optional<Party> findById(Long id) {
-
-        return delegate.findById(id)
-                .map(jpa -> jpa.toDomain());
+        return delegate.findWithMembersById(id)
+                .map(PartyEntity::toDomain);
     }
 
     @Override
@@ -74,15 +77,27 @@ public class PartyJpa implements Parties {
     }
 
     @Override
+    public Optional<PartyStatusSnapshot> findStatusSnapshotById(Long id) {
+        List<PartyStatusRow> rows = delegate.findStatusRowsById(id);
+
+        if(rows.isEmpty()) return Optional.empty();
+
+        List<Long> memberIds = rows.stream()
+                .map(PartyStatusRow::getMemberId)
+                .filter(Objects::nonNull)           // 멤버가 없는 방(마지막 사람이 나가 CANCELED)
+                .toList();
+
+        return Optional.of(new PartyStatusSnapshot(id, rows.get(0).getStatus(), memberIds));
+    }
+
+    @Override
     public boolean hasOngoingRide(Long driverId) {
         return delegate.existsByTaxiDriverIdStatus(driverId, List.of(PartyStatus.DRIVER_ASSIGNED, PartyStatus.IN_RIDE));
     }
 
     @Override
-    public List<Party> findAllByStatusWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng) {
-        return delegate.findAllByStatusWithinBounds(status, swLat, neLat, swLng, neLng)
-                .stream().map(PartyEntity::toDomain)
-                .toList();
+    public List<PartySummary> findSummariesWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng, int limit) {
+        return delegate.findSummariesWithinBounds(status, swLat, neLat, swLng, neLng, Limit.of(limit));
     }
 
     @Override

@@ -6,20 +6,25 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.api.dto.PartyClosedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
+import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
+import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
+import team.codingforest.moyeota.matching.party.domain.PartyStatusSnapshot;
+import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
@@ -34,12 +39,18 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 public class PartyService {
+    /** 지도 한 화면에 내려주는 방 수 상한. 넘으면 최신순으로 자른다 */
+    static final int MAP_LIST_LIMIT = 100;
+
     private final Parties parties;
     private final ApplicationEventPublisher eventPublisher;
     private final RouteService routeService;
     private final DriverAccess driverAccess;
     private final UserAccess userAccess;
     private final PartyCompletionPolicy partyCompletionPolicy;
+    private final AfterCommitExecutor afterCommitExecutor;
+    private final PartyChangeNotifier partyChangeNotifier;
+    private final PartyFingerprint partyFingerprint;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
@@ -83,6 +94,7 @@ public class PartyService {
         log.info("매칭방에 사용자 참가됨 partyId={}, memberId={}, status={}", partyId, memberId, party.getStatus());
         parties.save(party);
         eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.changed(partyId));
 
         return getPartyDetail(partyId);
     }
@@ -98,6 +110,12 @@ public class PartyService {
 
         if(party.getStatus() == PartyStatus.CANCELED) {
             eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
+            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
+        }
+        else {
+            // 나간 사람의 연결을 먼저 닫는다 - 순서가 반대면 나간 사람도 changed 를 받아 쓸데없이 상세를 다시 읽는다
+            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.left(partyId, memberId));
+            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.changed(partyId));
         }
 
         log.info("매칭방에서 사용자 나감 partyId={}, memberId={}, status={}, members={}", partyId, memberId, party.getStatus(), party.getMembers().size());
@@ -109,7 +127,20 @@ public class PartyService {
 
         List<Long> memberIds = party.getMembers().stream().map(PartyMember::getMemberId).toList();
 
-        return PartyDetailResult.from(party, userAccess.findMemberSummaries(memberIds), parties.countFinishedRides(memberIds));
+        return PartyDetailResult.from(party, userAccess.findMemberSummaries(memberIds), parties.countFinishedRides(memberIds),
+                partyFingerprint.of(party.getId(), party.getStatus(), memberIds));
+    }
+
+    /**
+     *  상태·인원수·지문만. 놓친 SSE 신호를 잡는 안전망 폴링이 상세(쿼리 3개) 대신 부른다.
+     *  지문은 방 상세의 것과 같은 재료로 만든다 - 앱이 화면에 그린 상세의 지문과 비교할 수 있어야 한다.
+     */
+    @Transactional(readOnly = true)
+    public PartyStatusResponse getPartyStatus(Long partyId) {
+        PartyStatusSnapshot snapshot = parties.findStatusSnapshotById(partyId)
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+
+        return PartyStatusResponse.of(snapshot, partyFingerprint.of(snapshot.partyId(), snapshot.status(), snapshot.memberIds()));
     }
 
     @Transactional(readOnly = true)
@@ -132,12 +163,10 @@ public class PartyService {
     }
 
     @Transactional(readOnly = true)
-    public List<PartyResult> findActivePartiesWithin(double swLat, double swLng, double neLat, double neLng) {
+    public List<PartySummary> findActivePartiesWithin(double swLat, double swLng, double neLat, double neLng) {
         if(swLat >= neLat || swLng >= neLng) throw new BusinessException(MatchingErrorCode.INVALID_MAP_BOUNDS);
 
-        return parties.findAllByStatusWithinBounds(PartyStatus.ACTIVE, swLat, neLat, swLng, neLng)
-                .stream().map(PartyResult::from)
-                .toList();
+        return parties.findSummariesWithinBounds(PartyStatus.ACTIVE, swLat, neLat, swLng, neLng, MAP_LIST_LIMIT);
     }
 
     @Transactional
@@ -148,6 +177,7 @@ public class PartyService {
         party.finishWithoutDriver(memberId);
         parties.save(party);
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
 
         log.info("기사 없이 합승 종료 partyId={}, memberId={}", partyId, memberId);
     }
@@ -160,6 +190,7 @@ public class PartyService {
         party.expireCompleted();
         parties.save(party);
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
 
         log.warn("정원 충족 후 방치된 방 자동 종료 partyId={}", partyId);
     }

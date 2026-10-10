@@ -15,3 +15,64 @@ loki.write "monitoring" {
     url = sys.env("LOKI_URL")
   }
 }
+
+// ── 추적: 앱(OTel 에이전트) → 여기 → Tempo ──
+otelcol.receiver.otlp "app" {
+  http { endpoint = "127.0.0.1:4318" }
+  output { traces = [otelcol.processor.memory_limiter.guard.input] }
+}
+
+// 파이프라인 맨 앞에 둔다. 한도를 넘으면 새 추적을 거절하고 에이전트는 그걸 버린다 -
+// 추적은 잃어도 되지만 같은 서버의 앱이 메모리 때문에 죽으면 안 된다
+otelcol.processor.memory_limiter "guard" {
+  check_interval = "1s"
+  limit          = "512MiB"
+  spike_limit    = "128MiB"
+  output { traces = [otelcol.processor.tail_sampling.keep.input] }
+}
+
+// 요청이 끝난 뒤 남길지 정한다: 에러와 500ms 넘는 요청은 전부, 나머지는 1%
+// 앱에서 미리 10% 만 뽑으면(head sampling) 정작 보고 싶은 느린 요청의 90% 가 버려진다
+otelcol.processor.tail_sampling "keep" {
+  decision_wait = "10s"
+  num_traces    = 50000                    // 판정을 기다리며 들고 있는 추적 수의 상한
+  policy {
+    name = "errors"
+    type = "status_code"
+    status_code { status_codes = ["ERROR"] }
+  }
+  policy {
+    name = "slow"
+    type = "and"
+    and {
+      and_sub_policy {
+        name = "latency"
+        type = "latency"
+        latency { threshold_ms = 500 }
+      }
+      and_sub_policy {
+        name = "not-sse"
+        type = "string_attribute"
+        string_attribute {
+          key          = "http.route"
+          values       = ["/api/v1/matching/rooms/{partyId}/events"]
+          invert_match = true
+        }
+      }
+    }
+  }
+  policy {
+    name = "baseline"
+    type = "probabilistic"
+    probabilistic { sampling_percentage = 1 }
+  }
+  output { traces = [otelcol.processor.batch.default.input] }
+}
+
+otelcol.processor.batch "default" {
+  output { traces = [otelcol.exporter.otlphttp.tempo.input] }
+}
+
+otelcol.exporter.otlphttp "tempo" {
+  client { endpoint = sys.env("TEMPO_URL") }
+}

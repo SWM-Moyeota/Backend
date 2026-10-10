@@ -9,6 +9,8 @@ import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
 import team.codingforest.moyeota.user.auth.dto.AuthenticatedUser;
 import team.codingforest.moyeota.user.auth.dto.TokenResponse;
 import team.codingforest.moyeota.user.auth.dto.UserLoginCommand;
+import team.codingforest.moyeota.user.auth.domain.PrincipalCache;
+import team.codingforest.moyeota.user.common.domain.User;
 import team.codingforest.moyeota.user.common.domain.Users;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
@@ -24,6 +26,7 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final JwtProvider jwtProvider;
     private final Users users;
+    private final PrincipalCache principalCache;
 
     @Transactional
     public TokenResponse login(UserLoginCommand command) {
@@ -40,14 +43,27 @@ public class AuthService {
         refreshTokenService.logout(refreshToken);
     }
 
-    /** Security 필터가 매 요청 호출. access 토큰엔 publicId 만 있어서 DB 로 내부 userId 를 찾는다 */
-    @Transactional(readOnly = true)
+    /**
+     *
+     * @param accessToken
+     * @return Redis에서 uuid값을 id값으로 캐싱해서 사용 -> uuid 값을 id 값으로 변환할때 DB 한번 더 조회하는것을 없애기 위함
+     */
     public AuthenticatedPrincipal authenticate(String accessToken) {
-        UUID publicId = jwtProvider.parseAccess(accessToken);
+        UUID publicId = jwtProvider.parseAccess(accessToken);   // 서명·만료 검증은 매번 한다
 
-        return users.findByPublicId(publicId)
-                .map(user -> new AuthenticatedPrincipal(user.getId(), user.getPublicId()))
-                .orElseThrow(() -> new UserException(UserErrorCode.TOKEN_INVALID));
+        Long userId = principalCache.findUserId(publicId)
+                .orElseGet(() -> loadAndCache(publicId));
+
+        return new AuthenticatedPrincipal(userId, publicId);
+    }
+
+    private Long loadAndCache(UUID publicId) {
+        Long userId = users.findByPublicId(publicId)
+                .map(User::getId)
+                .orElseThrow(() -> new UserException(UserErrorCode.TOKEN_INVALID));   // 없는 사용자는 캐시하지 않는다
+
+        principalCache.save(publicId, userId);
+        return userId;
     }
 
     private TokenResponse issue(AuthenticatedUser user) {
