@@ -9,6 +9,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 public class AsyncConfig {
 
     public static final String REALTIME_EXECUTOR = "realtimeExecutor";
+    public static final String CHAT_PUSH_EXECUTOR = "chatPushExecutor";
 
     @Bean
     @Primary
@@ -32,6 +33,18 @@ public class AsyncConfig {
         executor.setThreadNamePrefix("realtime-");
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(20);
+        return executor;
+    }
+
+    @Bean
+    public ThreadPoolTaskExecutor chatPushExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(200);
+        executor.setThreadNamePrefix("chat-push-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(10);
         return executor;
     }
 }

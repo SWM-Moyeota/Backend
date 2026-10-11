@@ -1,9 +1,9 @@
 package team.codingforest.moyeota.chat.notification.application;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import team.codingforest.moyeota.chat.message.dto.ChatMessageResult;
@@ -15,8 +15,10 @@ import team.codingforest.moyeota.chat.member.domain.ChatRoomUser;
 import team.codingforest.moyeota.chat.member.domain.ChatRoomUsers;
 import team.codingforest.moyeota.chat.member.domain.MemberProvider;
 import team.codingforest.moyeota.chat.message.domain.enums.ChatMessageType;
+import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -27,6 +29,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class ChatNotificationListenerTest {
@@ -43,9 +46,14 @@ class ChatNotificationListenerTest {
     private MemberProvider memberProvider;
     @Mock
     private ChatNotifier chatNotifier;
-    @InjectMocks
+
     private ChatNotificationListener listener;
 
+    @BeforeEach
+    void setUp() {
+        AfterCommitExecutor immediate = (name, task) -> task.run();
+        listener = new ChatNotificationListener(chatRoomUsers, memberProvider, chatNotifier, immediate, Runnable::run);
+    }
 
     private ChatMessageSentEvent event(ChatMessageResult result) {
         return new ChatMessageSentEvent(SENDER_ID, result);
@@ -109,6 +117,18 @@ class ChatNotificationListenerTest {
         given(chatRoomUsers.findAllByChatRoomId(ROOM_ID)).willThrow(new RuntimeException("DB 장애"));
 
         listener.onMessageSent(event(textResult("안녕")));
+    }
+
+    @Test
+    void 커밋_전에는_푸시하지_않는다() {
+        List<Runnable> pending = new ArrayList<>();
+        ChatNotificationListener deferred = new ChatNotificationListener(
+                chatRoomUsers, memberProvider, chatNotifier, (name, task) -> pending.add(task), Runnable::run);
+
+        deferred.onMessageSent(event(textResult("안녕")));
+
+        verifyNoInteractions(chatRoomUsers, chatNotifier);
+        assertThat(pending).hasSize(1);
     }
 
 }
