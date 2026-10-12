@@ -1,7 +1,10 @@
 package team.codingforest.moyeota.matching.party.domain;
 
+import team.codingforest.moyeota.matching.party.dto.MemberJoined;
+import team.codingforest.moyeota.matching.party.dto.MemberLeft;
+
 public interface PartyChangeNotifier {
-    void changed(Long partyId);
+    void memberJoined(Long partyId, MemberJoined event);
+    void memberLeft(Long partyId, Long memberId, MemberLeft event);
     void closed(Long partyId);
-    void left(Long partyId, Long memberId);
 }

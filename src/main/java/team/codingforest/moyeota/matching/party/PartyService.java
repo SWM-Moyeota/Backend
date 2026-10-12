@@ -14,6 +14,8 @@ import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
 import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
+import team.codingforest.moyeota.matching.party.dto.MemberJoined;
+import team.codingforest.moyeota.matching.party.dto.MemberLeft;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
@@ -30,10 +32,12 @@ import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
+import team.codingforest.moyeota.user.api.MemberSummary;
 import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -82,6 +86,10 @@ public class PartyService {
     @Transactional
     public PartyStatusResponse join(Long partyId, Long memberId) {
         validateNotInOngoingParty(memberId);
+
+        MemberSummary summary = userAccess.findMemberSummaries(List.of(memberId)).get(memberId);
+        int rideCount = parties.countFinishedRides(List.of(memberId)).getOrDefault(memberId, 0);
+
         Party party = parties.findByIdForUpdate(partyId)
                         .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
@@ -92,9 +100,14 @@ public class PartyService {
         }
 
         log.info("매칭방에 사용자 참가됨 partyId={}, memberId={}, status={}", partyId, memberId, party.getStatus());
+
         Party saved = parties.save(party);
+
         eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
-        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.changed(partyId));
+
+        MemberJoined event = MemberJoined.from(PartyDetailResult.MemberInfo.of(summary, rideCount), saved.getStatus().name());
+
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.memberJoined(partyId, event));
 
         List<Long> memberIds = saved.getMembers().stream().map(PartyMember::getMemberId).toList();
 
@@ -104,6 +117,10 @@ public class PartyService {
 
     @Transactional
     public void leave(Long partyId, Long memberId) {
+        MemberSummary summary = userAccess.findMemberSummaries(List.of(memberId)).get(memberId);
+
+        UUID publicId = summary == null ? null : summary.publicId();
+
         Party party = parties.findByIdForUpdate(partyId)
                         .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
@@ -116,9 +133,8 @@ public class PartyService {
             afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
         }
         else {
-            // 나간 사람의 연결을 먼저 닫는다 - 순서가 반대면 나간 사람도 changed 를 받아 쓸데없이 상세를 다시 읽는다
-            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.left(partyId, memberId));
-            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.changed(partyId));
+            MemberLeft event = MemberLeft.from(publicId, party.getStatus().name());
+            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.memberLeft(partyId, memberId, event));
         }
 
         log.info("매칭방에서 사용자 나감 partyId={}, memberId={}, status={}, members={}", partyId, memberId, party.getStatus(), party.getMembers().size());

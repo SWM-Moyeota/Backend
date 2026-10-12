@@ -16,6 +16,8 @@ import team.codingforest.moyeota.matching.party.completion.ChatOnlyCompletionPol
 import team.codingforest.moyeota.matching.party.completion.DispatchCompletionPolicy;
 import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
+import team.codingforest.moyeota.matching.party.dto.MemberJoined;
+import team.codingforest.moyeota.matching.party.dto.MemberLeft;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
@@ -148,7 +150,7 @@ class PartyServiceTest {
         assertThat(detail.members())
                 .filteredOn(m -> m.publicId() == null)
                 .singleElement()
-                .satisfies(m -> assertThat(m.joinedAt()).isNotNull());
+                .satisfies(m -> assertThat(m.nickname()).isNull());
     }
 
     @Test
@@ -319,12 +321,35 @@ class PartyServiceTest {
     // ───────────────────────── SSE 신호 (아웃박스에 남기지 않는 실시간 전파) ─────────────────────────
 
     @Test
-    void 참여하면_changed_신호를_보낸다() {
+    void 참여하면_들어온_사람_정보와_방_상태를_보낸다() {
+        userAccess.등록(participant, "참가자");
         PartyResult party = service.open(createParty(host, 3));
 
         service.join(party.id(), participant);
 
-        assertThat(signals.sent).containsExactly(party.id() + ":changed");
+        assertThat(signals.sent).containsExactly(party.id() + ":member-joined");
+        MemberJoined event = signals.joined.getFirst();
+        assertThat(event.member().publicId()).isEqualTo(userAccess.publicIdOf(participant));
+        assertThat(event.member().nickname()).isEqualTo("참가자");
+        assertThat(event.status()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    void 정원이_차는_참여는_바뀐_방_상태를_함께_보낸다() {
+        PartyResult party = service.open(createParty(host, 2));
+
+        service.join(party.id(), participant);
+
+        assertThat(signals.joined.getFirst().status()).as("기본 정책은 정원이 차면 배차를 시작한다").isEqualTo("MATCHING");
+    }
+
+    @Test
+    void 유저_요약이_없는_사람이_참여해도_신호는_나간다() {
+        PartyResult party = service.open(createParty(host, 3));
+
+        service.join(party.id(), guest);
+
+        assertThat(signals.joined.getFirst().member().publicId()).isNull();
     }
 
     @Test
@@ -335,15 +360,29 @@ class PartyServiceTest {
     }
 
     @Test
-    void 사람이_남아_있는_방에서_나가면_나간_사람의_연결을_닫고_남은_사람에게_changed_를_보낸다() {
+    void 사람이_남아_있는_방에서_나가면_나간_사람의_publicId_와_방_상태를_보낸다() {
+        userAccess.등록(participant, "참가자");
         PartyResult party = service.open(createParty(host, 3));
         service.join(party.id(), participant);
         signals.sent.clear();
 
         service.leave(party.id(), participant);
 
-        // 순서가 반대면 나간 사람도 changed 를 받아 쓸데없이 상세를 다시 읽는다
-        assertThat(signals.sent).containsExactly(party.id() + ":left:" + participant, party.id() + ":changed");
+        assertThat(signals.sent).containsExactly(party.id() + ":member-left:" + participant);
+        MemberLeft event = signals.left.getFirst();
+        assertThat(event.publicId()).isEqualTo(userAccess.publicIdOf(participant));
+        assertThat(event.status()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    void 정원이_찬_방에서_한_명이_나가면_모집_중으로_돌아간_상태를_보낸다() {
+        service = serviceWith(new ChatOnlyCompletionPolicy());
+        PartyResult party = service.open(createParty(host, 2));
+        service.join(party.id(), participant);
+
+        service.leave(party.id(), participant);
+
+        assertThat(signals.left.getFirst().status()).isEqualTo("ACTIVE");
     }
 
     @Test
@@ -359,12 +398,12 @@ class PartyServiceTest {
 
         assertThat(signals.sent).isEmpty();
         deferred.forEach(Runnable::run);
-        assertThat(signals.sent).contains(party.id() + ":left:" + participant);
+        assertThat(signals.sent).containsExactly(party.id() + ":member-left:" + participant);
     }
 
     @Test
-    void 연결_닫기가_실패해도_남은_사람에게_가는_changed_는_나간다() {
-        // 두 신호를 한 작업에 묶으면 앞의 것이 실패할 때 뒤의 것까지 사라진다
+    void 나가기는_연결_닫기와_퇴장_알림을_신호_하나로_맡긴다() {
+        // 한 메시지라야 받는 서버에서 연결 닫기가 알림보다 항상 먼저 실행된다
         List<Runnable> deferred = new ArrayList<>();
         service = serviceWith(new DispatchCompletionPolicy(events), (name, task) -> deferred.add(task));
         PartyResult party = service.open(createParty(host, 3));
@@ -373,7 +412,7 @@ class PartyServiceTest {
 
         service.leave(party.id(), participant);
 
-        assertThat(deferred).as("신호마다 따로 맡긴다").hasSize(2);
+        assertThat(deferred).hasSize(1);
     }
 
     @Test
@@ -383,7 +422,7 @@ class PartyServiceTest {
         service.leave(party.id(), host);
 
         assertThat(signals.sent)
-                .as("닫힐 방의 상세를 다시 조회하게 만드는 changed 는 내지 않는다")
+                .as("닫힐 방이라 퇴장 알림은 내지 않는다")
                 .containsExactly(party.id() + ":closed");
     }
 
@@ -397,7 +436,7 @@ class PartyServiceTest {
 
         assertThat(signals.sent).as("커밋 전에는 나가지 않는다 - 롤백되면 영영 안 나간다").isEmpty();
         deferred.forEach(Runnable::run);
-        assertThat(signals.sent).containsExactly(party.id() + ":changed");
+        assertThat(signals.sent).containsExactly(party.id() + ":member-joined");
     }
 
     @Test
@@ -838,23 +877,27 @@ class PartyServiceTest {
     /** 트랜잭션이 없는 단위 테스트용 - 맡긴 작업을 그 자리에서 실행한다 */
     private static final AfterCommitExecutor IMMEDIATE = (name, task) -> task.run();
 
-    /** 나간 SSE 신호를 "partyId:이름" 으로 기록한다 */
+    /** 나간 SSE 신호를 "partyId:이름" 으로 기록하고, 실린 내용은 따로 모은다 */
     static class RecordingPartyChangeNotifier implements PartyChangeNotifier {
         final List<String> sent = new ArrayList<>();
+        final List<MemberJoined> joined = new ArrayList<>();
+        final List<MemberLeft> left = new ArrayList<>();
 
         @Override
-        public void changed(Long partyId) {
-            sent.add(partyId + ":changed");
+        public void memberJoined(Long partyId, MemberJoined event) {
+            sent.add(partyId + ":member-joined");
+            joined.add(event);
+        }
+
+        @Override
+        public void memberLeft(Long partyId, Long memberId, MemberLeft event) {
+            sent.add(partyId + ":member-left:" + memberId);
+            left.add(event);
         }
 
         @Override
         public void closed(Long partyId) {
             sent.add(partyId + ":closed");
-        }
-
-        @Override
-        public void left(Long partyId, Long memberId) {
-            sent.add(partyId + ":left:" + memberId);
         }
     }
 
