@@ -4,7 +4,6 @@ import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.PartyStatusSnapshot;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 
 import java.time.Instant;
@@ -22,12 +21,6 @@ public class PartyJpaTest implements Parties {
     @Override
     public Optional<Party> findById(Long id) {
         return Optional.ofNullable(store.get(id));
-    }
-
-    @Override
-    public Optional<PartyStatusSnapshot> findStatusSnapshotById(Long id) {
-        return findById(id).map(p -> new PartyStatusSnapshot(p.getId(), p.getStatus(),
-                p.getMembers().stream().map(m -> m.getMemberId()).toList()));
     }
 
     @Override
