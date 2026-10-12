@@ -10,6 +10,9 @@ import team.codingforest.moyeota.driver.domain.BankAccount;
 import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Vehicle;
 
+import java.util.List;
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
@@ -121,5 +124,35 @@ class DriverJpaPersistenceTest {
         assertThat(vehicle.seats()).isEqualTo(6);
         assertThat(vehicle.type()).isEqualTo("대형");
         assertThat(em.createQuery("select count(v) from VehicleEntity v", Long.class).getSingleResult()).isEqualTo(1L);
+    }
+
+    // ───────────────────────── FCM 토큰 일괄 조회 ─────────────────────────
+
+    @Test
+    void 토큰이_있는_기사만_한_번에_조회된다() {
+        Driver 토큰기사 = registerAndSave();
+        토큰기사.registerFcmToken("token-a");
+        drivers.save(토큰기사);
+        Driver 무토큰기사 = drivers.save(Driver.register(2L, "서울-9999-0000", new BankAccount("국민은행", "999-999-999999")));
+        reload();
+
+        Map<Long, String> tokens = drivers.findFcmTokens(List.of(토큰기사.getId(), 무토큰기사.getId(), 999L));
+
+        assertThat(tokens).containsExactly(Map.entry(토큰기사.getId(), "token-a"));
+    }
+
+    @Test
+    void 빈_토큰_문자열은_제외된다() {
+        Driver driver = registerAndSave();
+        reload();
+        em.createQuery("update DriverEntity d set d.fcmToken = '' where d.id = :id").setParameter("id", driver.getId()).executeUpdate();
+        reload();
+
+        assertThat(drivers.findFcmTokens(List.of(driver.getId()))).isEmpty();
+    }
+
+    @Test
+    void 빈_목록이면_조회하지_않고_빈_맵을_돌려준다() {
+        assertThat(drivers.findFcmTokens(List.of())).isEmpty();
     }
 }

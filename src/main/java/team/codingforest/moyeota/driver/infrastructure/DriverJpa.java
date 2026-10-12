@@ -5,9 +5,13 @@ import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Drivers;
+import team.codingforest.moyeota.driver.dto.DriverFcmToken;
 import team.codingforest.moyeota.driver.exception.DriverErrorCode;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor
@@ -40,5 +44,11 @@ public class DriverJpa implements Drivers {
     public Optional<Driver> findByUserId(Long userId) {
         return delegate.findByUserId(userId)
                 .map(DriverEntity::toDomain);
+    }
+
+    @Override
+    public Map<Long, String> findFcmTokens(Collection<Long> ids) {
+        if(ids.isEmpty()) return Map.of();
+        return delegate.findFcmTokens(ids).stream().collect(Collectors.toMap(DriverFcmToken::driverId, DriverFcmToken::fcmToken));
     }
 }

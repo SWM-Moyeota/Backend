@@ -67,16 +67,14 @@ class ReportServiceTest {
     }
 
     @Test
-    void 운행_중이면_스냅샷_조회가_실패해도_저장된다() {
-        // 가드(정책 검증)와 저장 원칙의 공존 - 가드 통과 후의 조회 실패는 저장을 막지 않는다
+    void 운행_중이어도_스냅샷_조회가_실패하면_신고는_저장되지_않는다() {
         운행중();
         partyAccess.explodeOnFindSummary = true;
 
-        Long reportId = service.report(신고자, 방번호, null, null);
+        assertThatThrownBy(() -> service.report(신고자, 방번호, null, null))
+                .isInstanceOf(IllegalStateException.class);
 
-        Report saved = reports.findById(reportId).orElseThrow();
-        assertThat(saved.getDriverId()).isNull();
-        assertThat(saved.getStatus()).isEqualTo(ReportStatus.REPORTED);
+        assertThat(reports.findLatestByReporterId(신고자)).isEmpty();
     }
 
     @Test

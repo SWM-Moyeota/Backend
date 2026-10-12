@@ -165,6 +165,34 @@ class DispatchServiceTest {
     }
 
     @Test
+    void 기사가_배정된_뒤_같은_이벤트가_다시_와도_콜을_다시_뿌리지_않는다() {
+        locations.nearby = List.of(1L, 2L, 3L);
+        DispatchService service = serviceWith(Set.of(1L, 2L, 3L));
+        service.dispatch(방번호);
+        service.acceptCall(방번호, 2L);
+        notifier.notifiedDrivers.clear();
+
+        service.dispatch(방번호);
+
+        assertThat(notifier.notifiedDrivers).isEmpty();
+        assertThat(candidates.findAll(방번호)).isEmpty();
+    }
+
+    @Test
+    void 기사가_배정된_방은_재탐색에서도_콜을_뿌리지_않는다() {
+        locations.nearby = List.of(1L);
+        DispatchService service = serviceWith(Set.of(1L, 2L));
+        service.dispatch(방번호);
+        service.acceptCall(방번호, 1L);
+        notifier.notifiedDrivers.clear();
+        locations.nearby = List.of(2L);
+
+        service.attempt(방번호, 1500);
+
+        assertThat(notifier.notifiedDrivers).isEmpty();
+    }
+
+    @Test
     void 수락한_기사는_기사_검색_풀에서_제외된다() {
         locations.nearby = List.of(1L, 2L);
         DispatchService service = serviceWith(Set.of(1L, 2L));

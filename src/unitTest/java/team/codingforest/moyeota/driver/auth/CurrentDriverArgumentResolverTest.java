@@ -13,6 +13,7 @@ import team.codingforest.moyeota.driver.domain.Drivers;
 import team.codingforest.moyeota.driver.exception.DriverErrorCode;
 import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -117,6 +118,16 @@ class CurrentDriverArgumentResolverTest {
         @Override
         public Optional<Driver> findByUserId(Long userId) {
             return store.values().stream().filter(d -> d.getUserId().equals(userId)).findFirst();
+        }
+
+        @Override
+        public Map<Long, String> findFcmTokens(Collection<Long> ids) {
+            Map<Long, String> tokens = new HashMap<>();
+            for(Long id : ids) {
+                Driver driver = store.get(id);
+                if(driver != null && driver.getFcmToken() != null && !driver.getFcmToken().isEmpty()) tokens.put(id, driver.getFcmToken());
+            }
+            return tokens;
         }
     }
 }
