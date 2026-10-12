@@ -155,6 +155,14 @@ class LocalUserServiceTest {
 
         @Override
         public boolean existsByLoginId(String loginId) { return byLoginId.containsKey(loginId); }
+
+        @Override
+        public Optional<LocalUser> findByUserId(Long userId) {
+            return byLoginId.values().stream().filter(u -> u.getUserId().equals(userId)).findFirst();
+        }
+
+        @Override
+        public void deleteByUserId(Long userId) { byLoginId.values().removeIf(u -> u.getUserId().equals(userId)); }
     }
 
     static class FakeUserProfiles implements UserProfiles {
@@ -170,5 +178,8 @@ class LocalUserServiceTest {
         public boolean existsByPhoneNumber(String phone) {
             return byUserId.values().stream().anyMatch(p -> p.getPhoneNumber().equals(phone));
         }
+
+        @Override
+        public void deleteByUserId(Long userId) { byUserId.remove(userId); }
     }
 }

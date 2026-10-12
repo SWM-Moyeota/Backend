@@ -286,6 +286,9 @@ class SmsVerificationServiceTest {
 
         @Override
         public boolean existsByPhoneNumber(String normalizedPhoneNumber) { return registered.contains(normalizedPhoneNumber); }
+
+        @Override
+        public void deleteByUserId(Long userId) { }
     }
 
     static class FakeUserDeletions implements UserDeletions {
