@@ -22,7 +22,7 @@ public class FakeUsers implements Users {
     public User save(User user) {
         Long id = user.getId() != null ? user.getId() : ++seq;
         User restored = User.restore(id, user.getPublicId(), user.getNickname(), user.getImageUrl(),
-                user.getLoginType(), user.getBadgeId(), user.getFcmToken(), user.getUpdatedAt());
+                user.getLoginType(), user.getBadgeId(), user.getFcmToken(), user.getUpdatedAt(), user.getDeletedAt());
         store.put(id, restored);
         return restored;
     }

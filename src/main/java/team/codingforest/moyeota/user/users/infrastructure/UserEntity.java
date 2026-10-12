@@ -11,6 +11,7 @@ import team.codingforest.moyeota.common.BaseTimeEntity;
 import team.codingforest.moyeota.user.users.domain.User;
 import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -37,6 +38,9 @@ public class UserEntity extends BaseTimeEntity {
 
     private String fcmToken;
 
+    // null 이면 정상 회원. 탈퇴해도 행은 남긴다 (soft delete)
+    private Instant deletedAt;
+
     private UserEntity(UUID publicId, String nickname, String imageUrl, LoginType loginType, Long badgeId, String fcmToken) {
         this.publicId = publicId;
         this.nickname = nickname;
@@ -55,6 +59,7 @@ public class UserEntity extends BaseTimeEntity {
         this.imageUrl = user.getImageUrl();
         this.badgeId = user.getBadgeId();
         this.fcmToken = user.getFcmToken();
+        this.deletedAt = user.getDeletedAt();
     }
 
     public User toDomain() {
@@ -66,7 +71,8 @@ public class UserEntity extends BaseTimeEntity {
                 loginType,
                 badgeId,
                 fcmToken,
-                getUpdatedAt()
+                getUpdatedAt(),
+                deletedAt
         );
     }
 
