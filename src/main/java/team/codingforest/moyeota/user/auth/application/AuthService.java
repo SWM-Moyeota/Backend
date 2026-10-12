@@ -58,6 +58,7 @@ public class AuthService {
 
     private Long loadAndCache(UUID publicId) {
         Long userId = users.findByPublicId(publicId)
+                .filter(user -> !user.isDeleted())   // 탈퇴자 토큰은 남은 만료 시간과 상관없이 거절
                 .map(User::getId)
                 .orElseThrow(() -> new UserException(UserErrorCode.TOKEN_INVALID));   // 없는 사용자는 캐시하지 않는다
 

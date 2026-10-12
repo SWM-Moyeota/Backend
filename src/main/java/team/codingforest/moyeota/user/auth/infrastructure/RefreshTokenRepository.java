@@ -16,4 +16,8 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshTokenEntity
     @Modifying(clearAutomatically = true)
     @Query("UPDATE RefreshTokenEntity r SET r.cancelledAt = :now, r.updatedAt = :now WHERE r.jti = :jti AND r.cancelledAt IS NULL AND r.expiresAt > :now")
     int consume(@Param("jti") UUID jti, @Param("now") Instant now);
+
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE RefreshTokenEntity r SET r.cancelledAt = :now, r.updatedAt = :now WHERE r.userId = :userId AND r.cancelledAt IS NULL")
+    int cancelAllByUserId(@Param("userId") Long userId, @Param("now") Instant now);
 }

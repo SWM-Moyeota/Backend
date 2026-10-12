@@ -81,6 +81,33 @@ class AuthServiceTest {
     }
 
     @Test
+    void 탈퇴한_사용자의_토큰은_만료_전이라도_거부하고_캐시에_남기지_않는다() {
+        User user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL));
+        user.delete(Instant.now());
+        users.save(user);
+
+        assertThatThrownBy(() -> service.authenticate(accessTokenOf(user.getPublicId())))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode").isEqualTo(UserErrorCode.TOKEN_INVALID);
+        assertThat(cache.store).isEmpty();
+    }
+
+    @Test
+    void 탈퇴_뒤_캐시를_비우면_다음_요청부터_거부된다() {
+        User user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL));
+        String token = accessTokenOf(user.getPublicId());
+        service.authenticate(token);   // 탈퇴 전 요청으로 캐시에 올라가 있다
+        user.delete(Instant.now());
+        users.save(user);
+
+        cache.evict(user.getPublicId());
+
+        assertThatThrownBy(() -> service.authenticate(token))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode").isEqualTo(UserErrorCode.TOKEN_INVALID);
+    }
+
+    @Test
     void 캐시에_있는_사용자라도_토큰_검증은_매번_한다() {
         User user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL));
         service.authenticate(accessTokenOf(user.getPublicId()));   // 캐시에 올린다
@@ -138,6 +165,11 @@ class AuthServiceTest {
         @Override
         public void save(UUID publicId, Long userId) {
             if(!broken) store.put(publicId, userId);
+        }
+
+        @Override
+        public void evict(UUID publicId) {
+            store.remove(publicId);
         }
     }
 }

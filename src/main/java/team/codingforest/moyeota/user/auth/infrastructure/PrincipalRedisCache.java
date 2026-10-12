@@ -43,4 +43,13 @@ public class PrincipalRedisCache implements PrincipalCache {
             log.warn("인증 캐시 저장 실패 publicId={}", publicId, e);
         }
     }
+
+    @Override
+    public void evict(UUID publicId) {
+        try {
+            redisTemplate.delete(PREFIX + publicId);
+        } catch (Exception e) {
+            log.warn("인증 캐시 삭제 실패, TTL 만료에 맡김 publicId={}", publicId, e);
+        }
+    }
 }

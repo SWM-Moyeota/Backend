@@ -6,4 +6,5 @@ import java.util.UUID;
 public interface PrincipalCache {
     Optional<Long> findUserId(UUID publicId);
     void save(UUID publicId, Long userId);
+    void evict(UUID publicId);
 }
