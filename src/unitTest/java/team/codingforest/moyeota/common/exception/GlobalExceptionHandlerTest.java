@@ -19,6 +19,7 @@ import team.codingforest.moyeota.driver.domain.Drivers;
 import team.codingforest.moyeota.driver.DriverController;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -151,6 +152,16 @@ class GlobalExceptionHandlerTest {
             return store.values().stream()
                     .filter(driver -> driver.getUserId().equals(userId))
                     .findFirst();
+        }
+
+        @Override
+        public Map<Long, String> findFcmTokens(Collection<Long> ids) {
+            Map<Long, String> tokens = new HashMap<>();
+            for(Long id : ids) {
+                Driver driver = store.get(id);
+                if(driver != null && driver.getFcmToken() != null && !driver.getFcmToken().isEmpty()) tokens.put(id, driver.getFcmToken());
+            }
+            return tokens;
         }
     }
 }
