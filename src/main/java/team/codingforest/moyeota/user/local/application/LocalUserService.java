@@ -21,6 +21,7 @@ import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
 import team.codingforest.moyeota.user.local.dto.UserResponse;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
+import team.codingforest.moyeota.user.verification.application.SmsVerificationService;
 
 @Service
 @RequiredArgsConstructor
@@ -30,9 +31,13 @@ public class LocalUserService {
     private final UserProfiles userProfiles;
     private final PasswordHasher passwordHasher;
     private final IdGenerator idGenerator;
+    private final SmsVerificationService smsVerificationService;
 
     @Transactional // users / local_user / profile 3개 테이블 원자 저장
     public UserResponse register(UserRegisterCommand command) {
+        // 인증 안 된 요청이면 중복 조회 전에 끊음
+        smsVerificationService.checkVerified(command.verificationToken(), command.phoneNumber());
+
         if(localUsers.existsByLoginId(command.loginId())) {
             throw new UserException(UserErrorCode.LOGIN_ID_DUPLICATED);
         }
@@ -52,6 +57,9 @@ public class LocalUserService {
         UserProfile userProfile = UserProfile.of(user.getId(), command.name(), command.birthDate(), command.phoneNumber(), command.gender(), command.email());
 
         userProfiles.save(userProfile);
+
+        // 저장까지 끝난 뒤에 지움 - 닉네임 중복 등으로 실패하면 인증을 다시 하지 않고 재시도 가능
+        smsVerificationService.consume(command.verificationToken());
 
         return new UserResponse(user.getPublicId(), user.getNickname());
     }
