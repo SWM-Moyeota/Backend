@@ -30,7 +30,9 @@ class UserAccessService implements UserAccess {
         Map<Long, MemberSummary> result = new HashMap<>();
 
         for(User user : users.findAllByIds(userIds)) {
-            result.put(user.getId(), new MemberSummary(user.getPublicId(), user.getNickname(), user.getImageUrl(), user.getBadgeId()));
+            // 탈퇴자는 배지도 숨긴다 - 이름만 바꾸고 배지가 남으면 누군지 짐작할 단서가 된다
+            Long badgeId = user.isDeleted() ? null : user.getBadgeId();
+            result.put(user.getId(), new MemberSummary(user.getPublicId(), user.displayNickname(), user.getImageUrl(), badgeId));
         }
 
         return result;
@@ -42,6 +44,6 @@ class UserAccessService implements UserAccess {
         // findById 는 없으면 예외를 던지므로 목록 조회로 empty 를 만든다
         return users.findAllByIds(List.of(userId)).stream()
                 .findFirst()
-                .map(User::getNickname);
+                .map(User::displayNickname);
     }
 }

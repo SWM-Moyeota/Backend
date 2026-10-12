@@ -11,6 +11,12 @@ import java.util.UUID;
 /** publicId 는 밖(IdGenerator, UUID v7)에서 만들어 넘김. 토큰 sub 에만 쓰여 노출 적고, unique 인덱스 효율이 이득 */
 @Getter
 public class User {
+    /**
+     * 탈퇴자를 남에게 보여줄 때 쓰는 이름
+     * 탈퇴하면 닉네임을 비워서 닉네임 미설정(null)과 구분하려고 둠
+     */
+    public static final String DELETED_DISPLAY_NAME = "탈퇴한 사용자";
+
     private final Long id;
     private final UUID publicId;
     private String nickname;
@@ -73,6 +79,10 @@ public class User {
 
     public boolean isDeleted() {
         return deletedAt != null;
+    }
+
+    public String displayNickname() {
+        return isDeleted() ? DELETED_DISPLAY_NAME : nickname;
     }
 
     public void delete(Instant now) {
