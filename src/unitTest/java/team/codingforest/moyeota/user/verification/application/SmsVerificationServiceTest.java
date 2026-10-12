@@ -302,5 +302,12 @@ class SmsVerificationServiceTest {
             Instant at = deletedAt.get(normalizedPhoneNumber);
             return at != null && at.isAfter(since);
         }
+
+        @Override
+        public int deleteRecordedBefore(Instant before) {
+            int size = deletedAt.size();
+            deletedAt.values().removeIf(at -> at.isBefore(before));
+            return size - deletedAt.size();
+        }
     }
 }

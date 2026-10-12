@@ -23,4 +23,9 @@ public class UserDeletionJpa implements UserDeletions {
     public boolean existsDeletedSince(String phoneNumber, Instant since) {
         return repository.existsByPhoneHashAndDeletedAtAfter(hasher.hash(phoneNumber), since);
     }
+
+    @Override
+    public int deleteRecordedBefore(Instant before) {
+        return repository.deleteRecordedBefore(before);
+    }
 }

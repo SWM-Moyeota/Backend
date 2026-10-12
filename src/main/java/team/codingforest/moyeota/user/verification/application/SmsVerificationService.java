@@ -31,7 +31,6 @@ public class SmsVerificationService {
     private static final int DAILY_LIMIT = 5;
     private static final int MAX_ATTEMPTS = 5;
     private static final Duration VERIFIED_TTL = Duration.ofMinutes(10);
-    private static final Duration REJOIN_RESTRICTION = Duration.ofDays(30);
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final SmsVerifications smsVerifications;
@@ -63,7 +62,7 @@ public class SmsVerificationService {
         if (userProfiles.existsByPhoneNumber(phone)) {   // 가입된 번호면 문자 비용을 쓰기 전에 거절
             throw new UserException(UserErrorCode.PHONE_NUMBER_DUPLICATED);
         }
-        if (userDeletions.existsDeletedSince(phone, Instant.now().minus(REJOIN_RESTRICTION))) {
+        if (userDeletions.existsDeletedSince(phone, Instant.now().minus(UserDeletions.RETENTION))) {
             throw new UserException(UserErrorCode.REJOIN_RESTRICTED);   // 탈퇴 후 바로 재가입해 제재를 피하는 것을 막는다
         }
 
