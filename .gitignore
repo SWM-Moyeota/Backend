@@ -29,11 +29,7 @@ Thumbs.db
 *.mv.db
 *.trace.db
 *.log
-
-### Secrets & Local configs (선택) ###
-# API 키나 DB 비밀번호가 들어간 로컬 설정파일이 있다면 주석을 해제해 무시하세요.
-# application-local.yml
-# application-secret.yml
+/logs/
 
 ### ai (선택)
 *.ai
@@ -42,6 +38,17 @@ AGENTS.md
 # 로컬 시크릿 설정
 application-local.yaml
 application-local.yml
+.env
+.env.*
+
+# 인증서·키 파일
+*.pem
+*.p12
+*.jks
+*.key
+
+# Claude Code 개인 설정
+.claude/settings.local.json
 
 ### secrets 폴더 내에 json 파일
 /secrets/
