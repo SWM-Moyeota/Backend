@@ -32,9 +32,9 @@
 | 방 만들기 | 즐겨찾기 → 경로 미리보기(`POST /matching/routes`) → 방 생성. 장소 검색(카카오)은 부하에서 뺀다 |
 | 참여 | 상세 1회(참여 확인 화면) → join |
 | 21 대기 (폴링, SSE 전) | 상세 즉시 + **4초** 폴링. 1차 배포에선 `COMPLETED` 에서도 계속 돈다(`FINISHED` 까지) |
-| 21 대기 (SSE 후) | `GET /rooms/{id}/events` 연결 1개 유지. `connected`·`changed` 마다 상세 1회, `closed` 면 홈. 서버가 5초마다 `:ping` |
+| 21 대기 (SSE 후) | `GET /rooms/{id}/events` 연결 1개 유지. `connected`(방 상세 전체, 재연결도 같다)로 화면을 그리고, `member-joined`·`member-left`(변경분)는 들고 있는 멤버 목록에 더하고 뺀다. 상세 재조회 없음. `closed` 면 홈. 서버가 30초마다 `:ping` |
 | 채팅 (폴링, SSE 전) | 채팅 탭 `/chat-rooms/me` → 방 열기 3건(첫 페이지·참여자·방 정보) → 소켓 + 읽음(소켓) + 폴링. **21 의 4초 폴링은 채팅 화면 아래에서 계속 돈다** |
-| 채팅 (SSE 후) | 위와 같되 방 상세 4초 폴링이 없다. 방 변화는 SSE 로 받고, 놓친 신호에 대비해 `GET /rooms/{id}/status`(상태·인원·지문)만 **30초**마다 확인한다. 지문이 방 상세에서 받은 값과 다르면 그때 상세 1회 |
+| 채팅 (SSE 후) | 위와 같되 방 상세 4초 폴링이 없다. 방 변화는 SSE 변경분(`member-joined`·`member-left`·`closed`)으로만 받는다. 상태 폴링·상세 재조회·지문 비교 없음(`/rooms/{id}/status` 는 서버에서 제거) |
 | 채팅 폴링 | 소켓으로 메시지를 **한 번이라도 받기 전엔 3초**, 받은 뒤엔 20초. 커서가 없으면 첫 페이지를 다시 읽는다 (`after?cursor=0` 은 서버가 400) |
 
 1차 배포에선 `/chat-rooms/me` 10초 폴링이 **돌지 않는다**(앱이 대기 단계에선 건너뛴다). 그래서 21 화면의 「채팅 열기」 버튼도 뜨지 않고, 채팅은 채팅 탭으로 들어간다.
@@ -90,9 +90,8 @@ k6 run -o experimental-prometheus-rw -e VUS=30 d6-soak.js                 # 45�
 
 # ── SSE 전환 후 (xk6-sse 바이너리로) ──
 ./k6 run -o experimental-prometheus-rw -e CONCURRENT=100 d1-polling-sse.js         # D1 과 같은 100명, 요청은 절반·연결 60개
-./k6 run -o experimental-prometheus-rw -e VUS=90 -e USE_SSE=1 --summary-export=results/d2-sse-90.json d2-journey.js   # 대기를 SSE 로, 채팅 중에는 방 상태만 30초마다. sse_propagation_ms 가 핵심
-./k6 run -o experimental-prometheus-rw -e VUS=90 -e USE_SSE=1 -e LEGACY_DETAIL_POLL=1 d2-journey.js   # 비교용 - 채팅 중 방 상세 4초 폴링(앱이 바뀌기 전)
-./k6 run -o experimental-prometheus-rw -e CONNS=300 d7-sse-connections.js          # 연결 100→200→300 + 초당 2건 변화
+./k6 run -o experimental-prometheus-rw -e VUS=90 -e USE_SSE=1 --summary-export=results/d2-sse-90.json d2-journey.js   # 대기를 SSE 로, 채팅 중에는 방 호출 없음. 요청 수·sse_connect_ms·sse_errors 를 본다
+./k6 run -o experimental-prometheus-rw -e CONNS=300 d7-sse-connections.js          # 연결 100→200→300 + 초당 2건 나갔다 들어오기(member-left·member-joined)
 ```
 
 | # | 확인하는 것 | 합격선 |
@@ -105,8 +104,8 @@ k6 run -o experimental-prometheus-rw -e VUS=30 d6-soak.js                 # 45�
 | D5 | 어디서 꺾이는가 | 기준 없음 - `hikaricp_connections_pending`(DB) vs `system_cpu_usage`(앱) |
 | D6 | 메모리·CPU 크레딧, 방치된 방이 30~40분 안에 FINISHED 되고 멤버가 풀려나는가 | 자동 종료 ≤ 42분 |
 | D1-SSE | D1 과 같은 동시 접속에서 요청 수·연결 수·힙이 어떻게 바뀌나 (전후 비교) | 요청별 p95 < 300ms, `sse_connect_ms` p95 < 1s, `sse_errors` 0 |
-| D2 `USE_SSE=1` | **반영 지연** — 남이 join 한 순간부터 내 화면에 신호가 올 때까지 (폴링은 평균 2초) | `sse_propagation_ms` p95 < 500ms |
-| D7 | SSE 동시 연결 한계. `process_open_fds`·힙·`tomcat_threads_busy`(연결이 스레드를 안 잡는지) | 연결 300 에서 propagation p95 유지, `sse_errors` 0 |
+| D2 `USE_SSE=1` | 대기를 SSE 로 바꿨을 때 전체 여정의 요청 수·지연이 폴링 D2 대비 어떻게 바뀌나. 반영 지연 지표는 제거됐다(아래 주의) | D2 와 같음 (p95 < 500ms, 채팅 전달 p95 < 500ms). 종료 확인 때 이미 비어 닫힌 방(CANCELED)은 구독이 403 이라 `sse_errors` 에 잡힌다 |
+| D7 | SSE 동시 연결 한계. `process_open_fds`·힙·`tomcat_threads_busy`(연결이 스레드를 안 잡는지) | 연결 300 에서 `sse_connect_ms` p95 < 1s 유지, `sse_errors` 0 |
 
 순서: D0 → D3 → D5 로 천장 → 그 60~70% 로 D1·D2 → D4 → D6.
 SSE 배포 뒤: 폴링 D1 결과를 baseline 으로 두고 → D1-SSE → D2 `USE_SSE=1` → D7. 같은 `CONCURRENT`·`VUS` 로 돌려야 비교가 된다.
@@ -130,8 +129,8 @@ SSE 배포 뒤: 폴링 D1 결과를 baseline 으로 두고 → D1-SSE → D2 `US
 - 테스트가 중간에 죽으면 `ACTIVE` 방에 갇힌 사용자가 남는다(스윕은 `COMPLETED` 만 닫는다). 새 `RUN_ID` 로 다시 seed 하거나 Neon 브랜치를 새로 뜬다.
 - **D3 은 동시 요청이 Hikari 풀(10)을 넘는다.** 5xx 나 30초 멈춤이 나오면 커넥션 풀 데드락이다 - 서버 로그에서 `Connection is not available` 을 찾을 것. `-e ROOMS=3 -e RACERS=3` 으로 낮춰 스크립트 자체는 확인할 수 있다.
 - D4·D2 의 전달 지연은 보낸 쪽과 받는 쪽이 같은 k6 장비라 시계 오차가 없다. k6 를 여러 대로 나누면 이 지표는 못 쓴다.
-- `sse_propagation_ms` 는 서버가 찍은 `joinedAt` 과 k6 의 `Date.now()` 차이다. 둘 다 AWS NTP 라 ms 단위 오차지만 음수가 보이면 시계가 어긋난 것이니 절대값이 아니라 분포로 본다.
-- xk6-sse 는 `:ping` 주석도 event 콜백으로 올린다(name 빈 문자열). 스크립트는 그걸 5초 틱으로 쓴다. 서버 heartbeat 주기를 바꾸면 `HOLD_SEC` 해상도가 같이 바뀐다.
+- 반영 지연(`sse_propagation_ms`)은 재지 않는다. 서버 응답에서 `joinedAt` 이 빠져 남이 들어온 시각을 k6 가 알 수 없다. 다시 재려면 서버 이벤트에 발생 시각이 필요하다.
+- xk6-sse 는 `:ping` 주석도 event 콜백으로 올린다(name 빈 문자열). 스크립트는 그걸 틱으로 써서 `HOLD_SEC` 가 지나면 닫는다. 서버 heartbeat 가 30초라 실제 유지 시간은 `HOLD_SEC` 보다 최대 30초 길 수 있다.
 
 
 ## 결과 보관
@@ -166,7 +165,7 @@ dev 서버 A(2a)·C(2c) 앞에 내부 ALB `moyeota-dev-alb` 가 있다. k6 는 V
 | ③ ALB + 2대 | A + C 등록 | 스케일아웃 효과. 서버 CPU 는 instance_name 으로 갈라 보고, RDS CPU 가 다음 병목인지 확인 |
 
 - 세 실행은 **같은 인스턴스 사양·같은 VUS·같은 RUN_ID 규칙**으로 돌린다. 사양을 바꿨으면 ①부터 다시 잰다
-- 2대일 때 확인할 것: SSE(`sse_propagation_ms`)가 어느 서버에 붙었든 전파되는지(Redis pub/sub), ShedLock 으로 스케줄러가 한 대만 도는지(`job-lock:moyeota:*` 키), `sql/verify.sql` 의 `missing_members` 0
+- 2대일 때 확인할 것: SSE 가 어느 서버에 붙었든 `member-joined`·`member-left` 가 전파되는지(Redis pub/sub, `sse_events` 의 name 태그별 수), ShedLock 으로 스케줄러가 한 대만 도는지(`job-lock:moyeota:*` 키), `sql/verify.sql` 의 `missing_members` 0
 - 등록 해제 뒤 ALB 가 기존 연결(SSE)을 끊는 데 등록 취소 지연(기본 300초)이 걸린다. 실행 사이에 그만큼 기다리거나 대상 그룹 속성에서 줄인다
-- ALB 유휴 제한 시간은 60초. SSE 하트비트(5초)가 있어 끊기지 않는다
+- ALB 유휴 제한 시간은 60초. SSE 하트비트(30초)가 있어 끊기지 않는다
 

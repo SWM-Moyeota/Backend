@@ -5,32 +5,29 @@
 //   방 만들기   즐겨찾기 → 경로 미리보기(POST /matching/routes) → POST /matching/rooms      ※ 장소 검색(카카오)은 부하에서 뺀다
 //   참여        GET /matching/rooms/{id}(참여 확인 화면) → POST join
 //   21 대기     GET /matching/rooms/{id} 즉시 + 4초 폴링. 1차 배포에선 COMPLETED 에서도 계속 돈다(FINISHED 까지)
-//              USE_SSE=1 이면 폴링 대신 /events 구독 - changed 신호마다 상세 1회, closed 면 홈으로
+//              USE_SSE=1 이면 폴링 대신 /events 구독 - connected(방 상세 전체)로 그리고 member-joined·member-left 만 반영, closed 면 홈으로
 //   채팅        채팅 탭 GET /chat-rooms/me → 방 열기 3건 → 소켓 + 폴링(3초→20초) + 읽음
 //              그 아래에서  폴링 앱: 21 의 방 상세 4초 폴링이 계속 돈다
-//                          SSE 앱 : 방 변화는 SSE 로 받고, 놓친 신호에 대비해 방 상태(/status)만 30초마다 확인한다. 지문이 다르면 그때 상세 1회
+//                          SSE 앱 : 방 변화는 SSE 로만 받는다. 상세 재조회·상태 폴링은 없다
 //   종료        누군가 POST finish → 나머지는  폴링 앱: 상세 폴링으로 FINISHED 를 본다 / SSE 앱: closed 신호를 받는다
 //
 // SSE 앱 모델의 한계: k6 는 한 VU 가 WebSocket 과 SSE 를 동시에 붙잡지 못한다. 그래서 채팅하는 동안에는 SSE 연결을 들고 있지 않고
-//   (실제 앱은 들고 있다 - 유휴 연결 수는 D7 로 따로 본다), 채팅이 끝난 뒤 SSE 로 closed 를 기다린다(실제 앱에는 없는 재연결 1회).
+//   (실제 앱은 들고 있다 - 유휴 연결 수는 D7 로 따로 본다), 채팅 중에 방이 닫혀도 모른 채 CHAT_SEC 을 채운다.
+//   채팅이 끝난 뒤 SSE 에 다시 붙어 connected 의 상태가 이미 닫힘이면 끝, 아니면 closed 를 기다린다(실제 앱에는 없는 재연결 1회).
 //
 // VU 3개가 한 조: (VU-1)%3 == 0 이 방장. VU 끼리 메모리를 못 나누므로 참여자는 앱처럼 목록을 폴링해 자기 조 방(destination 이 LT-g<조>- 로 시작)을 찾는다.
 import { sleep, check } from 'k6';
 import { Trend, Counter } from 'k6/metrics';
 import {
   appStart, listRooms, favoritePlaces, previewRoute, openRoom, joinRoom, leaveRoom, roomDetail, finishRoom,
-  myChatRooms, openChatRoom, roomStatus, 판교역, GROUP, spotOf, viewportAround,
+  myChatRooms, openChatRoom, 판교역, GROUP, spotOf, viewportAround,
 } from './api.js';
 import { chatSession } from './stomp.js';
-import { watchParty, latestJoinedAt, propagationOf as propagation } from './sse.js';
+import { watchParty, newRoomView, applyEvent } from './sse.js';
 
 export const USE_SSE = __ENV.USE_SSE === '1';                     // 대기 화면을 폴링 대신 SSE 로 (서버·앱 모두 SSE 배포 후)
 
 export const POLL = Number(__ENV.POLL_SEC || 4);          // 화면 17·21 의 폴링 주기
-const STATUS_POLL = Number(__ENV.STATUS_POLL_SEC || 30);  // SSE 앱의 안전망 - 채팅 화면에서 방 상태(/status)를 확인하는 주기
-// 비교용: USE_SSE=1 이어도 채팅 중에는 예전처럼 방 상세를 4초마다 폴링한다 (서버 /status 배포 전, 또는 전후 비교)
-const LEGACY_DETAIL_POLL = __ENV.LEGACY_DETAIL_POLL === '1';
-const LIGHT_WATCH = USE_SSE && !LEGACY_DETAIL_POLL;       // 채팅·종료 구간에서 상세 폴링 대신 SSE + 방 상태를 쓴다
 const CHAT_SEC = Number(__ENV.CHAT_SEC || 40);            // 채팅 화면에 머무는 시간
 const WAIT_MAX = Number(__ENV.WAIT_MAX_SEC || 90);        // 방이 안 차면 포기하는 시간
 const CHAT_TAB_DELAY = Number(__ENV.CHAT_TAB_DELAY_SEC || 2);    // 방이 찬 걸 보고 채팅 탭으로 넘어가기까지 - 사람의 화면 전환 시간
@@ -46,62 +43,38 @@ export const wsErrors = new Counter('ws_errors');
 export const giveUps = new Counter('journey_give_up');                  // 시간 안에 방이 안 차서 포기
 export const sweepMinutes = new Trend('abandon_to_finished_min');       // D6: 방치 → 자동 종료까지
 
-// 화면에 그려 둔 방 상세의 지문 (VU 마다 따로 가진다). 방 상태의 지문과 비교해 상세를 다시 읽을지 정한다
-let knownFingerprint = null;
-const detailOf = (token, partyId) => {
-  const res = roomDetail(token, partyId);
-  if (res.status === 200) knownFingerprint = res.json('fingerprint') || null;
-  return res;
-};
 const CLOSED = ['FINISHED', 'CANCELED'];
 
 function pollUntil(token, partyId, wanted, maxSec) {
   for (let t = 0; t < maxSec; t += POLL) {
-    const res = detailOf(token, partyId);
+    const res = roomDetail(token, partyId);
     if (res.status === 200 && wanted.includes(res.json('status'))) return res.json('status');
     sleep(POLL);
   }
   return null;
 }
 
-/** SSE 로 기다린다. changed 마다 상세를 다시 읽어(앱과 같다) 원하는 상태가 되면 끝. 반영 지연도 여기서 잰다 */
+/** SSE 로 기다린다. connected 로 방을 그리고 변경분만 반영해 원하는 상태가 되면 끝 - 앱처럼 상세를 다시 읽지 않는다 */
 function sseUntil(token, partyId, wanted, maxSec) {
-  let reached = null;
-  let seenMembers = -1;
-  const first = detailOf(token, partyId);                                // 앱은 connected 직후 한 번 재조회한다
-  if (first.status === 200) { seenMembers = first.json('members').length; if (wanted.includes(first.json('status'))) return first.json('status'); }
+  const view = newRoomView();
   watchParty(token, partyId, {
     holdSec: maxSec,
-    onEvent: (name) => {
-      if (name !== 'changed' && name !== 'connected') return true;
-      const res = detailOf(token, partyId);
-      if (res.status !== 200) return true;
-      const members = res.json('members').length;
-      if (name === 'changed' && members > seenMembers) {                 // 누가 들어왔다 - 그 사람의 joinedAt 기준으로 지연
-        const at = latestJoinedAt(res);
-        if (at) propagation.add(Date.now() - at);
-      }
-      seenMembers = members;
-      if (wanted.includes(res.json('status'))) { reached = res.json('status'); return false; }
-      return true;
-    },
+    onEvent: (name, data) => { applyEvent(view, name, data); return !wanted.includes(view.status); },
   });
-  return reached;
+  return wanted.includes(view.status) ? view.status : null;
 }
 
 /**
- * SSE 앱의 종료 대기 - 다른 사람이 합승 완료를 누르면 closed 신호가 온다. 상세를 읽지 않고 방 상태만 본다.
- * 붙기 전에 이미 닫혔을 수 있어 먼저 한 번, 붙은 직후(connected) 한 번 확인한다 - 그 사이에 난 closed 는 신호로 오지 않는다.
+ * SSE 앱의 종료 대기 - 다시 붙어 connected 의 상태가 이미 FINISHED·CANCELED 면 끝, 아니면 closed 를 기다린다.
+ * 모두 나가 CANCELED 된 방은 멤버가 아니라 구독이 403 으로 거절된다 - 그것도 닫힘으로 본다.
  */
 function sseUntilClosed(token, partyId, maxSec) {
-  const closed = () => { const st = roomStatus(token, partyId); return st.status === 200 && CLOSED.includes(st.json('status')); };
-  if (closed()) return true;
-  let seen = false;
-  const { closedBy } = watchParty(token, partyId, {
+  const view = newRoomView();
+  const { status } = watchParty(token, partyId, {
     holdSec: maxSec,
-    onEvent: (name) => { if (name === 'connected' && closed()) { seen = true; return false; } return true; },
+    onEvent: (name, data) => { applyEvent(view, name, data); return !CLOSED.includes(view.status); },
   });
-  return seen || closedBy === 'closed';
+  return view.closed || CLOSED.includes(view.status) || status === 403;
 }
 const waitUntil = (token, partyId, wanted, maxSec) => (USE_SSE ? sseUntil(token, partyId, wanted, maxSec) : pollUntil(token, partyId, wanted, maxSec));
 
@@ -148,8 +121,8 @@ function chat(user, who, partyId, destName) {
   const opened = openChatRoom(user.token, chatRoomId);
   check(opened, { '채팅방 열기 200': (o) => o.status === 200 });
   const { closedBy } = chatSession(user.token, chatRoomId, who, {
-    holdSec: CHAT_SEC, sendEverySec: 12, cursor: opened.cursor, partyId,
-    statusPollSec: LIGHT_WATCH ? STATUS_POLL : null, fingerprint: knownFingerprint,
+    holdSec: CHAT_SEC, sendEverySec: 12, cursor: opened.cursor,
+    partyId: USE_SSE ? null : partyId,                                   // 폴링 앱만 채팅 아래에서 방 상세를 폴링한다
     onLatency: (ms) => chatLatency.add(ms),
     onError: (e) => { wsErrors.add(1); console.error(`WS ${who}: ${e}`); },
   });
@@ -202,7 +175,7 @@ export function journey(users, vu, { abandon = false } = {}) {
     if (!waitUntil(me.token, partyId, ['COMPLETED'], WAIT_MAX)) { giveUps.add(1); leaveRoom(me.token, partyId); return; }
   }
 
-  const closedBy = chat(me, `g${g}r${role}`, partyId, destName);                    // 채팅하는 동안에도 21 의 상세 폴링이 같이 돈다
+  const closedBy = chat(me, `g${g}r${role}`, partyId, destName);                    // 폴링 앱은 채팅하는 동안에도 21 의 상세 폴링이 같이 돈다
 
   if (abandon) {                                                          // D6 - 아무도 닫지 않는다
     const left = Date.now();
@@ -218,7 +191,7 @@ export function journey(users, vu, { abandon = false } = {}) {
 
   if (closedBy !== 'party-closed') {
     if (role === 0) check(finishRoom(me.token, partyId), { '합승 완료 204 (또는 이미 닫힘 409)': (r) => r.status === 204 || r.status === 409 });
-    else if (LIGHT_WATCH) sseUntilClosed(me.token, partyId, 60);
+    else if (USE_SSE) sseUntilClosed(me.token, partyId, 60);
     else pollUntil(me.token, partyId, CLOSED, 60);
   }
   myChatRooms(me.token); favoritePlaces(me.token);                        // 홈으로 돌아오면 진행 중인 방을 다시 찾는다

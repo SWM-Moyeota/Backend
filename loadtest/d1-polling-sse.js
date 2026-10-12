@@ -1,14 +1,14 @@
 // D1-SSE - 대기 화면이 SSE 로 바뀐 앱의 읽기 부하. d1-polling.js(폴링 baseline)와 같은 CONCURRENT 로 돌려 전후를 비교한다.
 //   17 합승 탭(40%)   목록 4초                          → 0.25 RPS
-//   21 대기(30%)      SSE 연결 1개 유지, 상세는 신호 올 때만   → 요청 ~0, 연결 1
+//   21 대기(30%)      SSE 연결 1개 유지. connected 로 그리고 변경분만 반영 - 상세 재조회 없음   → 요청 0, 연결 1
 //   채팅(30%)         새 메시지 20초 + (아래 깔린 21 의 SSE)   → 0.05 RPS, 연결 1
-//   → 1인당 약 0.13 RPS + 대기·채팅 화면 사용자(60%)는 SSE 연결 1개. CONCURRENT=100 이면 13 RPS + 연결 60개
+//   → 1인당 약 0.12 RPS + 대기·채팅 화면 사용자(60%)는 SSE 연결 1개. CONCURRENT=100 이면 12 RPS + 연결 60개
 //   sse 시나리오의 VU 는 HOLD_SEC 마다 끊고 다시 붙는다 - 앱의 재연결(백그라운드 복귀·네트워크 전환)을 흉내
 //   ./k6 run -o experimental-prometheus-rw -e CONCURRENT=100 loadtest/d1-polling-sse.js
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import {
-  listRooms, roomDetail, myChatRooms, pollChat, sendChatRest, finishRoom,
+  listRooms, myChatRooms, pollChat, sendChatRest, finishRoom,
   fillRoom, groupUsers, resolveChatRoomId, spotOf, viewportAround,
 } from './lib/api.js';
 import { watchParty } from './lib/sse.js';
@@ -18,13 +18,12 @@ const CONCURRENT = Number(__ENV.CONCURRENT || 100);
 const GROUPS = Number(__ENV.GROUPS || 20);                       // 전부 꽉 찬 방 - SSE 는 대기 중인 방에 붙는다
 const DURATION = __ENV.DURATION || '5m';
 const HOLD = Number(__ENV.HOLD_SEC || 60);
-const RPS = Number(__ENV.RPS || Math.ceil(CONCURRENT * 0.13));
+const RPS = Number(__ENV.RPS || Math.ceil(CONCURRENT * 0.12));
 const SSE_VUS = Number(__ENV.SSE_VUS || Math.ceil(CONCURRENT * 0.6));
 
 const MIX = [
-  { upTo: 0.77, name: 'list' },      // 0.40 x 1/4  = 0.100
-  { upTo: 0.89, name: 'chat' },      // 0.30 x 1/20 = 0.015
-  { upTo: 0.96, name: 'detail' },    // 신호 받은 뒤 재조회 - 방당 변화 빈도로 어림 (전체의 ~7%)
+  { upTo: 0.83, name: 'list' },      // 0.40 x 1/4  = 0.100
+  { upTo: 0.96, name: 'chat' },      // 0.30 x 1/20 = 0.015
   { upTo: 1.0,  name: 'me' },
 ];
 
@@ -36,7 +35,6 @@ export const options = {
   thresholds: {
     http_req_failed: ['rate<0.01'],
     'http_req_duration{name:GET /matching/rooms (viewport)}': ['p(95)<300'],
-    'http_req_duration{name:GET /matching/rooms/{id}}': ['p(95)<300'],
     'http_req_duration{name:GET /chat-rooms/me}': ['p(95)<300'],
     sse_errors: ['count==0'],
     sse_connect_ms: ['p(95)<1000'],                                // 구독 → connected. 헤더가 즉시 나가야 한다
@@ -67,7 +65,6 @@ export default function (data) {
   let res;
   if (kind === 'list') res = listRooms(me.token, viewportAround(spotOf(grp.g)));   // 그 조가 서 있는 곳 주변
   else if (kind === 'chat' && grp.chatRoomId) res = pollChat(me.token, grp.chatRoomId, grp.cursor);
-  else if (kind === 'detail') res = roomDetail(me.token, grp.partyId);
   else res = myChatRooms(me.token);
   check(res, { '200': (r) => r.status === 200 });
 }
