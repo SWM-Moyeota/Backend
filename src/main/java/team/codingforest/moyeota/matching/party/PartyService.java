@@ -25,7 +25,6 @@ import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatusSnapshot;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.route.RouteService;
@@ -54,7 +53,6 @@ public class PartyService {
     private final PartyCompletionPolicy partyCompletionPolicy;
     private final AfterCommitExecutor afterCommitExecutor;
     private final PartyChangeNotifier partyChangeNotifier;
-    private final PartyFingerprint partyFingerprint;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
@@ -109,10 +107,7 @@ public class PartyService {
 
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.memberJoined(partyId, event));
 
-        List<Long> memberIds = saved.getMembers().stream().map(PartyMember::getMemberId).toList();
-
-        return PartyStatusResponse.of(new PartyStatusSnapshot(saved.getId(), saved.getStatus(), memberIds),
-                partyFingerprint.of(saved.getId(), saved.getStatus(), memberIds));
+        return PartyStatusResponse.from(saved);
     }
 
     @Transactional
@@ -146,20 +141,7 @@ public class PartyService {
 
         List<Long> memberIds = party.getMembers().stream().map(PartyMember::getMemberId).toList();
 
-        return PartyDetailResult.from(party, userAccess.findMemberSummaries(memberIds), parties.countFinishedRides(memberIds),
-                partyFingerprint.of(party.getId(), party.getStatus(), memberIds));
-    }
-
-    /**
-     *  상태·인원수·지문만. 놓친 SSE 신호를 잡는 안전망 폴링이 상세(쿼리 3개) 대신 부른다.
-     *  지문은 방 상세의 것과 같은 재료로 만든다 - 앱이 화면에 그린 상세의 지문과 비교할 수 있어야 한다.
-     */
-    @Transactional(readOnly = true)
-    public PartyStatusResponse getPartyStatus(Long partyId) {
-        PartyStatusSnapshot snapshot = parties.findStatusSnapshotById(partyId)
-                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
-
-        return PartyStatusResponse.of(snapshot, partyFingerprint.of(snapshot.partyId(), snapshot.status(), snapshot.memberIds()));
+        return PartyDetailResult.from(party, userAccess.findMemberSummaries(memberIds), parties.countFinishedRides(memberIds));
     }
 
     @Transactional(readOnly = true)
@@ -168,7 +150,6 @@ public class PartyService {
                 .map(PartyResult::from)
                 .toList();
     }
-
 
     @Transactional(readOnly = true)
     public DriverSummary getAssignDriver(Long partyId) {
@@ -213,7 +194,6 @@ public class PartyService {
 
         log.warn("정원 충족 후 방치된 방 자동 종료 partyId={}", partyId);
     }
-
 
     private Party getParty(Long partyId) {
         return parties.findById(partyId)

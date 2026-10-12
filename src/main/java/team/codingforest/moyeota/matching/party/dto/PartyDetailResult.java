@@ -15,8 +15,7 @@ public record PartyDetailResult(Long id,
                                 Integer capacity, Integer currentMembers,
                                 Integer departureRadius, Integer destinationRadius,
                                 String status, Instant createdAt,
-                                List<MemberInfo> members, Integer estimateFare, Integer estimateTime, String route, Long taxiDriverId,
-                                String fingerprint) {
+                                List<MemberInfo> members, Integer estimateFare, Integer estimateTime, String route, Long taxiDriverId) {
 
     public record MemberInfo(UUID publicId, String nickname, String imageUrl, String badgeId, Integer rideCount) {
 
@@ -28,7 +27,7 @@ public record PartyDetailResult(Long id,
         }
     }
 
-    public static PartyDetailResult from(Party party, Map<Long, MemberSummary> summaries, Map<Long, Integer> rideCounts, String fingerprint) {
+    public static PartyDetailResult from(Party party, Map<Long, MemberSummary> summaries, Map<Long, Integer> rideCounts) {
         List<MemberInfo> members = party.getMembers().stream()
                 .map(m -> MemberInfo.of(summaries.get(m.getMemberId()), rideCounts.getOrDefault(m.getMemberId(), 0)))
                 .toList();
@@ -43,8 +42,7 @@ public record PartyDetailResult(Long id,
                 party.getEstimatedFare(),
                 party.getEstimatedTime(),
                 party.getRoute(),
-                party.getTaxiDriverId(),
-                fingerprint
+                party.getTaxiDriverId()
         );
     }
 }
