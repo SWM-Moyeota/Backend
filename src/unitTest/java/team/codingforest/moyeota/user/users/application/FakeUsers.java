@@ -1,9 +1,9 @@
-package team.codingforest.moyeota.user.common.application;
+package team.codingforest.moyeota.user.users.application;
 
-import team.codingforest.moyeota.user.common.domain.User;
-import team.codingforest.moyeota.user.common.domain.Users;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
+import team.codingforest.moyeota.user.users.domain.User;
+import team.codingforest.moyeota.user.users.domain.Users;
 
 import java.util.HashMap;
 import java.util.List;

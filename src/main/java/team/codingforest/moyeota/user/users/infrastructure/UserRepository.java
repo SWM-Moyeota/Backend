@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.user.common.infrastructure;
+package team.codingforest.moyeota.user.users.infrastructure;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 

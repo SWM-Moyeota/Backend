@@ -1,9 +1,9 @@
-package team.codingforest.moyeota.user.common.application;
+package team.codingforest.moyeota.user.users.application;
 
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.user.api.MemberSummary;
-import team.codingforest.moyeota.user.common.domain.User;
-import team.codingforest.moyeota.user.common.domain.enums.LoginType;
+import team.codingforest.moyeota.user.users.domain.User;
+import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 
 import java.util.List;
 import java.util.Map;

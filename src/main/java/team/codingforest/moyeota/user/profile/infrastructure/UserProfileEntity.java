@@ -11,8 +11,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.user.common.crypto.EncryptedStringConverter;
-import team.codingforest.moyeota.user.common.domain.enums.Gender;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
+import team.codingforest.moyeota.user.users.domain.enums.Gender;
 
 import java.time.Instant;
 

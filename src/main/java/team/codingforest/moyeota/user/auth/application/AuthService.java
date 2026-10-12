@@ -1,20 +1,19 @@
 package team.codingforest.moyeota.user.auth.application;
 
-import team.codingforest.moyeota.user.local.application.LocalUserService;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
+import team.codingforest.moyeota.user.auth.domain.PrincipalCache;
 import team.codingforest.moyeota.user.auth.dto.AuthenticatedUser;
 import team.codingforest.moyeota.user.auth.dto.TokenResponse;
 import team.codingforest.moyeota.user.auth.dto.UserLoginCommand;
-import team.codingforest.moyeota.user.auth.domain.PrincipalCache;
-import team.codingforest.moyeota.user.common.domain.User;
-import team.codingforest.moyeota.user.common.domain.Users;
+import team.codingforest.moyeota.user.auth.infrastructure.JwtProvider;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
-import team.codingforest.moyeota.user.auth.infrastructure.JwtProvider;
+import team.codingforest.moyeota.user.local.application.LocalUserService;
+import team.codingforest.moyeota.user.users.domain.User;
+import team.codingforest.moyeota.user.users.domain.Users;
 
 import java.util.UUID;
 

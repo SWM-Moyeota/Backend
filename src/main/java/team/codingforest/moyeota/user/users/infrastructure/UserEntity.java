@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.user.common.infrastructure;
+package team.codingforest.moyeota.user.users.infrastructure;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -8,8 +8,8 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.common.BaseTimeEntity;
-import team.codingforest.moyeota.user.common.domain.User;
-import team.codingforest.moyeota.user.common.domain.enums.LoginType;
+import team.codingforest.moyeota.user.users.domain.User;
+import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 
 import java.util.UUID;
 

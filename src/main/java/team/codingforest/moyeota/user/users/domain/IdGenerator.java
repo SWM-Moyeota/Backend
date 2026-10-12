@@ -1,6 +1,4 @@
-package team.codingforest.moyeota.user.common.domain;
-
-import team.codingforest.moyeota.user.local.domain.PasswordHasher;
+package team.codingforest.moyeota.user.users.domain;
 
 import java.util.UUID;
 

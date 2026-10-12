@@ -19,8 +19,8 @@ import team.codingforest.moyeota.matching.party.dto.OpenPartyRequest;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyResponse;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyListResponse;
-import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
+import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
 @Tag(name = "매칭방", description = "동승 매칭방 생성·참여·조회. 정원이 차면 자동으로 매칭(기사 콜) 시작")

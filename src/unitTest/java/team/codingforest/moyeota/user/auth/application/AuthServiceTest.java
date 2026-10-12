@@ -5,11 +5,11 @@ import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
 import team.codingforest.moyeota.user.auth.domain.PrincipalCache;
 import team.codingforest.moyeota.user.auth.infrastructure.JwtProvider;
-import team.codingforest.moyeota.user.common.application.FakeUsers;
-import team.codingforest.moyeota.user.common.domain.User;
-import team.codingforest.moyeota.user.common.domain.enums.LoginType;
+import team.codingforest.moyeota.user.users.application.FakeUsers;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
+import team.codingforest.moyeota.user.users.domain.User;
+import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 
 import java.time.Duration;
 import java.time.Instant;

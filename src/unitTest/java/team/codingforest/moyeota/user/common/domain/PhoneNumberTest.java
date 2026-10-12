@@ -3,6 +3,7 @@ package team.codingforest.moyeota.user.common.domain;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
+import team.codingforest.moyeota.user.users.domain.PhoneNumber;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

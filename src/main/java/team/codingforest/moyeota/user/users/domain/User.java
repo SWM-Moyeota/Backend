@@ -1,9 +1,9 @@
-package team.codingforest.moyeota.user.common.domain;
+package team.codingforest.moyeota.user.users.domain;
 
 import lombok.Getter;
-import team.codingforest.moyeota.user.common.domain.enums.LoginType;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
+import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 
 import java.time.Instant;
 import java.util.UUID;

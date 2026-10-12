@@ -1,7 +1,5 @@
 package team.codingforest.moyeota.chat.message.presentation;
 
-import team.codingforest.moyeota.chat.message.application.ChatMessageService;
-
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -14,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import team.codingforest.moyeota.chat.message.application.ChatMessageService;
 import team.codingforest.moyeota.chat.message.dto.ChatMessageResult;
 import team.codingforest.moyeota.chat.message.dto.ChatMessageSlice;
 import team.codingforest.moyeota.chat.message.dto.FindMessageCommand;

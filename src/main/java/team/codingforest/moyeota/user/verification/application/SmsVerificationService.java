@@ -7,10 +7,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 import team.codingforest.moyeota.user.common.crypto.FieldHasher;
-import team.codingforest.moyeota.user.common.domain.PhoneNumber;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
+import team.codingforest.moyeota.user.users.domain.PhoneNumber;
 import team.codingforest.moyeota.user.verification.domain.SmsSender;
 import team.codingforest.moyeota.user.verification.domain.SmsVerifications;
 
