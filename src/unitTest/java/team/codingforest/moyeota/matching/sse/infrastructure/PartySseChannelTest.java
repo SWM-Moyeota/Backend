@@ -3,6 +3,8 @@ package team.codingforest.moyeota.matching.sse.infrastructure;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.DefaultMessage;
 import org.springframework.data.redis.connection.Message;
+import team.codingforest.moyeota.matching.sse.dto.PartySseMessage;
+import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -11,72 +13,56 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- *  Redis 채널 수신 → 로컬 레지스트리. 메시지는 "partyId:event" 한 줄이다.
+ *  Redis 채널 수신 → 로컬 레지스트리. 메시지는 PartySseMessage JSON 이다.
+ *  나간 사람이 있으면 그 연결부터 닫고 알린다 - 순서가 바뀌면 나간 사람도 자기 퇴장 이벤트를 받는다.
  *  closed 는 알린 뒤 이 인스턴스의 연결을 끊는다 - 순서가 바뀌면 아무도 못 받는다.
  */
 class PartySseChannelTest {
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final RecordingRegistry registry = new RecordingRegistry();
-    private final PartySseChannel channel = new PartySseChannel(registry);
+    private final PartySseChannel channel = new PartySseChannel(objectMapper, registry);
 
     @Test
-    void changed_신호는_그_방에_알린다() {
-        channel.onMessage(msg("42:changed"), null);
+    void 참여_신호는_그_방에_데이터와_함께_알린다() {
+        channel.onMessage(msg(new PartySseMessage(42L, "member-joined", "{\"status\":\"ACTIVE\"}", null)), null);
 
-        assertThat(registry.calls).containsExactly("notify:42:changed");
+        assertThat(registry.calls).containsExactly("notify:42:member-joined:{\"status\":\"ACTIVE\"}");
+    }
+
+    @Test
+    void 퇴장_신호는_나간_사람의_연결을_먼저_닫고_남은_사람에게_알린다() {
+        channel.onMessage(msg(new PartySseMessage(42L, "member-left", "{}", 7L)), null);
+
+        assertThat(registry.calls).containsExactly("closeMember:42:7", "notify:42:member-left:{}");
     }
 
     @Test
     void closed_신호는_알린_뒤_그_방의_연결을_끊는다() {
-        channel.onMessage(msg("42:closed"), null);
+        channel.onMessage(msg(new PartySseMessage(42L, "closed", "42", null)), null);
 
-        assertThat(registry.calls).containsExactly("notify:42:closed", "closeAll:42");
+        assertThat(registry.calls).containsExactly("notify:42:closed:42", "closeAll:42");
     }
 
     @Test
-    void changed_는_연결을_끊지_않는다() {
-        channel.onMessage(msg("42:changed"), null);
+    void 참여_신호는_연결을_끊지_않는다() {
+        channel.onMessage(msg(new PartySseMessage(42L, "member-joined", "{}", null)), null);
 
-        assertThat(registry.calls).noneMatch(c -> c.startsWith("closeAll"));
+        assertThat(registry.calls).noneMatch(c -> c.startsWith("close"));
     }
 
     @Test
-    void left_신호는_나간_사람의_연결만_닫고_앱에는_알리지_않는다() {
-        // 남은 사람에게는 뒤따라 오는 changed 가 알린다. left 까지 알리면 앱이 모르는 이벤트를 받는다
-        channel.onMessage(msg("42:left:7"), null);
-
-        assertThat(registry.calls).containsExactly("closeMember:42:7");
-    }
-
-    @Test
-    void left_의_memberId_가_숫자가_아니면_구독_스레드를_죽이지_않고_무시한다() {
-        channel.onMessage(msg("42:left:abc"), null);
-
-        assertThat(registry.calls).isEmpty();
-    }
-
-    @Test
-    void 콜론이_없는_메시지는_무시한다() {
-        channel.onMessage(msg("garbage"), null);
-
-        assertThat(registry.calls).isEmpty();
-    }
-
-    @Test
-    void 숫자가_아닌_partyId_는_구독_스레드를_죽이지_않고_무시한다() {
+    void JSON_이_아닌_메시지는_구독_스레드를_죽이지_않고_무시한다() {
         // 예외가 새면 RedisMessageListenerContainer 의 리스너 스레드가 멈춰 그 뒤 신호를 영영 못 받는다
-        channel.onMessage(msg("abc:changed"), null);
+        channel.onMessage(raw("42:changed"), null);
 
         assertThat(registry.calls).isEmpty();
     }
 
-    @Test
-    void 첫_콜론_기준으로_나눈다() {
-        channel.onMessage(msg("42:a:b"), null);
-
-        assertThat(registry.calls).containsExactly("notify:42:a:b");
+    private Message msg(PartySseMessage message) {
+        return raw(objectMapper.writeValueAsString(message));
     }
 
-    private static Message msg(String body) {
+    private static Message raw(String body) {
         return new DefaultMessage(PartySseChannel.TOPIC.getBytes(StandardCharsets.UTF_8), body.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -85,8 +71,8 @@ class PartySseChannelTest {
         final List<String> calls = new ArrayList<>();
 
         @Override
-        public void notify(Long partyId, String event) {
-            calls.add("notify:" + partyId + ":" + event);
+        public void notify(Long partyId, String event, String data) {
+            calls.add("notify:" + partyId + ":" + event + ":" + data);
         }
 
         @Override

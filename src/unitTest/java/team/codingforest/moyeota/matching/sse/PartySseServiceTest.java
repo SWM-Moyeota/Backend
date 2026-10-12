@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.matching.sse;
 
+import team.codingforest.moyeota.matching.party.PartyService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.common.exception.BusinessException;
@@ -14,6 +15,9 @@ import team.codingforest.moyeota.matching.sse.infrastructure.PartySseRegistry;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class PartySseServiceTest {
@@ -23,13 +27,15 @@ class PartySseServiceTest {
 
     private PartyJpaTest parties;
     private PartySseRegistry registry;
+    private PartyService partyService;
     private PartySseService service;
 
     @BeforeEach
     void setUp() {
         parties = new PartyJpaTest();
         registry = new PartySseRegistry();
-        service = new PartySseService(parties, registry);
+        partyService = mock(PartyService.class);
+        service = new PartySseService(parties, partyService, registry);
     }
 
     @Test
@@ -43,6 +49,16 @@ class PartySseServiceTest {
     }
 
     @Test
+    void 구독하면_방_상세를_만들어_connected_로_보낸다() {
+        // 처음 연결이든 재연결이든 이 상세로 화면을 통째로 다시 그린다 - 끊긴 동안 놓친 변화가 여기서 메워진다
+        Party party = parties.save(openParty(host));
+
+        service.subscribe(party.getId(), host);
+
+        verify(partyService).getPartyDetail(party.getId());
+    }
+
+    @Test
     void 멤버가_아니면_구독할_수_없다() {
         Party party = parties.save(openParty(host));
 
@@ -51,6 +67,7 @@ class PartySseServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.NOT_PARTY_MEMBER);
         assertThat(registry.connections()).as("거절된 요청은 연결을 남기지 않는다").isZero();
+        verifyNoInteractions(partyService);
     }
 
     @Test

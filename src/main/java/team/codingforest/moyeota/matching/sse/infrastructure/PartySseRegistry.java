@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.matching.sse.infrastructure;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -8,20 +9,21 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 @Slf4j
 @Component
 public class PartySseRegistry {
-    // 서버는 끊긴 연결을 "보내다 실패"해야 알아챈다. 끊긴 직후의 첫 전송은 성공한 것처럼 보이는 일이 많아
-    // 죽은 연결이 heartbeat 한두 번(주기의 1~2배) 동안 Tomcat 연결 자리를 차지한다 - 15초일 때 평균 25초 남아 있었다.
-    private static final int HEARTBEAT_MS = 5_000;
+    private static final int HEARTBEAT_MS = 30_000;
 
     private final Map<Long, Set<Subscription>> byParty = new ConcurrentHashMap<>();
 
-    /** 어떤 방에 어떤 유저의 연결이 맺었는지 알기위함 **/
-    private record Subscription(Long memberId, SseEmitter emitter) {}
+    private record Subscription(Long memberId, SseEmitter emitter) {
+    }
 
-    public SseEmitter subscribe(Long partyId, Long memberId) {
+    public SseEmitter subscribe(Long partyId, Long memberId, Supplier<Object> snapshot) {
+        closeMember(partyId, memberId);
+
         SseEmitter emitter = new SseEmitter(0L);
         byParty.computeIfAbsent(partyId, k -> ConcurrentHashMap.newKeySet()).add(new Subscription(memberId, emitter));
         emitter.onCompletion(() -> remove(partyId, emitter));
@@ -29,7 +31,7 @@ public class PartySseRegistry {
         emitter.onError(e -> remove(partyId, emitter));
 
         try {
-            emitter.send(SseEmitter.event().name("connected").data(partyId));
+            emitter.send(SseEmitter.event().name("connected").data(snapshot.get(), MediaType.APPLICATION_JSON));
         } catch (Exception ex) {
             remove(partyId, emitter);
         }
@@ -37,10 +39,10 @@ public class PartySseRegistry {
         return emitter;
     }
 
-    public void notify(Long partyId, String event) {
-        for(Subscription s : byParty.getOrDefault(partyId, Set.of())) {
+    public void notify(Long partyId, String event, String data) {
+        for (Subscription s : byParty.getOrDefault(partyId, Set.of())) {
             try {
-                s.emitter().send(SseEmitter.event().name(event).data(partyId));
+                s.emitter().send(SseEmitter.event().name(event).data(data));
             } catch (Exception ex) {
                 remove(partyId, s.emitter());
             }
@@ -49,15 +51,15 @@ public class PartySseRegistry {
 
     public void closeAll(Long partyId) {
         Set<Subscription> subscriptions = byParty.remove(partyId);
-        if(subscriptions != null) subscriptions.forEach(s -> s.emitter().complete());
+        if (subscriptions != null) subscriptions.forEach(s -> s.emitter().complete());
     }
 
     public void closeMember(Long partyId, Long memberId) {
         Set<Subscription> subscriptions = byParty.get(partyId);
-        if(subscriptions == null) return;
+        if (subscriptions == null) return;
 
-        for(Subscription s : subscriptions) {
-            if(!s.memberId().equals(memberId)) continue;
+        for (Subscription s : subscriptions) {
+            if (!s.memberId().equals(memberId)) continue;
             remove(partyId, s.emitter());
             s.emitter().complete();
         }
@@ -80,6 +82,6 @@ public class PartySseRegistry {
 
     private void remove(Long partyId, SseEmitter emitter) {
         Set<Subscription> set = byParty.get(partyId);
-        if(set != null && set.removeIf(s -> s.emitter() == emitter) && set.isEmpty()) byParty.remove(partyId);
+        if (set != null && set.removeIf(s -> s.emitter() == emitter) && set.isEmpty()) byParty.remove(partyId);
     }
 }
