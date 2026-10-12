@@ -5,21 +5,23 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.user.auth.dto.AuthenticatedUser;
 import team.codingforest.moyeota.user.auth.dto.UserLoginCommand;
-import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
-import team.codingforest.moyeota.user.local.dto.UserResponse;
 import team.codingforest.moyeota.user.common.domain.IdGenerator;
-import team.codingforest.moyeota.user.local.domain.LocalUser;
-import team.codingforest.moyeota.user.local.domain.LocalUsers;
 import team.codingforest.moyeota.user.common.domain.Nickname;
-import team.codingforest.moyeota.user.local.domain.PasswordHasher;
 import team.codingforest.moyeota.user.common.domain.PhoneNumber;
 import team.codingforest.moyeota.user.common.domain.User;
-import team.codingforest.moyeota.user.profile.domain.UserProfile;
-import team.codingforest.moyeota.user.profile.domain.UserProfiles;
 import team.codingforest.moyeota.user.common.domain.Users;
 import team.codingforest.moyeota.user.common.domain.enums.LoginType;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
+import team.codingforest.moyeota.user.common.masking.Masking;
+import team.codingforest.moyeota.user.local.domain.LocalUser;
+import team.codingforest.moyeota.user.local.domain.LocalUsers;
+import team.codingforest.moyeota.user.local.domain.PasswordHasher;
+import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
+import team.codingforest.moyeota.user.local.dto.UserResponse;
+import team.codingforest.moyeota.user.profile.domain.UserProfile;
+import team.codingforest.moyeota.user.profile.domain.UserProfiles;
+import team.codingforest.moyeota.user.verification.application.SmsVerificationService;
 
 @Service
 @RequiredArgsConstructor
@@ -29,9 +31,13 @@ public class LocalUserService {
     private final UserProfiles userProfiles;
     private final PasswordHasher passwordHasher;
     private final IdGenerator idGenerator;
+    private final SmsVerificationService smsVerificationService;
 
     @Transactional // users / local_user / profile 3개 테이블 원자 저장
     public UserResponse register(UserRegisterCommand command) {
+        // 인증 안 된 요청이면 중복 조회 전에 끊음
+        smsVerificationService.checkVerified(command.verificationToken(), command.phoneNumber());
+
         if(localUsers.existsByLoginId(command.loginId())) {
             throw new UserException(UserErrorCode.LOGIN_ID_DUPLICATED);
         }
@@ -52,6 +58,9 @@ public class LocalUserService {
 
         userProfiles.save(userProfile);
 
+        // 저장까지 끝난 뒤에 지움 - 닉네임 중복 등으로 실패하면 인증을 다시 하지 않고 재시도 가능
+        smsVerificationService.consume(command.verificationToken());
+
         return new UserResponse(user.getPublicId(), user.getNickname());
     }
 
@@ -68,9 +77,9 @@ public class LocalUserService {
 
     public UserResponse getProfile(Long userId) {
         User user = users.findById(userId);
-        // 닉네임 미설정(가입 직후 기본 상태)이면 실명으로 폴백한다
+        // 닉네임 미설정(가입 직후 기본 상태)이면 가린 실명으로 폴백한다
         String name = user.getNickname() != null ? user.getNickname()
-                : userProfiles.findByUserId(userId).map(UserProfile::getName).orElse(null);
+                : userProfiles.findByUserId(userId).map(UserProfile::getName).map(Masking::name).orElse(null);
         return new UserResponse(user.getPublicId(), name);
     }
 

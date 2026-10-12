@@ -20,8 +20,13 @@ spring:
         enabled: true
   modulith:
     events:
-      # IncompleteEventResubmitter 가 같은 일을 큐 상태를 보며 하므로 false 로 맞출지 따로 정해야 한다(미완료가 많으면 기동이 길어져 배포 검증 시간을 넘긴다)
-      republish-outstanding-events-on-restart: true
+      republish-outstanding-events-on-restart: false
+      completion-mode: DELETE
+      staleness:
+        published: PT5M
+        processing: PT5M
+        resubmission: PT30M
+        check-intervall: PT1M
 
 kakao:
   api:
@@ -43,6 +48,11 @@ moyeota:
     enabled: ${TAXI_ENABLED:false}
   party:
     fingerprint-secret: ${PARTY_FINGERPRINT_SECRET}
+  crypto:
+    field-key: ${FIELD_ENCRYPTION_KEY}
+    hash-key: ${FIELD_HASH_KEY}
+  sms:
+    provider: ${SMS_PROVIDER:solapi}
 
 # 로그에 추적 ID 를 찍는다. OpenTelemetry 에이전트가 요청마다 trace_id·span_id 를 로그 컨텍스트(MDC)에 넣어 준다.
 # Grafana 에서 로그 줄의 trace_id 를 누르면 그 요청의 추적(Tempo)으로 넘어간다 - Loki 데이터 소스의 derivedFields 가 이 형식을 읽는다.

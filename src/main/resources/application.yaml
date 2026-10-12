@@ -23,6 +23,11 @@ spring:
     events:
       republish-outstanding-events-on-restart: false
       completion-mode: DELETE
+      staleness:
+        published: PT5M
+        processing: PT5M
+        resubmission: PT30M
+        check-intervall: PT1M
   task:
     scheduling:
       pool:
@@ -73,7 +78,7 @@ management:
     web:
       base-path: /
       exposure:
-        include: health, prometheus
+        include: health, prometheus, info
   endpoint:
     health:
       show-details: never
@@ -91,3 +96,12 @@ moyeota:
     enabled: ${TAXI_ENABLED:true}
   party:
     fingerprint-secret: ${PARTY_FINGERPRINT_SECRET:local-only-party-fingerprint-secret}
+  crypto:
+    field-key: ${FIELD_ENCRYPTION_KEY:XgIsaebhS+OFGOUd4l16AnNPZgXIydBInUv5yyQvmMY=}
+    hash-key: ${FIELD_HASH_KEY:local-only-field-hash-key}
+  sms:
+    provider: ${SMS_PROVIDER:log}   # log | solapi
+    solapi:
+      api-key: ${SOLAPI_API_KEY:}
+      api-secret: ${SOLAPI_API_SECRET:}
+      from: ${SOLAPI_FROM:}

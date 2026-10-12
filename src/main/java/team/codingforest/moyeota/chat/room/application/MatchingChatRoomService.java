@@ -3,6 +3,8 @@ package team.codingforest.moyeota.chat.room.application;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.TransientDataAccessException;
+import org.springframework.resilience.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import team.codingforest.moyeota.chat.common.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.common.exception.ChatException;
@@ -15,11 +17,15 @@ public class MatchingChatRoomService {
     private final MatchingChatRoomSteps steps;
 
     /** 파티원이 들어왔다는 신호. 무엇을 할지는 파티 현재 상태로 정한다 */
+    @Retryable(includes = TransientDataAccessException.class,
+        maxRetries = 3, delay = 200, multiplier = 2, jitter = 50)
     public void joinMember(Long partyId, Long memberId) {
         syncWithRetry(partyId, memberId);
     }
 
     /** 파티원이 나갔다는 신호. 무엇을 할지는 파티 현재 상태로 정한다 */
+    @Retryable(includes = TransientDataAccessException.class,
+            maxRetries = 3, delay = 200, multiplier = 2, jitter = 50)
     public void leaveMember(Long partyId, Long memberId) {
         syncWithRetry(partyId, memberId);
     }

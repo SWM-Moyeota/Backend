@@ -44,7 +44,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR, DispatcherType.ASYNC).permitAll()     // ASYNC -> emitter complete 메서드 호출할때 필터에 다시 탐
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/v1/auth/**", "/api/v1/config","/ws-chat/**", "/health", "/prometheus").permitAll()
+                        .requestMatchers("/api/v1/auth/**", "/api/v1/config","/ws-chat/**", "/health", "/prometheus", "/info").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthenticationFilter(authService, entryPoint), AuthorizationFilter.class)
