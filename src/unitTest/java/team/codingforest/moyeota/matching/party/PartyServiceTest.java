@@ -92,6 +92,16 @@ class PartyServiceTest {
     }
 
     @Test
+    void 방을_만들면_반경은_서버_고정값_500m로_저장된다() {
+        PartyResult result = service.open(createParty(host, 3));
+
+        Party saved = parties.findById(result.id()).orElseThrow();
+        assertThat(saved.getDepartureRadius()).isEqualTo(Radius.DEFAULT);
+        assertThat(saved.getDestinationRadius()).isEqualTo(Radius.DEFAULT);
+        assertThat(Radius.DEFAULT.meters()).isEqualTo(500);
+    }
+
+    @Test
     void 방에_참여하면_명단에_추가된다() {
         PartyResult result = service.open(createParty(host, 3));
 
@@ -786,12 +796,12 @@ class PartyServiceTest {
 
     private OpenPartyCommand createPartyAt(Long creatorId, double lat, double lng, int capacity) {
         return new OpenPartyCommand(creatorId, lat, lng, 37.3948, 127.1112,
-                "강남역", "판교역", capacity, 100, 100);
+                "강남역", "판교역", capacity);
     }
 
     private OpenPartyCommand createParty(Long creatorId, int capacity) {
         return new OpenPartyCommand(creatorId, 37.4979, 127.0276, 37.3948, 127.1112,
-                "강남역", "판교역", capacity, 100, 100);
+                "강남역", "판교역", capacity);
     }
 
     /** 트랜잭션이 없는 단위 테스트용 - 맡긴 작업을 그 자리에서 실행한다 */
