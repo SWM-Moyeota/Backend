@@ -36,6 +36,14 @@ public class FakeDriverAccess implements DriverAccess {
     }
 
     @Override
+    public Optional<Long> findIdByUserId(Long userId) {
+        return 기사의유저.entrySet().stream()
+                .filter(e -> e.getValue().equals(userId))
+                .map(Map.Entry::getKey)
+                .findFirst();
+    }
+
+    @Override
     public Optional<DriverSummary> findSummary(Long driverId) {
         return Optional.empty();
     }

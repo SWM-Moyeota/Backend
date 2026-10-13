@@ -36,6 +36,11 @@ class DriverAccessService implements DriverAccess {
     }
 
     @Override
+    public Optional<Long> findIdByUserId(Long userId) {
+        return drivers.findByUserId(userId).map(Driver::getId);
+    }
+
+    @Override
     public Optional<DriverSummary> findSummary(Long driverId) {
         return drivers.findById(driverId)
                 .filter(d -> d.getVehicle() != null)

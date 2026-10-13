@@ -155,4 +155,34 @@ class DriverJpaPersistenceTest {
     void 빈_목록이면_조회하지_않고_빈_맵을_돌려준다() {
         assertThat(drivers.findFcmTokens(List.of())).isEmpty();
     }
+
+    // ───────────────────────── 탈퇴 ─────────────────────────
+
+    @Test
+    void 사용자_번호로_지우면_차량과_설정까지_함께_지워진다() {
+        Driver driver = Driver.register(1L, "서울-1234-5678", new BankAccount("국민은행", "123-456-789012"));
+        driver.registerVehicle(new Vehicle(4, "12가3456", "중형"));
+        drivers.save(driver);
+        Driver 남는기사 = drivers.save(Driver.register(2L, "서울-9999-0000", new BankAccount("국민은행", "999-999-999999")));
+        reload();
+
+        drivers.deleteByUserId(1L);
+        reload();
+
+        assertThat(drivers.findByUserId(1L)).isEmpty();
+        assertThat(drivers.findById(남는기사.getId())).isPresent();
+        assertThat(em.createQuery("select count(v) from VehicleEntity v", Long.class).getSingleResult()).isZero();
+        assertThat(em.createQuery("select count(s) from DriverSettingEntity s", Long.class).getSingleResult()).isEqualTo(1L);
+    }
+
+    @Test
+    void 기사가_아닌_사용자_번호로_지워도_예외_없이_아무것도_지우지_않는다() {
+        registerAndSave();
+        reload();
+
+        drivers.deleteByUserId(999L);
+        reload();
+
+        assertThat(repository.count()).isEqualTo(1L);
+    }
 }
