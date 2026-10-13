@@ -64,7 +64,7 @@ public class PartyService {
                 new Location(command.departureLat(), command.departureLng()),
                 new Location(command.destinationLat(), command.destinationLng()),
                 command.departure(), command.destination(), new Capacity(command.capacity()),
-                Instant.now(), new Radius(command.departureRadius()), new Radius(command.destinationRadius()),
+                Instant.now(), Radius.DEFAULT, Radius.DEFAULT,
                 estimate.estimateFare(), estimate.estimateTime(), estimate.path());
 
         Party saved = parties.save(party);

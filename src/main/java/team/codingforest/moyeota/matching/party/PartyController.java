@@ -30,8 +30,8 @@ import team.codingforest.moyeota.user.api.CurrentUser;
 public class PartyController {
     private final PartyService partyService;
 
-    @Operation(summary = "방 생성", description = "경로·예상 요금을 네이버로 계산해 저장. 생성자는 자동 참여. 진행 중인 방이 이미 있으면 409. body 의 creatorId 는 무시(토큰 사용)")
-    @ApiResponses({@ApiResponse(responseCode = "200", description = "생성된 방"), @ApiResponse(responseCode = "400", description = "SAME_DEPARTURE_DESTINATION / INVALID_CAPACITY / INVALID_RADIUS / OUT_OF_SERVICE_AREA"), @ApiResponse(responseCode = "409", description = "ALREADY_JOINED_OTHER_PARTY"), @ApiResponse(responseCode = "502", description = "ROUTE_SEARCH_FAILED - 네이버 경로 API 장애")})
+    @Operation(summary = "방 생성", description = "경로·예상 요금을 네이버로 계산해 저장. 생성자는 자동 참여. 반경은 서버 고정값(500m). 진행 중인 방이 이미 있으면 409. body 의 creatorId 는 무시(토큰 사용)")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "생성된 방"), @ApiResponse(responseCode = "400", description = "SAME_DEPARTURE_DESTINATION / INVALID_CAPACITY / OUT_OF_SERVICE_AREA"), @ApiResponse(responseCode = "409", description = "ALREADY_JOINED_OTHER_PARTY"), @ApiResponse(responseCode = "502", description = "ROUTE_SEARCH_FAILED - 네이버 경로 API 장애")})
     @PostMapping("/matching/rooms")
     public ResponseEntity<OpenPartyResponse> open(@CurrentUser Long memberId, @RequestBody OpenPartyRequest request) {
         PartyResult party = partyService.open(request.toCommand(memberId));

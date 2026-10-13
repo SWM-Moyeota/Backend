@@ -96,7 +96,7 @@ export function openRoom(token, capacity = 3, dest = 판교역, destName = '판�
     departureLat: from.lat, departureLng: from.lng,
     destinationLat: dest.lat, destinationLng: dest.lng,
     departure: from.name, destination: destName,
-    capacity, departureRadius: 100, destinationRadius: 100,
+    capacity,
   }), auth(token, { tags: { name: 'POST /matching/rooms' } }));
   return { status: res.status, id: res.status === 200 ? res.json('id') : null, body: res.body };
 }
