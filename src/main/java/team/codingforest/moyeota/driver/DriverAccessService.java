@@ -27,14 +27,7 @@ class DriverAccessService implements DriverAccess {
 
     @Override
     public Map<Long, String> findFcmTokens(List<Long> driverIds) {
-        Map<Long, String> tokens = new HashMap<>();
-
-        for(Long driverId : driverIds) {
-            drivers.findById(driverId)
-                    .filter(Driver::hasFcmToken)
-                    .ifPresent(d -> tokens.put(driverId, d.getFcmToken()));
-        }
-        return tokens;
+        return drivers.findFcmTokens(driverIds);
     }
 
     @Override

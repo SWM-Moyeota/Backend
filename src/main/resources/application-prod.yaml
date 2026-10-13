@@ -46,8 +46,6 @@ management:
 moyeota:
   taxi:
     enabled: ${TAXI_ENABLED:false}
-  party:
-    fingerprint-secret: ${PARTY_FINGERPRINT_SECRET}
   crypto:
     field-key: ${FIELD_ENCRYPTION_KEY}
     hash-key: ${FIELD_HASH_KEY}

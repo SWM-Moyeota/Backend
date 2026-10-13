@@ -83,6 +83,11 @@ public class DispatchService {
         PartySummary party = partyAccess.findSummary(partyId)
                 .orElseThrow(() -> new BusinessException(DispatchErrorCode.PARTY_NOT_FOUND));
 
+        if(party.driverId() != null) {
+            log.info("이미 기사 배정됨 - 호출 건너뜀 partyId={}", partyId);
+            return;
+        }
+
         List<Long> nearbyIds = driverLocations.findNearby(party.departureLatitude(), party.departureLongitude(), radiusMeters);
 
         List<Long> already = callCandidates.findAll(partyId);
