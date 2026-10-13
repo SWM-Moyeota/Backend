@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.chat.member.infrastructure;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.connection.RedisZSetCommands.ZAddArgs;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisOperations;
@@ -59,13 +60,27 @@ public class PendingReadsRedis implements PendingReads {
         return users.stream().map(Long::valueOf).toList();
     }
 
+    /**
+     * 가져오다 실패하면 명단에 되돌려 다음 주기에 다시 꺼내게 함
+     * flush 는 popUsers 로 이미 명단에서 지웠으므로 되돌리지 않으면 남은 읽음을 찾지 못함
+     *
+     * @param userIds 가져올 사람
+     */
     @Override
-    @SuppressWarnings("unchecked")
     public List<ReadPosition> takeAll(List<Long> userIds) {
         if (userIds.isEmpty()) {
             return List.of();
         }
+        try {
+            return takeAllAtOnce(userIds);
+        } catch (DataAccessException e) {
+            restoreUsers(userIds, e);
+            throw e;
+        }
+    }
 
+    @SuppressWarnings("unchecked")
+    private List<ReadPosition> takeAllAtOnce(List<Long> userIds) {
         List<Object> results = redisTemplate.execute(new SessionCallback<>() {
             @Override
             public <K, V> List<Object> execute(RedisOperations<K, V> operations) {
@@ -79,6 +94,7 @@ public class PendingReadsRedis implements PendingReads {
                 return ops.exec();
             }
         });
+
         if (results == null || results.isEmpty()) {
             return List.of();
         }
@@ -95,6 +111,16 @@ public class PendingReadsRedis implements PendingReads {
         }
         return positions;
     }
+
+    // SADD 는 공유 연결이라 풀이 다 찼을 때도 대부분 성공함
+    private void restoreUsers(List<Long> userIds, DataAccessException cause) {
+        try {
+            redisTemplate.opsForSet().add(USERS_KEY, userIds.stream().map(String::valueOf).toArray(String[]::new));
+        } catch (DataAccessException e) {
+            cause.addSuppressed(e);   // Redis 자체가 죽음 - 남은 키는 그 사람의 다음 읽음이나 flushUser 때 다시 잡힘
+        }
+    }
+
     @Override
     public long countUsers() {
         Long size = redisTemplate.opsForSet().size(USERS_KEY);
