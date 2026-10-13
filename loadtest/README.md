@@ -12,6 +12,7 @@
    D6 를 돌릴 거면 같은 env 파일에 `JWT_ACCESS_VALIDITY=2h` 도 임시로 넣는다 (기본 30분이면 도중에 토큰 만료).
 4. `curl $BASE_URL/api/v1/config` → `{"taxiEnabled":false}` 인지 확인. `true` 면 D 시나리오는 의미가 없다.
 5. 사용자 생성: `BASE_URL=http://TARGET:8080 USERS=350 node seed.mjs` → `users.json`
+   속도 조절: `PARALLEL`(동시 최대, 기본 10), `RATE`(초당 출발 인원), `DURATION_SEC`(전체를 이 시간에 맞춤). 예) `USERS=4000 DURATION_SEC=300 PARALLEL=40` 이면 약 5분. 한 명이 실패해도 멈추지 않고 성공한 사람만 번호순으로 저장한다
    토큰 유효 30분. 지나면 다시 seed (가입은 409 로 건너뛰고 로그인만 한다 — 같은 `RUN_ID` 를 줄 것).
 6. **SSE 시나리오(D1-SSE·D2 `USE_SSE=1`·D7)는 xk6-sse 확장이 든 k6 가 필요하다.** 자동 프로비저닝 카탈로그에 없어 직접 빌드한다 (k6 서버, Docker 만 있으면 됨. Go 불필요):
    ```
