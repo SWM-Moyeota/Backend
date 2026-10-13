@@ -1,9 +1,9 @@
-package team.codingforest.moyeota.user.common.application;
+package team.codingforest.moyeota.user.users.application;
 
-import team.codingforest.moyeota.user.common.domain.User;
-import team.codingforest.moyeota.user.common.domain.Users;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
+import team.codingforest.moyeota.user.users.domain.User;
+import team.codingforest.moyeota.user.users.domain.Users;
 
 import java.util.HashMap;
 import java.util.List;
@@ -22,7 +22,7 @@ public class FakeUsers implements Users {
     public User save(User user) {
         Long id = user.getId() != null ? user.getId() : ++seq;
         User restored = User.restore(id, user.getPublicId(), user.getNickname(), user.getImageUrl(),
-                user.getLoginType(), user.getBadgeId(), user.getFcmToken(), user.getUpdatedAt());
+                user.getLoginType(), user.getBadgeId(), user.getFcmToken(), user.getUpdatedAt(), user.getDeletedAt());
         store.put(id, restored);
         return restored;
     }

@@ -5,12 +5,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.user.auth.dto.AuthenticatedUser;
 import team.codingforest.moyeota.user.auth.dto.UserLoginCommand;
-import team.codingforest.moyeota.user.common.domain.IdGenerator;
-import team.codingforest.moyeota.user.common.domain.Nickname;
-import team.codingforest.moyeota.user.common.domain.PhoneNumber;
-import team.codingforest.moyeota.user.common.domain.User;
-import team.codingforest.moyeota.user.common.domain.Users;
-import team.codingforest.moyeota.user.common.domain.enums.LoginType;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
 import team.codingforest.moyeota.user.common.masking.Masking;
@@ -21,6 +15,12 @@ import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
 import team.codingforest.moyeota.user.local.dto.UserResponse;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
+import team.codingforest.moyeota.user.users.domain.IdGenerator;
+import team.codingforest.moyeota.user.users.domain.Nickname;
+import team.codingforest.moyeota.user.users.domain.PhoneNumber;
+import team.codingforest.moyeota.user.users.domain.User;
+import team.codingforest.moyeota.user.users.domain.Users;
+import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 import team.codingforest.moyeota.user.verification.application.SmsVerificationService;
 
 @Service

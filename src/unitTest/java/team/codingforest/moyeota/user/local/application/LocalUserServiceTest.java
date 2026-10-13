@@ -2,10 +2,7 @@ package team.codingforest.moyeota.user.local.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import team.codingforest.moyeota.user.common.application.FakeUsers;
-import team.codingforest.moyeota.user.common.domain.User;
-import team.codingforest.moyeota.user.common.domain.enums.Gender;
-import team.codingforest.moyeota.user.common.domain.enums.LoginType;
+import team.codingforest.moyeota.user.users.application.FakeUsers;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
 import team.codingforest.moyeota.user.local.domain.LocalUser;
@@ -15,6 +12,9 @@ import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
 import team.codingforest.moyeota.user.local.dto.UserResponse;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
+import team.codingforest.moyeota.user.users.domain.User;
+import team.codingforest.moyeota.user.users.domain.enums.Gender;
+import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 import team.codingforest.moyeota.user.verification.application.SmsVerificationService;
 
 import java.time.Instant;
@@ -155,6 +155,14 @@ class LocalUserServiceTest {
 
         @Override
         public boolean existsByLoginId(String loginId) { return byLoginId.containsKey(loginId); }
+
+        @Override
+        public Optional<LocalUser> findByUserId(Long userId) {
+            return byLoginId.values().stream().filter(u -> u.getUserId().equals(userId)).findFirst();
+        }
+
+        @Override
+        public void deleteByUserId(Long userId) { byLoginId.values().removeIf(u -> u.getUserId().equals(userId)); }
     }
 
     static class FakeUserProfiles implements UserProfiles {
@@ -170,5 +178,8 @@ class LocalUserServiceTest {
         public boolean existsByPhoneNumber(String phone) {
             return byUserId.values().stream().anyMatch(p -> p.getPhoneNumber().equals(phone));
         }
+
+        @Override
+        public void deleteByUserId(Long userId) { byUserId.remove(userId); }
     }
 }

@@ -5,13 +5,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.driver.dto.DriverResult;
-import team.codingforest.moyeota.driver.dto.RegisterDriverCommand;
-import team.codingforest.moyeota.driver.dto.RegisterVehicleCommand;
 import team.codingforest.moyeota.driver.domain.BankAccount;
 import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Drivers;
 import team.codingforest.moyeota.driver.domain.Vehicle;
+import team.codingforest.moyeota.driver.dto.DriverResult;
+import team.codingforest.moyeota.driver.dto.RegisterDriverCommand;
+import team.codingforest.moyeota.driver.dto.RegisterVehicleCommand;
 import team.codingforest.moyeota.driver.exception.DriverErrorCode;
 import team.codingforest.moyeota.user.api.UserAccess;
 

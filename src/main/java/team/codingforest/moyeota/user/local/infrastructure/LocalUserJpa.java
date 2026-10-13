@@ -2,10 +2,12 @@ package team.codingforest.moyeota.user.local.infrastructure;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
-import team.codingforest.moyeota.user.local.domain.LocalUser;
-import team.codingforest.moyeota.user.local.domain.LocalUsers;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
+import team.codingforest.moyeota.user.local.domain.LocalUser;
+import team.codingforest.moyeota.user.local.domain.LocalUsers;
+
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
@@ -26,5 +28,15 @@ public class LocalUserJpa implements LocalUsers {
     @Override
     public boolean existsByLoginId(String loginId) {
         return localUserRepository.existsByLoginId(loginId);
+    }
+
+    @Override
+    public Optional<LocalUser> findByUserId(Long userId) {
+        return localUserRepository.findById(userId).map(LocalUserEntity::toDomain);
+    }
+
+    @Override
+    public void deleteByUserId(Long userId) {
+        localUserRepository.deleteById(userId);
     }
 }

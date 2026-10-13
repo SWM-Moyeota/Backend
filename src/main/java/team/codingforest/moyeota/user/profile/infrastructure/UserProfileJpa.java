@@ -26,4 +26,9 @@ public class UserProfileJpa implements UserProfiles {
     public boolean existsByPhoneNumber(String phoneNumber) {
         return userProfileRepository.existsByPhoneHash(hasher.hash(phoneNumber));
     }
+
+    @Override
+    public void deleteByUserId(Long userId) {
+        userProfileRepository.deleteById(userId);
+    }
 }

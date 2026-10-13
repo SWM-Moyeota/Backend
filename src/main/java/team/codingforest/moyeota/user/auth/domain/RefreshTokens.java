@@ -8,4 +8,5 @@ public interface RefreshTokens {
     void save(RefreshToken token);
     Optional<RefreshToken> findByJti(UUID jti);
     Optional<Long> consume(UUID jti, Instant now);
+    void cancelAllByUserId(Long userId, Instant now);
 }

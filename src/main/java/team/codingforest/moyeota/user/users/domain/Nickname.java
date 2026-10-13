@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.user.common.domain;
+package team.codingforest.moyeota.user.users.domain;
 
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;

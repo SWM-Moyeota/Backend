@@ -7,8 +7,8 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import team.codingforest.moyeota.user.common.crypto.FieldHasher;
-import team.codingforest.moyeota.user.common.domain.enums.Gender;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
+import team.codingforest.moyeota.user.users.domain.enums.Gender;
 
 import java.time.Instant;
 

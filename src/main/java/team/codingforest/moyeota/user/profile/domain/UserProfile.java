@@ -1,8 +1,8 @@
 package team.codingforest.moyeota.user.profile.domain;
 
 import lombok.Getter;
-import team.codingforest.moyeota.user.common.domain.PhoneNumber;
-import team.codingforest.moyeota.user.common.domain.enums.Gender;
+import team.codingforest.moyeota.user.users.domain.PhoneNumber;
+import team.codingforest.moyeota.user.users.domain.enums.Gender;
 
 import java.time.Instant;
 

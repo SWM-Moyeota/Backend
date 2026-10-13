@@ -1,9 +1,9 @@
-package team.codingforest.moyeota.user.common.infrastructure;
+package team.codingforest.moyeota.user.users.infrastructure;
 
 import com.fasterxml.uuid.Generators;
 import com.fasterxml.uuid.impl.TimeBasedEpochGenerator;
 import org.springframework.stereotype.Component;
-import team.codingforest.moyeota.user.common.domain.IdGenerator;
+import team.codingforest.moyeota.user.users.domain.IdGenerator;
 
 import java.util.UUID;
 

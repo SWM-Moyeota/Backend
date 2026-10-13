@@ -1,20 +1,19 @@
 package team.codingforest.moyeota.user.auth.application;
 
-import team.codingforest.moyeota.user.local.application.LocalUserService;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
+import team.codingforest.moyeota.user.auth.domain.PrincipalCache;
 import team.codingforest.moyeota.user.auth.dto.AuthenticatedUser;
 import team.codingforest.moyeota.user.auth.dto.TokenResponse;
 import team.codingforest.moyeota.user.auth.dto.UserLoginCommand;
-import team.codingforest.moyeota.user.auth.domain.PrincipalCache;
-import team.codingforest.moyeota.user.common.domain.User;
-import team.codingforest.moyeota.user.common.domain.Users;
+import team.codingforest.moyeota.user.auth.infrastructure.JwtProvider;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
-import team.codingforest.moyeota.user.auth.infrastructure.JwtProvider;
+import team.codingforest.moyeota.user.local.application.LocalUserService;
+import team.codingforest.moyeota.user.users.domain.User;
+import team.codingforest.moyeota.user.users.domain.Users;
 
 import java.util.UUID;
 
@@ -59,6 +58,7 @@ public class AuthService {
 
     private Long loadAndCache(UUID publicId) {
         Long userId = users.findByPublicId(publicId)
+                .filter(user -> !user.isDeleted())   // 탈퇴자 토큰은 남은 만료 시간과 상관없이 거절
                 .map(User::getId)
                 .orElseThrow(() -> new UserException(UserErrorCode.TOKEN_INVALID));   // 없는 사용자는 캐시하지 않는다
 

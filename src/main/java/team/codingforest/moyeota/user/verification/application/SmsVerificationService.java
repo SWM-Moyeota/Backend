@@ -7,10 +7,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 import team.codingforest.moyeota.user.common.crypto.FieldHasher;
-import team.codingforest.moyeota.user.common.domain.PhoneNumber;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
+import team.codingforest.moyeota.user.deletion.domain.UserDeletions;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
+import team.codingforest.moyeota.user.users.domain.PhoneNumber;
 import team.codingforest.moyeota.user.verification.domain.SmsSender;
 import team.codingforest.moyeota.user.verification.domain.SmsVerifications;
 
@@ -18,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 
 @Slf4j
@@ -34,11 +36,13 @@ public class SmsVerificationService {
     private final SmsVerifications smsVerifications;
     private final SmsSender smsSender;
     private final UserProfiles userProfiles;
+    private final UserDeletions userDeletions;
     private final FieldHasher fieldHasher;
     private final String fixedCode;
 
     public SmsVerificationService(SmsVerifications smsVerifications, SmsSender smsSender,
-                                  UserProfiles userProfiles, FieldHasher fieldHasher,
+                                  UserProfiles userProfiles, UserDeletions userDeletions,
+                                  FieldHasher fieldHasher,
                                   @Value("${moyeota.sms.provider:log}") String provider,
                                   @Value("${moyeota.sms.fixed-code:}") String fixedCode) {
         Assert.isTrue(!StringUtils.hasText(fixedCode) || "log".equals(provider),
@@ -48,6 +52,7 @@ public class SmsVerificationService {
         this.smsVerifications = smsVerifications;
         this.smsSender = smsSender;
         this.userProfiles = userProfiles;
+        this.userDeletions = userDeletions;
         this.fieldHasher = fieldHasher;
         this.fixedCode = fixedCode;
     }
@@ -56,6 +61,9 @@ public class SmsVerificationService {
         String phone = new PhoneNumber(rawPhoneNumber).value();
         if (userProfiles.existsByPhoneNumber(phone)) {   // 가입된 번호면 문자 비용을 쓰기 전에 거절
             throw new UserException(UserErrorCode.PHONE_NUMBER_DUPLICATED);
+        }
+        if (userDeletions.existsDeletedSince(phone, Instant.now().minus(UserDeletions.RETENTION))) {
+            throw new UserException(UserErrorCode.REJOIN_RESTRICTED);   // 탈퇴 후 바로 재가입해 제재를 피하는 것을 막는다
         }
 
         String phoneHash = fieldHasher.hash(phone);

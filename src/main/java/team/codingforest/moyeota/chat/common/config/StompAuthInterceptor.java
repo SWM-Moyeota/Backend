@@ -10,9 +10,9 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
-import team.codingforest.moyeota.chat.member.domain.ChatRoomUsers;
 import team.codingforest.moyeota.chat.common.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.common.exception.ChatException;
+import team.codingforest.moyeota.chat.member.domain.ChatRoomUsers;
 import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
 import team.codingforest.moyeota.user.api.TokenAuthenticator;
 

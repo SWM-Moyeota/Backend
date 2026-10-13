@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import team.codingforest.moyeota.user.common.domain.enums.Gender;
+import team.codingforest.moyeota.user.users.domain.enums.Gender;
 
 import java.time.Instant;
 

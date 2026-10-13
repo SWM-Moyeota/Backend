@@ -32,4 +32,9 @@ public class RefreshTokenJpa implements RefreshTokens {
         }
         return delegate.findByJti(jti).map(RefreshTokenEntity::getUserId);
     }
+
+    @Override
+    public void cancelAllByUserId(Long userId, Instant now) {
+        delegate.cancelAllByUserId(userId, now);
+    }
 }

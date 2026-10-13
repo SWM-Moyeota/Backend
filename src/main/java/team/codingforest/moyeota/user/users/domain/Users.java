@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.user.common.domain;
+package team.codingforest.moyeota.user.users.domain;
 
 import java.util.List;
 import java.util.Map;

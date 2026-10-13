@@ -1,10 +1,11 @@
-package team.codingforest.moyeota.user.common.application;
+package team.codingforest.moyeota.user.users.application;
 
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.user.api.MemberSummary;
-import team.codingforest.moyeota.user.common.domain.User;
-import team.codingforest.moyeota.user.common.domain.enums.LoginType;
+import team.codingforest.moyeota.user.users.domain.User;
+import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -34,6 +35,30 @@ class UserAccessServiceTest {
         User a = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL));
 
         assertThat(service.findMemberSummaries(List.of(a.getId())).get(a.getId()).nickname()).isNull();
+    }
+
+    @Test
+    void 탈퇴한_유저는_탈퇴한_사용자로_보이고_배지를_숨긴다() {
+        // 채팅방·합승 상세에서 탈퇴자를 닉네임 미설정(null)과 구분해 보여준다
+        User a = users.save(User.restore(null, UUID.randomUUID(), "모여타", "img.png", LoginType.LOCAL, 7L, null, Instant.now(), null));
+        a.delete(Instant.now());
+        users.save(a);
+
+        MemberSummary summary = service.findMemberSummaries(List.of(a.getId())).get(a.getId());
+
+        assertThat(summary.publicId()).as("메시지 보낸 사람 구분용이라 남긴다").isEqualTo(a.getPublicId());
+        assertThat(summary.nickname()).isEqualTo(User.DELETED_DISPLAY_NAME);
+        assertThat(summary.imageUrl()).isNull();
+        assertThat(summary.badgeId()).isNull();
+    }
+
+    @Test
+    void 탈퇴한_유저의_닉네임_조회도_탈퇴한_사용자다() {
+        User a = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "모여타"));
+        a.delete(Instant.now());
+        users.save(a);
+
+        assertThat(service.findNickname(a.getId())).contains(User.DELETED_DISPLAY_NAME);
     }
 
     @Test

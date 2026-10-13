@@ -6,12 +6,14 @@ import org.springframework.data.redis.RedisConnectionFailureException;
 import team.codingforest.moyeota.user.common.crypto.FieldHasher;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
+import team.codingforest.moyeota.user.deletion.domain.UserDeletions;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
 import team.codingforest.moyeota.user.verification.domain.SmsSender;
 import team.codingforest.moyeota.user.verification.domain.SmsVerifications;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,6 +32,7 @@ class SmsVerificationServiceTest {
     private FakeSmsVerifications store;
     private FakeSmsSender sender;
     private FakeUserProfiles userProfiles;
+    private FakeUserDeletions userDeletions;
     private FieldHasher fieldHasher;
     private SmsVerificationService service;
 
@@ -38,12 +41,13 @@ class SmsVerificationServiceTest {
         store = new FakeSmsVerifications();
         sender = new FakeSmsSender();
         userProfiles = new FakeUserProfiles();
+        userDeletions = new FakeUserDeletions();
         fieldHasher = new FieldHasher("test-hash-key");
         service = serviceWith("log", CODE);   // 대부분은 코드를 알아야 해서 고정 코드로 둠
     }
 
     private SmsVerificationService serviceWith(String provider, String fixedCode) {
-        return new SmsVerificationService(store, sender, userProfiles, fieldHasher, provider, fixedCode);
+        return new SmsVerificationService(store, sender, userProfiles, userDeletions, fieldHasher, provider, fixedCode);
     }
 
     private static void assertError(Runnable call, UserErrorCode expected) {
@@ -70,6 +74,23 @@ class SmsVerificationServiceTest {
 
         assertError(() -> service.send(PHONE), UserErrorCode.PHONE_NUMBER_DUPLICATED);
         assertThat(sender.sent).isEmpty();
+    }
+
+    @Test
+    void 탈퇴하고_30일이_안_지난_번호면_문자를_보내지_않는다() {
+        userDeletions.record("01012345678", Instant.now().minus(Duration.ofDays(29)));
+
+        assertError(() -> service.send(PHONE), UserErrorCode.REJOIN_RESTRICTED);
+        assertThat(sender.sent).isEmpty();
+    }
+
+    @Test
+    void 탈퇴하고_30일이_지난_번호면_다시_가입할_수_있다() {
+        userDeletions.record("01012345678", Instant.now().minus(Duration.ofDays(31)));
+
+        service.send(PHONE);
+
+        assertThat(sender.sent).hasSize(1);
     }
 
     @Test
@@ -265,5 +286,28 @@ class SmsVerificationServiceTest {
 
         @Override
         public boolean existsByPhoneNumber(String normalizedPhoneNumber) { return registered.contains(normalizedPhoneNumber); }
+
+        @Override
+        public void deleteByUserId(Long userId) { }
+    }
+
+    static class FakeUserDeletions implements UserDeletions {
+        final Map<String, Instant> deletedAt = new HashMap<>();
+
+        @Override
+        public void record(String normalizedPhoneNumber, Instant at) { deletedAt.put(normalizedPhoneNumber, at); }
+
+        @Override
+        public boolean existsDeletedSince(String normalizedPhoneNumber, Instant since) {
+            Instant at = deletedAt.get(normalizedPhoneNumber);
+            return at != null && at.isAfter(since);
+        }
+
+        @Override
+        public int deleteRecordedBefore(Instant before) {
+            int size = deletedAt.size();
+            deletedAt.values().removeIf(at -> at.isBefore(before));
+            return size - deletedAt.size();
+        }
     }
 }
