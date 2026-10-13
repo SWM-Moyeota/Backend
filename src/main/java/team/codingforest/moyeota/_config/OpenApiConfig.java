@@ -58,8 +58,10 @@ public class OpenApiConfig {
             }
 
             openApi.getPaths().values().forEach(path -> path.readOperations().forEach(op -> {
-                boolean secured = !CollectionUtils.isEmpty(op.getSecurity());
-                if (secured && !op.getResponses().containsKey(HttpStatus.UNAUTHORIZED.name())) {
+                boolean secured = Objects.isNull(op.getSecurity())
+                        ? !CollectionUtils.isEmpty(openApi.getSecurity())
+                        : !op.getSecurity().isEmpty();
+                if (secured && !op.getResponses().containsKey(String.valueOf(HttpStatus.UNAUTHORIZED.value()))) {
                     op.getResponses().addApiResponse("401", new ApiResponse().description("인증 필요 - 토큰 없음/만료(USER002)/무효"));
                 }
                 op.getResponses().forEach((code, response) -> {

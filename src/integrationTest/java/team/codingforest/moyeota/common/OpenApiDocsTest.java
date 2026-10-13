@@ -63,4 +63,11 @@ class OpenApiDocsTest {
         JsonNode notFound = docs().at("/paths/~1api~1v1~1matching~1rooms~1{partyId}/get/responses/404/content/application~1json/schema/$ref");
         assertThat(notFound.asText()).isEqualTo("#/components/schemas/ErrorResponse");
     }
+
+    @Test
+    void 인증이_필요한_API에만_401이_붙는다() throws Exception {
+        JsonNode d = docs();
+        assertThat(d.at("/paths/~1api~1v1~1matching~1rooms~1{partyId}/get/responses/401").isMissingNode()).isFalse();
+        assertThat(d.at("/paths/~1api~1v1~1auth~1phone~1check/post/responses/401").isMissingNode()).isTrue();
+    }
 }
