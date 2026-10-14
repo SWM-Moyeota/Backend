@@ -14,12 +14,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ChatMessageTest {
     private static final Long ROOM_ID = 1L;
     private static final Long USER_ID = 7L;
+    private static final Long SEQ = 3L;
     private static final String CONTENT = "안녕하세요";
     private static final Instant NOW = Instant.parse("2026-08-04T10:00:00Z");
 
     @Test
     void 텍스트메시지_ACTIVE_상태로_생성() {
-        ChatMessage message = ChatMessage.text(ROOM_ID, USER_ID, CONTENT, NOW);
+        ChatMessage message = ChatMessage.text(ROOM_ID, SEQ, USER_ID, CONTENT, NOW);
 
         assertThat(message.getType()).isEqualTo(ChatMessageType.TEXT);
         assertThat(message.getStatus()).isEqualTo(ChatMessageStatus.ACTIVE);
@@ -29,7 +30,7 @@ class ChatMessageTest {
 
     @Test
     void 위치메시지_LOCATION_타입으로_생성() {
-        ChatMessage message = ChatMessage.location(ROOM_ID, USER_ID, CONTENT, NOW);
+        ChatMessage message = ChatMessage.location(ROOM_ID, SEQ, USER_ID, CONTENT, NOW);
 
         assertThat(message.getType()).isEqualTo(ChatMessageType.LOCATION);
         assertThat(message.getStatus()).isEqualTo(ChatMessageStatus.ACTIVE);
@@ -37,14 +38,14 @@ class ChatMessageTest {
 
     @Test
     void 신규메시지_id가_없음() {
-        ChatMessage message = ChatMessage.text(ROOM_ID, USER_ID, CONTENT, NOW);
+        ChatMessage message = ChatMessage.text(ROOM_ID, SEQ, USER_ID, CONTENT, NOW);
 
         assertThat(message.getId()).isNull();
     }
 
     @Test
     void 삭제시_상태와_시각이_기록() {
-        ChatMessage message = ChatMessage.text(ROOM_ID, USER_ID, CONTENT, NOW);
+        ChatMessage message = ChatMessage.text(ROOM_ID, SEQ, USER_ID, CONTENT, NOW);
         Instant deletedAt = NOW.plusSeconds(60);
 
         message.delete(deletedAt);
@@ -56,7 +57,7 @@ class ChatMessageTest {
 
     @Test
     void 이미_삭제된_메시지를_재삭제시_예외() {
-        ChatMessage message = ChatMessage.text(ROOM_ID, USER_ID, CONTENT, NOW);
+        ChatMessage message = ChatMessage.text(ROOM_ID, SEQ, USER_ID, CONTENT, NOW);
         message.delete(NOW.plusSeconds(60));
 
         assertThatThrownBy(() -> message.delete(NOW.plusSeconds(120)))
@@ -67,7 +68,7 @@ class ChatMessageTest {
 
     @Test
     void 삭제_시각이_생성_시각보다_빠르면_예외() {
-        ChatMessage message = ChatMessage.text(ROOM_ID, USER_ID, CONTENT, NOW);
+        ChatMessage message = ChatMessage.text(ROOM_ID, SEQ, USER_ID, CONTENT, NOW);
 
         assertThatThrownBy(() -> message.delete(NOW.minusSeconds(1)))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -78,11 +79,12 @@ class ChatMessageTest {
         Instant deletedAt = NOW.plusSeconds(60);
 
         ChatMessage message = ChatMessage.restore(
-                42L, ROOM_ID, USER_ID, CONTENT,
+                42L, ROOM_ID, SEQ, USER_ID, CONTENT,
                 ChatMessageType.TEXT, ChatMessageStatus.DELETED, NOW, deletedAt);
 
         assertThat(message.getId()).isEqualTo(42L);
         assertThat(message.getChatRoomId()).isEqualTo(ROOM_ID);
+        assertThat(message.getSeq()).isEqualTo(SEQ);
         assertThat(message.getUserId()).isEqualTo(USER_ID);
         assertThat(message.getContent()).isEqualTo(CONTENT);
         assertThat(message.getType()).isEqualTo(ChatMessageType.TEXT);

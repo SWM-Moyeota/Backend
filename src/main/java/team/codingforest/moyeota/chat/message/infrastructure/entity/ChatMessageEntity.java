@@ -9,6 +9,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import team.codingforest.moyeota.chat.message.domain.ChatMessage;
 import team.codingforest.moyeota.chat.message.domain.enums.ChatMessageStatus;
@@ -22,6 +23,9 @@ import java.time.Instant;
         name = "chat_message",
         indexes = {
                 @Index(name = "idx_chat_message_room_id", columnList = "chat_room_id, id")
+        },
+        uniqueConstraints = {
+            @UniqueConstraint(name = "uk_chat_message_room_seq", columnNames = {"chat_room_id", "seq"})
         }
 )
 public class ChatMessageEntity {
@@ -32,6 +36,10 @@ public class ChatMessageEntity {
 
     @Column(nullable = false)
     private Long chatRoomId;
+
+    // method 함수를 통해서만 숫자 조정 가능
+    @Column(nullable = false, updatable = false)
+    private Long seq;
 
     @Column(nullable = false)
     private Long userId;
@@ -55,11 +63,12 @@ public class ChatMessageEntity {
     protected ChatMessageEntity() {
     }
 
-    private ChatMessageEntity(Long id, Long chatRoomId, Long userId, String content,
+    private ChatMessageEntity(Long id, Long chatRoomId, Long seq, Long userId, String content,
                               ChatMessageType type, ChatMessageStatus status,
                               Instant createdAt, Instant deletedAt) {
         this.id = id;
         this.chatRoomId = chatRoomId;
+        this.seq = seq;
         this.userId = userId;
         this.content = content;
         this.type = type;
@@ -72,6 +81,7 @@ public class ChatMessageEntity {
         return new ChatMessageEntity(
                 message.getId(),
                 message.getChatRoomId(),
+                message.getSeq(),
                 message.getUserId(),
                 message.getContent(),
                 message.getType(),
@@ -85,6 +95,7 @@ public class ChatMessageEntity {
         return ChatMessage.restore(
                 getId(),
                 chatRoomId,
+                seq,
                 userId,
                 content,
                 type,

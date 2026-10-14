@@ -48,7 +48,7 @@ class MatchingChatRoomStepsTest {
     private MatchingChatRoomSteps steps;
 
     private ChatRoom room() {
-        return ChatRoom.restore(ROOM_ID, PARTY_ID, "강남역", "판교역", NOW, NOW, ChatRoomStatus.ACTIVE);
+        return ChatRoom.restore(ROOM_ID, PARTY_ID, 0L, "강남역", "판교역", NOW, NOW, ChatRoomStatus.ACTIVE);
     }
 
     private void partyMembers(Long... userIds) {

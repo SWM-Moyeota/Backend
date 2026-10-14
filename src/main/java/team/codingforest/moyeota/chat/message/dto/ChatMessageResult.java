@@ -9,6 +9,7 @@ import java.util.UUID;
 public record ChatMessageResult(
         Long id,
         Long chatRoomId,
+        Long seq,
         UUID publicId,
         String content,
         ChatMessageType type,
@@ -21,6 +22,7 @@ public record ChatMessageResult(
         return new ChatMessageResult(
                 message.getId(),
                 message.getChatRoomId(),
+                message.getSeq(),
                 publicId,
                 message.isDeleted() ? DELETED_CONTENT : message.getContent(),
                 message.getType(),

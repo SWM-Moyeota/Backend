@@ -45,7 +45,7 @@ class ChatRoomServiceTest {
     private ChatRoomService chatRoomService;
 
     private ChatRoom room(ChatRoomStatus status) {
-        return ChatRoom.restore(ROOM_ID, PARTY_ID, DEPARTURE, DESTINATION, NOW, NOW, status);
+        return ChatRoom.restore(ROOM_ID, PARTY_ID, 0L, DEPARTURE, DESTINATION, NOW, NOW, status);
     }
 
     private CreateChatRoomCommand command() {

@@ -72,7 +72,7 @@ class ChatRoomUserServiceTest {
         given(chatRooms.findByIds(List.of(chatRoomIds))).willReturn(
                 Arrays.stream(chatRoomIds).collect(Collectors.toMap(
                         id -> id,
-                        id -> ChatRoom.restore(id, id, "서울시청", "강남역", NOW, NOW, ChatRoomStatus.ACTIVE))));
+                        id -> ChatRoom.restore(id, id, 0L, "서울시청", "강남역", NOW, NOW, ChatRoomStatus.ACTIVE))));
     }
 
     @BeforeEach
@@ -87,7 +87,7 @@ class ChatRoomUserServiceTest {
     }
 
     private ChatRoom room(ChatRoomStatus status) {
-        return ChatRoom.restore(ROOM_ID, PARTY_ID, "서울시청", "강남역", NOW, NOW, status);
+        return ChatRoom.restore(ROOM_ID, PARTY_ID, 0L, "서울시청", "강남역", NOW, NOW, status);
     }
 
     private ChatRoomUser activeUser(Long chatRoomId) {
@@ -201,7 +201,7 @@ class ChatRoomUserServiceTest {
         given(chatRoomUsers.findActiveByUserId(USER_ID))
                 .willReturn(List.of(activeUser(10L), activeUser(20L)));
         givenChatRooms(10L, 20L);
-        ChatMessage last = ChatMessage.restore(99L, 10L, 5L, "안녕", ChatMessageType.TEXT, ChatMessageStatus.ACTIVE, NOW, null);
+        ChatMessage last = ChatMessage.restore(99L, 10L, 1L, 5L, "안녕", ChatMessageType.TEXT, ChatMessageStatus.ACTIVE, NOW, null);
         given(chatMessages.findLatestByChatRoomIds(List.of(10L, 20L))).willReturn(Map.of(10L, last));
         given(memberProvider.findMembers(List.of(5L)))
                 .willReturn(Map.of(5L, new ChatMember(5L, PUBLIC_ID, "닉", null)));
@@ -276,7 +276,7 @@ class ChatRoomUserServiceTest {
         given(chatRoomUsers.findActiveByUserId(USER_ID))
                 .willReturn(List.of(activeUser(10L), activeUser(20L)));
         given(chatRooms.findByIds(List.of(10L, 20L))).willReturn(
-                Map.of(10L, ChatRoom.restore(10L, 10L, "서울시청", "강남역", NOW, NOW, ChatRoomStatus.ACTIVE)));
+                Map.of(10L, ChatRoom.restore(10L, 10L, 0L, "서울시청", "강남역", NOW, NOW, ChatRoomStatus.ACTIVE)));
 
         List<ChatRoomUserResult> results = chatRoomUserService.findMyActiveRooms(USER_ID);
 

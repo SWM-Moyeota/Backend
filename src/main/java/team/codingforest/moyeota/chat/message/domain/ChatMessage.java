@@ -1,10 +1,10 @@
 package team.codingforest.moyeota.chat.message.domain;
 
 import lombok.Getter;
-import team.codingforest.moyeota.chat.message.domain.enums.ChatMessageStatus;
-import team.codingforest.moyeota.chat.message.domain.enums.ChatMessageType;
 import team.codingforest.moyeota.chat.common.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.common.exception.ChatException;
+import team.codingforest.moyeota.chat.message.domain.enums.ChatMessageStatus;
+import team.codingforest.moyeota.chat.message.domain.enums.ChatMessageType;
 
 import java.time.Instant;
 
@@ -12,6 +12,7 @@ import java.time.Instant;
 public class ChatMessage {
     private final Long id;
     private final Long chatRoomId;
+    private final Long seq;
     private final Long userId;
     private final String content;
     private final ChatMessageType type;
@@ -19,9 +20,10 @@ public class ChatMessage {
     private ChatMessageStatus status;
     private Instant deletedAt;
 
-    private ChatMessage(Long id, Long chatRoomId, Long userId, String content, ChatMessageType type, ChatMessageStatus status, Instant createdAt, Instant deletedAt) {
+    private ChatMessage(Long id, Long chatRoomId, Long seq, Long userId, String content, ChatMessageType type, ChatMessageStatus status, Instant createdAt, Instant deletedAt) {
         this.id = id;
         this.chatRoomId = chatRoomId;
+        this.seq = seq;
         this.userId = userId;
         this.content = content;
         this.type = type;
@@ -30,16 +32,16 @@ public class ChatMessage {
         this.deletedAt = deletedAt;
     }
 
-    public static ChatMessage text(Long chatRoomId, Long userId, String content, Instant now) {
-        return new ChatMessage(null, chatRoomId, userId, content, ChatMessageType.TEXT, ChatMessageStatus.ACTIVE, now, null);
+    public static ChatMessage text(Long chatRoomId, Long seq, Long userId, String content, Instant now) {
+        return new ChatMessage(null, chatRoomId, seq, userId, content, ChatMessageType.TEXT, ChatMessageStatus.ACTIVE, now, null);
     }
 
-    public static ChatMessage location(Long chatRoomId, Long userId, String content, Instant now) {
-        return new ChatMessage(null, chatRoomId, userId, content, ChatMessageType.LOCATION, ChatMessageStatus.ACTIVE, now, null);
+    public static ChatMessage location(Long chatRoomId, Long seq, Long userId, String content, Instant now) {
+        return new ChatMessage(null, chatRoomId, seq, userId, content, ChatMessageType.LOCATION, ChatMessageStatus.ACTIVE, now, null);
     }
 
-    public static ChatMessage restore(Long id, Long chatRoomId, Long userId, String content, ChatMessageType type, ChatMessageStatus status, Instant createdAt, Instant deletedAt) {
-        return new ChatMessage(id, chatRoomId, userId, content, type, status, createdAt, deletedAt);
+    public static ChatMessage restore(Long id, Long chatRoomId, Long seq, Long userId, String content, ChatMessageType type, ChatMessageStatus status, Instant createdAt, Instant deletedAt) {
+        return new ChatMessage(id, chatRoomId, seq, userId, content, type, status, createdAt, deletedAt);
     }
 
     public void delete(Instant deletedAt) {

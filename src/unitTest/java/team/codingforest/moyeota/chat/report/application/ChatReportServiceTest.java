@@ -51,7 +51,7 @@ class ChatReportServiceTest {
     private ChatReportService chatReportService;
 
     private ChatMessage messageIn(Long chatRoomId) {
-        return ChatMessage.restore(MESSAGE_ID, chatRoomId, REPORTED_ID, "욕설",
+        return ChatMessage.restore(MESSAGE_ID, chatRoomId, 1L, REPORTED_ID, "욕설",
                 ChatMessageType.TEXT, ChatMessageStatus.ACTIVE, NOW, null);
     }
 
