@@ -37,7 +37,7 @@ public class ChatMessageEntity {
     @Column(nullable = false)
     private Long chatRoomId;
 
-    // method 함수를 통해서만 숫자 조정 가능
+    // 저장할 때 한 번 정해지는 방 내부 순번 이후 바뀌지 않음
     @Column(nullable = false, updatable = false)
     private Long seq;
 

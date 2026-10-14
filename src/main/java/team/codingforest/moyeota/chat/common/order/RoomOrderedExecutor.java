@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 쓰레드마다 방번호를 따로 부여해서 순차적으로 처리
+ * 방 번호로 스레드를 골라 같은 방의 작업은 한 스레드에서 순서대로 처리함. 다른 방은 다른 스레드에서 동시에 처리
  */
 @Component
 public class RoomOrderedExecutor {
