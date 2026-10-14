@@ -27,18 +27,6 @@ public class AsyncConfig {
     }
 
     @Bean
-    public ThreadPoolTaskExecutor realtimeExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(4);
-        executor.setMaxPoolSize(4);
-        executor.setQueueCapacity(10000);
-        executor.setThreadNamePrefix("realtime-");
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(20);
-        return executor;
-    }
-
-    @Bean
     public ThreadPoolTaskExecutor chatPushExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(2);

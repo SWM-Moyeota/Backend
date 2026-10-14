@@ -39,6 +39,7 @@ public class RedisConfig {
     ) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(redisConnectionFactory);
+        container.setTaskExecutor(chatSubscribeExecutor());
         container.addMessageListener(subscriber, chatTopic);
         return container;
     }
