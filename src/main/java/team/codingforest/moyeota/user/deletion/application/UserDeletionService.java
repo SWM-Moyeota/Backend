@@ -6,6 +6,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
+import team.codingforest.moyeota.user.api.DriverWithdrawal;
 import team.codingforest.moyeota.user.api.OngoingPartyChecker;
 import team.codingforest.moyeota.user.api.UserDeletedEvent;
 import team.codingforest.moyeota.user.auth.domain.PrincipalCache;
@@ -34,6 +35,7 @@ public class UserDeletionService {
     private final PrincipalCache principalCache;
     private final PasswordHasher passwordHasher;
     private final OngoingPartyChecker ongoingPartyChecker;
+    private final DriverWithdrawal driverWithdrawal;
     private final ApplicationEventPublisher eventPublisher;
     private final AfterCommitExecutor afterCommitExecutor;
 
@@ -53,6 +55,7 @@ public class UserDeletionService {
         User user = users.findById(userId);
         user.delete(now);
         users.save(user);
+        driverWithdrawal.withdraw(userId, now);
 
         // 프로필을 지우면 번호를 알 수 없어서 지우기 전에 해시를 남긴다
         userProfiles.findByUserId(userId)

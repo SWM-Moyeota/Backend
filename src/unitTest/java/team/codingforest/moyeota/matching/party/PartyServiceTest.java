@@ -890,8 +890,13 @@ class PartyServiceTest {
         }
 
         @Override
-        public Optional<Long> findIdByUserId(Long userId) {
+        public Optional<Long> lockIdByUserId(Long userId) {
             return Optional.empty();
+        }
+
+        @Override
+        public boolean lockAndCanReceiveCalls(Long driverId) {
+            return canReceiveCalls(driverId);
         }
     }
 }

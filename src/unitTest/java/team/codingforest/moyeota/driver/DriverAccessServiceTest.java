@@ -4,7 +4,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.driver.domain.BankAccount;
 import team.codingforest.moyeota.driver.domain.Driver;
+import team.codingforest.moyeota.driver.domain.Vehicle;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -74,5 +76,47 @@ class DriverAccessServiceTest {
         Map<Long, String> tokens = service.findFcmTokens(List.of(토큰기사, 토큰기사));
 
         assertThat(tokens).hasSize(1);   // 중복이면 같은 기사에게 알림이 두 번 갈 수 있다
+    }
+
+    // ───────────────────────── 잠금 조회 ─────────────────────────
+
+    private Driver 운행가능기사(Long userId) {
+        Driver driver = Driver.register(userId, "서울-1234-5678", new BankAccount("국민은행", "123-456-789012"));
+        driver.verify(Instant.now());
+        driver.registerVehicle(new Vehicle(4, "12가3456", "중형"));
+        return drivers.save(driver);
+    }
+
+    @Test
+    void 사용자_번호로_잠그면_기사_번호를_돌려준다() {
+        Long 기사 = 기사등록(1L, null);
+
+        assertThat(service.lockIdByUserId(1L)).contains(기사);
+    }
+
+    @Test
+    void 기사가_아닌_사용자를_잠그면_비어_있다() {
+        assertThat(service.lockIdByUserId(999L)).isEmpty();
+    }
+
+    @Test
+    void 콜을_받을_수_있는_기사를_잠가_확인하면_참이다() {
+        Driver driver = 운행가능기사(1L);
+
+        assertThat(service.lockAndCanReceiveCalls(driver.getId())).isTrue();
+    }
+
+    @Test
+    void 탈퇴한_기사를_잠가_확인하면_거짓이다() {
+        Driver driver = 운행가능기사(1L);
+        driver.withdraw(Instant.now());
+        drivers.save(driver);
+
+        assertThat(service.lockAndCanReceiveCalls(driver.getId())).isFalse();
+    }
+
+    @Test
+    void 없는_기사를_잠가_확인하면_거짓이다() {
+        assertThat(service.lockAndCanReceiveCalls(999L)).isFalse();
     }
 }

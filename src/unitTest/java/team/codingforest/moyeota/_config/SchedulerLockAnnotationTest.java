@@ -5,8 +5,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.scheduling.annotation.Scheduled;
 import team.codingforest.moyeota.common.event.EventResubmitter;
 import team.codingforest.moyeota.dispatch.call.MatchingSweeper;
+import team.codingforest.moyeota.driver.DriverRetentionSweeper;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
 import team.codingforest.moyeota.matching.sse.infrastructure.PartySseRegistry;
+import team.codingforest.moyeota.user.deletion.application.UserDeletionSweeper;
 
 import java.lang.reflect.Method;
 import java.time.Duration;
@@ -26,6 +28,7 @@ class SchedulerLockAnnotationTest {
         assertLocked(EventResubmitter.class, "run", "event-resubmit");
         assertLocked(CompletedPartySweeper.class, "sweep", "completed-party-sweep");
         assertLocked(MatchingSweeper.class, "sweep", "matching-sweep");
+        assertLocked(DriverRetentionSweeper.class, "sweep", "driver-retention-sweep");
     }
 
     @Test
@@ -53,7 +56,8 @@ class SchedulerLockAnnotationTest {
     @Test
     void 잠금_이름은_서로_다르다() {
         List<String> names = List.of(lockName(EventResubmitter.class, "run"),
-                lockName(CompletedPartySweeper.class, "sweep"), lockName(MatchingSweeper.class, "sweep"));
+                lockName(CompletedPartySweeper.class, "sweep"), lockName(MatchingSweeper.class, "sweep"),
+                lockName(UserDeletionSweeper.class, "sweep"), lockName(DriverRetentionSweeper.class, "sweep"));
 
         assertThat(names).doesNotHaveDuplicates();
     }

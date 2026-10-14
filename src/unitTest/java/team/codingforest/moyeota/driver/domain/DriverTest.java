@@ -169,4 +169,46 @@ class DriverTest {
 
         assertThat(driver.hasFcmToken()).isTrue();
     }
+
+    // ───────────────────────── 탈퇴 ─────────────────────────
+
+    @Test
+    void 탈퇴하면_계좌와_토큰을_지우고_콜을_끈다() {
+        Driver driver = 운행가능기사();
+        driver.registerFcmToken("token-abc");
+
+        driver.withdraw(지금);
+
+        assertThat(driver.getBankAccount()).isNull();
+        assertThat(driver.getFcmToken()).isNull();
+        assertThat(driver.getSetting().isCallEnabled()).isFalse();
+        assertThat(driver.getDeletedAt()).isEqualTo(지금);
+        assertThat(driver.isWithdrawn()).isTrue();
+    }
+
+    @Test
+    void 탈퇴해도_자격번호와_차량은_남는다() {
+        Driver driver = 운행가능기사();
+
+        driver.withdraw(지금);
+
+        assertThat(driver.getUserId()).isEqualTo(유저);
+        assertThat(driver.getQualificationNumber()).isEqualTo(자격번호);
+        assertThat(driver.getVehicle()).isEqualTo(소나타);
+    }
+
+    @Test
+    void 탈퇴한_기사는_콜을_다시_켜도_콜을_받을_수_없다() {
+        Driver driver = 운행가능기사();
+        driver.withdraw(지금);
+
+        driver.enableCall();
+
+        assertThat(driver.canReceiveCalls()).isFalse();
+    }
+
+    @Test
+    void 탈퇴하지_않은_기사는_탈퇴_상태가_아니다() {
+        assertThat(등록된기사().isWithdrawn()).isFalse();
+    }
 }

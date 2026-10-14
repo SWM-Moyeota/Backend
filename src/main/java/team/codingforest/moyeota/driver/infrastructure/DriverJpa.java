@@ -8,7 +8,9 @@ import team.codingforest.moyeota.driver.domain.Drivers;
 import team.codingforest.moyeota.driver.dto.DriverFcmToken;
 import team.codingforest.moyeota.driver.exception.DriverErrorCode;
 
+import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -41,8 +43,20 @@ public class DriverJpa implements Drivers {
     }
 
     @Override
+    public Optional<Driver> findByIdForUpdate(Long id) {
+        return delegate.findByIdForUpdate(id)
+                .map(DriverEntity::toDomain);
+    }
+
+    @Override
     public Optional<Driver> findByUserId(Long userId) {
         return delegate.findByUserId(userId)
+                .map(DriverEntity::toDomain);
+    }
+
+    @Override
+    public Optional<Driver> findByUserIdForUpdate(Long userId) {
+        return delegate.findByUserIdForUpdate(userId)
                 .map(DriverEntity::toDomain);
     }
 
@@ -53,7 +67,9 @@ public class DriverJpa implements Drivers {
     }
 
     @Override
-    public void deleteByUserId(Long userId) {
-        delegate.findByUserId(userId).ifPresent(delegate::delete);
+    public int deleteWithdrawnBefore(Instant before) {
+        List<DriverEntity> expired = delegate.findWithdrawnBefore(before);
+        delegate.deleteAll(expired);
+        return expired.size();
     }
 }

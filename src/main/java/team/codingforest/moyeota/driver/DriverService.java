@@ -104,6 +104,7 @@ public class DriverService {
     @Transactional(readOnly = true)
     public DriverResult getByUserId(Long userId) {
         return service.findByUserId(userId)
+                .filter(driver -> !driver.isWithdrawn())
                 .map(this::toResult)
                 .orElseThrow(() -> new BusinessException(DriverErrorCode.DRIVER_NOT_REGISTERED));
     }
@@ -113,7 +114,8 @@ public class DriverService {
     }
 
     private Driver getDriver(Long driverId) {
-        return service.findById(driverId)
+        return service.findByIdForUpdate(driverId)
+                .filter(driver -> !driver.isWithdrawn())
                 .orElseThrow(() -> new BusinessException(DriverErrorCode.DRIVER_NOT_FOUND));
     }
 

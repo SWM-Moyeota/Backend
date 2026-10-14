@@ -2,12 +2,13 @@ package team.codingforest.moyeota.driver;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.driver.api.DriverAccess;
 import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Drivers;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -36,8 +37,17 @@ class DriverAccessService implements DriverAccess {
     }
 
     @Override
-    public Optional<Long> findIdByUserId(Long userId) {
-        return drivers.findByUserId(userId).map(Driver::getId);
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<Long> lockIdByUserId(Long userId) {
+        return drivers.findByUserIdForUpdate(userId).map(Driver::getId);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public boolean lockAndCanReceiveCalls(Long driverId) {
+        return drivers.findByIdForUpdate(driverId)
+                .map(Driver::canReceiveCalls)
+                .orElse(false);
     }
 
     @Override
