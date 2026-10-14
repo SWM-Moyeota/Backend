@@ -6,4 +6,5 @@ public interface UserProfiles {
     void save(UserProfile userProfile);
     Optional<UserProfile> findByUserId(Long userId);
     boolean existsByPhoneNumber(String normalizedPhoneNumber);
+    void deleteByUserId(Long userId);
 }

@@ -27,7 +27,6 @@ class EventResubmitterTest {
     private static final String MEMBER_LISTENER = "team.codingforest.moyeota.chat.room.application.ChatRoomMatchingListener.on(team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent)";
     private static final String PUSH_LISTENER = "team.codingforest.moyeota.chat.notification.application.ChatNotificationListener.onMessageSent(team.codingforest.moyeota.chat.message.event.ChatMessageSentEvent)";
     private static final String BROADCAST_LISTENER = "team.codingforest.moyeota.chat.message.presentation.ChatMessageBroadcaster.onMessageSent(team.codingforest.moyeota.chat.message.event.ChatMessageSentEvent)";
-    private static final String SSE_LISTENER = "team.codingforest.moyeota.matching.sse.PartySseListener.on(team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent)";
 
     private TargetEventPublication publication(String listenerId, int attempts) {
         TargetEventPublication p = mock(TargetEventPublication.class);
@@ -53,7 +52,6 @@ class EventResubmitterTest {
         Instant later = T0.plusSeconds(3600);
 
         assertThat(EventResubmitter.shouldResubmit(publication(BROADCAST_LISTENER, 1), later)).isFalse();
-        assertThat(EventResubmitter.shouldResubmit(publication(SSE_LISTENER, 1), later)).isFalse();
         assertThat(EventResubmitter.shouldResubmit(publication(PUSH_LISTENER, 1), later)).isFalse();
     }
 

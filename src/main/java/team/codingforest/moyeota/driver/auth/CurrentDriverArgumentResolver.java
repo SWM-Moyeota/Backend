@@ -38,6 +38,7 @@ public class CurrentDriverArgumentResolver implements HandlerMethodArgumentResol
 
         // 토큰의 유저 → 기사 자격 확인 → 내부 driverId 주입
         return drivers.findByUserId(principal.userId())
+                .filter(driver -> !driver.isWithdrawn())
                 .orElseThrow(() -> new BusinessException(DriverErrorCode.DRIVER_NOT_REGISTERED))
                 .getId();
     }

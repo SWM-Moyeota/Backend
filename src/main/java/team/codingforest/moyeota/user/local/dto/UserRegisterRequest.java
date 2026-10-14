@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import team.codingforest.moyeota.user.common.domain.enums.Gender;
+import team.codingforest.moyeota.user.users.domain.enums.Gender;
 
 import java.time.Instant;
 
@@ -46,9 +46,12 @@ public record UserRegisterRequest(
         @NotBlank(message = "이메일은 필수입니다.")
         @Email(message = "이메일 형식이 올바르지 않습니다.")
         @Size(max = 100, message = "이메일은 100자를 넘을 수 없습니다.")
-        @Schema(example = "hong@example.com") String email
+        @Schema(example = "hong@example.com") String email,
+
+        @NotBlank(message = "휴대폰 인증이 필요합니다.")
+        @Schema(description = "POST /api/v1/auth/sms/verify 응답의 verificationToken", example = "3f2b8c1e-...") String verificationToken
 ) {
     public UserRegisterCommand toCommand() {
-        return new UserRegisterCommand(loginId, password, nickname, name, birthDate, phoneNumber, gender, email);
+        return new UserRegisterCommand(loginId, password, nickname, name, birthDate, phoneNumber, gender, email, verificationToken);
     }
 }

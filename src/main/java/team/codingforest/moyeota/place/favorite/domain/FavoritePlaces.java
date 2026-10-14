@@ -8,4 +8,5 @@ public interface FavoritePlaces {
     int countByUserId(Long userId);
     boolean existsByUserIdAndPlace(Long userId, String placeName);
     void deleteByUserIdAndPlaceName(Long userId, String placeName);
+    void deleteAllByUserId(Long userId);
 }

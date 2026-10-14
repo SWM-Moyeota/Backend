@@ -5,13 +5,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.driver.dto.DriverResult;
-import team.codingforest.moyeota.driver.dto.RegisterDriverCommand;
-import team.codingforest.moyeota.driver.dto.RegisterVehicleCommand;
 import team.codingforest.moyeota.driver.domain.BankAccount;
 import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Drivers;
 import team.codingforest.moyeota.driver.domain.Vehicle;
+import team.codingforest.moyeota.driver.dto.DriverResult;
+import team.codingforest.moyeota.driver.dto.RegisterDriverCommand;
+import team.codingforest.moyeota.driver.dto.RegisterVehicleCommand;
 import team.codingforest.moyeota.driver.exception.DriverErrorCode;
 import team.codingforest.moyeota.user.api.UserAccess;
 
@@ -104,6 +104,7 @@ public class DriverService {
     @Transactional(readOnly = true)
     public DriverResult getByUserId(Long userId) {
         return service.findByUserId(userId)
+                .filter(driver -> !driver.isWithdrawn())
                 .map(this::toResult)
                 .orElseThrow(() -> new BusinessException(DriverErrorCode.DRIVER_NOT_REGISTERED));
     }
@@ -113,7 +114,8 @@ public class DriverService {
     }
 
     private Driver getDriver(Long driverId) {
-        return service.findById(driverId)
+        return service.findByIdForUpdate(driverId)
+                .filter(driver -> !driver.isWithdrawn())
                 .orElseThrow(() -> new BusinessException(DriverErrorCode.DRIVER_NOT_FOUND));
     }
 

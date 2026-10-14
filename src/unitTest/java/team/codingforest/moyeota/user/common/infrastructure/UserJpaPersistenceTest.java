@@ -5,8 +5,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import team.codingforest.moyeota.common.JpaAuditingConfig;
-import team.codingforest.moyeota.user.common.domain.User;
-import team.codingforest.moyeota.user.common.domain.enums.LoginType;
+import team.codingforest.moyeota.user.users.domain.User;
+import team.codingforest.moyeota.user.users.domain.enums.LoginType;
+import team.codingforest.moyeota.user.users.infrastructure.UserJpa;
+import team.codingforest.moyeota.user.users.infrastructure.UserRepository;
 
 import java.util.List;
 import java.util.UUID;

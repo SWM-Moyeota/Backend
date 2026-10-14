@@ -19,6 +19,12 @@ spring:
       # 기본 명령 타임아웃은 60초 - Redis 가 멈추면 캐시를 거치는 요청(인증 포함)이 그만큼 매달린다
       timeout: 1s
       connect-timeout: 1s
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 16   # 빌리는 시간이 왕복 1번(약 1ms)이라 16개면 초당 수천 번 빌릴 수 있음. 부하테스트 최대 약 350/s
+          max-idle: 16     # 다 쓴 연결을 닫지 않고 남겨둘 수. max-active 와 같아야 몰릴 때 만들고 닫기를 반복하지 않음
+          max-wait: 1s     # 풀이 다 찼을 때 기다리는 최대 시간. 기본값(-1)은 무한 대기라 반드시 지정
   modulith:
     events:
       republish-outstanding-events-on-restart: false
@@ -94,8 +100,12 @@ management:
 moyeota:
   taxi:
     enabled: ${TAXI_ENABLED:true}
-  party:
-    fingerprint-secret: ${PARTY_FINGERPRINT_SECRET:local-only-party-fingerprint-secret}
   crypto:
     field-key: ${FIELD_ENCRYPTION_KEY:XgIsaebhS+OFGOUd4l16AnNPZgXIydBInUv5yyQvmMY=}
     hash-key: ${FIELD_HASH_KEY:local-only-field-hash-key}
+  sms:
+    provider: ${SMS_PROVIDER:log}   # log | solapi
+    solapi:
+      api-key: ${SOLAPI_API_KEY:}
+      api-secret: ${SOLAPI_API_SECRET:}
+      from: ${SOLAPI_FROM:}

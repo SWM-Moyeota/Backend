@@ -1,10 +1,10 @@
 package team.codingforest.moyeota.matching.party.dto;
 
-import team.codingforest.moyeota.matching.party.domain.PartyStatusSnapshot;
+import team.codingforest.moyeota.matching.party.domain.Party;
 
-public record PartyStatusResponse(String status, Integer currentMembers, String fingerprint) {
+public record PartyStatusResponse(String status, Integer currentMembers) {
 
-    public static PartyStatusResponse of(PartyStatusSnapshot snapshot, String fingerprint) {
-        return new PartyStatusResponse(snapshot.status().name(), snapshot.memberIds().size(), fingerprint);
+    public static PartyStatusResponse from(Party party) {
+        return new PartyStatusResponse(party.getStatus().name(), party.getMembers().size());
     }
 }

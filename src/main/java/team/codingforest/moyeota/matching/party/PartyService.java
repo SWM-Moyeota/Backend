@@ -14,6 +14,8 @@ import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
 import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
+import team.codingforest.moyeota.matching.party.dto.MemberJoined;
+import team.codingforest.moyeota.matching.party.dto.MemberLeft;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
@@ -23,17 +25,18 @@ import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatusSnapshot;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
+import team.codingforest.moyeota.user.api.MemberSummary;
 import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -50,7 +53,6 @@ public class PartyService {
     private final PartyCompletionPolicy partyCompletionPolicy;
     private final AfterCommitExecutor afterCommitExecutor;
     private final PartyChangeNotifier partyChangeNotifier;
-    private final PartyFingerprint partyFingerprint;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
@@ -62,7 +64,7 @@ public class PartyService {
                 new Location(command.departureLat(), command.departureLng()),
                 new Location(command.destinationLat(), command.destinationLng()),
                 command.departure(), command.destination(), new Capacity(command.capacity()),
-                Instant.now(), new Radius(command.departureRadius()), new Radius(command.destinationRadius()),
+                Instant.now(), Radius.DEFAULT, Radius.DEFAULT,
                 estimate.estimateFare(), estimate.estimateTime(), estimate.path());
 
         Party saved = parties.save(party);
@@ -80,8 +82,12 @@ public class PartyService {
     }
 
     @Transactional
-    public PartyDetailResult join(Long partyId, Long memberId) {
+    public PartyStatusResponse join(Long partyId, Long memberId) {
         validateNotInOngoingParty(memberId);
+
+        MemberSummary summary = userAccess.findMemberSummaries(List.of(memberId)).get(memberId);
+        int rideCount = parties.countFinishedRides(List.of(memberId)).getOrDefault(memberId, 0);
+
         Party party = parties.findByIdForUpdate(partyId)
                         .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
@@ -92,15 +98,24 @@ public class PartyService {
         }
 
         log.info("매칭방에 사용자 참가됨 partyId={}, memberId={}, status={}", partyId, memberId, party.getStatus());
-        parties.save(party);
-        eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
-        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.changed(partyId));
 
-        return getPartyDetail(partyId);
+        Party saved = parties.save(party);
+
+        eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
+
+        MemberJoined event = MemberJoined.from(PartyDetailResult.MemberInfo.of(summary, rideCount), saved.getStatus().name());
+
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.memberJoined(partyId, event));
+
+        return PartyStatusResponse.from(saved);
     }
 
     @Transactional
     public void leave(Long partyId, Long memberId) {
+        MemberSummary summary = userAccess.findMemberSummaries(List.of(memberId)).get(memberId);
+
+        UUID publicId = summary == null ? null : summary.publicId();
+
         Party party = parties.findByIdForUpdate(partyId)
                         .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
@@ -113,9 +128,8 @@ public class PartyService {
             afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
         }
         else {
-            // 나간 사람의 연결을 먼저 닫는다 - 순서가 반대면 나간 사람도 changed 를 받아 쓸데없이 상세를 다시 읽는다
-            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.left(partyId, memberId));
-            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.changed(partyId));
+            MemberLeft event = MemberLeft.from(publicId, party.getStatus().name());
+            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.memberLeft(partyId, memberId, event));
         }
 
         log.info("매칭방에서 사용자 나감 partyId={}, memberId={}, status={}, members={}", partyId, memberId, party.getStatus(), party.getMembers().size());
@@ -127,20 +141,7 @@ public class PartyService {
 
         List<Long> memberIds = party.getMembers().stream().map(PartyMember::getMemberId).toList();
 
-        return PartyDetailResult.from(party, userAccess.findMemberSummaries(memberIds), parties.countFinishedRides(memberIds),
-                partyFingerprint.of(party.getId(), party.getStatus(), memberIds));
-    }
-
-    /**
-     *  상태·인원수·지문만. 놓친 SSE 신호를 잡는 안전망 폴링이 상세(쿼리 3개) 대신 부른다.
-     *  지문은 방 상세의 것과 같은 재료로 만든다 - 앱이 화면에 그린 상세의 지문과 비교할 수 있어야 한다.
-     */
-    @Transactional(readOnly = true)
-    public PartyStatusResponse getPartyStatus(Long partyId) {
-        PartyStatusSnapshot snapshot = parties.findStatusSnapshotById(partyId)
-                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
-
-        return PartyStatusResponse.of(snapshot, partyFingerprint.of(snapshot.partyId(), snapshot.status(), snapshot.memberIds()));
+        return PartyDetailResult.from(party, userAccess.findMemberSummaries(memberIds), parties.countFinishedRides(memberIds));
     }
 
     @Transactional(readOnly = true)
@@ -149,7 +150,6 @@ public class PartyService {
                 .map(PartyResult::from)
                 .toList();
     }
-
 
     @Transactional(readOnly = true)
     public DriverSummary getAssignDriver(Long partyId) {
@@ -194,7 +194,6 @@ public class PartyService {
 
         log.warn("정원 충족 후 방치된 방 자동 종료 partyId={}", partyId);
     }
-
 
     private Party getParty(Long partyId) {
         return parties.findById(partyId)

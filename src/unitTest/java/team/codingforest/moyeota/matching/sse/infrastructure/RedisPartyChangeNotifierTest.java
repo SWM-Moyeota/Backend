@@ -2,9 +2,15 @@ package team.codingforest.moyeota.matching.sse.infrastructure;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import team.codingforest.moyeota.matching.party.dto.MemberJoined;
+import team.codingforest.moyeota.matching.party.dto.MemberLeft;
+import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
+import team.codingforest.moyeota.matching.sse.dto.PartySseMessage;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -16,46 +22,70 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RedisPartyChangeNotifierTest {
     private static final Long 방 = 42L;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final RecordingRedis redis = new RecordingRedis();
-    private final RedisPartyChangeNotifier notifier = new RedisPartyChangeNotifier(redis);
+    private final RedisPartyChangeNotifier notifier = new RedisPartyChangeNotifier(redis, objectMapper);
 
     @Test
-    void changed_는_changed_신호를_채널에_낸다() {
-        notifier.changed(방);
+    void 참여는_들어온_사람_정보를_데이터로_실어_채널에_낸다() {
+        UUID publicId = UUID.randomUUID();
+        MemberJoined event = MemberJoined.from(new PartyDetailResult.MemberInfo(publicId, "철수", null, null, 3), "ACTIVE");
 
-        assertThat(redis.sent).containsExactly(PartySseChannel.TOPIC + "|42:changed");
+        notifier.memberJoined(방, event);
+
+        PartySseMessage sent = onlySent();
+        assertThat(sent.partyId()).isEqualTo(방);
+        assertThat(sent.event()).isEqualTo("member-joined");
+        assertThat(sent.leftMemberId()).as("참여는 닫을 연결이 없다").isNull();
+        assertThat(objectMapper.readValue(sent.data(), MemberJoined.class)).isEqualTo(event);
     }
 
     @Test
-    void left_는_나간_사람의_번호를_실어_채널에_낸다() {
-        // 연결을 들고 있는 인스턴스가 따로일 수 있어 로컬에서 닫지 않고 채널로 낸다
-        notifier.left(방, 7L);
+    void 퇴장은_나간_사람의_내부_번호와_publicId_를_함께_실어_채널에_낸다() {
+        // 내부 번호는 연결을 닫는 데만 쓰고, 앱에는 publicId 만 간다
+        UUID publicId = UUID.randomUUID();
+        MemberLeft event = MemberLeft.from(publicId, "ACTIVE");
 
-        assertThat(redis.sent).containsExactly(PartySseChannel.TOPIC + "|42:left:7");
+        notifier.memberLeft(방, 7L, event);
+
+        PartySseMessage sent = onlySent();
+        assertThat(sent.event()).isEqualTo("member-left");
+        assertThat(sent.leftMemberId()).isEqualTo(7L);
+        assertThat(sent.data()).contains(publicId.toString());
+        assertThat(objectMapper.readValue(sent.data(), MemberLeft.class)).isEqualTo(event);
     }
 
     @Test
-    void closed_는_closed_신호를_채널에_낸다() {
+    void closed_는_방_번호만_실어_채널에_낸다() {
         notifier.closed(방);
 
-        assertThat(redis.sent).containsExactly(PartySseChannel.TOPIC + "|42:closed");
+        PartySseMessage sent = onlySent();
+        assertThat(sent.event()).isEqualTo("closed");
+        assertThat(sent.data()).isEqualTo("42");
+        assertThat(sent.leftMemberId()).isNull();
     }
 
     @Test
-    void 신호에는_partyId_와_이름만_싣는다() {
+    void 모든_신호는_같은_채널로_낸다() {
         notifier.closed(방);
 
-        // FINISHED 든 CANCELED 든 앱은 closed 만 보고 상세를 재조회한다 - 상태를 실으면 앱이 그걸 믿고 조회를 건너뛸 수 있다
-        assertThat(redis.sent.get(0)).isEqualTo(PartySseChannel.TOPIC + "|42:closed");
+        assertThat(redis.channels).containsExactly(PartySseChannel.TOPIC);
+    }
+
+    private PartySseMessage onlySent() {
+        assertThat(redis.sent).hasSize(1);
+        return objectMapper.readValue(redis.sent.getFirst(), PartySseMessage.class);
     }
 
     /** Redis 없이 convertAndSend 호출만 기록한다 - 책임은 "어느 채널에 무엇을 내느냐" 뿐이다 */
     static class RecordingRedis extends StringRedisTemplate {
+        final List<String> channels = new ArrayList<>();
         final List<String> sent = new ArrayList<>();
 
         @Override
         public Long convertAndSend(String channel, Object message) {
-            sent.add(channel + "|" + message);
+            channels.add(channel);
+            sent.add((String) message);
             return 1L;
         }
     }

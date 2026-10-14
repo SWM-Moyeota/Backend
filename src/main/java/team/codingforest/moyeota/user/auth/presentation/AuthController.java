@@ -1,11 +1,10 @@
 package team.codingforest.moyeota.user.auth.presentation;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -15,14 +14,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import team.codingforest.moyeota.user.auth.application.AuthService;
+import team.codingforest.moyeota.user.auth.dto.TokenRequest;
+import team.codingforest.moyeota.user.auth.dto.TokenResponse;
+import team.codingforest.moyeota.user.auth.dto.UserLoginRequest;
 import team.codingforest.moyeota.user.local.application.LocalUserService;
 import team.codingforest.moyeota.user.local.dto.NicknameCheckRequest;
 import team.codingforest.moyeota.user.local.dto.NicknameCheckResponse;
 import team.codingforest.moyeota.user.local.dto.PhoneCheckRequest;
 import team.codingforest.moyeota.user.local.dto.PhoneCheckResponse;
-import team.codingforest.moyeota.user.auth.dto.TokenRequest;
-import team.codingforest.moyeota.user.auth.dto.TokenResponse;
-import team.codingforest.moyeota.user.auth.dto.UserLoginRequest;
 import team.codingforest.moyeota.user.local.dto.UserRegisterRequest;
 import team.codingforest.moyeota.user.local.dto.UserResponse;
 

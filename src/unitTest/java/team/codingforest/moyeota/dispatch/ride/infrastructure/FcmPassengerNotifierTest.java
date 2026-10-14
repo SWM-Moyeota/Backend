@@ -1,8 +1,8 @@
 package team.codingforest.moyeota.dispatch.ride.infrastructure;
 
 import org.junit.jupiter.api.Test;
-import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
 import team.codingforest.moyeota.matching.api.PartyAccess;
+import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
 import team.codingforest.moyeota.matching.api.dto.PartyChatSummary;
 import team.codingforest.moyeota.matching.api.dto.PartySummary;
 import team.codingforest.moyeota.user.api.MemberSummary;

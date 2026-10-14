@@ -46,7 +46,7 @@ public class DispatchService {
     public void acceptCall(Long partyId, Long driverId) {
         if(!callCandidates.contains(partyId, driverId)) throw new BusinessException(DispatchErrorCode.CALL_CLOSED);
 
-        if(!driverAccess.canReceiveCalls(driverId)) throw new BusinessException(DispatchErrorCode.DRIVER_CANNOT_RECEIVE);
+        if(!driverAccess.lockAndCanReceiveCalls(driverId)) throw new BusinessException(DispatchErrorCode.DRIVER_CANNOT_RECEIVE);
 
         if(partyAccess.hasOngoingRide(driverId)) throw new BusinessException(DispatchErrorCode.DRIVER_ALREADY_RIDING);
 
@@ -82,6 +82,11 @@ public class DispatchService {
     public void attempt(Long partyId, int radiusMeters) {
         PartySummary party = partyAccess.findSummary(partyId)
                 .orElseThrow(() -> new BusinessException(DispatchErrorCode.PARTY_NOT_FOUND));
+
+        if(party.driverId() != null) {
+            log.info("이미 기사 배정됨 - 호출 건너뜀 partyId={}", partyId);
+            return;
+        }
 
         List<Long> nearbyIds = driverLocations.findNearby(party.departureLatitude(), party.departureLongitude(), radiusMeters);
 

@@ -19,8 +19,8 @@ import team.codingforest.moyeota.matching.party.dto.OpenPartyRequest;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyResponse;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyListResponse;
-import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
+import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
 @Tag(name = "매칭방", description = "동승 매칭방 생성·참여·조회. 정원이 차면 자동으로 매칭(기사 콜) 시작")
@@ -30,8 +30,8 @@ import team.codingforest.moyeota.user.api.CurrentUser;
 public class PartyController {
     private final PartyService partyService;
 
-    @Operation(summary = "방 생성", description = "경로·예상 요금을 네이버로 계산해 저장. 생성자는 자동 참여. 진행 중인 방이 이미 있으면 409. body 의 creatorId 는 무시(토큰 사용)")
-    @ApiResponses({@ApiResponse(responseCode = "200", description = "생성된 방"), @ApiResponse(responseCode = "400", description = "SAME_DEPARTURE_DESTINATION / INVALID_CAPACITY / INVALID_RADIUS / OUT_OF_SERVICE_AREA"), @ApiResponse(responseCode = "409", description = "ALREADY_JOINED_OTHER_PARTY"), @ApiResponse(responseCode = "502", description = "ROUTE_SEARCH_FAILED - 네이버 경로 API 장애")})
+    @Operation(summary = "방 생성", description = "경로·예상 요금을 네이버로 계산해 저장. 생성자는 자동 참여. 반경은 서버 고정값(500m). 진행 중인 방이 이미 있으면 409. body 의 creatorId 는 무시(토큰 사용)")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "생성된 방"), @ApiResponse(responseCode = "400", description = "SAME_DEPARTURE_DESTINATION / INVALID_CAPACITY / OUT_OF_SERVICE_AREA"), @ApiResponse(responseCode = "409", description = "ALREADY_JOINED_OTHER_PARTY"), @ApiResponse(responseCode = "502", description = "ROUTE_SEARCH_FAILED - 네이버 경로 API 장애")})
     @PostMapping("/matching/rooms")
     public ResponseEntity<OpenPartyResponse> open(@CurrentUser Long memberId, @RequestBody OpenPartyRequest request) {
         PartyResult party = partyService.open(request.toCommand(memberId));
@@ -40,9 +40,9 @@ public class PartyController {
     }
 
     @Operation(summary = "방 참여", description = "정원이 차면 COMPLETED → MATCHING 으로 넘어가며 기사 콜이 시작되고 채팅방이 열린다")
-    @ApiResponses({@ApiResponse(responseCode = "200", description = "참여 후 방 상세(동승자 목록 포함)"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_FULL / PARTY_CLOSED / ALREADY_JOINED_PARTY / ALREADY_JOINED_OTHER_PARTY")})
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "참여 후 상태·인원. 동승자 목록은 SSE 구독(/events)의 connected 로 받는다"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_FULL / PARTY_CLOSED / ALREADY_JOINED_PARTY / ALREADY_JOINED_OTHER_PARTY")})
     @PostMapping("/matching/rooms/{partyId}/join")
-    public ResponseEntity<PartyDetailResult> join(@PathVariable Long partyId, @CurrentUser Long memberId) {
+    public ResponseEntity<PartyStatusResponse> join(@PathVariable Long partyId, @CurrentUser Long memberId) {
         return ResponseEntity.ok(partyService.join(partyId, memberId));
     }
 
@@ -55,18 +55,11 @@ public class PartyController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "방 상세", description = "대기 화면 폴링용. members 에 동승자 publicId·닉네임·이미지·탑승 횟수. 본인 판별은 publicId 와 토큰 sub 비교. fingerprint 는 상태·멤버 구성이 바뀌면 달라지는 값으로, 방 상태 조회(/status)의 값과 비교한다")
+    @Operation(summary = "방 상세", description = "members 에 동승자 publicId·닉네임·이미지·탑승 횟수. 본인 판별은 publicId 와 토큰 sub 비교. SSE 구독(/events)의 connected 이벤트도 같은 모양이다")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "방 상세"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND")})
     @GetMapping("/matching/rooms/{partyId}")
     public ResponseEntity<PartyDetailResult> detail(@PathVariable Long partyId) {
         return ResponseEntity.ok(partyService.getPartyDetail(partyId));
-    }
-
-    @Operation(summary = "방 상태", description = "상태·현재 인원·지문(fingerprint)만. 방 변화는 SSE(/events)로 받고, 신호를 놓쳤을 때를 대비한 느린 주기(예: 30초) 확인에 쓴다. fingerprint 가 방 상세에서 받은 값과 다르면 그때 방 상세를 다시 읽는다. fingerprint 는 해석하지 말고 같은지만 비교한다")
-    @ApiResponses({@ApiResponse(responseCode = "200", description = "방 상태"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND")})
-    @GetMapping("/matching/rooms/{partyId}/status")
-    public ResponseEntity<PartyStatusResponse> status(@PathVariable Long partyId) {
-        return ResponseEntity.ok(partyService.getPartyStatus(partyId));
     }
 
     @Operation(summary = "모집 중인 방 전체 목록", description = "파라미터 없이 호출하면 ACTIVE 전체. 지도 화면은 아래 영역 조회를 사용")
@@ -75,7 +68,6 @@ public class PartyController {
     public ResponseEntity<PartyListResponse> list() {
         return ResponseEntity.ok(PartyListResponse.from(partyService.findActiveParties()));
     }
-
 
     @Operation(summary = "배정 기사 차량 정보", description = "좌석·번호판·차종. 배정 전이면 409")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "차량 요약"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND / ASSIGNED_DRIVER_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "DRIVER_NOT_ASSIGNED")})

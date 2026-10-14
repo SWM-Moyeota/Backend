@@ -3,7 +3,7 @@
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import {
-  appStart, listRooms, favoritePlaces, previewRoute, openRoom, joinRoom, leaveRoom, roomDetail, roomStatus, finishRoom,
+  appStart, listRooms, favoritePlaces, previewRoute, openRoom, joinRoom, leaveRoom, roomDetail, finishRoom,
   resolveChatRoomId, chatMembers, chatMessages, openChatRoom, pollChat, 판교역, 출발지들, SPOTS,
 } from './lib/api.js';
 import { chatSession } from './lib/stomp.js';
@@ -31,20 +31,20 @@ export default function () {
   const room = openRoom(host.token, 3, 판교역, 'LT-smoke');
   if (!check(room, { '방 생성 200': (r) => r.status === 200 })) { console.error(room.body); return; }
   check(joinRoom(a.token, room.id), { '참여 1': (r) => r.status === 200 });
-  check(joinRoom(b.token, room.id), { '참여 2': (r) => r.status === 200 });
+  // join 응답은 {status, currentMembers} 만 준다 (지문 필드는 서버에서 빠졌다)
+  check(joinRoom(b.token, room.id), {
+    '참여 2': (r) => r.status === 200,
+    'join 응답에 status·currentMembers 가 있다 (COMPLETED, 3명)': (r) => r.status === 200 && r.json('status') === 'COMPLETED' && r.json('currentMembers') === 3,
+    'join 응답에 fingerprint 가 없다 (변경분 SSE 가 배포된 서버인가)': (r) => r.status === 200 && r.json('fingerprint') === undefined,
+  });
 
   const detail = roomDetail(host.token, room.id);
   check(detail, {
     '정원이 차면 COMPLETED 에 머문다 (MATCHING 이면 택시가 켜진 서버)': (r) => r.json('status') === 'COMPLETED',
     '멤버 3명': (r) => r.json('members').length === 3,
-  });
-
-  // D2 USE_SSE=1 은 채팅 구간에서 방 상태(/status)와 지문을 쓴다 - 여기서 떨어지면 서버에 아직 배포되지 않은 것이다
-  const st = roomStatus(host.token, room.id);
-  check(st, {
-    '방 상태 200 (/status 가 배포된 서버인가)': (r) => r.status === 200,
-    '방 상태가 상세와 같다 (상태·인원)': (r) => r.status === 200 && r.json('status') === 'COMPLETED' && r.json('currentMembers') === 3,
-    '방 상태의 지문이 방 상세의 지문과 같다': (r) => r.status === 200 && !!r.json('fingerprint') && r.json('fingerprint') === detail.json('fingerprint'),
+    // 방 상세는 SSE connected 의 data 와 같은 JSON 이다. 지문·입장 시각은 서버에서 빠졌다 - 여기서 떨어지면 옛 서버다
+    '방 상세에 fingerprint 가 없다': (r) => r.json('fingerprint') === undefined,
+    '방 상세 members 에 joinedAt 이 없다': (r) => r.json('members').every((m) => m.joinedAt === undefined),
   });
 
   const chatRoomId = resolveChatRoomId(a.token, sleep);

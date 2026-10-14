@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.api.PartyAccess;
+import team.codingforest.moyeota.matching.api.dto.PartySummary;
 import team.codingforest.moyeota.report.domain.Report;
 import team.codingforest.moyeota.report.domain.Reports;
 import team.codingforest.moyeota.report.exception.ReportErrorCode;
@@ -25,15 +26,9 @@ public class ReportService {
     public Long report(Long reporterId, Long partyId, Double latitude, Double longitude) {
         if(partyId == null || !partyAccess.isRidingMember(partyId, reporterId)) throw new BusinessException(ReportErrorCode.REPORT_NOT_ALLOWED);
 
-        Long driverId = null;
-
-        try {
-            driverId = partyAccess.findSummary(partyId)
-                    .map(summary -> summary.driverId())
-                    .orElse(null);
-        } catch (Exception e) {
-            log.warn("신고 스냅샷 조회 실패 - 스냅샷 없이 저장 진행 partyId={}", partyId, e);
-        }
+        Long driverId = partyAccess.findSummary(partyId)
+                .map(PartySummary::driverId)
+                .orElse(null);
 
         Report saved = reports.save(Report.create(reporterId, partyId, driverId, latitude, longitude));
 

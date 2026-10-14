@@ -36,6 +36,16 @@ public class FakeDriverAccess implements DriverAccess {
     }
 
     @Override
+    public Optional<Long> lockIdByUserId(Long userId) {
+        return Optional.empty();
+    }
+
+    @Override
+    public boolean lockAndCanReceiveCalls(Long driverId) {
+        return canReceiveCalls(driverId);
+    }
+
+    @Override
     public Optional<DriverSummary> findSummary(Long driverId) {
         return Optional.empty();
     }

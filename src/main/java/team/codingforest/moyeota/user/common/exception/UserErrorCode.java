@@ -17,7 +17,19 @@ public enum UserErrorCode implements ErrorCode {
     INVALID_PHONE_NUMBER(HttpStatus.BAD_REQUEST, "USER105", "전화번호 형식이 올바르지 않습니다."),
     EMPTY_FCM_TOKEN(HttpStatus.BAD_REQUEST, "USER106", "FCM 토큰이 비어 있습니다."),
     INVALID_NICKNAME(HttpStatus.BAD_REQUEST, "USER107", "닉네임은 2~10자의 한글, 영문, 숫자만 가능합니다."),
-    NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "USER108", "이미 사용 중인 닉네임입니다.");
+    NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "USER108", "이미 사용 중인 닉네임입니다."),
+    REJOIN_RESTRICTED(HttpStatus.CONFLICT, "USER109", "탈퇴 후 30일 동안은 같은 번호로 다시 가입할 수 없습니다."),
+    ONGOING_PARTY_EXISTS(HttpStatus.CONFLICT, "USER110", "진행 중인 합승이나 운행이 있어 탈퇴할 수 없습니다. 합승을 나가거나 운행이 끝난 뒤 다시 시도해 주세요."),
+    PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "USER111", "비밀번호가 일치하지 않습니다."),
+
+    SMS_SEND_FAILED(HttpStatus.BAD_GATEWAY, "USER201", "인증번호 발송에 실패했습니다. 잠시 후 다시 시도해 주세요."),
+    SMS_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "USER202", "인증번호는 1분에 한 번만 요청할 수 있습니다."),
+    SMS_DAILY_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "USER203", "오늘 인증번호 요청 횟수를 초과했습니다."),
+    SMS_CODE_EXPIRED(HttpStatus.BAD_REQUEST, "USER204", "인증번호가 만료되었습니다. 다시 요청해 주세요."),
+    SMS_CODE_MISMATCH(HttpStatus.BAD_REQUEST, "USER205", "인증번호가 일치하지 않습니다."),
+    SMS_TOO_MANY_ATTEMPTS(HttpStatus.TOO_MANY_REQUESTS, "USER206", "입력 횟수를 초과했습니다. 인증번호를 다시 요청해 주세요."),
+    SMS_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "USER207", "휴대폰 인증이 필요합니다."),
+    SMS_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "USER208", "지금은 인증을 진행할 수 없습니다. 잠시 후 다시 시도해 주세요.");
 
     private final HttpStatus httpStatus;
     private final String customCode;

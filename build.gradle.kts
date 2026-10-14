@@ -38,6 +38,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-websocket")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
+    implementation("org.apache.commons:commons-pool2")   // 파이프라인·MULTI 의 전용 연결을 재사용 - 없으면 호출마다 새 TLS 연결을 연다
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-flyway")      // Boot 4.1 은 starter 없이는 auto-config 가 안 붙음
@@ -61,6 +62,7 @@ dependencies {
 
     // 외부 서비스
     implementation("com.google.firebase:firebase-admin:9.10.0")                  // FCM
+    implementation("com.solapi:sdk:1.0.3")                              //SOLAPI
 
     // DB 드라이버
     implementation("org.flywaydb:flyway-database-postgresql")

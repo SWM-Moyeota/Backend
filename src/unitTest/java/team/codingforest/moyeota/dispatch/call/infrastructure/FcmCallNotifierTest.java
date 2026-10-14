@@ -29,6 +29,12 @@ class FcmCallNotifierTest {
 
         @Override
         public java.util.Optional<Long> findUserId(Long driverId) { return java.util.Optional.empty(); }
+
+        @Override
+        public java.util.Optional<Long> lockIdByUserId(Long userId) { return java.util.Optional.empty(); }
+
+        @Override
+        public boolean lockAndCanReceiveCalls(Long driverId) { return true; }
     };
 
     // FirebaseMessaging 자리에 null을 주입 - 가드를 통과해 전송을 시도하면 NPE로 실패한다

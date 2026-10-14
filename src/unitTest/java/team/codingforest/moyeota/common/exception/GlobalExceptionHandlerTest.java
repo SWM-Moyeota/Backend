@@ -12,13 +12,15 @@ import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
-import team.codingforest.moyeota.driver.api.CurrentDriver;
+import team.codingforest.moyeota.driver.DriverController;
 import team.codingforest.moyeota.driver.DriverService;
+import team.codingforest.moyeota.driver.api.CurrentDriver;
 import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Drivers;
-import team.codingforest.moyeota.driver.DriverController;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
+import java.time.Instant;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -89,6 +91,20 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void 본문이_없으면_400과_공통_에러_형식으로_내려준다() throws Exception {
+        mvc.perform(post("/api/v1/drivers").contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void 깨진_JSON은_400과_공통_에러_형식으로_내려준다() throws Exception {
+        mvc.perform(post("/api/v1/drivers").contentType(MediaType.APPLICATION_JSON).content("{\"qualificationNumber\":"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
     void 검증_전_기사를_다시_검증하면_409가_내려간다() throws Exception {
         String body = """
                 {"qualificationNumber": "서울-1234", "bankName": "국민은행", "accountNumber": "123-456", "vehicle": {"seats": 4, "plateNumber": "12가3456", "type": "중형"}}
@@ -135,7 +151,7 @@ class GlobalExceptionHandlerTest {
             Long id = driver.getId() != null ? driver.getId() : ++sequence;
             Driver saved = Driver.restore(id, driver.getUserId(), driver.getQualificationNumber(),
                     driver.getVerifiedAt(), driver.getBankAccount(), driver.getVehicle(),
-                    driver.getSetting(), driver.getStatus(), driver.getFcmToken());
+                    driver.getSetting(), driver.getStatus(), driver.getFcmToken(), driver.getDeletedAt());
 
             store.put(id, saved);
             return saved;
@@ -151,6 +167,33 @@ class GlobalExceptionHandlerTest {
             return store.values().stream()
                     .filter(driver -> driver.getUserId().equals(userId))
                     .findFirst();
+        }
+
+        @Override
+        public Map<Long, String> findFcmTokens(Collection<Long> ids) {
+            Map<Long, String> tokens = new HashMap<>();
+            for(Long id : ids) {
+                Driver driver = store.get(id);
+                if(driver != null && driver.getFcmToken() != null && !driver.getFcmToken().isEmpty()) tokens.put(id, driver.getFcmToken());
+            }
+            return tokens;
+        }
+
+        @Override
+        public Optional<Driver> findByIdForUpdate(Long id) {
+            return findById(id);
+        }
+
+        @Override
+        public Optional<Driver> findByUserIdForUpdate(Long userId) {
+            return findByUserId(userId);
+        }
+
+        @Override
+        public int deleteWithdrawnBefore(Instant before) {
+            int size = store.size();
+            store.values().removeIf(d -> d.isWithdrawn() && d.getDeletedAt().isBefore(before));
+            return size - store.size();
         }
     }
 }

@@ -10,9 +10,9 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import team.codingforest.moyeota.user.auth.domain.enums.TokenType;
 import team.codingforest.moyeota.user.auth.dto.TokenClaims;
 import team.codingforest.moyeota.user.auth.dto.TokenPair;
-import team.codingforest.moyeota.user.auth.domain.enums.TokenType;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
 

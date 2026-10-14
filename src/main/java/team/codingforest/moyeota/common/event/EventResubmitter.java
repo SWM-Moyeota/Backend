@@ -34,7 +34,6 @@ public class EventResubmitter {
      */
     static final List<String> NO_RESUBMIT_LISTENERS = List.of(
             "team.codingforest.moyeota.chat.message.presentation.ChatMessageBroadcaster.",
-            "team.codingforest.moyeota.matching.sse.PartySseListener.",
             "team.codingforest.moyeota.chat.notification.application.ChatNotificationListener.");
 
     private final IncompleteEventPublications publications;

@@ -43,4 +43,9 @@ class FavoritePlaceJpaTest implements FavoritePlaces {
     public void deleteByUserIdAndPlaceName(Long userId, String placeName) {
         store.remove(key(userId, placeName));
     }
+
+    @Override
+    public void deleteAllByUserId(Long userId) {
+        store.values().removeIf(p -> p.getUserId().equals(userId));
+    }
 }

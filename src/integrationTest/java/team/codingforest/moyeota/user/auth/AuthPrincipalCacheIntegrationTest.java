@@ -9,9 +9,9 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
 import team.codingforest.moyeota.user.auth.infrastructure.JwtProvider;
-import team.codingforest.moyeota.user.common.domain.User;
-import team.codingforest.moyeota.user.common.domain.Users;
-import team.codingforest.moyeota.user.common.domain.enums.LoginType;
+import team.codingforest.moyeota.user.users.domain.User;
+import team.codingforest.moyeota.user.users.domain.Users;
+import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 
 import java.time.Instant;
 import java.util.UUID;

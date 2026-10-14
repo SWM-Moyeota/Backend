@@ -96,7 +96,7 @@ export function openRoom(token, capacity = 3, dest = 판교역, destName = '판�
     departureLat: from.lat, departureLng: from.lng,
     destinationLat: dest.lat, destinationLng: dest.lng,
     departure: from.name, destination: destName,
-    capacity, departureRadius: 100, destinationRadius: 100,
+    capacity,
   }), auth(token, { tags: { name: 'POST /matching/rooms' } }));
   return { status: res.status, id: res.status === 200 ? res.json('id') : null, body: res.body };
 }
@@ -108,11 +108,6 @@ export function leaveRoom(token, partyId) {
 export function listRooms(token, view = 뷰포트) {
   const q = `swLat=${view.swLat}&swLng=${view.swLng}&neLat=${view.neLat}&neLng=${view.neLng}`;
   return http.get(`${BASE}/api/v1/matching/rooms?${q}`, auth(token, { tags: { name: 'GET /matching/rooms (viewport)' } }));
-}
-
-// 상태·인원·지문만 (쿼리 1개). 채팅 화면의 안전망 확인이 방 상세 대신 부른다
-export function roomStatus(token, partyId) {
-  return http.get(`${BASE}/api/v1/matching/rooms/${partyId}/status`, auth(token, { tags: { name: 'GET /matching/rooms/{id}/status' } }));
 }
 
 export function roomDetail(token, partyId) {
