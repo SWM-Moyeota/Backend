@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import team.codingforest.moyeota.chat.common.order.RoomOrderedExecutor;
 import team.codingforest.moyeota.chat.common.redis.ChatRedisPublisher;
 import team.codingforest.moyeota.chat.member.event.ChatRoomLeftEvent;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
@@ -14,6 +15,9 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -26,6 +30,8 @@ class ChatMessageBroadcasterTest {
 
     @Mock
     private ChatRedisPublisher chatRedisPublisher;
+    @Mock
+    private RoomOrderedExecutor roomOrderedExecutor;
 
     private final List<Runnable> pending = new ArrayList<>();
     private ChatMessageBroadcaster broadcaster;
@@ -33,7 +39,7 @@ class ChatMessageBroadcasterTest {
     @BeforeEach
     void setUp() {
         AfterCommitExecutor deferred = (name, task) -> pending.add(task);
-        broadcaster = new ChatMessageBroadcaster(deferred, chatRedisPublisher);
+        broadcaster = new ChatMessageBroadcaster(deferred, roomOrderedExecutor, chatRedisPublisher);
     }
 
     @Test
@@ -45,11 +51,20 @@ class ChatMessageBroadcasterTest {
     }
 
     @Test
-    void 커밋_후_퇴장을_발행한다() {
+    void 커밋_후_방별_줄을_거쳐_퇴장을_발행한다() {
+        runImmediately();
         broadcaster.onRoomLeft(new ChatRoomLeftEvent(USER_ID, PUBLIC_ID, ROOM_ID));
 
         pending.forEach(Runnable::run);
 
+        verify(roomOrderedExecutor).execute(eq(ROOM_ID), any());
         verify(chatRedisPublisher).memberLeft(ROOM_ID, USER_ID, PUBLIC_ID);
+    }
+
+    private void runImmediately() {
+        doAnswer(invocation -> {
+            invocation.<Runnable>getArgument(1).run();
+            return null;
+        }).when(roomOrderedExecutor).execute(any(), any());
     }
 }

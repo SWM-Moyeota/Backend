@@ -3,9 +3,7 @@ package team.codingforest.moyeota.chat.common.redis;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
-import team.codingforest.moyeota._config.AsyncConfig;
 import team.codingforest.moyeota.chat.common.config.RedisConfig;
 import team.codingforest.moyeota.chat.member.domain.ChatMember;
 import team.codingforest.moyeota.chat.member.domain.MemberProvider;
@@ -22,7 +20,6 @@ import java.util.UUID;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@Async(AsyncConfig.REALTIME_EXECUTOR)
 public class ChatRedisPublisher {
 
     private final StringRedisTemplate redisTemplate;
