@@ -10,7 +10,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 @Configuration
 public class AsyncConfig {
 
-    public static final String REALTIME_EXECUTOR = "realtimeExecutor";
     public static final String CHAT_PUSH_EXECUTOR = "chatPushExecutor";
 
     @Bean
