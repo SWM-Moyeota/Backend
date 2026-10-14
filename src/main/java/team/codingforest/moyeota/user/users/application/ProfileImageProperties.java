@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.user.profile.application;
+package team.codingforest.moyeota.user.users.application;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

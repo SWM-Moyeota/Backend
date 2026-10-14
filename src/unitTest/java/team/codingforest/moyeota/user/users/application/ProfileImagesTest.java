@@ -1,7 +1,7 @@
-package team.codingforest.moyeota.user.profile.application;
+package team.codingforest.moyeota.user.users.application;
 
 import org.junit.jupiter.api.Test;
-import team.codingforest.moyeota.user.profile.dto.ProfileImageResponse;
+import team.codingforest.moyeota.user.users.dto.ProfileImageResponse;
 
 import java.util.List;
 

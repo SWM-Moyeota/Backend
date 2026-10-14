@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.user.profile.presentation;
+package team.codingforest.moyeota.user.users.presentation;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -16,12 +16,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import team.codingforest.moyeota.user.api.CurrentUser;
-import team.codingforest.moyeota.user.profile.application.ProfileImages;
-import team.codingforest.moyeota.user.profile.application.UserFcmTokenService;
-import team.codingforest.moyeota.user.profile.application.UserProfileService;
-import team.codingforest.moyeota.user.profile.dto.ProfileImageResponse;
-import team.codingforest.moyeota.user.profile.dto.RegisterFcmTokenRequest;
-import team.codingforest.moyeota.user.profile.dto.UpdateProfileRequest;
+import team.codingforest.moyeota.user.users.application.ProfileImages;
+import team.codingforest.moyeota.user.users.application.UserFcmTokenService;
+import team.codingforest.moyeota.user.users.application.UserProfileService;
+import team.codingforest.moyeota.user.users.dto.ProfileImageResponse;
+import team.codingforest.moyeota.user.users.dto.RegisterFcmTokenRequest;
+import team.codingforest.moyeota.user.users.dto.UpdateProfileRequest;
 
 import java.util.List;
 

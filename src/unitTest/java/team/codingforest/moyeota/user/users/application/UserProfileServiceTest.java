@@ -1,8 +1,7 @@
-package team.codingforest.moyeota.user.profile.application;
+package team.codingforest.moyeota.user.users.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import team.codingforest.moyeota.user.users.application.FakeUsers;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
 import team.codingforest.moyeota.user.users.domain.User;
