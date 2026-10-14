@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.driver.infrastructure;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -8,8 +9,11 @@ import org.springframework.context.annotation.Import;
 import team.codingforest.moyeota.common.JpaAuditingConfig;
 import team.codingforest.moyeota.driver.domain.BankAccount;
 import team.codingforest.moyeota.driver.domain.Driver;
+import team.codingforest.moyeota.driver.domain.Drivers;
 import team.codingforest.moyeota.driver.domain.Vehicle;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -158,31 +162,95 @@ class DriverJpaPersistenceTest {
 
     // ───────────────────────── 탈퇴 ─────────────────────────
 
-    @Test
-    void 사용자_번호로_지우면_차량과_설정까지_함께_지워진다() {
-        Driver driver = Driver.register(1L, "서울-1234-5678", new BankAccount("국민은행", "123-456-789012"));
-        driver.registerVehicle(new Vehicle(4, "12가3456", "중형"));
-        drivers.save(driver);
-        Driver 남는기사 = drivers.save(Driver.register(2L, "서울-9999-0000", new BankAccount("국민은행", "999-999-999999")));
-        reload();
+    private static final Instant 탈퇴시각 = Instant.parse("2026-10-01T00:00:00Z");
 
-        drivers.deleteByUserId(1L);
-        reload();
+    private Driver 차량있는기사(Long userId, String plateNumber) {
+        Driver driver = Driver.register(userId, "서울-" + userId, new BankAccount("국민은행", "123-456-" + userId));
+        driver.registerVehicle(new Vehicle(4, plateNumber, "중형"));
+        driver.registerFcmToken("token-" + userId);
+        return drivers.save(driver);
+    }
 
-        assertThat(drivers.findByUserId(1L)).isEmpty();
-        assertThat(drivers.findById(남는기사.getId())).isPresent();
-        assertThat(em.createQuery("select count(v) from VehicleEntity v", Long.class).getSingleResult()).isZero();
-        assertThat(em.createQuery("select count(s) from DriverSettingEntity s", Long.class).getSingleResult()).isEqualTo(1L);
+    private Driver 탈퇴한기사(Long userId, String plateNumber, Instant withdrawnAt) {
+        Driver driver = 차량있는기사(userId, plateNumber);
+        driver.withdraw(withdrawnAt);
+        return drivers.save(driver);
     }
 
     @Test
-    void 기사가_아닌_사용자_번호로_지워도_예외_없이_아무것도_지우지_않는다() {
+    void 탈퇴하면_계좌와_토큰은_비워지고_자격번호와_차량은_남는다() {
+        Driver saved = 탈퇴한기사(1L, "12가3456", 탈퇴시각);
+        reload();
+
+        Driver reloaded = drivers.findById(saved.getId()).orElseThrow();
+
+        assertThat(reloaded.getBankAccount()).isNull();
+        assertThat(reloaded.getFcmToken()).isNull();
+        assertThat(reloaded.getSetting().isCallEnabled()).isFalse();
+        assertThat(reloaded.getDeletedAt()).isEqualTo(탈퇴시각);
+        assertThat(reloaded.getUserId()).isEqualTo(1L);
+        assertThat(reloaded.getQualificationNumber()).isEqualTo("서울-1");
+        assertThat(reloaded.getVehicle().plateNumber()).isEqualTo("12가3456");
+    }
+
+    @Test
+    void 보관_기간이_지난_탈퇴_기사만_차량과_설정까지_지워진다() {
+        Instant now = Instant.now();
+        Driver 지난기사 = 탈퇴한기사(1L, "11가1111", now.minus(Drivers.RETENTION).minus(Duration.ofHours(1)));
+        Driver 기간안기사 = 탈퇴한기사(2L, "22나2222", now.minus(Drivers.RETENTION).plus(Duration.ofHours(1)));
+        Driver 현역기사 = 차량있는기사(3L, "33다3333");
+        reload();
+
+        int deleted = drivers.deleteWithdrawnBefore(now.minus(Drivers.RETENTION));
+        reload();
+
+        assertThat(deleted).isEqualTo(1);
+        assertThat(drivers.findById(지난기사.getId())).isEmpty();
+        assertThat(drivers.findById(기간안기사.getId())).isPresent();
+        assertThat(drivers.findById(현역기사.getId())).isPresent();
+        assertThat(em.createQuery("select count(v) from VehicleEntity v", Long.class).getSingleResult()).isEqualTo(2L);
+        assertThat(em.createQuery("select count(s) from DriverSettingEntity s", Long.class).getSingleResult()).isEqualTo(2L);
+    }
+
+    @Test
+    void 지울_탈퇴_기사가_없으면_0을_돌려준다() {
+        차량있는기사(1L, "12가3456");
+        reload();
+
+        assertThat(drivers.deleteWithdrawnBefore(Instant.now())).isZero();
+        assertThat(repository.count()).isEqualTo(1L);
+    }
+
+    // ───────────────────────── 잠금 조회 ─────────────────────────
+
+    @Test
+    void 사용자_번호로_잠가_조회하면_행에_쓰기_잠금이_걸린다() {
+        Driver saved = registerAndSave();
+        reload();
+
+        Driver locked = drivers.findByUserIdForUpdate(1L).orElseThrow();
+
+        assertThat(locked.getId()).isEqualTo(saved.getId());
+        assertThat(em.getLockMode(em.find(DriverEntity.class, saved.getId()))).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Test
+    void 기사_번호로_잠가_조회하면_행에_쓰기_잠금이_걸린다() {
+        Driver saved = registerAndSave();
+        reload();
+
+        Driver locked = drivers.findByIdForUpdate(saved.getId()).orElseThrow();
+
+        assertThat(locked.getUserId()).isEqualTo(1L);
+        assertThat(em.getLockMode(em.find(DriverEntity.class, saved.getId()))).isEqualTo(LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Test
+    void 기사가_아니면_잠금_조회가_비어_있다() {
         registerAndSave();
         reload();
 
-        drivers.deleteByUserId(999L);
-        reload();
-
-        assertThat(repository.count()).isEqualTo(1L);
+        assertThat(drivers.findByUserIdForUpdate(999L)).isEmpty();
+        assertThat(drivers.findByIdForUpdate(999L)).isEmpty();
     }
 }

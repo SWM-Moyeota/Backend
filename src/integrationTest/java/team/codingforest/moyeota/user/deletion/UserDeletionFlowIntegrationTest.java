@@ -24,6 +24,7 @@ import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 import team.codingforest.moyeota.user.verification.application.SmsVerificationService;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -85,5 +86,28 @@ class UserDeletionFlowIntegrationTest {
             assertThat(chatRoomUsers.findActiveByUserId(user.getId())).as("끝난 합승 방에서도 나간다").isEmpty();
             assertThat(jdbcTemplate.queryForObject("select count(*) from favorite_place where user_id = ?", Integer.class, user.getId())).isZero();
         });
+    }
+
+    @Test
+    void 기사로_등록한_사용자가_탈퇴하면_계좌와_알림_토큰을_비우고_기사_행은_남긴다() {
+        long base = System.currentTimeMillis() % 100_000_000L;
+        Instant now = Instant.now();
+
+        User user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "drv" + base % 1_000_000));
+        localUsers.register(user.getId(), "drv" + base, passwordHasher.hash(PASSWORD));
+        userProfiles.save(UserProfile.of(user.getId(), "김기사", now, "011" + String.format("%08d", base), Gender.MALE, "drv@moyeota.app"));
+        jdbcTemplate.update("insert into taxi_driver (user_id, bank_name, bank_number, qualification_number, fcm_token, status, created_at) values (?, '국민', '123-456', 'Q-" + base + "', 'fcm-" + base + "', 'VERIFIED', now())", user.getId());
+        Long driverId = jdbcTemplate.queryForObject("select id from taxi_driver where user_id = ?", Long.class, user.getId());
+        jdbcTemplate.update("insert into driver_setting (driver_id, call_enabled, created_at) values (?, true, now())", driverId);
+
+        userDeletionService.delete(user.getId(), PASSWORD);
+
+        Map<String, Object> driver = jdbcTemplate.queryForMap("select deleted_at, bank_name, bank_number, fcm_token, qualification_number from taxi_driver where user_id = ?", user.getId());
+        assertThat(driver.get("deleted_at")).as("탈퇴 트랜잭션 안에서 바로 찍힌다").isNotNull();
+        assertThat(driver.get("bank_name")).isNull();
+        assertThat(driver.get("bank_number")).isNull();
+        assertThat(driver.get("fcm_token")).isNull();
+        assertThat(driver.get("qualification_number")).as("신고·사고 대응을 위해 보관한다").isEqualTo("Q-" + base);
+        assertThat(jdbcTemplate.queryForObject("select call_enabled from driver_setting where driver_id = ?", Boolean.class, driverId)).isFalse();
     }
 }

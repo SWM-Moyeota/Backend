@@ -3,6 +3,7 @@ package team.codingforest.moyeota.driver;
 import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.domain.Drivers;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,7 +18,7 @@ class DriverJpaTest implements Drivers {
         Long id = driver.getId() != null ? driver.getId() : ++sequence;
         Driver saved = Driver.restore(id, driver.getUserId(), driver.getQualificationNumber(),
                 driver.getVerifiedAt(), driver.getBankAccount(), driver.getVehicle(),
-                driver.getSetting(), driver.getStatus(), driver.getFcmToken());
+                driver.getSetting(), driver.getStatus(), driver.getFcmToken(), driver.getDeletedAt());
 
         store.put(id, saved);
         return saved;
@@ -46,7 +47,19 @@ class DriverJpaTest implements Drivers {
     }
 
     @Override
-    public void deleteByUserId(Long userId) {
-        store.values().removeIf(d -> d.getUserId().equals(userId));
+    public Optional<Driver> findByIdForUpdate(Long id) {
+        return findById(id);
+    }
+
+    @Override
+    public Optional<Driver> findByUserIdForUpdate(Long userId) {
+        return findByUserId(userId);
+    }
+
+    @Override
+    public int deleteWithdrawnBefore(Instant before) {
+        int size = store.size();
+        store.values().removeIf(d -> d.isWithdrawn() && d.getDeletedAt().isBefore(before));
+        return size - store.size();
     }
 }

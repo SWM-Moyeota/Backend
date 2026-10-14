@@ -17,9 +17,10 @@ public class Driver {
     private DriverSetting setting;
     private DriverStatus status;
     private String fcmToken;
+    private Instant deletedAt;
 
     private Driver(Long id, Long userId, String qualificationNumber, Instant verifiedAt,
-                  BankAccount bankAccount, Vehicle vehicle, DriverSetting setting, DriverStatus status, String fcmToken) {
+                  BankAccount bankAccount, Vehicle vehicle, DriverSetting setting, DriverStatus status, String fcmToken, Instant deletedAt) {
         this.id = id;
         this.userId = userId;
         this.qualificationNumber = qualificationNumber;
@@ -29,13 +30,14 @@ public class Driver {
         this.setting = setting;
         this.status = status;
         this.fcmToken = fcmToken;
+        this.deletedAt = deletedAt;
     }
 
     /**
      *  기사 등록 신청 PENDING으로 시작
      */
     public static Driver register(Long userId, String qualificationNumber, BankAccount bankAccount) {
-        return new Driver(null, userId, qualificationNumber, null, bankAccount, null, DriverSetting.defaults(), DriverStatus.PENDING, null);
+        return new Driver(null, userId, qualificationNumber, null, bankAccount, null, DriverSetting.defaults(), DriverStatus.PENDING, null, null);
     }
 
     /**
@@ -59,7 +61,7 @@ public class Driver {
      *  콜 받을 수 있는지 여부확인
      */
     public boolean canReceiveCalls() {
-        return status == DriverStatus.VERIFIED && vehicle != null && setting.isCallEnabled();
+        return !isWithdrawn() && status == DriverStatus.VERIFIED && vehicle != null && setting.isCallEnabled();
     }
 
     public void enableCall() {
@@ -86,11 +88,22 @@ public class Driver {
         this.fcmToken = null;
     }
 
+    public void withdraw(Instant withdrawnAt) {
+        this.bankAccount = null;
+        this.fcmToken = null;
+        this.setting.disableCall();
+        this.deletedAt = withdrawnAt;
+    }
+
+    public boolean isWithdrawn() {
+        return deletedAt != null;
+    }
+
     /**
      *  영속 복원용
      */
     public static Driver restore(Long id, Long userId, String qualificationNumber, Instant verifiedAt,
-                                 BankAccount account, Vehicle vehicle, DriverSetting setting, DriverStatus status, String fcmToken) {
-        return new Driver(id, userId, qualificationNumber, verifiedAt, account, vehicle, setting, status, fcmToken);
+                                 BankAccount account, Vehicle vehicle, DriverSetting setting, DriverStatus status, String fcmToken, Instant deletedAt) {
+        return new Driver(id, userId, qualificationNumber, verifiedAt, account, vehicle, setting, status, fcmToken, deletedAt);
     }
 }

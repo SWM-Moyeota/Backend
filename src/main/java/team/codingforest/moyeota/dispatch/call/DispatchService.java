@@ -46,7 +46,7 @@ public class DispatchService {
     public void acceptCall(Long partyId, Long driverId) {
         if(!callCandidates.contains(partyId, driverId)) throw new BusinessException(DispatchErrorCode.CALL_CLOSED);
 
-        if(!driverAccess.canReceiveCalls(driverId)) throw new BusinessException(DispatchErrorCode.DRIVER_CANNOT_RECEIVE);
+        if(!driverAccess.lockAndCanReceiveCalls(driverId)) throw new BusinessException(DispatchErrorCode.DRIVER_CANNOT_RECEIVE);
 
         if(partyAccess.hasOngoingRide(driverId)) throw new BusinessException(DispatchErrorCode.DRIVER_ALREADY_RIDING);
 

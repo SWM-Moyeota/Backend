@@ -3,10 +3,13 @@ package team.codingforest.moyeota.driver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.driver.domain.Driver;
 import team.codingforest.moyeota.driver.dto.DriverResult;
 import team.codingforest.moyeota.driver.dto.RegisterDriverCommand;
 import team.codingforest.moyeota.driver.domain.DriverStatus;
 import team.codingforest.moyeota.driver.exception.DriverErrorCode;
+
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -127,6 +130,33 @@ class DriverServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(DriverErrorCode.DRIVER_NOT_REGISTERED);
+    }
+
+    @Test
+    void 탈퇴한_기사를_조회하면_미등록으로_본다() {
+        DriverResult result = service.register(등록명령(유저));
+        Driver driver = drivers.findById(result.id()).orElseThrow();
+        driver.withdraw(Instant.now());
+        drivers.save(driver);
+
+        assertThatThrownBy(() -> service.getByUserId(유저))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DriverErrorCode.DRIVER_NOT_REGISTERED);
+    }
+
+    @Test
+    void 탈퇴한_기사는_토큰을_다시_등록할_수_없다() {
+        DriverResult result = service.register(등록명령(유저));
+        Driver driver = drivers.findById(result.id()).orElseThrow();
+        driver.withdraw(Instant.now());
+        drivers.save(driver);
+
+        assertThatThrownBy(() -> service.registerFcmToken(result.id(), "token-abc"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DriverErrorCode.DRIVER_NOT_FOUND);
+        assertThat(drivers.findById(result.id()).orElseThrow().getFcmToken()).isNull();
     }
 
     // ───────────────────────── FCM 토큰 ─────────────────────────

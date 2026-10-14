@@ -31,10 +31,8 @@ public class DriverEntity extends BaseTimeEntity {
 
     private Instant verifiedAt;
 
-    @Column(nullable = false)
     private String bankName;
 
-    @Column(nullable = false)
     private String bankNumber;
 
     @Enumerated(EnumType.STRING)
@@ -49,6 +47,8 @@ public class DriverEntity extends BaseTimeEntity {
 
     private String fcmToken;
 
+    private Instant deletedAt;
+
     private DriverEntity(Long userId, String qualificationNumber, Instant verifiedAt, String bankName, String bankNumber, DriverStatus status) {
         this.userId = userId;
         this.qualificationNumber = qualificationNumber;
@@ -59,27 +59,33 @@ public class DriverEntity extends BaseTimeEntity {
     }
 
     public static DriverEntity from(Driver driver) {
-        DriverEntity entity = new DriverEntity(driver.getUserId(), driver.getQualificationNumber(), driver.getVerifiedAt(), driver.getBankAccount().bankName(), driver.getBankAccount().accountNumber(), driver.getStatus());
+        BankAccount account = driver.getBankAccount();
+        DriverEntity entity = new DriverEntity(driver.getUserId(), driver.getQualificationNumber(), driver.getVerifiedAt(),
+                account == null ? null : account.bankName(), account == null ? null : account.accountNumber(), driver.getStatus());
 
         if(driver.getVehicle() != null) {
             entity.vehicle = VehicleEntity.of(entity, driver.getVehicle());
         }
         entity.setting = DriverSettingEntity.of(entity, driver.getSetting());
         entity.fcmToken = driver.getFcmToken();
+        entity.deletedAt = driver.getDeletedAt();
 
         return entity;
     }
 
     public Driver toDomain() {
-        return Driver.restore(getId(), userId, qualificationNumber, verifiedAt, new BankAccount(bankName, bankNumber), vehicle == null? null : vehicle.toDomain(), setting.toDomain(), status, fcmToken);
+        BankAccount account = bankName == null ? null : new BankAccount(bankName, bankNumber);
+        return Driver.restore(getId(), userId, qualificationNumber, verifiedAt, account, vehicle == null? null : vehicle.toDomain(), setting.toDomain(), status, fcmToken, deletedAt);
     }
 
     public void update(Driver driver) {
         this.verifiedAt = driver.getVerifiedAt();
         this.status = driver.getStatus();
-        this.bankName = driver.getBankAccount().bankName();
-        this.bankNumber = driver.getBankAccount().accountNumber();
+        BankAccount account = driver.getBankAccount();
+        this.bankName = account == null ? null : account.bankName();
+        this.bankNumber = account == null ? null : account.accountNumber();
         this.fcmToken = driver.getFcmToken();
+        this.deletedAt = driver.getDeletedAt();
 
         if(driver.getVehicle() != null) {
             if(this.vehicle == null) {

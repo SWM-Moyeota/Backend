@@ -13,6 +13,7 @@ import team.codingforest.moyeota.driver.domain.Drivers;
 import team.codingforest.moyeota.driver.exception.DriverErrorCode;
 import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -69,6 +70,19 @@ class CurrentDriverArgumentResolverTest {
     }
 
     @Test
+    void 탈퇴한_기사는_미등록으로_거부된다() {
+        Driver driver = drivers.save(Driver.register(7L, "서울-1234", new BankAccount("국민은행", "123-456")));
+        driver.withdraw(Instant.now());
+        drivers.save(driver);
+        로그인(7L);
+
+        assertThatThrownBy(() -> resolver.resolveArgument(param(), null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(DriverErrorCode.DRIVER_NOT_REGISTERED);
+    }
+
+    @Test
     void 인증_정보가_없으면_401이_난다() {
         assertThatThrownBy(() -> resolver.resolveArgument(param(), null, null, null))
                 .isInstanceOf(BusinessException.class)
@@ -105,7 +119,7 @@ class CurrentDriverArgumentResolverTest {
             Long id = driver.getId() != null ? driver.getId() : ++sequence;
             Driver saved = Driver.restore(id, driver.getUserId(), driver.getQualificationNumber(),
                     driver.getVerifiedAt(), driver.getBankAccount(), driver.getVehicle(),
-                    driver.getSetting(), driver.getStatus(), driver.getFcmToken());
+                    driver.getSetting(), driver.getStatus(), driver.getFcmToken(), driver.getDeletedAt());
             store.put(id, saved);
             return saved;
         }
@@ -131,8 +145,20 @@ class CurrentDriverArgumentResolverTest {
         }
 
         @Override
-        public void deleteByUserId(Long userId) {
-            store.values().removeIf(d -> d.getUserId().equals(userId));
+        public Optional<Driver> findByIdForUpdate(Long id) {
+            return findById(id);
+        }
+
+        @Override
+        public Optional<Driver> findByUserIdForUpdate(Long userId) {
+            return findByUserId(userId);
+        }
+
+        @Override
+        public int deleteWithdrawnBefore(Instant before) {
+            int size = store.size();
+            store.values().removeIf(d -> d.isWithdrawn() && d.getDeletedAt().isBefore(before));
+            return size - store.size();
         }
     }
 }

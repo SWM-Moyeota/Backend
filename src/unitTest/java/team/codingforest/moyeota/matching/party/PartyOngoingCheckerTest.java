@@ -8,7 +8,9 @@ import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -20,6 +22,7 @@ class PartyOngoingCheckerTest {
 
     private PartyJpaTest parties;
     private Map<Long, Long> 유저의기사;
+    private List<Long> 잠근유저;
     private PartyOngoingChecker checker;
 
     @BeforeEach
@@ -27,9 +30,11 @@ class PartyOngoingCheckerTest {
         parties = new PartyJpaTest();
         유저의기사 = new HashMap<>();
         유저의기사.put(기사유저, 기사);
+        잠근유저 = new ArrayList<>();
         checker = new PartyOngoingChecker(parties, new PartyServiceTest.FakeDriverAccess() {
             @Override
-            public Optional<Long> findIdByUserId(Long userId) {
+            public Optional<Long> lockIdByUserId(Long userId) {
+                잠근유저.add(userId);
                 return Optional.ofNullable(유저의기사.get(userId));
             }
         });
@@ -83,5 +88,13 @@ class PartyOngoingCheckerTest {
         parties.save(assignedParty());
 
         assertThat(checker.hasOngoingParty(2L)).isTrue();
+    }
+
+    @Test
+    void 멤버로_진행_중이어도_기사_행은_잠근다() {
+        parties.save(assignedParty());
+
+        assertThat(checker.hasOngoingParty(2L)).isTrue();
+        assertThat(잠근유저).containsExactly(2L);
     }
 }

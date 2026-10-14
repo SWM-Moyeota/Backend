@@ -37,7 +37,7 @@ public class UserDeletionController {
             - FCM 토큰은 서버가 비우므로 DELETE /users/me/fcm-token 을 따로 부를 필요 없음
             - 진행 중인 합승(참여자 또는 배정된 기사)이 있으면 409. 합승을 자동으로 나가게 하지 않음
             - 탈퇴 즉시 개인정보 삭제, 아이디는 바로 재사용 가능. 같은 전화번호는 30일간 재가입 불가(REJOIN_RESTRICTED, USER109)
-            - 기사 등록 정보(계좌·자격번호·차량)도 삭제. 채팅·합승 기록에는 "탈퇴한 사용자"로 표시
+            - 기사 계좌·알림 토큰은 즉시 삭제, 자격번호·차량 번호판은 신고·사고 대응을 위해 180일 보관 후 삭제. 채팅·합승 기록에는 "탈퇴한 사용자"로 표시
             """)
     @ApiResponses({@ApiResponse(responseCode = "204", description = "탈퇴 완료. 본문 없음"), @ApiResponse(responseCode = "400", description = "PASSWORD_MISMATCH(USER111) - 비밀번호 불일치 / INVALID_REQUEST - 본문 없음·password 누락·공백"), @ApiResponse(responseCode = "401", description = "토큰 없음(USER005) / 만료(USER002) / 무효·탈퇴한 사용자의 토큰(USER001)"), @ApiResponse(responseCode = "409", description = "ONGOING_PARTY_EXISTS(USER110) - 진행 중인 합승(참여자 또는 배정된 기사)이 있음")})
     @DeleteMapping("/me")
