@@ -8,6 +8,7 @@ import java.time.Instant;
 public record ChatRoomResult(
         Long id,
         Long partyId,
+        long lastSeq,
         String departure,
         String destination,
         Instant createdAt,
@@ -17,6 +18,7 @@ public record ChatRoomResult(
         return new ChatRoomResult(
                 chatRoom.getId(),
                 chatRoom.getPartyId(),
+                chatRoom.getLastSeq(),
                 chatRoom.getDeparturePlace(),
                 chatRoom.getDestinationPlace(),
                 chatRoom.getCreatedAt(),

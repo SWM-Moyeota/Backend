@@ -87,6 +87,7 @@ public class ChatNotificationListener {
         chatNotifier.notifyNewMessage(receiverIds, new ChatMessageNotification(
                 result.chatRoomId(),
                 result.id(),
+                result.seq(),
                 result.publicId(),
                 sender == null ? UNKNOWN_SENDER : sender.nickname(),
                 preview(result)
