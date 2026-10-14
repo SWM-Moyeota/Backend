@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -58,6 +59,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .badRequest()
                 .body(new ErrorResponse(INVALID_REQUEST, message));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleNotReadable(HttpMessageNotReadableException e) {
+        log.warn("요청 본문 해석 실패 cause={}", e.getMostSpecificCause().getClass().getSimpleName());
+
+        return ResponseEntity
+                .badRequest()
+                .body(new ErrorResponse(INVALID_REQUEST, "요청 본문이 없거나 형식이 잘못되었습니다."));
     }
 
     private String toMessage(List<FieldError> fieldErrors) {

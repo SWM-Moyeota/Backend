@@ -36,6 +36,11 @@ public class FakeDriverAccess implements DriverAccess {
     }
 
     @Override
+    public Optional<Long> findIdByUserId(Long userId) {
+        return Optional.empty();
+    }
+
+    @Override
     public Optional<DriverSummary> findSummary(Long driverId) {
         return Optional.empty();
     }

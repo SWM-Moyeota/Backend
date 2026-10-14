@@ -6,7 +6,7 @@ package team.codingforest.moyeota.user.api;
  */
 public interface OngoingPartyChecker {
     /**
-     * CANCELED·FINISHED 가 아닌 합승에 멤버로 들어가 있는지 확인함
+     * CANCELED·FINISHED 가 아닌 합승에 멤버로 들어가 있거나 기사로 배정돼 있는지 확인함
      *
      * @param userId 확인할 사용자의 내부 번호
      * @return 진행 중인 합승이 있으면 true

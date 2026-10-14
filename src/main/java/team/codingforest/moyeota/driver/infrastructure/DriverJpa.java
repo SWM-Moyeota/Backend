@@ -51,4 +51,9 @@ public class DriverJpa implements Drivers {
         if(ids.isEmpty()) return Map.of();
         return delegate.findFcmTokens(ids).stream().collect(Collectors.toMap(DriverFcmToken::driverId, DriverFcmToken::fcmToken));
     }
+
+    @Override
+    public void deleteByUserId(Long userId) {
+        delegate.findByUserId(userId).ifPresent(delegate::delete);
+    }
 }

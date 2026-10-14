@@ -9,4 +9,5 @@ public interface Drivers {
     Optional<Driver> findById(Long id);
     Optional<Driver> findByUserId(Long userId);
     Map<Long, String> findFcmTokens(Collection<Long> ids);
+    void deleteByUserId(Long userId);
 }

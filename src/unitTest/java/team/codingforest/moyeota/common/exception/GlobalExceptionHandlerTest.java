@@ -90,6 +90,20 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void 본문이_없으면_400과_공통_에러_형식으로_내려준다() throws Exception {
+        mvc.perform(post("/api/v1/drivers").contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void 깨진_JSON은_400과_공통_에러_형식으로_내려준다() throws Exception {
+        mvc.perform(post("/api/v1/drivers").contentType(MediaType.APPLICATION_JSON).content("{\"qualificationNumber\":"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
     void 검증_전_기사를_다시_검증하면_409가_내려간다() throws Exception {
         String body = """
                 {"qualificationNumber": "서울-1234", "bankName": "국민은행", "accountNumber": "123-456", "vehicle": {"seats": 4, "plateNumber": "12가3456", "type": "중형"}}
@@ -162,6 +176,11 @@ class GlobalExceptionHandlerTest {
                 if(driver != null && driver.getFcmToken() != null && !driver.getFcmToken().isEmpty()) tokens.put(id, driver.getFcmToken());
             }
             return tokens;
+        }
+
+        @Override
+        public void deleteByUserId(Long userId) {
+            store.values().removeIf(d -> d.getUserId().equals(userId));
         }
     }
 }

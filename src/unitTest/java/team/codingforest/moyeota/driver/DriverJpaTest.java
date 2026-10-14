@@ -44,4 +44,9 @@ class DriverJpaTest implements Drivers {
         }
         return tokens;
     }
+
+    @Override
+    public void deleteByUserId(Long userId) {
+        store.values().removeIf(d -> d.getUserId().equals(userId));
+    }
 }

@@ -888,5 +888,10 @@ class PartyServiceTest {
         public Optional<Long> findUserId(Long driverId) {
             return Optional.empty();
         }
+
+        @Override
+        public Optional<Long> findIdByUserId(Long userId) {
+            return Optional.empty();
+        }
     }
 }
