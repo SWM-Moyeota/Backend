@@ -35,12 +35,29 @@ public class UserController {
     private final ProfileImages profileImages;
 
     /** 닉네임·이미지 중 넘어온 것만 바꾼다. 둘 다 없으면 아무것도 안 하고 204 */
-    @Operation(summary = "프로필 수정", description = "nickname·imageUrl 중 넘어온 것만 변경. 자기 닉네임 재전송은 중복 아님")
-    @ApiResponses({@ApiResponse(responseCode = "204", description = "수정 완료"), @ApiResponse(responseCode = "400", description = "INVALID_NICKNAME(USER107)"), @ApiResponse(responseCode = "409", description = "NICKNAME_DUPLICATED(USER108)")})
+    @Operation(summary = "프로필 수정", description = "nickname·imageKey 중 넘어온 것만 변경. imageKey 는 프로필 이미지 목록의 key 만 허용. 자기 닉네임 재전송은 중복 아님")
+    @ApiResponses({@ApiResponse(responseCode = "204", description = "수정 완료"), @ApiResponse(responseCode = "400", description = "INVALID_NICKNAME(USER107), INVALID_PROFILE_IMAGE(USER112)"), @ApiResponse(responseCode = "409", description = "NICKNAME_DUPLICATED(USER108)")})
     @PatchMapping("/me")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void updateProfile(@CurrentUser Long userId, @Valid @RequestBody UpdateProfileRequest request) {
-        userService.update(userId, request.nickname(), request.imageUrl());
+    public void updateProfile(
+            @CurrentUser Long userId,
+            @Valid @RequestBody UpdateProfileRequest request) {
+        userService.update(userId, request.nickname(), request.imageKey());
+    }
+
+    @Operation(summary = "프로필 이미지 목록", description = "고를 수 있는 제공 이미지. 앱은 이 순서대로 보여주고, 고른 key 를 프로필 수정의 imageKey 로 보냄")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "조회 성공")})
+    @GetMapping("/profile-images")
+    public List<ProfileImageResponse> getProfileImages() {
+        return profileImages.presets();
+    }
+
+    @Operation(summary = "프로필 이미지 기본으로 되돌리기", description = "고른 이미지를 지우고 기본 이미지로 표시. 멱등")
+    @ApiResponses({@ApiResponse(responseCode = "204", description = "되돌리기 완료")})
+    @DeleteMapping("/me/profile-image")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetProfileImage(@CurrentUser Long userId) {
+        userService.resetImage(userId);
     }
 
     @Operation(summary = "승객 앱 FCM 토큰 등록/갱신", description = "로그인 직후와 onTokenRefresh 때. 기사 앱 토큰(/drivers/fcm-token)과 별개")
@@ -57,13 +74,6 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeFcmToken(@CurrentUser Long userId) {
         fcmTokenService.remove(userId);
-    }
-
-    @Operation(summary = "프로필 이미지 목록", description = "고를 수 있는 제공 이미지. 앱은 이 순서대로 보여주고, 고른 key 를 프로필 수정의 imageKey 로 보냄")
-    @ApiResponses({@ApiResponse(responseCode = "200", description = "조회 성공")})
-    @GetMapping("/profile-images")
-    public List<ProfileImageResponse> getProfileImages() {
-        return profileImages.presets();
     }
 
 }

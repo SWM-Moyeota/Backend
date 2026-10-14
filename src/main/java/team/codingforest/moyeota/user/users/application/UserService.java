@@ -18,9 +18,22 @@ import team.codingforest.moyeota.user.users.domain.Users;
 @RequiredArgsConstructor
 public class UserService {
     private final Users users;
+    private final ProfileImages profileImages;
 
+    /**
+     * 닉네임과 이미지 중 넘어온 것만 바꿈
+     *
+     * @param userId 바꿀 사용자
+     * @param nickname 새 닉네임. null 이면 유지
+     * @param imageKey 제공 이미지 키. null 이면 유지
+     */
     @Transactional
-    public void update(Long userId, String nickname, String imageUrl) {
+    public void update(Long userId, String nickname, String imageKey) {
+        // 목록 밖의 키(외부 URL 등)가 다른 사람 화면에 그려지지 않도록 저장 전에 막음
+        if(imageKey != null && !profileImages.isPreset(imageKey)) {
+            throw new UserException(UserErrorCode.INVALID_PROFILE_IMAGE);
+        }
+
         User user = users.findById(userId);
 
         if(nickname != null) {
@@ -31,9 +44,23 @@ public class UserService {
             }
         }
 
-        user.updateProfile(nickname, imageUrl);
+        user.updateProfile(nickname, imageKey);
         users.save(user);
 
-        log.info("프로필 수정 userId={}, nicknameChanged={}, imageChanged={}", userId, nickname != null, imageUrl != null);
+        log.info("프로필 수정 userId={}, nicknameChanged={}, imageChanged={}", userId, nickname != null, imageKey != null);
+    }
+
+    /**
+     * 프로필 이미지를 기본 이미지로 되돌림. 이미 기본이어도 성공
+     *
+     * @param userId 되돌릴 사용자
+     */
+    @Transactional
+    public void resetImage(Long userId) {
+        User user = users.findById(userId);
+        user.resetImage();
+        users.save(user);
+
+        log.info("프로필 이미지 초기화 userId={}", userId);
     }
 }

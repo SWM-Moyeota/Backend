@@ -13,10 +13,6 @@ public class ProfileImages {
 
     private final ProfileImageProperties properties;
 
-    public List<String> presetKeys() {
-        return properties.presets();
-    }
-
     public boolean isPreset(String key) {
         return key != null && properties.presets().contains(key);
     }
