@@ -109,3 +109,23 @@ moyeota:
       api-key: ${SOLAPI_API_KEY:}
       api-secret: ${SOLAPI_API_SECRET:}
       from: ${SOLAPI_FROM:}
+  profile-image:
+    base-url: ${PROFILE_IMAGE_BASE_URL:https://d3ddnm4f2lvu0g.cloudfront.net/}   # 도메인 연결 후 https://cdn.moyeota.co.kr/
+    default-key: profile/presets/default.png
+    presets:
+      - profile/presets/01.png
+      - profile/presets/02.png
+      - profile/presets/03.png
+      - profile/presets/04.png
+      - profile/presets/05.png
+      - profile/presets/06.png
+      - profile/presets/07.png
+      - profile/presets/08.png
+      - profile/presets/09.png
+      - profile/presets/10.png
+      - profile/presets/11.png
+      - profile/presets/12.png
+      - profile/presets/13.png
+      - profile/presets/14.png
+      - profile/presets/15.png
+      - profile/presets/16.png
