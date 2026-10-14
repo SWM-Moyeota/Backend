@@ -69,5 +69,11 @@ class OpenApiDocsTest {
         JsonNode d = docs();
         assertThat(d.at("/paths/~1api~1v1~1matching~1rooms~1{partyId}/get/responses/401").isMissingNode()).isFalse();
         assertThat(d.at("/paths/~1api~1v1~1auth~1phone~1check/post/responses/401").isMissingNode()).isTrue();
+        assertThat(d.at("/paths/~1api~1v1~1auth~1sms~1send/post/responses/401").isMissingNode()).isTrue();
+        assertThat(d.at("/paths/~1api~1v1~1auth~1sms~1send/post/security").isArray()).isTrue();
+        assertThat(d.at("/paths/~1api~1v1~1auth~1sms~1send/post/security")).isEmpty();
+        assertThat(d.at("/paths/~1api~1v1~1config/get/responses/401").isMissingNode()).isTrue();
+        assertThat(d.at("/paths/~1api~1v1~1config/get/security").isArray()).isTrue();
+        assertThat(d.at("/paths/~1api~1v1~1config/get/security")).isEmpty();
     }
 }

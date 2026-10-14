@@ -19,7 +19,7 @@ import java.util.Objects;
 
 /**
  * Swagger UI: /swagger-ui.html, 스펙: /v3/api-docs
- * - 모든 API 는 기본적으로 Bearer(access 토큰) 필요. /api/v1/auth/** 는 컨트롤러에서 @SecurityRequirements 로 제외
+ * - 모든 API 는 기본적으로 Bearer(access 토큰) 필요. /api/v1/auth/**, /api/v1/config 는 컨트롤러에서 @SecurityRequirements 로 제외
  * - 4xx/5xx 응답은 전부 {code, message} 규격이라 커스터마이저가 ErrorResponse 스키마를 일괄로 붙인다
  */
 @Configuration
@@ -62,7 +62,7 @@ public class OpenApiConfig {
                         ? !CollectionUtils.isEmpty(openApi.getSecurity())
                         : !op.getSecurity().isEmpty();
                 if (secured && !op.getResponses().containsKey(String.valueOf(HttpStatus.UNAUTHORIZED.value()))) {
-                    op.getResponses().addApiResponse("401", new ApiResponse().description("인증 필요 - 토큰 없음/만료(USER002)/무효"));
+                    op.getResponses().addApiResponse("401", new ApiResponse().description("인증 필요 - 토큰 없음(USER005) / 만료(USER002) / 무효·탈퇴한 사용자(USER001)"));
                 }
                 op.getResponses().forEach((code, response) -> {
                     if (code.startsWith("4") || code.startsWith("5")) {

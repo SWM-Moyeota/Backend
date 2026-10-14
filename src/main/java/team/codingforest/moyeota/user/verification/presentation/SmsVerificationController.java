@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.user.verification.presentation;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,6 +15,8 @@ import team.codingforest.moyeota.user.verification.dto.SmsSendRequest;
 import team.codingforest.moyeota.user.verification.dto.SmsVerifyRequest;
 import team.codingforest.moyeota.user.verification.dto.SmsVerifyResponse;
 
+@Tag(name = "인증")
+@SecurityRequirements
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/auth/sms")

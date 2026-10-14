@@ -63,7 +63,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleNotReadable(HttpMessageNotReadableException e) {
-        log.warn("요청 본문 해석 실패 message={}", e.getMessage());
+        log.warn("요청 본문 해석 실패 cause={}", e.getMostSpecificCause().getClass().getSimpleName());
 
         return ResponseEntity
                 .badRequest()
