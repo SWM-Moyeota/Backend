@@ -16,7 +16,7 @@ import team.codingforest.moyeota.user.users.domain.Users;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class UserProfileService {
+public class UserService {
     private final Users users;
 
     @Transactional

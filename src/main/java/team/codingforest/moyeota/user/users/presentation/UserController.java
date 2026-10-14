@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import team.codingforest.moyeota.user.api.CurrentUser;
 import team.codingforest.moyeota.user.users.application.ProfileImages;
 import team.codingforest.moyeota.user.users.application.UserFcmTokenService;
-import team.codingforest.moyeota.user.users.application.UserProfileService;
+import team.codingforest.moyeota.user.users.application.UserService;
 import team.codingforest.moyeota.user.users.dto.ProfileImageResponse;
 import team.codingforest.moyeota.user.users.dto.RegisterFcmTokenRequest;
 import team.codingforest.moyeota.user.users.dto.UpdateProfileRequest;
@@ -31,7 +31,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserController {
     private final UserFcmTokenService fcmTokenService;
-    private final UserProfileService profileService;
+    private final UserService userService;
     private final ProfileImages profileImages;
 
     /** 닉네임·이미지 중 넘어온 것만 바꾼다. 둘 다 없으면 아무것도 안 하고 204 */
@@ -40,7 +40,7 @@ public class UserController {
     @PatchMapping("/me")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void updateProfile(@CurrentUser Long userId, @Valid @RequestBody UpdateProfileRequest request) {
-        profileService.update(userId, request.nickname(), request.imageUrl());
+        userService.update(userId, request.nickname(), request.imageUrl());
     }
 
     @Operation(summary = "승객 앱 FCM 토큰 등록/갱신", description = "로그인 직후와 onTokenRefresh 때. 기사 앱 토큰(/drivers/fcm-token)과 별개")

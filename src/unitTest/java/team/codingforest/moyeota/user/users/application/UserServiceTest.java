@@ -13,15 +13,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class UserProfileServiceTest {
+class UserServiceTest {
     private FakeUsers users;
-    private UserProfileService service;
+    private UserService service;
     private Long 나;
 
     @BeforeEach
     void setUp() {
         users = new FakeUsers();
-        service = new UserProfileService(users);
+        service = new UserService(users);
         나 = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "원래닉")).getId();
         users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "남의닉"));
     }
