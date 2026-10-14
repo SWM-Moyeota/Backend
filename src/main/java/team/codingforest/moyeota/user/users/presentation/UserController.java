@@ -25,7 +25,7 @@ import team.codingforest.moyeota.user.users.dto.UpdateProfileRequest;
 
 import java.util.List;
 
-@Tag(name = "유저", description = "공개 프로필 수정, 승객 앱 FCM 토큰")
+@Tag(name = "유저", description = "공개 프로필 수정, 승객 앱 FCM 토큰, 프로필 이미지 추가")
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
