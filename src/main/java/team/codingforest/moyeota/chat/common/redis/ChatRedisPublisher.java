@@ -6,7 +6,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import team.codingforest.moyeota.chat.common.config.RedisConfig;
 import team.codingforest.moyeota.chat.member.domain.ChatMember;
-import team.codingforest.moyeota.chat.member.domain.MemberProvider;
 import team.codingforest.moyeota.chat.member.domain.enums.MemberChangeType;
 import team.codingforest.moyeota.chat.member.infrastructure.ChatRoomLeftResult;
 import team.codingforest.moyeota.chat.member.infrastructure.MemberChangedPayload;
@@ -14,7 +13,6 @@ import team.codingforest.moyeota.chat.message.dto.ChatMessageResult;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
-import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -24,18 +22,16 @@ public class ChatRedisPublisher {
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
-    private final MemberProvider memberProvider;
 
     public void message(ChatMessageResult result) {
         publish(ChatEventEnvelope.TYPE_MESSAGE, result);
     }
 
-    public void memberJoined(Long chatRoomId, Long userId) {
-        publish(ChatEventEnvelope.TYPE_MEMBER, memberChanged(chatRoomId, findMember(userId), MemberChangeType.JOINED));
+    public void memberJoined(Long chatRoomId, ChatMember member) {
+        publish(ChatEventEnvelope.TYPE_MEMBER, memberChanged(chatRoomId, member, MemberChangeType.JOINED));
     }
 
-    public void memberLeft(Long chatRoomId, Long userId, UUID publicId) {
-        ChatMember member = findMember(userId);
+    public void memberLeft(Long chatRoomId, Long userId, UUID publicId, ChatMember member) {
         UUID resolvedPublicId = publicId != null
                 ? publicId
                 : (member == null ? null : member.publicId());
@@ -55,10 +51,6 @@ public class ChatRedisPublisher {
         } catch (JacksonException e) {
             log.error("메시지 직렬화 실패 type={}", type, e);
         }
-    }
-
-    private ChatMember findMember(Long userId) {
-        return memberProvider.findMembers(List.of(userId)).get(userId);
     }
 
     private MemberChangedPayload memberChanged(Long chatRoomId, ChatMember member, MemberChangeType type) {
