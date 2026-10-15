@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.chat.common.config;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,14 +22,19 @@ public class RedisConfig {
     }
 
     @Bean
-    public ThreadPoolTaskExecutor chatSubscribeExecutor() {
+    public ThreadPoolTaskExecutor chatSubscribeExecutor(MeterRegistry meterRegistry) {
+        Counter dropped = meterRegistry.counter("chat.subscribe.dropped");
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(1);
         executor.setMaxPoolSize(1);
         executor.setQueueCapacity(10_000);
         executor.setThreadNamePrefix("chat-sub-");
-        executor.setRejectedExecutionHandler((task, pool) ->
-                log.warn("채팅 구독 큐가 가득 차 이벤트를 버림 queued={}", pool.getQueue().size()));
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(10);
+        executor.setRejectedExecutionHandler((task, pool) -> {
+            dropped.increment();
+            log.warn("채팅 구독 큐가 가득 차 이벤트를 버림 queued={}", pool.getQueue().size());
+        });
         return executor;
     }
 
@@ -35,11 +42,12 @@ public class RedisConfig {
     public RedisMessageListenerContainer chatRedisListenerContainer(
             RedisConnectionFactory redisConnectionFactory,
             ChatRedisSubscriber subscriber,
-            ChannelTopic chatTopic
+            ChannelTopic chatTopic,
+            ThreadPoolTaskExecutor chatSubscribeExecutor
     ) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(redisConnectionFactory);
-        container.setTaskExecutor(chatSubscribeExecutor());
+        container.setTaskExecutor(chatSubscribeExecutor);
         container.addMessageListener(subscriber, chatTopic);
         return container;
     }
