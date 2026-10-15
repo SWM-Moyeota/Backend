@@ -15,7 +15,8 @@ public record PartyDetailResult(Long id,
                                 Integer capacity, Integer currentMembers,
                                 Integer departureRadius, Integer destinationRadius,
                                 String status, Instant createdAt,
-                                List<MemberInfo> members, Integer estimateFare, Integer estimateTime, String route, Long taxiDriverId) {
+                                List<MemberInfo> members, Integer estimateFare, Integer estimateTime, String route, Long taxiDriverId,
+                                Long hostId) {
 
     public record MemberInfo(UUID publicId, String nickname, String imageUrl, String badgeId, Integer rideCount) {
 
@@ -42,7 +43,8 @@ public record PartyDetailResult(Long id,
                 party.getEstimatedFare(),
                 party.getEstimatedTime(),
                 party.getRoute(),
-                party.getTaxiDriverId()
+                party.getTaxiDriverId(),
+                party.getMembers().isEmpty() ? null : party.hostId()   // 전원이 나가 취소된 방엔 방장이 없다
         );
     }
 }

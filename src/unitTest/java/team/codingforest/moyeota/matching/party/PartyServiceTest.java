@@ -497,16 +497,35 @@ class PartyServiceTest {
             assertThat(events.joinedFor(party.id(), participant)).isEqualTo(1);
         }
 
-        // ── 합승 완료 (참여자가 직접) ──
+        // ── 합승 완료 (방장이 직접) ──
 
         @Test
-        void 참여자가_합승_완료하면_FINISHED가_된다() {
+        void 방장이_합승_완료하면_FINISHED가_된다() {
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
 
-            service.finish(party.id(), participant);
+            service.finish(party.id(), host);
 
             assertThat(service.getPartyDetail(party.id()).status()).isEqualTo("FINISHED");
+        }
+
+        @Test
+        void 방장이_아닌_참여자는_합승_완료할_수_없다() {
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);
+
+            assertThatThrownBy(() -> service.finish(party.id(), participant))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(MatchingErrorCode.NOT_PARTY_HOST);
+        }
+
+        @Test
+        void 상세_조회에는_가장_먼저_합류한_멤버가_방장으로_실린다() {
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);
+
+            assertThat(service.getPartyDetail(party.id()).hostId()).isEqualTo(host);
         }
 
         @Test
@@ -572,7 +591,7 @@ class PartyServiceTest {
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
 
-            service.finish(party.id(), participant);
+            service.finish(party.id(), host);
 
             assertThat(events.closedFor(party.id(), "FINISHED")).isEqualTo(1);
         }
@@ -592,7 +611,7 @@ class PartyServiceTest {
             service.join(party.id(), participant);
             signals.sent.clear();
 
-            service.finish(party.id(), participant);
+            service.finish(party.id(), host);
 
             assertThat(signals.sent).containsExactly(party.id() + ":closed");
         }

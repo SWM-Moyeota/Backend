@@ -5,6 +5,7 @@ import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -442,11 +443,11 @@ class PartyTest {
     // ───────────────────────── 기사 없는 종료 (배포 모드) ─────────────────────────
 
     @Test
-    void 정원이_찬_방은_참여자가_직접_합승_완료할_수_있다() {
+    void 정원이_찬_방은_방장이_합승_완료할_수_있다() {
         Party party = openParty(2);
         party.join(참여자);
 
-        party.finishWithoutDriver(참여자);
+        party.finishWithoutDriver(생성자);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
     }
@@ -508,11 +509,75 @@ class PartyTest {
     void 이미_닫힌_방은_다시_닫을_수_없다() {
         Party party = openParty(2);
         party.join(참여자);
-        party.finishWithoutDriver(참여자);
+        party.finishWithoutDriver(생성자);
 
         assertThatThrownBy(party::expireCompleted)
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
+    }
+
+    // ───────────────────────── 파생 방장 ─────────────────────────
+
+    /** 합류 시각을 조작해 복원한 정원 충족 방 - 도메인 경로로는 joinedAt 이 항상 Instant.now() 로 찍힌다 */
+    private Party completedPartyWith(PartyMember... members) {
+        return Party.restore(1L, 강남역, 판교역, 기본반경, 기본반경, 강남역출발, 판교역도착, new Capacity(members.length),
+                List.of(members), 지금, PartyStatus.COMPLETED, 예상요금, 예상시간, 경로, null, null, 지금);
+    }
+
+    @Test
+    void 방장은_가장_먼저_합류한_멤버다() {
+        Party party = openParty(3);
+        party.join(참여자);
+
+        assertThat(party.hostId()).isEqualTo(생성자);
+    }
+
+    @Test
+    void 방장이_나가면_다음으로_일찍_합류한_멤버가_방장이_된다() {
+        Party party = openParty(3);
+        party.join(참여자);
+
+        party.leave(생성자);
+
+        assertThat(party.hostId()).isEqualTo(참여자);
+    }
+
+    @Test
+    void 합류_시각이_같으면_memberId가_작은_멤버가_방장이다() {
+        Party party = completedPartyWith(PartyMember.restore(5L, 지금), PartyMember.restore(3L, 지금));
+
+        assertThat(party.hostId()).isEqualTo(3L);
+    }
+
+    @Test
+    void 멤버가_없는_방에는_방장이_없다() {
+        Party party = openParty(2);
+        party.leave(생성자);   // 마지막 멤버가 나가 명단이 빈다
+
+        assertThatThrownBy(party::hostId).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void 방장이_아닌_멤버는_합승_완료할_수_없다() {
+        Party party = openParty(2);
+        party.join(참여자);
+
+        assertThatThrownBy(() -> party.finishWithoutDriver(참여자))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.NOT_PARTY_HOST);
+
+        assertThat(party.getStatus()).as("거부된 호출이 방을 닫으면 안 된다").isEqualTo(PartyStatus.COMPLETED);
+    }
+
+    @Test
+    void 승계된_방장은_합승_완료할_수_있다() {
+        // 원래 방장이 빠진 뒤 복원된 방 - 창설자가 아니라 "현재 멤버 중 가장 일찍 합류한 사람"이 권한을 가진다
+        Party party = completedPartyWith(PartyMember.restore(참여자, 지금), PartyMember.restore(생성자, 지금.plusSeconds(60)));
+
+        party.finishWithoutDriver(참여자);
+
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
     }
 }
