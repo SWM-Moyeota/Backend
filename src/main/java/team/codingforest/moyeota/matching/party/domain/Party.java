@@ -225,10 +225,15 @@ public class Party {
                 .orElseThrow(() -> new IllegalStateException("방에 멤버가 없습니다"));
     }
 
+    /** 방장 판별은 이 메소드로만 한다 - 밖에서 hostId 를 꺼내 비교하지 않기 */
+    public boolean isHost(Long memberId) {
+        return !members.isEmpty() && hostId().equals(memberId);
+    }
+
     public void finishWithoutDriver(Long memberId) {
         if(!hasMember(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
 
-        if(!hostId().equals(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_HOST);
+        if(!isHost(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_HOST);
 
         if(status != PartyStatus.COMPLETED) throw new BusinessException(MatchingErrorCode.PARTY_NOT_COMPLETED);
 

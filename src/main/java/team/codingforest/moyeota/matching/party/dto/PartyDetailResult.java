@@ -28,11 +28,9 @@ public record PartyDetailResult(Long id,
     }
 
     public static PartyDetailResult from(Party party, Map<Long, MemberSummary> summaries, Map<Long, Integer> rideCounts) {
-        Long hostId = party.getMembers().isEmpty() ? null : party.hostId();   // 전원이 나가 취소된 방엔 방장이 없다
-
         List<MemberInfo> members = party.getMembers().stream()
                 .map(m -> MemberInfo.of(summaries.get(m.getMemberId()), rideCounts.getOrDefault(m.getMemberId(), 0),
-                        m.getMemberId().equals(hostId)))
+                        party.isHost(m.getMemberId())))
                 .toList();
 
         return new PartyDetailResult(
