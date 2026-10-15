@@ -29,7 +29,7 @@ class RedisPartyChangeNotifierTest {
     @Test
     void 참여는_들어온_사람_정보를_데이터로_실어_채널에_낸다() {
         UUID publicId = UUID.randomUUID();
-        MemberJoined event = MemberJoined.from(new PartyDetailResult.MemberInfo(publicId, "철수", null, null, 3), "ACTIVE");
+        MemberJoined event = MemberJoined.from(new PartyDetailResult.MemberInfo(publicId, "철수", null, null, 3, false), "ACTIVE");
 
         notifier.memberJoined(방, event);
 

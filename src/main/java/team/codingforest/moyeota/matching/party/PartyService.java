@@ -103,7 +103,7 @@ public class PartyService {
 
         eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
 
-        MemberJoined event = MemberJoined.from(PartyDetailResult.MemberInfo.of(summary, rideCount), saved.getStatus().name());
+        MemberJoined event = MemberJoined.from(PartyDetailResult.MemberInfo.of(summary, rideCount, saved.isHost(memberId)), saved.getStatus().name());
 
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.memberJoined(partyId, event));
 
