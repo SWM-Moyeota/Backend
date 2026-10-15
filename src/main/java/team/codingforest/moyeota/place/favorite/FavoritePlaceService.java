@@ -42,6 +42,16 @@ public class FavoritePlaceService {
         places.save(place);
     }
 
+    @Transactional
+    public void delete(Long userId, String placeName) {
+        if(!places.existsByUserIdAndPlace(userId, placeName)) {
+            throw new BusinessException(PlaceErrorCode.FAVORITE_PLACE_NOT_FOUND);
+        }
+
+        places.deleteByUserIdAndPlaceName(userId, placeName);
+        log.info("자주가는 장소 삭제 userId={}, placeName={}", userId, placeName);
+    }
+
     @Transactional(readOnly = true)
     public FavoritePlaceListResponse getList(Long userId) {
         List<FavoritePlaceResponse> result = places.findByUserId(userId)

@@ -107,4 +107,46 @@ class FavoritePlaceServiceTest {
                 .extracting(FavoritePlaceResponse::placeSequence)
                 .doesNotHaveDuplicates();   // 현재 구현: size=2 → 2+1=3 → 기존 3과 충돌 → 실패!
     }
+
+    @Test
+    void 삭제하면_목록에서_사라진다() {
+        service.save(장소("집"), 유저);
+        service.save(장소("회사"), 유저);
+
+        service.delete(유저, "집");
+
+        assertThat(service.getList(유저).places())
+                .extracting(FavoritePlaceResponse::placeName)
+                .containsExactly("회사");
+    }
+
+    @Test
+    void 없는_장소를_삭제하면_실패한다() {
+        assertThatThrownBy(() -> service.delete(유저, "집"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(PlaceErrorCode.FAVORITE_PLACE_NOT_FOUND);
+    }
+
+    @Test
+    void 다른_유저의_즐겨찾기는_지울_수_없다() {
+        // 이름이 같아도 내 즐겨찾기가 아니면 404, 상대 데이터는 그대로 남아야 한다
+        service.save(장소("집"), 다른유저);
+
+        assertThatThrownBy(() -> service.delete(유저, "집"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(PlaceErrorCode.FAVORITE_PLACE_NOT_FOUND);
+        assertThat(service.getList(다른유저).places()).hasSize(1);
+    }
+
+    @Test
+    void 삭제한_이름으로_다시_등록할_수_있다() {
+        service.save(장소("집"), 유저);
+        service.delete(유저, "집");
+
+        service.save(장소("집"), 유저);
+
+        assertThat(service.getList(유저).places()).hasSize(1);
+    }
 }

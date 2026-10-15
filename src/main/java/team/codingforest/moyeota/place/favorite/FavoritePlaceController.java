@@ -6,7 +6,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,4 +39,13 @@ public class FavoritePlaceController {
     public ResponseEntity<FavoritePlaceListResponse> getFavoriteList(@CurrentUser Long userId) {
         return ResponseEntity.ok(service.getList(userId));
     }
+
+    @Operation(summary = "즐겨찾기 삭제", description = "장소 이름으로 내 즐겨찾기를 지운다. 한글 이름은 URL 인코딩해서 보낸다")
+    @ApiResponses({@ApiResponse(responseCode = "204", description = "삭제 완료"), @ApiResponse(responseCode = "404", description = "FAVORITE_PLACE_NOT_FOUND - 내 즐겨찾기에 없는 장소")})
+    @DeleteMapping("/users/me/favorite-places/{placeName}")
+    public ResponseEntity<Void> delete(@PathVariable String placeName, @CurrentUser Long userId) {
+        service.delete(userId, placeName);
+        return ResponseEntity.noContent().build();
+    }
+
 }
