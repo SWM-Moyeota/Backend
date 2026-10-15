@@ -19,6 +19,8 @@
 ### HTTP Client ###
 # .http 요청 응답을 파일로 저장(>>, >>!)할 때 생성되는 결과물
 http/responses/
+http/http-client.private.env.json
+http/__pycache__/
 
 ### OS temp files ###
 .DS_Store
