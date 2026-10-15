@@ -10,15 +10,17 @@ import java.time.Instant;
 public class ChatRoom {
     private final Long id;
     private final Long partyId;
+    private final long lastSeq;
     private final String departurePlace;
     private final String destinationPlace;
     private final Instant createdAt;
     private Instant updatedAt;
     private ChatRoomStatus status;
 
-    private ChatRoom(Long id, Long partyId, String departurePlace, String destinationPlace, Instant createdAt, Instant updatedAt, ChatRoomStatus status) {
+    private ChatRoom(Long id, Long partyId, long lastSeq, String departurePlace, String destinationPlace, Instant createdAt, Instant updatedAt, ChatRoomStatus status) {
         this.id = id;
         this.partyId = partyId;
+        this.lastSeq = lastSeq;
         this.departurePlace = departurePlace;
         this.destinationPlace = destinationPlace;
         this.createdAt = createdAt;
@@ -27,11 +29,11 @@ public class ChatRoom {
     }
 
     public static ChatRoom create(Long partyId, String departure, String destination, Instant now) {
-        return new ChatRoom(null, partyId, departure, destination, now, now, ChatRoomStatus.ACTIVE);
+        return new ChatRoom(null, partyId, 0L, departure, destination, now, now, ChatRoomStatus.ACTIVE);
     }
 
-    public static ChatRoom restore(Long id, Long partyId, String departure, String destination, Instant createdAt, Instant updatedAt, ChatRoomStatus status) {
-        return new ChatRoom(id, partyId, departure, destination, createdAt, updatedAt, status);
+    public static ChatRoom restore(Long id, Long partyId, long lastSeq, String departure, String destination, Instant createdAt, Instant updatedAt, ChatRoomStatus status) {
+        return new ChatRoom(id, partyId, lastSeq, departure, destination, createdAt, updatedAt, status);
     }
 
     public void close(Instant now) {

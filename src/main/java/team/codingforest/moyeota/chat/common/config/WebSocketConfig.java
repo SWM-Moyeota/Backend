@@ -25,11 +25,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws-chat")
                 .setAllowedOriginPatterns(allowedOrigins);
+        registry.setPreserveReceiveOrder(true);   // 인바운드 스레드가 여러 개라 같은 세션의 연속 전송이 뒤바뀌어 저장될 수 있음
     }
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         registry.setApplicationDestinationPrefixes("/pub");
+        registry.setPreservePublishOrder(true);   // 아웃바운드 스레드가 여러 개라 한 세션에 보내는 순서가 섞일 수 있음
         registry.enableSimpleBroker("/sub", "/queue")
                 .setHeartbeatValue(new long[]{10000, 10000})
                 .setTaskScheduler(heartbeatScheduler());

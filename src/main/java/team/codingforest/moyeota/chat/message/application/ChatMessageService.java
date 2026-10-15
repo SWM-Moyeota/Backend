@@ -85,8 +85,12 @@ public class ChatMessageService {
 
         chatRoomUserService.validateParticipant(command.userId(), command.chatRoomId());
 
+        long seq = chatRooms.nextMessageSeq(command.chatRoomId())   // 방 행을 잠금 - 같은 방의 저장과 커밋이 순서대로 일어남
+                .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND));
+
         ChatMessage message = ChatMessage.text(
                 command.chatRoomId(),
+                seq,
                 command.userId(),
                 command.content(),
                 Instant.now()

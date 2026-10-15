@@ -48,7 +48,7 @@ class MatchingChatRoomStepsTest {
     private MatchingChatRoomSteps steps;
 
     private ChatRoom room() {
-        return ChatRoom.restore(ROOM_ID, PARTY_ID, "강남역", "판교역", NOW, NOW, ChatRoomStatus.ACTIVE);
+        return ChatRoom.restore(ROOM_ID, PARTY_ID, 0L, "강남역", "판교역", NOW, NOW, ChatRoomStatus.ACTIVE);
     }
 
     private void partyMembers(Long... userIds) {
@@ -118,7 +118,7 @@ class MatchingChatRoomStepsTest {
         partyMembers(MEMBER_ID);
         given(chatRooms.findByPartyIdForUpdate(PARTY_ID)).willReturn(Optional.empty());
         given(chatRoomService.createRoom(any()))
-                .willReturn(new ChatRoomResult(ROOM_ID, PARTY_ID, "강남역", "판교역", NOW, ChatRoomStatus.ACTIVE));
+                .willReturn(new ChatRoomResult(ROOM_ID, PARTY_ID, 0L, "강남역", "판교역", NOW, ChatRoomStatus.ACTIVE));
         memberInRoom(false);
 
         steps.sync(PARTY_ID, MEMBER_ID);

@@ -42,6 +42,7 @@ export const joinOutcome = new Counter('journey_join');                 // resul
 export const wsErrors = new Counter('ws_errors');
 export const giveUps = new Counter('journey_give_up');                  // 시간 안에 방이 안 차서 포기
 export const sweepMinutes = new Trend('abandon_to_finished_min');       // D6: 방치 → 자동 종료까지
+export const orderInversions = new Counter('chat_order_inversions');    // 소켓으로 받은 메시지 id 가 직전보다 작았던 횟수
 
 const CLOSED = ['FINISHED', 'CANCELED'];
 
@@ -124,6 +125,7 @@ function chat(user, who, partyId, destName) {
     holdSec: CHAT_SEC, sendEverySec: 12, cursor: opened.cursor,
     partyId: USE_SSE ? null : partyId,                                   // 폴링 앱만 채팅 아래에서 방 상세를 폴링한다
     onLatency: (ms) => chatLatency.add(ms),
+    onInversion: () => orderInversions.add(1),
     onError: (e) => { wsErrors.add(1); console.error(`WS ${who}: ${e}`); },
   });
   return closedBy;

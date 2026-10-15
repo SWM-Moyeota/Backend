@@ -28,6 +28,7 @@ class ChatMessageUnreadCountJpaTest {
     private final ChatMessageJpa chatMessages;
     private final ChatRoomUserJpa chatRoomUsers;
     private final EntityManager em;
+    private long seq;
 
     @Autowired
     ChatMessageUnreadCountJpaTest(ChatMessageJpa chatMessages, ChatRoomUserJpa chatRoomUsers, EntityManager em) {
@@ -42,7 +43,7 @@ class ChatMessageUnreadCountJpaTest {
     }
 
     private ChatMessage send(Long senderId, String content) {
-        return chatMessages.save(ChatMessage.text(ROOM_ID, senderId, content, NOW));
+        return chatMessages.save(ChatMessage.text(ROOM_ID, ++seq, senderId, content, NOW));
     }
 
     private ChatRoomUser join(Long userId) {

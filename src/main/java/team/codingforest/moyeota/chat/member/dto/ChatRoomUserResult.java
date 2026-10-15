@@ -1,9 +1,9 @@
 package team.codingforest.moyeota.chat.member.dto;
 
-import team.codingforest.moyeota.chat.message.domain.ChatMessage;
-import team.codingforest.moyeota.chat.room.domain.ChatRoom;
 import team.codingforest.moyeota.chat.member.domain.ChatRoomUser;
+import team.codingforest.moyeota.chat.message.domain.ChatMessage;
 import team.codingforest.moyeota.chat.message.domain.enums.ChatMessageType;
+import team.codingforest.moyeota.chat.room.domain.ChatRoom;
 import team.codingforest.moyeota.chat.room.domain.ChatRoomStatus;
 
 import java.time.Instant;
@@ -24,6 +24,7 @@ public record ChatRoomUserResult(
 ) {
     public record LastMessage(
             Long id,
+            Long seq,
             UUID senderPublicId,
             String content,
             ChatMessageType type,
@@ -34,6 +35,7 @@ public record ChatRoomUserResult(
         public static LastMessage from(ChatMessage message, UUID senderPublicId) {
             return new LastMessage(
                     message.getId(),
+                    message.getSeq(),
                     senderPublicId,
                     message.isDeleted() ? DELETED_CONTENT : message.getContent(),
                     message.getType(),
