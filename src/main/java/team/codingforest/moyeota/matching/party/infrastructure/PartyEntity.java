@@ -7,6 +7,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import team.codingforest.moyeota.common.BaseTimeEntity;
@@ -59,6 +60,7 @@ public class PartyEntity extends BaseTimeEntity {
     private Integer destinationRadius;
 
     @OneToMany(mappedBy = "party", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("joinedAt ASC, memberId ASC")   // 응답 members 순서 = 합류 순. 방장(host) 표시가 이 순서에 기대지는 않지만 화면 일관성을 위해 고정
     private List<PartyMemberEntity> members = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
