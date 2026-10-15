@@ -395,6 +395,35 @@ class PartyServiceTest {
     }
 
     @Test
+    void 방장이_나가면_member_left에_승계된_방장이_실린다() {
+        // 남은 사람 화면의 "방장" 표시가 퇴장 즉시 바뀌어야 한다 - 이벤트에 승계 결과를 실어 보낸다.
+        // 승계자는 "남은 사람 중 가장 먼저 합류한 사람" - memberId 순서(participant=2 < guest=4)가 아니라 합류 순서를 따른다
+        service = serviceWith(new ChatOnlyCompletionPolicy());   // 정원이 차도 COMPLETED 에 머물러야 leave 가 가능하다
+        userAccess.등록(guest, "게스트");
+        PartyResult party = service.open(createParty(host, 3));
+        service.join(party.id(), guest);
+        service.join(party.id(), participant);
+        signals.sent.clear();
+
+        service.leave(party.id(), host);
+
+        assertThat(signals.left.getLast().hostPublicId())
+                .isEqualTo(userAccess.publicIdOf(guest));
+    }
+
+    @Test
+    void 일반_멤버가_나가면_member_left의_방장은_그대로다() {
+        PartyResult party = service.open(createParty(host, 3));
+        service.join(party.id(), participant);
+        signals.sent.clear();
+
+        service.leave(party.id(), participant);
+
+        assertThat(signals.left.getLast().hostPublicId())
+                .isEqualTo(userAccess.publicIdOf(host));
+    }
+
+    @Test
     void 나간_사람의_연결_닫기도_커밋_후에_한다() {
         // 나가기가 롤백됐는데 연결부터 닫으면, 아직 멤버인 사람이 방 변화를 못 받는다
         List<Runnable> deferred = new ArrayList<>();

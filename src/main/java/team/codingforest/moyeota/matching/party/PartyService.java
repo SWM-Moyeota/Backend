@@ -128,7 +128,10 @@ public class PartyService {
             afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
         }
         else {
-            MemberLeft event = MemberLeft.from(publicId, party.getStatus().name());
+            Long hostId = party.hostId();   // leave 반영 후 = 승계 결과. 이 분기에선 멤버가 반드시 남아 있음
+            MemberSummary hostSummary = userAccess.findMemberSummaries(List.of(hostId)).get(hostId);
+            UUID hostPublicId = hostSummary == null ? null : hostSummary.publicId();
+            MemberLeft event = MemberLeft.from(publicId, party.getStatus().name(), hostPublicId);
             afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.memberLeft(partyId, memberId, event));
         }
 

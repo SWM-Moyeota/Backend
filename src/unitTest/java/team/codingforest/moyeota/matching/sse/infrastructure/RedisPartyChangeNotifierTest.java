@@ -44,7 +44,8 @@ class RedisPartyChangeNotifierTest {
     void 퇴장은_나간_사람의_내부_번호와_publicId_를_함께_실어_채널에_낸다() {
         // 내부 번호는 연결을 닫는 데만 쓰고, 앱에는 publicId 만 간다
         UUID publicId = UUID.randomUUID();
-        MemberLeft event = MemberLeft.from(publicId, "ACTIVE");
+        UUID hostPublicId = UUID.randomUUID();
+        MemberLeft event = MemberLeft.from(publicId, "ACTIVE", hostPublicId);
 
         notifier.memberLeft(방, 7L, event);
 
