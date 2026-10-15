@@ -16,6 +16,7 @@ public enum MatchingErrorCode implements ErrorCode {
     PARTY_CLOSED(HttpStatus.CONFLICT, "마감된 방입니다."),
     PARTY_FULL(HttpStatus.CONFLICT, "정원이 가득 찬 방입니다."),
     NOT_PARTY_MEMBER(HttpStatus.FORBIDDEN, "해당 방에 참여하고 있지 않습니다."),
+    NOT_PARTY_HOST(HttpStatus.FORBIDDEN, "방장만 수행할 수 있습니다."),
     PARTY_NOT_RECRUITING(HttpStatus.CONFLICT, "모집 중인 방이 아닙니다."),
 
     // 매칭·배정·운행 상태
