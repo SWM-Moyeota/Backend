@@ -525,7 +525,9 @@ class PartyServiceTest {
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
 
-            assertThat(service.getPartyDetail(party.id()).hostId()).isEqualTo(host);
+            assertThat(service.getPartyDetail(party.id()).members())
+                    .extracting(PartyDetailResult.MemberInfo::host)
+                    .containsExactly(true, false);   // 멤버 목록은 합류 순 - 생성자가 방장
         }
 
         @Test

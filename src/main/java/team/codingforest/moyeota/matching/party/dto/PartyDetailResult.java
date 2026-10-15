@@ -15,22 +15,24 @@ public record PartyDetailResult(Long id,
                                 Integer capacity, Integer currentMembers,
                                 Integer departureRadius, Integer destinationRadius,
                                 String status, Instant createdAt,
-                                List<MemberInfo> members, Integer estimateFare, Integer estimateTime, String route, Long taxiDriverId,
-                                Long hostId) {
+                                List<MemberInfo> members, Integer estimateFare, Integer estimateTime, String route, Long taxiDriverId) {
 
-    public record MemberInfo(UUID publicId, String nickname, String imageUrl, String badgeId, Integer rideCount) {
+    public record MemberInfo(UUID publicId, String nickname, String imageUrl, String badgeId, Integer rideCount, boolean host) {
 
         // TODO badgeId 값 설정
-        public static MemberInfo of(MemberSummary summary, int rideCount) {
-            if(summary == null) return new MemberInfo(null, null, null, null, rideCount);
+        public static MemberInfo of(MemberSummary summary, int rideCount, boolean host) {
+            if(summary == null) return new MemberInfo(null, null, null, null, rideCount, host);
 
-            return new MemberInfo(summary.publicId(), summary.nickname(), summary.imageUrl(), null, rideCount);
+            return new MemberInfo(summary.publicId(), summary.nickname(), summary.imageUrl(), null, rideCount, host);
         }
     }
 
     public static PartyDetailResult from(Party party, Map<Long, MemberSummary> summaries, Map<Long, Integer> rideCounts) {
+        Long hostId = party.getMembers().isEmpty() ? null : party.hostId();   // 전원이 나가 취소된 방엔 방장이 없다
+
         List<MemberInfo> members = party.getMembers().stream()
-                .map(m -> MemberInfo.of(summaries.get(m.getMemberId()), rideCounts.getOrDefault(m.getMemberId(), 0)))
+                .map(m -> MemberInfo.of(summaries.get(m.getMemberId()), rideCounts.getOrDefault(m.getMemberId(), 0),
+                        m.getMemberId().equals(hostId)))
                 .toList();
 
         return new PartyDetailResult(
@@ -43,8 +45,7 @@ public record PartyDetailResult(Long id,
                 party.getEstimatedFare(),
                 party.getEstimatedTime(),
                 party.getRoute(),
-                party.getTaxiDriverId(),
-                party.getMembers().isEmpty() ? null : party.hostId()   // 전원이 나가 취소된 방엔 방장이 없다
+                party.getTaxiDriverId()
         );
     }
 }
