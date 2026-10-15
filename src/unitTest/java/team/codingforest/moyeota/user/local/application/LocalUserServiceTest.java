@@ -58,6 +58,26 @@ class LocalUserServiceTest {
                 new ProfileImages(new ProfileImageProperties(CDN, "profile/presets/default.png", List.of("profile/presets/01.png"))));
     }
 
+    @Test
+    void 카드등록정보는_해당회원의_실명과_연락처를_반환한다() {
+        service.register(가입("hong", "길동이", "010-1234-5678"));
+        service.register(가입("other", "다른회원", "010-9999-8888"));
+        Long id = localUsers.findByLoginId("hong").getUserId();
+        var result = service.getBillingCustomer(id);
+        assertThat(result.fullName()).isEqualTo("홍길동");
+        assertThat(result.name()).isEqualTo("길동이");
+        assertThat(result.phoneNumber()).isEqualTo("01012345678");
+        assertThat(result.email()).isEqualTo("hong@test.com");
+        assertThat(result.uuid()).isEqualTo(users.findById(id).getPublicId());
+    }
+
+    @Test
+    void 카드등록용_프로필이_없으면_실패한다() {
+        User user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "길동이"));
+        assertThatThrownBy(() -> service.getBillingCustomer(user.getId()))
+                .isInstanceOf(UserException.class);
+    }
+
     private UserRegisterCommand 가입(String loginId, String nickname, String phone) {
         return new UserRegisterCommand(loginId, "Passw0rd!", nickname, "홍길동",
                 Instant.parse("2000-01-01T00:00:00Z"), phone, Gender.MALE, loginId + "@test.com", "token");

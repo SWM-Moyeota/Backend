@@ -13,6 +13,7 @@ import team.codingforest.moyeota.user.local.domain.LocalUsers;
 import team.codingforest.moyeota.user.local.domain.PasswordHasher;
 import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
 import team.codingforest.moyeota.user.local.dto.UserResponse;
+import team.codingforest.moyeota.user.local.dto.BillingCustomerResponse;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
 import team.codingforest.moyeota.user.users.application.ProfileImages;
@@ -75,6 +76,15 @@ public class LocalUserService {
         User user = users.findById(localUser.getUserId());
 
         return new AuthenticatedUser(user.getId(), user.getPublicId());
+    }
+
+    @Transactional(readOnly = true)
+    public BillingCustomerResponse getBillingCustomer(Long userId) {
+        User user = users.findById(userId);
+        UserProfile profile = userProfiles.findByUserId(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+        return new BillingCustomerResponse(user.getPublicId(), user.displayNickname(),
+                profile.getName(), profile.getPhoneNumber(), profile.getEmail());
     }
 
     public UserResponse getProfile(Long userId) {
