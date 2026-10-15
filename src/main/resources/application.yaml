@@ -3,7 +3,7 @@ spring:
     name: moyeota
   config:
     import:
-      - classpath:profile-images.yaml   # 프로필 이미지 목록
+      - classpath:config/profile-images.yaml   # 프로필 이미지 목록
       - optional:classpath:application-local.yaml   # 로컬 시크릿 (git 미추적, 없으면 무시됨)
   datasource:
     url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
