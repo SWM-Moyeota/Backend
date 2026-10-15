@@ -13,4 +13,10 @@ import java.util.List;
  */
 @ConfigurationProperties(prefix = "moyeota.profile-image")
 public record ProfileImageProperties(String baseUrl, String defaultKey, List<String> presets) {
+
+    public ProfileImageProperties {
+        if (baseUrl != null && !baseUrl.endsWith("/")) {
+            baseUrl = baseUrl + "/";
+        }
+    }
 }
