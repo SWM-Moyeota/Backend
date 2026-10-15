@@ -2,8 +2,8 @@ package team.codingforest.moyeota.chat.room.infrastructure;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
-import team.codingforest.moyeota.chat.room.infrastructure.entity.ChatRoomEntity;
 import team.codingforest.moyeota.chat.room.domain.ChatRoom;
+import team.codingforest.moyeota.chat.room.infrastructure.entity.ChatRoomEntity;
 
 import java.util.List;
 import java.util.Map;
@@ -47,5 +47,13 @@ public class ChatRoomJpa implements ChatRooms {
     @Override
     public Optional<ChatRoom> findByPartyIdForUpdate(Long partyId) {
         return jpaRepository.findByPartyIdForUpdate(partyId).map(ChatRoomEntity::toDomain);
+    }
+
+    @Override
+    public Optional<Long> nextMessageSeq(Long chatRoomId) {
+        if (jpaRepository.incrementLastSeq(chatRoomId) == 0) {
+            return Optional.empty();
+        }
+        return Optional.of(jpaRepository.findLastSeq(chatRoomId));
     }
 }

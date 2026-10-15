@@ -59,7 +59,7 @@ class ChatLocationServiceTest {
 
     private ChatRoom room() {
         Instant now = Instant.parse("2026-09-14T10:00:00Z");
-        return ChatRoom.restore(ROOM_ID, PARTY_ID, "서울시청", "강남역", now, now, ChatRoomStatus.ACTIVE);
+        return ChatRoom.restore(ROOM_ID, PARTY_ID, 0L, "서울시청", "강남역", now, now, ChatRoomStatus.ACTIVE);
     }
 
     private ChatLocation location() {

@@ -13,8 +13,12 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class UserAccessServiceTest {
+    private static final String CDN = "https://cdn.example.com/";
+    private static final String 기본_이미지_URL = CDN + "profile/presets/default.png";
+
     private final FakeUsers users = new FakeUsers();
-    private final UserAccessService service = new UserAccessService(users);
+    private final UserAccessService service = new UserAccessService(users, new ProfileImages(
+            new ProfileImageProperties(CDN, "profile/presets/default.png", List.of("profile/presets/01.png"))));
 
     @Test
     void 요청한_유저만_userId_키로_돌려준다() {
@@ -48,8 +52,26 @@ class UserAccessServiceTest {
 
         assertThat(summary.publicId()).as("메시지 보낸 사람 구분용이라 남긴다").isEqualTo(a.getPublicId());
         assertThat(summary.nickname()).isEqualTo(User.DELETED_DISPLAY_NAME);
-        assertThat(summary.imageUrl()).isNull();
+        assertThat(summary.imageUrl()).as("고른 이미지는 지우고 기본 이미지로 보인다").isEqualTo(기본_이미지_URL);
         assertThat(summary.badgeId()).isNull();
+    }
+
+    @Test
+    void 고른_이미지는_키가_아니라_전체_URL_로_나간다() {
+        // DB 에는 키만 저장한다. 다른 도메인은 URL 을 조합할 필요 없이 그대로 그린다
+        User a = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "모여타"));
+        a.updateProfile(null, "profile/presets/01.png");
+        users.save(a);
+
+        assertThat(service.findMemberSummaries(List.of(a.getId())).get(a.getId()).imageUrl())
+                .isEqualTo(CDN + "profile/presets/01.png");
+    }
+
+    @Test
+    void 이미지를_고른_적_없으면_기본_이미지_URL_이_나간다() {
+        User a = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "모여타"));
+
+        assertThat(service.findMemberSummaries(List.of(a.getId())).get(a.getId()).imageUrl()).isEqualTo(기본_이미지_URL);
     }
 
     @Test

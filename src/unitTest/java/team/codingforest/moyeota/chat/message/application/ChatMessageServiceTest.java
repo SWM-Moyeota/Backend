@@ -62,11 +62,11 @@ class ChatMessageServiceTest {
     private ChatMessageService chatMessageService;
 
     private ChatMessage message(Long id) {
-        return ChatMessage.restore(id, ROOM_ID, USER_ID, "내용", ChatMessageType.TEXT, ChatMessageStatus.ACTIVE, NOW, null);
+        return ChatMessage.restore(id, ROOM_ID, id, USER_ID, "내용", ChatMessageType.TEXT, ChatMessageStatus.ACTIVE, NOW, null);
     }
 
     private ChatRoom room(ChatRoomStatus status) {
-        return ChatRoom.restore(ROOM_ID, 1L, "서울시청", "강남역", NOW, NOW, status);
+        return ChatRoom.restore(ROOM_ID, 1L, 0L, "서울시청", "강남역", NOW, NOW, status);
     }
 
     private SendMessageCommand command() {
@@ -116,6 +116,7 @@ class ChatMessageServiceTest {
     @Test
     void 채팅_메시지_저장_성공() {
         given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
+        given(chatRooms.nextMessageSeq(ROOM_ID)).willReturn(Optional.of(1L));
         given(chatMessages.save(any(ChatMessage.class))).willReturn(message(1L));
 
         ChatMessageResult result = chatMessageService.sendMessage(command());

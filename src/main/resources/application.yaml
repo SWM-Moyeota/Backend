@@ -2,7 +2,9 @@ spring:
   application:
     name: moyeota
   config:
-    import: optional:classpath:application-local.yaml   # 로컬 시크릿 (git 미추적, 없으면 무시됨)
+    import:
+      - classpath:config/profile-images.yaml   # 프로필 이미지 목록
+      - optional:classpath:application-local.yaml   # 로컬 시크릿 (git 미추적, 없으면 무시됨)
   datasource:
     url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
@@ -109,3 +111,5 @@ moyeota:
       api-key: ${SOLAPI_API_KEY:}
       api-secret: ${SOLAPI_API_SECRET:}
       from: ${SOLAPI_FROM:}
+  profile-image:
+    base-url: ${PROFILE_IMAGE_BASE_URL:https://cdn.moyeota.co.kr/}   # 목록은 profile-images.yaml

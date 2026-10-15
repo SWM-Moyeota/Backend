@@ -10,7 +10,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 @Configuration
 public class AsyncConfig {
 
-    public static final String REALTIME_EXECUTOR = "realtimeExecutor";
     public static final String CHAT_PUSH_EXECUTOR = "chatPushExecutor";
 
     @Bean
@@ -21,18 +20,6 @@ public class AsyncConfig {
         executor.setMaxPoolSize(8);
         executor.setQueueCapacity(5000);
         executor.setThreadNamePrefix("async-");
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(20);
-        return executor;
-    }
-
-    @Bean
-    public ThreadPoolTaskExecutor realtimeExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(4);
-        executor.setMaxPoolSize(4);
-        executor.setQueueCapacity(10000);
-        executor.setThreadNamePrefix("realtime-");
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(20);
         return executor;

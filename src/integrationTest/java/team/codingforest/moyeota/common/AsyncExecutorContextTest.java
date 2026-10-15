@@ -9,7 +9,6 @@ import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.util.ReflectionUtils;
-import team.codingforest.moyeota._config.AsyncConfig;
 
 import java.util.Set;
 import java.util.TreeSet;
@@ -42,11 +41,6 @@ class AsyncExecutorContextTest {
     void 이름_없는_Async_는_taskExecutor_가_받는다() {
         // WebSocket 설정이 TaskExecutor 빈을 여러 개 만든다 - @Primary 가 빠지면 기본 실행기를 못 골라 무제한 스레드(SimpleAsyncTaskExecutor)로 떨어진다
         assertThat(ctx.getBean(TaskExecutor.class)).isSameAs(ctx.getBean("taskExecutor"));
-    }
-
-    @Test
-    void 실시간_실행기_상수와_빈_이름이_일치한다() {
-        assertThat(ctx.containsBean(AsyncConfig.REALTIME_EXECUTOR)).isTrue();
     }
 
     /** 우리 패키지의 빈 중 클래스나 메서드에 @Async("이름") 을 붙인 것들의 이름 */

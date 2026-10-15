@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.user.profile.application;
+package team.codingforest.moyeota.user.users.application;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

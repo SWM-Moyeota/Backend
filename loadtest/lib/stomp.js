@@ -27,15 +27,17 @@ function frame(command, headers, body = '') {
  *   sendEverySec  메시지 전송 주기(0 이면 듣기만). 본문은 "lt:<보낸 시각 ms>:<보낸 사람>" - 보내는 쪽과 받는 쪽이 같은 장비라 시계가 같다
  *   cursor        채팅방을 열 때 읽은 마지막 메시지 id (openChatRoom 의 결과)
  *   partyId       주면 방 상세를 4초마다 폴링하고, FINISHED·CANCELED 를 보면 소켓을 닫는다(다른 사람이 합승 완료를 누른 경우)
+ *   onInversion   소켓으로 받은 메시지 id 가 직전까지 받은 가장 큰 id 보다 작으면 호출 - 순서가 뒤집힌 것
  * 돌려주는 값: { res, closedBy } - closedBy 는 'timeout' | 'party-closed' | 'error'
  */
 export function chatSession(token, chatRoomId, who, {
-  holdSec = 30, sendEverySec = 15, cursor = null, partyId = null, onLatency, onError, onConnected,
+  holdSec = 30, sendEverySec = 15, cursor = null, partyId = null, onLatency, onError, onConnected, onInversion,
 } = {}) {
   let closedBy = 'timeout';
   const res = ws.connect(wsUrl(), { tags: { name: 'WS /ws-chat' } }, (socket) => {
     let realtimeAlive = false;      // 앱과 같다 - 소켓으로 메시지를 받아야 비로소 true
     let sinceChatPoll = 0, sinceDetailPoll = 0;
+    let lastSeenId = 0;             // 소켓으로 받은 가장 큰 메시지 id
 
     const markRead = (id) => {
       if (!id || id === cursor) return;
@@ -66,7 +68,12 @@ export function chatSession(token, chatRoomId, who, {
         const sent = data.match(/"content":"lt:(\d+):/);
         if (sent && onLatency) onLatency(Date.now() - Number(sent[1]));
         const id = data.match(/"id":(\d+)/);
-        if (id) markRead(Number(id[1]));
+        if (id) {
+          const messageId = Number(id[1]);
+          if (messageId < lastSeenId && onInversion) onInversion();
+          lastSeenId = Math.max(lastSeenId, messageId);
+          markRead(messageId);
+        }
       } else if (command === 'ERROR') {
         closedBy = 'error';
         if (onError) onError(data.substring(0, 300));

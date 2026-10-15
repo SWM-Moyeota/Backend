@@ -17,7 +17,7 @@ class ChatRoomTest {
     private static final Instant DEPARTURE_TIME = NOW.plusSeconds(3600);
 
     private ChatRoom roomCreate(ChatRoomStatus status) {
-        return ChatRoom.restore(1L, PARTY_ID, DEPARTURE, DESTINATION, NOW, NOW,status);
+        return ChatRoom.restore(1L, PARTY_ID, 0L, DEPARTURE, DESTINATION, NOW, NOW,status);
     }
 
     @Test

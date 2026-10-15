@@ -47,6 +47,7 @@ public class FcmChatNotifier implements ChatNotifier {
                 .putData("type", "CHAT_MESSAGE")
                 .putData("chatRoomId", String.valueOf(notification.chatRoomId()))
                 .putData("messageId", String.valueOf(notification.messageId()))
+                .putData("seq", String.valueOf(notification.seq()))
                 .putData("senderPublicId", String.valueOf(notification.senderPublicId()))
                 .putData("senderNickname", notification.senderNickname())
                 .putData("preview", notification.preview())

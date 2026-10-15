@@ -17,6 +17,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 class UserAccessService implements UserAccess {
     private final Users users;
+    private final ProfileImages profileImages;
 
     @Transactional(readOnly = true)
     @Override
@@ -32,7 +33,7 @@ class UserAccessService implements UserAccess {
         for(User user : users.findAllByIds(userIds)) {
             // 탈퇴자는 배지도 숨긴다 - 이름만 바꾸고 배지가 남으면 누군지 짐작할 단서가 된다
             Long badgeId = user.isDeleted() ? null : user.getBadgeId();
-            result.put(user.getId(), new MemberSummary(user.getPublicId(), user.displayNickname(), user.getImageUrl(), badgeId));
+            result.put(user.getId(), new MemberSummary(user.getPublicId(), user.displayNickname(), profileImages.toUrl(user.getImageUrl()), badgeId));
         }
 
         return result;
