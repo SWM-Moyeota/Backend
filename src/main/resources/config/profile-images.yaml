@@ -1,0 +1,22 @@
+# 고를 수 있는 프로필 이미지 키 목록. application.yaml 이 spring.config.import 로 불러옴
+# 키는 S3 moyeota-media 버킷 안의 파일 경로. 응답할 때 application.yaml 의 base-url 을 앞에 붙여 URL 로 만듦
+moyeota:
+  profile-image:
+    default-key: profile/presets/default.png
+    presets:
+      - profile/presets/01.png
+      - profile/presets/02.png
+      - profile/presets/03.png
+      - profile/presets/04.png
+      - profile/presets/05.png
+      - profile/presets/06.png
+      - profile/presets/07.png
+      - profile/presets/08.png
+      - profile/presets/09.png
+      - profile/presets/10.png
+      - profile/presets/11.png
+      - profile/presets/12.png
+      - profile/presets/13.png
+      - profile/presets/14.png
+      - profile/presets/15.png
+      - profile/presets/16.png

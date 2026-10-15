@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.user.profile.dto;
+package team.codingforest.moyeota.user.users.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;

@@ -56,6 +56,12 @@ public class User {
         this.updatedAt = Instant.now();
     }
 
+    /** 기본 이미지로 되돌림. 저장값이 비면 응답에서 기본 이미지 URL 로 바뀜 */
+    public void resetImage() {
+        this.imageUrl = null;
+        this.updatedAt = Instant.now();
+    }
+
     public static User restore(Long id, UUID publicId, String nickname, String imageUrl, LoginType loginType, Long badgeId, String fcmToken, Instant updatedAt, Instant deletedAt) {
         return new User(id, publicId, nickname, imageUrl, loginType, badgeId, fcmToken, updatedAt, deletedAt);
     }

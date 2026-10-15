@@ -15,6 +15,7 @@ import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
 import team.codingforest.moyeota.user.local.dto.UserResponse;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
+import team.codingforest.moyeota.user.users.application.ProfileImages;
 import team.codingforest.moyeota.user.users.domain.IdGenerator;
 import team.codingforest.moyeota.user.users.domain.Nickname;
 import team.codingforest.moyeota.user.users.domain.PhoneNumber;
@@ -32,6 +33,7 @@ public class LocalUserService {
     private final PasswordHasher passwordHasher;
     private final IdGenerator idGenerator;
     private final SmsVerificationService smsVerificationService;
+    private final ProfileImages profileImages;
 
     @Transactional // users / local_user / profile 3개 테이블 원자 저장
     public UserResponse register(UserRegisterCommand command) {
@@ -61,7 +63,7 @@ public class LocalUserService {
         // 저장까지 끝난 뒤에 지움 - 닉네임 중복 등으로 실패하면 인증을 다시 하지 않고 재시도 가능
         smsVerificationService.consume(command.verificationToken());
 
-        return new UserResponse(user.getPublicId(), user.getNickname());
+        return new UserResponse(user.getPublicId(), user.getNickname(), profileImages.toUrl(user.getImageUrl()));
     }
 
     public AuthenticatedUser authenticate(UserLoginCommand command) {
@@ -80,7 +82,7 @@ public class LocalUserService {
         // 닉네임 미설정(가입 직후 기본 상태)이면 가린 실명으로 폴백한다
         String name = user.getNickname() != null ? user.getNickname()
                 : userProfiles.findByUserId(userId).map(UserProfile::getName).map(Masking::name).orElse(null);
-        return new UserResponse(user.getPublicId(), name);
+        return new UserResponse(user.getPublicId(), name, profileImages.toUrl(user.getImageUrl()));
     }
 
     @Transactional(readOnly = true)

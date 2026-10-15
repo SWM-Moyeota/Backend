@@ -3,6 +3,8 @@ package team.codingforest.moyeota.user.local.application;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.user.users.application.FakeUsers;
+import team.codingforest.moyeota.user.users.application.ProfileImageProperties;
+import team.codingforest.moyeota.user.users.application.ProfileImages;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
 import team.codingforest.moyeota.user.local.domain.LocalUser;
@@ -19,6 +21,7 @@ import team.codingforest.moyeota.user.verification.application.SmsVerificationSe
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,6 +34,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 
 class LocalUserServiceTest {
+    private static final String CDN = "https://cdn.example.com/";
+
     private FakeUsers users;
     private FakeLocalUsers localUsers;
     private FakeUserProfiles userProfiles;
@@ -49,7 +54,8 @@ class LocalUserServiceTest {
                     public boolean matches(String raw, String hashed) { return hashed.equals("hashed:" + raw); }
                 },
                 UUID::randomUUID,
-                smsVerificationService);
+                smsVerificationService,
+                new ProfileImages(new ProfileImageProperties(CDN, "profile/presets/default.png", List.of("profile/presets/01.png"))));
     }
 
     private UserRegisterCommand 가입(String loginId, String nickname, String phone) {
@@ -63,6 +69,22 @@ class LocalUserServiceTest {
 
         assertThat(response.name()).isEqualTo("길동이");
         assertThat(users.existsByNickname("길동이")).isTrue();
+    }
+
+    @Test
+    void 가입_응답에는_기본_이미지_URL_이_실린다() {
+        UserResponse response = service.register(가입("hong", "길동이", "010-1234-5678"));
+
+        assertThat(response.imageUrl()).isEqualTo(CDN + "profile/presets/default.png");
+    }
+
+    @Test
+    void 내_정보에는_고른_이미지의_전체_URL_이_실린다() {
+        User user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "길동이"));
+        user.updateProfile(null, "profile/presets/01.png");
+        users.save(user);
+
+        assertThat(service.getProfile(user.getId()).imageUrl()).isEqualTo(CDN + "profile/presets/01.png");
     }
 
     @Test
