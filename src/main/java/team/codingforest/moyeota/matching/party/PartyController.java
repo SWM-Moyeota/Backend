@@ -87,8 +87,8 @@ public class PartyController {
         return ResponseEntity.ok(PartyListResponse.fromSummaries(partyService.findActivePartiesWithin(swLat, swLng, neLat, neLng)));
     }
 
-    @Operation(summary = "합승 종료", description = "기사 배정 없이 합승만 하고 끝났을 때 참여자가 직접 호출. 정원이 찬(COMPLETED) 방에서만 가능. 기사 기능이 켜진 모드에선 COMPLETED 가 순간이라 사실상 호출할 일이 없다")
-    @ApiResponses({@ApiResponse(responseCode = "204", description = "종료됨"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_NOT_COMPLETED / DRIVER_ALREADY_ASSIGNED")})
+    @Operation(summary = "합승 종료", description = "기사 배정 없이 합승만 하고 끝났을 때 참여자가 직접 호출. 정원이 찬(COMPLETED) 방에서만 가능. 방장(가장 먼저 합류한 멤버)만 호출 가능. 기사 기능이 켜진 모드에선 COMPLETED 가 순간이라 사실상 호출할 일이 없다")
+    @ApiResponses({@ApiResponse(responseCode = "204", description = "종료됨"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER / NOT_PARTY_HOST"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_NOT_COMPLETED / DRIVER_ALREADY_ASSIGNED")})
     @PostMapping("/matching/rooms/{partyId}/finish")
     public ResponseEntity<Void> finish(@PathVariable Long partyId, @CurrentUser Long memberId) {
         partyService.finish(partyId, memberId);

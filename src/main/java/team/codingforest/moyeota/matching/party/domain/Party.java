@@ -6,6 +6,7 @@ import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -213,8 +214,21 @@ public class Party {
         return status == PartyStatus.DRIVER_ASSIGNED && driverId.equals(taxiDriverId);
     }
 
+    /**
+     *  방장 = 가장 먼저 합류한 현재 멤버. 방장이 나가면 다음으로 이른 멤버가 승계된다
+     */
+    public Long hostId() {
+        return members.stream()
+                .min(Comparator.comparing(PartyMember::getJoinedAt)
+                        .thenComparing(PartyMember::getMemberId))
+                .map(PartyMember::getMemberId)
+                .orElseThrow(() -> new IllegalStateException("방에 멤버가 없습니다"));
+    }
+
     public void finishWithoutDriver(Long memberId) {
         if(!hasMember(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
+
+        if(!hostId().equals(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_HOST);
 
         if(status != PartyStatus.COMPLETED) throw new BusinessException(MatchingErrorCode.PARTY_NOT_COMPLETED);
 
