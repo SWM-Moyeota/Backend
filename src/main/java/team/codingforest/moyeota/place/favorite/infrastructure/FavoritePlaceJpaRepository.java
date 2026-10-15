@@ -19,9 +19,9 @@ public interface FavoritePlaceJpaRepository extends JpaRepository<FavoritePlaceE
 
     @Modifying
     @Query("delete from FavoritePlaceEntity fp where fp.userId = :userId and fp.placeName = :placeName")
-    void deleteByUserIdAndPlaceName(@Param("userId") Long userId, @Param("placeName") String placeName);
+    int deleteByUserIdAndPlaceName(@Param("userId") Long userId, @Param("placeName") String placeName);
 
     @Modifying
     @Query("delete from FavoritePlaceEntity fp where fp.userId = :userId")
-    void deleteAllByUserId(@Param("userId") Long userId);
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

@@ -8,10 +8,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import team.codingforest.moyeota.place.favorite.dto.FavoritePlaceListResponse;
 import team.codingforest.moyeota.place.favorite.dto.FavoritePlaceRequest;
@@ -40,12 +40,19 @@ public class FavoritePlaceController {
         return ResponseEntity.ok(service.getList(userId));
     }
 
-    @Operation(summary = "즐겨찾기 삭제", description = "장소 이름으로 내 즐겨찾기를 지운다. 한글 이름은 URL 인코딩해서 보낸다")
-    @ApiResponses({@ApiResponse(responseCode = "204", description = "삭제 완료"), @ApiResponse(responseCode = "404", description = "FAVORITE_PLACE_NOT_FOUND - 내 즐겨찾기에 없는 장소")})
-    @DeleteMapping("/users/me/favorite-places/{placeName}")
-    public ResponseEntity<Void> delete(@PathVariable String placeName, @CurrentUser Long userId) {
+    @Operation(summary = "즐겨찾기 삭제", description = "장소 이름으로 내 즐겨찾기 한 건을 지운다. 이름은 쿼리 파라미터로 받아 / 같은 특수문자가 있어도 된다")
+    @ApiResponses({@ApiResponse(responseCode = "204", description = "삭제 완료"), @ApiResponse(responseCode = "400", description = "INVALID_PLACE_NAME - 이름이 비어 있음"), @ApiResponse(responseCode = "404", description = "FAVORITE_PLACE_NOT_FOUND - 내 즐겨찾기에 없는 장소")})
+    @DeleteMapping("/users/me/favorite-places")
+    public ResponseEntity<Void> delete(@RequestParam String placeName, @CurrentUser Long userId) {
         service.delete(userId, placeName);
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "즐겨찾기 전체 삭제", description = "내 즐겨찾기를 모두 지운다. 지울 것이 없어도 204. 한 건 삭제에서 이름을 빠뜨렸을 때 전체가 지워지지 않도록 경로를 분리했다")
+    @ApiResponses({@ApiResponse(responseCode = "204", description = "삭제 완료")})
+    @DeleteMapping("/users/me/favorite-places/all")
+    public ResponseEntity<Void> deleteAll(@CurrentUser Long userId) {
+        service.deleteAll(userId);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -17,12 +17,12 @@ class FavoritePlaceServiceTest {
     private static final Long 유저 = 1L;
     private static final Long 다른유저 = 2L;
 
-    private FavoritePlaceJpaTest fake;
+    private FakeFavoritePlaces fake;
     private FavoritePlaceService service;
 
     @BeforeEach
     void setUp() {
-        fake = new FavoritePlaceJpaTest();
+        fake = new FakeFavoritePlaces();
         service = new FavoritePlaceService(fake);
     }
 
@@ -138,6 +138,34 @@ class FavoritePlaceServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(PlaceErrorCode.FAVORITE_PLACE_NOT_FOUND);
         assertThat(service.getList(다른유저).places()).hasSize(1);
+    }
+
+    @Test
+    void 빈_이름으로는_삭제할_수_없다() {
+        // 이름 없이 호출되면 404 가 아니라 400 으로 요청 자체가 잘못됐음을 알린다
+        assertThatThrownBy(() -> service.delete(유저, "  "))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(PlaceErrorCode.INVALID_PLACE_NAME);
+    }
+
+    @Test
+    void 전체_삭제하면_내_즐겨찾기만_모두_사라진다() {
+        service.save(장소("집"), 유저);
+        service.save(장소("회사"), 유저);
+        service.save(장소("집"), 다른유저);
+
+        service.deleteAll(유저);
+
+        assertThat(service.getList(유저).places()).isEmpty();
+        assertThat(service.getList(다른유저).places()).hasSize(1);
+    }
+
+    @Test
+    void 즐겨찾기가_없어도_전체_삭제는_성공한다() {
+        service.deleteAll(유저);
+
+        assertThat(service.getList(유저).places()).isEmpty();
     }
 
     @Test

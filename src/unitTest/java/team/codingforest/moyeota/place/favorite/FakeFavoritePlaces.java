@@ -1,0 +1,53 @@
+package team.codingforest.moyeota.place.favorite;
+
+import team.codingforest.moyeota.place.favorite.domain.FavoritePlace;
+import team.codingforest.moyeota.place.favorite.domain.FavoritePlaces;
+
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+class FakeFavoritePlaces implements FavoritePlaces {
+    private final Map<String, FavoritePlace> store = new HashMap<>();
+
+    private String key(Long userId, String placeName) {
+        return userId + ":" + placeName;
+    }
+
+    @Override
+    public FavoritePlace save(FavoritePlace place) {
+        store.put(key(place.getUserId(), place.getPlaceName()), place);
+        return place;
+    }
+
+    @Override
+    public List<FavoritePlace> findByUserId(Long userId) {
+        return store.values().stream()
+                .filter(p -> p.getUserId().equals(userId))
+                .sorted(Comparator.comparing(FavoritePlace::getPlaceSequence))
+                .toList();
+    }
+
+    @Override
+    public int countByUserId(Long userId) {
+        return findByUserId(userId).size();
+    }
+
+    @Override
+    public boolean existsByUserIdAndPlace(Long userId, String placeName) {
+        return store.containsKey(key(userId, placeName));
+    }
+
+    @Override
+    public int deleteByUserIdAndPlaceName(Long userId, String placeName) {
+        return store.remove(key(userId, placeName)) == null ? 0 : 1;
+    }
+
+    @Override
+    public int deleteAllByUserId(Long userId) {
+        int before = store.size();
+        store.values().removeIf(p -> p.getUserId().equals(userId));
+        return before - store.size();
+    }
+}

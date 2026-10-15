@@ -7,6 +7,10 @@ public class FavoritePlaceId implements Serializable {
     private Long userId;
     private String placeName;
 
+    /** JPA 가 복합키를 리플렉션으로 만들 때 쓴다 */
+    protected FavoritePlaceId() {
+    }
+
     public FavoritePlaceId(Long userId, String placeName) {
         this.userId = userId;
         this.placeName = placeName;

@@ -7,6 +7,8 @@ public interface FavoritePlaces {
     List<FavoritePlace> findByUserId(Long userId);
     int countByUserId(Long userId);
     boolean existsByUserIdAndPlace(Long userId, String placeName);
-    void deleteByUserIdAndPlaceName(Long userId, String placeName);
-    void deleteAllByUserId(Long userId);
+    /** @return 지운 건수. 없던 장소면 0 */
+    int deleteByUserIdAndPlaceName(Long userId, String placeName);
+    /** @return 지운 건수 */
+    int deleteAllByUserId(Long userId);
 }

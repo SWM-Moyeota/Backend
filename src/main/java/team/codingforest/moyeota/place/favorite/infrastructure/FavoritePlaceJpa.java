@@ -36,12 +36,12 @@ public class FavoritePlaceJpa implements FavoritePlaces {
     }
 
     @Override
-    public void deleteByUserIdAndPlaceName(Long userId, String placeName) {
-        delegate.deleteByUserIdAndPlaceName(userId, placeName);
+    public int deleteByUserIdAndPlaceName(Long userId, String placeName) {
+        return delegate.deleteByUserIdAndPlaceName(userId, placeName);
     }
 
     @Override
-    public void deleteAllByUserId(Long userId) {
-        delegate.deleteAllByUserId(userId);
+    public int deleteAllByUserId(Long userId) {
+        return delegate.deleteAllByUserId(userId);
     }
 }
