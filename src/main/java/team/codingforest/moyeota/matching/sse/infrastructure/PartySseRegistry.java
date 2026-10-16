@@ -68,6 +68,10 @@ public class PartySseRegistry {
     }
 
     public void closeAll(Long partyId, String data) {
+        closeAll(partyId, data, "closed");
+    }
+
+    public void closeAll(Long partyId, String data, String reason) {
         Set<Subscription> subscriptions = byParty.remove(partyId);
         if (subscriptions == null) return;
 
@@ -75,7 +79,7 @@ public class PartySseRegistry {
             try {
                 s.emitter().send(SseEmitter.event().name("closed").data(data));
                 metrics.sent("closed", true);
-                metrics.closed("closed");
+                metrics.closed(reason);
             } catch (Exception ex) {
                 metrics.sent("closed", false);
                 metrics.closed("error");
@@ -99,7 +103,7 @@ public class PartySseRegistry {
         }
     }
 
-    @Scheduled(fixedRate = HEARTBEAT_MS)
+    @Scheduled(fixedRate = HEARTBEAT_MS, scheduler = PartySseSchedulerConfig.SCHEDULER)
     public void heartbeat() {
         byParty.forEach((partyId, subscriptions) -> subscriptions.forEach(s -> {
             try {
@@ -108,6 +112,20 @@ public class PartySseRegistry {
                 remove(partyId, s.emitter(), "heartbeat");
             }
         }));
+    }
+
+    public void sendHeartbeat(Long partyId, String data) {
+        for (Subscription s : byParty.getOrDefault(partyId, Set.of())) {
+            try {
+                s.emitter().send(SseEmitter.event().name("heartbeat").data(data));
+            } catch (Exception ex) {
+                remove(partyId, s.emitter(), "heartbeat");
+            }
+        }
+    }
+
+    public Set<Long> partyIds() {
+        return Set.copyOf(byParty.keySet());
     }
 
     public int connections() {

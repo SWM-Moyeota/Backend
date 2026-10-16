@@ -20,7 +20,7 @@ class PartySseRegistryMetricsTest {
     private static final Long 영희 = 2L;
 
     private static final Supplier<Object> SNAPSHOT = () -> "detail";
-    private static final List<String> REASONS = List.of("complete", "timeout", "error", "replaced", "left", "closed", "heartbeat");
+    private static final List<String> REASONS = List.of("complete", "timeout", "error", "replaced", "left", "closed", "heartbeat", "heartbeat-closed");
 
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final FakeEmitterRegistry registry = new FakeEmitterRegistry(meters);
@@ -180,6 +180,47 @@ class PartySseRegistryMetricsTest {
         assertThat(sent("connected", "ok")).isEqualTo(2);
         assertThat(sent("member-left", "ok")).isEqualTo(1);
         assertThat(sent("member-left", "fail")).isEqualTo(1);
+    }
+
+    @Test
+    void heartbeat_로_닫은_방은_heartbeat_closed_로_센다() {
+        registry.subscribe(방, 철수, SNAPSHOT);
+        registry.subscribe(방, 영희, SNAPSHOT);
+
+        registry.closeAll(방, "{}", "heartbeat-closed");
+
+        assertClosedOnly("heartbeat-closed", 2);
+        assertThat(sent("closed", "ok")).isEqualTo(2);
+    }
+
+    @Test
+    void 버전_heartbeat_전송에_실패하면_heartbeat_로_한_번만_센다() {
+        registry.subscribe(방, 철수, SNAPSHOT);
+        registry.last().failSend = true;
+
+        registry.sendHeartbeat(방, "{\"version\":1}");
+        registry.last().error();
+
+        assertClosedOnly("heartbeat", 1);
+        assertThat(connections()).isZero();
+    }
+
+    @Test
+    void 버전_heartbeat_는_보낸_이벤트로_세지_않는다() {
+        registry.subscribe(방, 철수, SNAPSHOT);
+
+        registry.sendHeartbeat(방, "{\"version\":1}");
+
+        assertThat(meters.find("party.sse.sent").counters()).hasSize(1);
+    }
+
+    @Test
+    void 연결이_있는_방_번호만_돌려준다() {
+        registry.subscribe(방, 철수, SNAPSHOT);
+        registry.subscribe(다른방, 영희, SNAPSHOT);
+        registry.closeMember(다른방, 영희);
+
+        assertThat(registry.partyIds()).containsExactly(방);
     }
 
     @Test

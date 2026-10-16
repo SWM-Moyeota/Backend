@@ -17,6 +17,7 @@ import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
 import team.codingforest.moyeota.matching.party.dto.MemberJoined;
 import team.codingforest.moyeota.matching.party.dto.MemberLeft;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
+import team.codingforest.moyeota.matching.party.dto.PartyClosed;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
@@ -103,7 +104,7 @@ public class PartyService {
 
         eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
 
-        MemberJoined event = MemberJoined.from(PartyDetailResult.MemberInfo.of(summary, rideCount, saved.isHost(memberId)), saved.getStatus().name());
+        MemberJoined event = MemberJoined.from(PartyDetailResult.MemberInfo.of(summary, rideCount, saved.isHost(memberId)), saved.getStatus().name(), saved.getVersion());
 
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.memberJoined(partyId, event));
 
@@ -125,13 +126,14 @@ public class PartyService {
 
         if(party.getStatus() == PartyStatus.CANCELED) {
             eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
-            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
+            PartyClosed closed = PartyClosed.from(partyId, party.getStatus().name(), party.getVersion());
+            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
         }
         else {
             Long hostId = party.hostId();   // leave 반영 후 = 승계 결과. 이 분기에선 멤버가 반드시 남아 있음
             MemberSummary hostSummary = userAccess.findMemberSummaries(List.of(hostId)).get(hostId);
             UUID hostPublicId = hostSummary == null ? null : hostSummary.publicId();
-            MemberLeft event = MemberLeft.from(publicId, party.getStatus().name(), hostPublicId);
+            MemberLeft event = MemberLeft.from(publicId, party.getStatus().name(), hostPublicId, party.getVersion());
             afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.memberLeft(partyId, memberId, event));
         }
 
@@ -180,7 +182,8 @@ public class PartyService {
         party.finishWithoutDriver(memberId);
         parties.save(party);
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
-        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
+        PartyClosed closed = PartyClosed.from(partyId, party.getStatus().name(), party.getVersion());
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
 
         log.info("기사 없이 합승 종료 partyId={}, memberId={}", partyId, memberId);
     }
@@ -193,7 +196,8 @@ public class PartyService {
         party.expireCompleted();
         parties.save(party);
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
-        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
+        PartyClosed closed = PartyClosed.from(partyId, party.getStatus().name(), party.getVersion());
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
 
         log.warn("정원 충족 후 방치된 방 자동 종료 partyId={}", partyId);
     }

@@ -55,7 +55,7 @@ public class PartyController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "방 상세", description = "members 에 동승자 publicId·닉네임·이미지·탑승 횟수·host(방장 여부, 합류 순 정렬). 방장 = 가장 먼저 합류한 현재 멤버이고 나가면 다음으로 일찍 합류한 멤버가 승계, 항상 정확히 한 명. 본인 판별은 publicId 와 토큰 sub 비교. SSE 구독(/events)의 connected 이벤트도 같은 모양이다")
+    @Operation(summary = "방 상세", description = "members 에 동승자 publicId·닉네임·이미지·탑승 횟수·host(방장 여부, 합류 순 정렬). 방장 = 가장 먼저 합류한 현재 멤버이고 나가면 다음으로 일찍 합류한 멤버가 승계, 항상 정확히 한 명. 본인 판별은 publicId 와 토큰 sub 비교. SSE 구독(/events)의 connected 이벤트도 같은 모양이다. version 은 방이 바뀔 때마다 1 오르는 번호 - SSE 이벤트의 version 과 비교해 놓친 변경을 알아챈다")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "방 상세"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND")})
     @GetMapping("/matching/rooms/{partyId}")
     public ResponseEntity<PartyDetailResult> detail(@PathVariable Long partyId) {
