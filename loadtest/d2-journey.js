@@ -2,7 +2,9 @@
 //   VUS 는 3의 배수. users.json 에 VUS 명 이상 있어야 한다.
 //   k6 run -o experimental-prometheus-rw -e VUS=90 loadtest/d2-journey.js
 import { SharedArray } from 'k6/data';
-import { journey } from './lib/journey.js';
+import { journey, USE_SSE, GIVE_UP_CAUSES } from './lib/journey.js';
+import { VIEW_CHECK_RESULTS } from './lib/sse.js';
+import { breakdown } from './lib/api.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
 const ASKED = Number(__ENV.VUS || 90);
@@ -25,6 +27,9 @@ export const options = {
     chat_join_lag_ms: ['p(95)<2000'],                 // 탐침 - 채팅 탭으로 넘어가는 2초 안에 입장이 끝나야 사용자가 방을 본다
     ws_errors: ['count==0'],
     checks: ['rate>0.99'],
+    // 측정만 - 태그별로 요약에 보이게 할 뿐 기준이 아니다. 권장 기준은 README(SSE 정합성)
+    ...breakdown('journey_give_up', 'cause', GIVE_UP_CAUSES),
+    ...(USE_SSE ? breakdown('sse_view_check', 'result', VIEW_CHECK_RESULTS) : {}),
   },
 };
 

@@ -92,7 +92,7 @@ k6 run -o experimental-prometheus-rw -e VUS=30 d6-soak.js                 # 45�
 # ── SSE 전환 후 (xk6-sse 바이너리로) ──
 ./k6 run -o experimental-prometheus-rw -e CONCURRENT=100 d1-polling-sse.js         # D1 과 같은 100명, 요청은 절반·연결 60개
 ./k6 run -o experimental-prometheus-rw -e VUS=90 -e USE_SSE=1 --summary-export=results/d2-sse-90.json d2-journey.js   # 대기를 SSE 로, 채팅 중에는 방 호출 없음. 요청 수·sse_connect_ms·sse_errors 를 본다
-./k6 run -o experimental-prometheus-rw -e CONNS=300 d7-sse-connections.js          # 연결 100→200→300 + 초당 2건 나갔다 들어오기(member-left·member-joined)
+./k6 run -o experimental-prometheus-rw -e CONNS=300 d7-sse-connections.js          # 연결 100→200→300 + 초당 2건 나갔다 들어오기(member-left·member-joined) → settle 뒤 화면 vs 상세 비교
 ```
 
 | # | 확인하는 것 | 합격선 |
@@ -105,11 +105,32 @@ k6 run -o experimental-prometheus-rw -e VUS=30 d6-soak.js                 # 45�
 | D5 | 어디서 꺾이는가 | 기준 없음 - `hikaricp_connections_pending`(DB) vs `system_cpu_usage`(앱) |
 | D6 | 메모리·CPU 크레딧, 방치된 방이 30~40분 안에 FINISHED 되고 멤버가 풀려나는가 | 자동 종료 ≤ 42분 |
 | D1-SSE | D1 과 같은 동시 접속에서 요청 수·연결 수·힙이 어떻게 바뀌나 (전후 비교) | 요청별 p95 < 300ms, `sse_connect_ms` p95 < 1s, `sse_errors` 0 |
-| D2 `USE_SSE=1` | 대기를 SSE 로 바꿨을 때 전체 여정의 요청 수·지연이 폴링 D2 대비 어떻게 바뀌나. 반영 지연 지표는 제거됐다(아래 주의) | D2 와 같음 (p95 < 500ms, 채팅 전달 p95 < 500ms). 종료 확인 때 이미 비어 닫힌 방(CANCELED)은 구독이 403 이라 `sse_errors` 에 잡힌다 |
-| D7 | SSE 동시 연결 한계. `process_open_fds`·힙·`tomcat_threads_busy`(연결이 스레드를 안 잡는지) | 연결 300 에서 `sse_connect_ms` p95 < 1s 유지, `sse_errors` 0 |
+| D2 `USE_SSE=1` | 대기를 SSE 로 바꿨을 때 전체 여정의 요청 수·지연이 폴링 D2 대비 어떻게 바뀌나. 변경분만으로 그린 화면이 맞는가(`sse_view_check`), 신호를 놓쳐 포기했나(`journey_give_up{cause:missed-event}`). 반영 지연 지표는 제거됐다(아래 주의) | D2 와 같음 (p95 < 500ms, 채팅 전달 p95 < 500ms). 종료 확인 때 이미 비어 닫힌 방(CANCELED)은 구독이 403 이라 `sse_errors` 에 잡힌다 |
+| D7 | SSE 동시 연결 한계. `process_open_fds`·힙·`tomcat_threads_busy`(연결이 스레드를 안 잡는지). churn 을 받은 화면이 settle 뒤 상세와 맞는가(`sse_view_check`) | 연결 300 에서 `sse_connect_ms` p95 < 1s 유지, `sse_errors` 0 |
 
 순서: D0 → D3 → D5 로 천장 → 그 60~70% 로 D1·D2 → D4 → D6.
 SSE 배포 뒤: 폴링 D1 결과를 baseline 으로 두고 → D1-SSE → D2 `USE_SSE=1` → D7. 같은 `CONCURRENT`·`VUS` 로 돌려야 비교가 된다.
+
+### SSE 정합성 - 변경분만으로 그린 화면이 맞는가
+
+앱은 `connected` 뒤로 변경분만 더하고 빼므로, 이벤트를 하나 놓치면 화면이 조용히 틀린다. 그래서 **조용한 시점에만** 방 상세를 1회 읽어 화면과 맞춘다. 호출은 `GET /matching/rooms/{id} (check)` 로 따로 잡혀 앱 호출 수에 안 섞인다.
+
+| 지표 (k6 → Prometheus) | 기록 시점 | 뜻 |
+|---|---|---|
+| `sse_view_check` → `k6_sse_view_check_total{result}` | D2: 대기 중 `COMPLETED` 를 본 직후(정원이 차 더 바뀌지 않는다) / D7: settle 뒤 | 멤버 publicId 집합 → status → 방장 순으로 비교해 처음 어긋난 것 하나. `match` · `members` · `status` · `host`. 어긋나면 VU 당 5건까지 `console.warn` 에 partyId 와 양쪽 요약 |
+| `journey_give_up` → `k6_journey_give_up_total{cause}` | D2·D6 대기 포기 때 | SSE: 상세를 1회 읽어 이미 `COMPLETED` 면 `missed-event`(방은 찼는데 신호를 못 받았다), 아니면 `not-full`. 폴링 앱은 `poll-timeout`, 합승 탭에서 방을 못 찾았으면 `no-room`, 상세 조회 실패는 `unknown` |
+| `sse_reconnects` → `k6_sse_reconnects_total` | D2 SSE 가 에러로 끊겨 다시 붙을 때 | 앱처럼 3초 뒤 남은 대기 시간 안에서 재연결. 새 `connected` 가 화면을 통째로 바꾼다. 403·404 는 재연결하지 않는다 |
+
+- 방장 승계: `member-left` 의 `hostPublicId` 가 남은 목록에 있으면 방장을 옮기고, null 이거나 목록에 없으면(순서 역전) 표시를 그대로 둔다 - 앱과 같다. 앱은 그때(와 목록이 status 와 모순일 때) 상세를 1회 다시 읽지만 k6 는 읽지 않고 경고 로그에 `(앱이면 상세 재조회)` 로만 남긴다. 그래서 `host` 어긋남은 기준에 넣지 않는다
+- D7 settle: churn 은 마지막 단계 끝까지(`CHURN_FOR` 로 바꿀 수 있다) 돌고, 멈춘 뒤 `SETTLE`초(기본 10) 지난 시각을 걸친 hold 만 그 뒤 첫 `:ping` 에서 닫고 비교한다. 서버 ping 은 전역 30초 주기라 hold 는 그때만 닫힌다 - 마지막 단계가 그만큼(+약 40초) 늘어난다. churn 중에 끝난 hold 는 도착 중인 변경분 때문에 비교하지 않는다
+- 처음에는 **기준 없이 측정만** 한다(스크립트의 `count>=0` 은 태그별로 요약에 보이게 하려는 표시용이고 `summarize.mjs` 는 THRESHOLDS 에서 뺀다). 몇 번 돌려 0 이 확인되면 아래를 thresholds·알림에 건다
+
+  ```
+  'sse_view_check{result:members}': ['count==0'],
+  'sse_view_check{result:status}': ['count==0'],
+  'journey_give_up{cause:missed-event}': ['count==0'],      // D2 USE_SSE=1
+  ```
+  Grafana: `k6_sse_view_check_total{result=~"members|status"}`, `k6_journey_give_up_total{cause="missed-event"}`, `k6_sse_reconnects_total`
 
 ### 사용자 슬롯
 3명이 한 조다 (방장 `users[3g]`, 참여자 `users[3g+1]`, `users[3g+2]`). **D 시나리오끼리는 동시에 돌리지 말 것** — 같은 사용자를 쓴다.
