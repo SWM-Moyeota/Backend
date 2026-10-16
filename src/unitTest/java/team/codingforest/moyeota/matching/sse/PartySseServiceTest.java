@@ -11,6 +11,7 @@ import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.Radius;
+import team.codingforest.moyeota.matching.sse.infrastructure.PartySseMetrics;
 import team.codingforest.moyeota.matching.sse.infrastructure.PartySseRegistry;
 
 import java.time.Instant;
@@ -34,7 +35,7 @@ class PartySseServiceTest {
     @BeforeEach
     void setUp() {
         parties = new PartyJpaTest();
-        registry = new PartySseRegistry(new SimpleMeterRegistry());
+        registry = new PartySseRegistry(new PartySseMetrics(new SimpleMeterRegistry()));
         partyService = mock(PartyService.class);
         service = new PartySseService(parties, partyService, registry);
     }

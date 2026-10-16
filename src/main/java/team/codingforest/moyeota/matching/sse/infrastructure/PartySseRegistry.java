@@ -1,15 +1,11 @@
 package team.codingforest.moyeota.matching.sse.infrastructure;
 
-import io.micrometer.core.instrument.Gauge;
-import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.Nullable;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,19 +15,16 @@ import java.util.function.Supplier;
 @Component
 public class PartySseRegistry {
     private static final int HEARTBEAT_MS = 30_000;
-    private static final String CLOSED_METRIC = "party.sse.closed";
-    private static final String SENT_METRIC = "party.sse.sent";
-    private static final String DELIVERY_METRIC = "party.sse.delivery";
 
     private final Map<Long, Set<Subscription>> byParty = new ConcurrentHashMap<>();
-    private final MeterRegistry meterRegistry;
+    private final PartySseMetrics metrics;
 
     private record Subscription(Long memberId, SseEmitter emitter) {
     }
 
-    public PartySseRegistry(MeterRegistry meterRegistry) {
-        this.meterRegistry = meterRegistry;
-        Gauge.builder("party.sse.connections", this, PartySseRegistry::connections).register(meterRegistry);
+    public PartySseRegistry(PartySseMetrics metrics) {
+        this.metrics = metrics;
+        metrics.bindConnections(this::connections);
     }
 
     public SseEmitter subscribe(Long partyId, Long memberId, Supplier<Object> snapshot) {
@@ -45,30 +38,24 @@ public class PartySseRegistry {
 
         try {
             emitter.send(SseEmitter.event().name("connected").data(snapshot.get(), MediaType.APPLICATION_JSON));
-            sent("connected", "ok");
+            metrics.sent("connected", true);
         } catch (Exception ex) {
-            sent("connected", "fail");
+            metrics.sent("connected", false);
             remove(partyId, emitter, "error");
         }
 
         return emitter;
     }
 
-    public void notify(Long partyId, String event, String data, @Nullable Long publishedAt) {
-        boolean delivered = false;
+    public void notify(Long partyId, String event, String data) {
         for (Subscription s : byParty.getOrDefault(partyId, Set.of())) {
-            delivered = true;
             try {
                 s.emitter().send(SseEmitter.event().name(event).data(data));
-                sent(event, "ok");
+                metrics.sent(event, true);
             } catch (Exception ex) {
-                sent(event, "fail");
+                metrics.sent(event, false);
                 remove(partyId, s.emitter(), "error");
             }
-        }
-        if (delivered && publishedAt != null) {
-            long elapsed = meterRegistry.config().clock().wallTime() - publishedAt;
-            meterRegistry.timer(DELIVERY_METRIC).record(Duration.ofMillis(elapsed));
         }
     }
 
@@ -76,10 +63,10 @@ public class PartySseRegistry {
         Set<Subscription> subscriptions = byParty.remove(partyId);
         if (subscriptions == null) return;
 
-        for (Subscription s : subscriptions) {
-            if (subscriptions.remove(s)) closed("closed");
+        subscriptions.forEach(s -> {
+            metrics.closed("closed");
             s.emitter().complete();
-        }
+        });
     }
 
     public void closeMember(Long partyId, Long memberId) {
@@ -118,21 +105,9 @@ public class PartySseRegistry {
 
     private void remove(Long partyId, SseEmitter emitter, String reason) {
         Set<Subscription> set = byParty.get(partyId);
-        if (set == null) return;
+        if (set == null || !set.removeIf(s -> s.emitter() == emitter)) return;
 
-        for (Subscription s : set) {
-            if (s.emitter() != emitter || !set.remove(s)) continue;
-            if (set.isEmpty()) byParty.remove(partyId);
-            closed(reason);
-            return;
-        }
-    }
-
-    private void closed(String reason) {
-        meterRegistry.counter(CLOSED_METRIC, "reason", reason).increment();
-    }
-
-    private void sent(String event, String result) {
-        meterRegistry.counter(SENT_METRIC, "event", event, "result", result).increment();
+        metrics.closed(reason);
+        if (set.isEmpty()) byParty.remove(partyId);
     }
 }

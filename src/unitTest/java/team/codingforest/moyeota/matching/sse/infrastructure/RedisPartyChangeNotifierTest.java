@@ -67,24 +67,6 @@ class RedisPartyChangeNotifierTest {
     }
 
     @Test
-    void 발행할_때_발행_시각을_싣는다() {
-        long before = System.currentTimeMillis();
-
-        notifier.closed(방);
-
-        assertThat(onlySent().publishedAt()).isBetween(before, System.currentTimeMillis());
-    }
-
-    @Test
-    void 발행_시각은_앱으로_나가는_데이터에_넣지_않는다() {
-        MemberLeft event = MemberLeft.from(UUID.randomUUID(), "ACTIVE", UUID.randomUUID());
-
-        notifier.memberLeft(방, 7L, event);
-
-        assertThat(onlySent().data()).doesNotContain("publishedAt");
-    }
-
-    @Test
     void 모든_신호는_같은_채널로_낸다() {
         notifier.closed(방);
 

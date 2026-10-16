@@ -1,9 +1,6 @@
 package team.codingforest.moyeota.matching.sse.infrastructure;
 
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MockClock;
-import io.micrometer.core.instrument.Timer;
-import io.micrometer.core.instrument.simple.SimpleConfig;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -11,7 +8,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -26,8 +22,7 @@ class PartySseRegistryMetricsTest {
     private static final Supplier<Object> SNAPSHOT = () -> "detail";
     private static final List<String> REASONS = List.of("complete", "timeout", "error", "replaced", "left", "closed", "heartbeat");
 
-    private final MockClock clock = new MockClock();
-    private final SimpleMeterRegistry meters = new SimpleMeterRegistry(SimpleConfig.DEFAULT, clock);
+    private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final FakeEmitterRegistry registry = new FakeEmitterRegistry(meters);
 
     @Test
@@ -107,7 +102,7 @@ class PartySseRegistryMetricsTest {
         registry.subscribe(방, 철수, SNAPSHOT);
         registry.last().failSend = true;
 
-        registry.notify(방, "member-joined", "{}", null);
+        registry.notify(방, "member-joined", "{}");
         registry.last().error();
 
         assertClosedOnly("error", 1);
@@ -142,7 +137,7 @@ class PartySseRegistryMetricsTest {
         registry.subscribe(방, 영희, SNAPSHOT);
         registry.last().failSend = true;
 
-        registry.notify(방, "member-left", "{}", null);
+        registry.notify(방, "member-left", "{}");
 
         assertThat(sent("connected", "ok")).isEqualTo(2);
         assertThat(sent("member-left", "ok")).isEqualTo(1);
@@ -158,37 +153,8 @@ class PartySseRegistryMetricsTest {
         assertThat(meters.find("party.sse.sent").counters()).hasSize(1);
     }
 
-    @Test
-    void 구독자가_있으면_발행부터_전달까지_걸린_시간을_기록한다() {
-        registry.subscribe(방, 철수, SNAPSHOT);
-        registry.subscribe(방, 영희, SNAPSHOT);
-        long publishedAt = clock.wallTime();
-        clock.add(250, TimeUnit.MILLISECONDS);
 
-        registry.notify(방, "member-joined", "{}", publishedAt);
 
-        Timer delivery = meters.get("party.sse.delivery").timer();
-        assertThat(delivery.count()).as("연결 수와 무관하게 메시지당 한 번").isEqualTo(1);
-        assertThat(delivery.totalTime(TimeUnit.MILLISECONDS)).isEqualTo(250);
-    }
-
-    @Test
-    void 구독자가_없으면_전달_시간을_기록하지_않는다() {
-        registry.subscribe(다른방, 철수, SNAPSHOT);
-
-        registry.notify(방, "member-joined", "{}", clock.wallTime());
-
-        assertThat(meters.find("party.sse.delivery").timer()).isNull();
-    }
-
-    @Test
-    void 발행_시각이_없으면_전달_시간을_기록하지_않는다() {
-        registry.subscribe(방, 철수, SNAPSHOT);
-
-        registry.notify(방, "member-joined", "{}", null);
-
-        assertThat(meters.find("party.sse.delivery").timer()).isNull();
-    }
 
     private double connections() {
         return meters.get("party.sse.connections").gauge().value();
@@ -212,7 +178,7 @@ class PartySseRegistryMetricsTest {
         boolean failNextSend;
 
         FakeEmitterRegistry(SimpleMeterRegistry meters) {
-            super(meters);
+            super(new PartySseMetrics(meters));
         }
 
         @Override
