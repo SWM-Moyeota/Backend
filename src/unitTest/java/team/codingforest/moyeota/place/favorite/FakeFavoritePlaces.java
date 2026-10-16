@@ -7,18 +7,20 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
+/** place_id 단일 PK 인 실제 테이블처럼 placeId 로만 행을 구분하고, 없으면 DB 처럼 자동 채번한다 */
 class FakeFavoritePlaces implements FavoritePlaces {
-    private final Map<String, FavoritePlace> store = new HashMap<>();
-
-    private String key(Long userId, String placeName) {
-        return userId + ":" + placeName;
-    }
+    private final Map<Long, FavoritePlace> store = new HashMap<>();
+    private final AtomicLong sequence = new AtomicLong();
 
     @Override
     public FavoritePlace save(FavoritePlace place) {
-        store.put(key(place.getUserId(), place.getPlaceName()), place);
-        return place;
+        Long id = place.getPlaceId() != null ? place.getPlaceId() : sequence.incrementAndGet();
+        FavoritePlace saved = FavoritePlace.restore(place.getUserId(), id, place.getPlaceName(), place.getRoadName(),
+                place.getLatitude(), place.getLongitude(), place.getPlaceSequence(), place.getCreatedAt(), place.getUpdatedAt());
+        store.put(id, saved);
+        return saved;
     }
 
     @Override
@@ -35,19 +37,23 @@ class FakeFavoritePlaces implements FavoritePlaces {
     }
 
     @Override
-    public boolean existsByUserIdAndPlace(Long userId, String placeName) {
-        return store.containsKey(key(userId, placeName));
+    public boolean existsByUserIdAndPlace(Long userId, Long placeId) {
+        FavoritePlace place = store.get(placeId);
+        return place != null && place.getUserId().equals(userId);
     }
 
     @Override
-    public int deleteByUserIdAndPlaceName(Long userId, String placeName) {
-        return store.remove(key(userId, placeName)) == null ? 0 : 1;
+    public void deleteByUserIdAndPlaceName(Long userId, Long placeId) {
+        if (existsByUserIdAndPlace(userId, placeId)) store.remove(placeId);
     }
 
     @Override
-    public int deleteAllByUserId(Long userId) {
-        int before = store.size();
+    public void deleteByUserIdAndPlaceIdIn(Long userId, List<Long> placeIds) {
+        store.values().removeIf(p -> p.getUserId().equals(userId) && placeIds.contains(p.getPlaceId()));
+    }
+
+    @Override
+    public void deleteAllByUserId(Long userId) {
         store.values().removeIf(p -> p.getUserId().equals(userId));
-        return before - store.size();
     }
 }
