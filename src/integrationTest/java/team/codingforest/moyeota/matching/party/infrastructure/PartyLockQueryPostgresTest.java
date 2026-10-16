@@ -22,6 +22,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -110,7 +111,7 @@ class PartyLockQueryPostgresTest {
             first.accept(p);
             parties.save(p);
         }));
-        locked.await();
+        assertThat(locked.await(10, TimeUnit.SECONDS)).as("첫 트랜잭션이 잠금을 잡았다").isTrue();
 
         Future<Party> waiter = pool.submit(() -> tx.execute(status -> {
             Party p = parties.findByIdForUpdate(id).orElseThrow();
@@ -118,11 +119,14 @@ class PartyLockQueryPostgresTest {
             return parties.save(p);
         }));
         await().atMost(Duration.ofSeconds(5))
-                .until(() -> jdbc.queryForObject("select count(*) from pg_stat_activity where wait_event_type = 'Lock'", Integer.class) > 0);
+                .until(() -> jdbc.queryForObject("""
+                        select count(*) from pg_stat_activity
+                        where datname = current_database() and wait_event_type = 'Lock' and query like '%match_room%for no key update%'
+                        """, Integer.class) > 0);
 
         release.countDown();
-        holder.get();
-        return waiter.get();
+        holder.get(10, TimeUnit.SECONDS);
+        return waiter.get(10, TimeUnit.SECONDS);
     }
 
     private static Party open(int capacity) {
@@ -133,7 +137,7 @@ class PartyLockQueryPostgresTest {
 
     private static void awaitQuietly(CountDownLatch latch) {
         try {
-            latch.await();
+            if (!latch.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("release 대기 시간 초과");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(e);
