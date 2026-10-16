@@ -1,0 +1,25 @@
+# 로컬 H2 테스트 회원 생성: Spring Boot 활성 프로필에 test-member 지정
+# ./gradlew bootRun --args='--spring.profiles.active=test-member'
+# Redis도 실행해야 한다. 서버 재시작 시 메모리 DB와 회원이 새로 생성된다.
+@host = http://localhost:8080
+
+### 테스트 회원 로그인 — 응답의 accessToken을 카드 등록 화면에 붙여넣기
+POST {{host}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "loginId": "portonetest",
+  "password": "PortoneTest1!"
+}
+
+> {%
+  client.test("로그인 성공", function () {
+    client.assert(response.status === 200, "로그인 실패");
+    client.assert(!!response.body.accessToken, "accessToken 누락");
+  });
+  if (response.status === 200) client.global.set("testAccessToken", response.body.accessToken);
+%}
+
+### 발급된 토큰으로 DB의 내 회원 정보 조회
+GET {{host}}/api/v1/local/users/info
+Authorization: Bearer {{testAccessToken}}
