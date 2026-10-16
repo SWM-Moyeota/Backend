@@ -3,7 +3,7 @@
 //   k6 run -o experimental-prometheus-rw -e VUS=90 loadtest/d2-journey.js
 import { SharedArray } from 'k6/data';
 import { journey, USE_SSE, GIVE_UP_CAUSES } from './lib/journey.js';
-import { VIEW_CHECK_RESULTS } from './lib/sse.js';
+import { VIEW_CHECK_RESULTS, RESYNC_REASONS, RESYNC_RESULTS } from './lib/sse.js';
 import { breakdown } from './lib/api.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
@@ -29,7 +29,11 @@ export const options = {
     checks: ['rate>0.99'],
     // 측정만 - 태그별로 요약에 보이게 할 뿐 기준이 아니다. 권장 기준은 README(SSE 정합성)
     ...breakdown('journey_give_up', 'cause', GIVE_UP_CAUSES),
-    ...(USE_SSE ? breakdown('sse_view_check', 'result', VIEW_CHECK_RESULTS) : {}),
+    ...(USE_SSE ? {
+      ...breakdown('sse_view_check', 'result', VIEW_CHECK_RESULTS),
+      ...breakdown('sse_resync', 'reason', RESYNC_REASONS),
+      ...breakdown('sse_resync_result', 'result', RESYNC_RESULTS),
+    } : {}),
   },
 };
 

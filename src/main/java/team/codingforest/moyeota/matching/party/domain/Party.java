@@ -32,13 +32,14 @@ public class Party {
     private Long taxiDriverId;
     private Instant matchingStartedAt;
     private Instant completedAt;
+    private long version;
 
     /**
      * 규칙 생성 -> 아무대서 Party 객체를 생성할 수 없게 하기
      */
     private Party(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius
             ,String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status,
-                  Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt) {
+                  Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version) {
         this.id = id;
         this.departureLocation = departureLocation;
         this.destinationLocation = destinationLocation;
@@ -56,6 +57,7 @@ public class Party {
         this.taxiDriverId = taxiDriverId;
         this.matchingStartedAt = matchingStartedAt;
         this.completedAt = completedAt;
+        this.version = version;
     }
 
     /**
@@ -72,7 +74,7 @@ public class Party {
         if(route == null) throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
 
         Party party = new Party(null, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, new ArrayList<>(), createdAt, PartyStatus.ACTIVE,
-                estimatedFare, estimatedTime, route, null, null, null);
+                estimatedFare, estimatedTime, route, null, null, null, 0L);
 
         party.members.add(new PartyMember(creatorId, Instant.now()));
 
@@ -93,6 +95,7 @@ public class Party {
         if(hasMember(memberId)) throw new BusinessException(MatchingErrorCode.ALREADY_JOINED_PARTY);
 
         members.add(new PartyMember(memberId, Instant.now()));
+        version++;
 
         if(isFull()) {
             status = PartyStatus.COMPLETED;
@@ -108,6 +111,7 @@ public class Party {
         ensureRecruiting();
 
         PartyMember tmp = null;
+        version++;
 
         // 나가는 멤버 찾기
         for(PartyMember m : members) {
@@ -151,8 +155,8 @@ public class Party {
      *  영속 복원용
      */
     public static Party restore(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status,
-                                    Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt) {
-        return new Party(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, createdAt, status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt);
+                                    Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version) {
+        return new Party(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, createdAt, status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version);
     }
 
     /**
@@ -240,11 +244,13 @@ public class Party {
         if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
 
         status = PartyStatus.FINISHED;
+        version++;
     }
 
     public void expireCompleted() {
         ensureFinishableWithoutDriver();
         status = PartyStatus.FINISHED;
+        version++;
     }
 
     private void ensureFinishableWithoutDriver() {

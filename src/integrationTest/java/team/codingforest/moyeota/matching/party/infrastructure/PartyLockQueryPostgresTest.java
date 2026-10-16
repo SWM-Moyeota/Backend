@@ -12,10 +12,12 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.PartyVersion;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -72,6 +74,7 @@ class PartyLockQueryPostgresTest {
 
         assertThat(result.getMembers()).extracting(PartyMember::getMemberId).containsExactlyInAnyOrder(1L, 2L, 3L);
         assertThat(result.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(result.getVersion()).as("커밋 하나에 1씩").isEqualTo(2);
     }
 
     @Test
@@ -84,6 +87,17 @@ class PartyLockQueryPostgresTest {
 
         assertThat(result.getMembers()).isEmpty();
         assertThat(result.getStatus()).isEqualTo(PartyStatus.CANCELED);
+        assertThat(result.getVersion()).isEqualTo(3);
+    }
+
+    @Test
+    void 방_번호들로_version_을_읽는다() {
+        Party party = open(3);
+        party.join(2L);
+        Long id = parties.save(party).getId();
+
+        assertThat(parties.findVersions(List.of(id, -1L)))
+                .containsExactly(new PartyVersion(id, 1, PartyStatus.ACTIVE));
     }
 
     private Party whileLocked(Long id, Consumer<Party> first, Consumer<Party> second) throws Exception {
