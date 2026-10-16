@@ -14,6 +14,7 @@
 // SSE 앱 모델의 한계: k6 는 한 VU 가 WebSocket 과 SSE 를 동시에 붙잡지 못한다. 그래서 채팅하는 동안에는 SSE 연결을 들고 있지 않고
 //   (실제 앱은 들고 있다 - 유휴 연결 수는 D7 로 따로 본다), 채팅 중에 방이 닫혀도 모른 채 CHAT_SEC 을 채운다.
 //   채팅이 끝난 뒤 SSE 에 다시 붙어 connected 의 상태가 이미 닫힘이면 끝, 아니면 closed 를 기다린다(실제 앱에는 없는 재연결 1회).
+// SSE 가 에러로 끊기면 앱처럼 3초 뒤 다시 붙는다(sse_reconnects). 정원이 찬 직후 화면을 방 상세와 1회 맞춘다(sse_view_check, (check) 이름표).
 //
 // VU 3개가 한 조: (VU-1)%3 == 0 이 방장. VU 끼리 메모리를 못 나누므로 참여자는 앱처럼 목록을 폴링해 자기 조 방(destination 이 LT-g<조>- 로 시작)을 찾는다.
 import { sleep, check } from 'k6';
@@ -23,7 +24,7 @@ import {
   myChatRooms, openChatRoom, 판교역, GROUP, spotOf, viewportAround,
 } from './api.js';
 import { chatSession } from './stomp.js';
-import { watchParty, newRoomView, applyEvent } from './sse.js';
+import { watchParty, newRoomView, applyEvent, compareWithDetail, sseReconnects } from './sse.js';
 
 export const USE_SSE = __ENV.USE_SSE === '1';                     // 대기 화면을 폴링 대신 SSE 로 (서버·앱 모두 SSE 배포 후)
 
@@ -33,6 +34,8 @@ const WAIT_MAX = Number(__ENV.WAIT_MAX_SEC || 90);        // 방이 안 차면 �
 const CHAT_TAB_DELAY = Number(__ENV.CHAT_TAB_DELAY_SEC || 2);    // 방이 찬 걸 보고 채팅 탭으로 넘어가기까지 - 사람의 화면 전환 시간
 const PROBE_GROUPS = __ENV.PROBE_GROUPS === undefined ? 10 : Number(__ENV.PROBE_GROUPS);   // 앞에서부터 이 수만큼의 조가 탐침을 겸한다 (0 이면 끔)
 const PROBE_WAIT = Number(__ENV.PROBE_WAIT_SEC || 60);          // 탐침이 채팅방 입장을 기다려 주는 한도
+const RECONNECT_SEC = 3;                                         // 앱(PartyEventSource)의 재연결 간격
+const CHECK = 'GET /matching/rooms/{id} (check)';                // 측정용 상세 조회 - 앱이 만드는 호출과 지표에서 가른다
 
 export const fillTime = new Trend('journey_fill_time_ms', true);        // 방 생성 → 정원 충족
 export const chatLatency = new Trend('chat_delivery_ms', true);         // 메시지 전달 지연
@@ -40,7 +43,8 @@ export const joinLag = new Trend('chat_join_lag_ms', true);             // 탐�
 export const joinLagTimeouts = new Counter('chat_join_lag_timeout');    // 탐침: PROBE_WAIT 안에 끝내 안 뜬 횟수
 export const joinOutcome = new Counter('journey_join');                 // result 태그: ok / full / other
 export const wsErrors = new Counter('ws_errors');
-export const giveUps = new Counter('journey_give_up');                  // 시간 안에 방이 안 차서 포기
+export const giveUps = new Counter('journey_give_up');                  // cause 태그: not-full / missed-event / poll-timeout / no-room / unknown
+export const GIVE_UP_CAUSES = ['not-full', 'missed-event', 'poll-timeout', 'no-room', 'unknown'];
 export const sweepMinutes = new Trend('abandon_to_finished_min');       // D6: 방치 → 자동 종료까지
 export const orderInversions = new Counter('chat_order_inversions');    // 소켓으로 받은 메시지 id 가 직전보다 작았던 횟수
 
@@ -55,14 +59,34 @@ function pollUntil(token, partyId, wanted, maxSec) {
   return null;
 }
 
-/** SSE 로 기다린다. connected 로 방을 그리고 변경분만 반영해 원하는 상태가 되면 끝 - 앱처럼 상세를 다시 읽지 않는다 */
+/**
+ * maxSec 안에서 방 변화를 듣다가 done() 이 참이면 끝. 에러로 끊기면 앱처럼 RECONNECT_SEC 뒤 다시 붙는다 -
+ * 새 connected 가 view 를 통째로 바꾼다. 403·404 는 다시 붙어도 같은 답이라 멈춘다(앱도 같다). 돌려주는 값은 마지막 연결의 HTTP 상태
+ */
+function sseWatch(token, partyId, view, done, maxSec) {
+  const until = Date.now() + maxSec * 1000;
+  for (;;) {
+    const r = watchParty(token, partyId, {
+      holdSec: Math.max(1, (until - Date.now()) / 1000),
+      onEvent: (name, data) => { applyEvent(view, name, data); return !done(); },
+    });
+    if (r.closedBy !== 'error' || r.status === 403 || r.status === 404 || done()) return r.status;
+    if ((until - Date.now()) / 1000 <= RECONNECT_SEC) return r.status;
+    sleep(RECONNECT_SEC);
+    sseReconnects.add(1);
+  }
+}
+
+/**
+ * SSE 로 기다린다. connected 로 방을 그리고 변경분만 반영해 원하는 상태가 되면 끝 - 앱처럼 상세를 다시 읽지 않는다.
+ * COMPLETED 를 봤으면 정원이 차 더 바뀌지 않으므로 그때 한 번만 상세와 맞춰 본다(측정용)
+ */
 function sseUntil(token, partyId, wanted, maxSec) {
   const view = newRoomView();
-  watchParty(token, partyId, {
-    holdSec: maxSec,
-    onEvent: (name, data) => { applyEvent(view, name, data); return !wanted.includes(view.status); },
-  });
-  return wanted.includes(view.status) ? view.status : null;
+  sseWatch(token, partyId, view, () => wanted.includes(view.status), maxSec);
+  if (!wanted.includes(view.status)) return null;
+  if (view.status === 'COMPLETED') compareWithDetail(view, roomDetail(token, partyId, CHECK));
+  return view.status;
 }
 
 /**
@@ -71,13 +95,25 @@ function sseUntil(token, partyId, wanted, maxSec) {
  */
 function sseUntilClosed(token, partyId, maxSec) {
   const view = newRoomView();
-  const { status } = watchParty(token, partyId, {
-    holdSec: maxSec,
-    onEvent: (name, data) => { applyEvent(view, name, data); return !CLOSED.includes(view.status); },
-  });
+  const status = sseWatch(token, partyId, view, () => view.closed || CLOSED.includes(view.status), maxSec);
   return view.closed || CLOSED.includes(view.status) || status === 403;
 }
 const waitUntil = (token, partyId, wanted, maxSec) => (USE_SSE ? sseUntil(token, partyId, wanted, maxSec) : pollUntil(token, partyId, wanted, maxSec));
+
+/**
+ * 대기 포기 - 방을 나가고 이유를 cause 로 남긴다. SSE 앱은 상세를 1회 읽어 가른다:
+ *   이미 COMPLETED 면 missed-event(방은 찼는데 신호를 못 받았다), 아니면 not-full(정말 안 찼다).
+ * 폴링 앱은 마지막 폴링이 곧 상세라 더 읽지 않고 poll-timeout.
+ */
+function giveUp(token, partyId) {
+  let cause = 'poll-timeout';
+  if (USE_SSE) {
+    const d = roomDetail(token, partyId, CHECK);
+    cause = d.status !== 200 ? 'unknown' : d.json('status') === 'COMPLETED' ? 'missed-event' : 'not-full';
+  }
+  giveUps.add(1, { cause });
+  leaveRoom(token, partyId);
+}
 
 /**
  * 탐침 - 방 생성·참여가 커밋된 뒤 채팅방 입장(비동기 리스너)이 끝나기까지 얼마나 걸리는지 잰다.
@@ -155,7 +191,7 @@ export function journey(users, vu, { abandon = false } = {}) {
     if (!check(r, { '방 생성 200': (x) => x.status === 200 })) { console.error(`open ${r.status}: ${r.body}`); sleep(POLL); return; }
     partyId = r.id;
     if (probe) probeJoinLag(me.token, destName, Date.now());
-    if (!waitUntil(me.token, partyId, ['COMPLETED'], WAIT_MAX)) { giveUps.add(1); leaveRoom(me.token, partyId); return; }
+    if (!waitUntil(me.token, partyId, ['COMPLETED'], WAIT_MAX)) { giveUp(me.token, partyId); return; }
     fillTime.add(Date.now() - opened);
   } else {
     sleep(role);                                                          // 두 참여자가 같은 순간에 몰리지 않게
@@ -173,8 +209,8 @@ export function journey(users, vu, { abandon = false } = {}) {
       }
       sleep(POLL);
     }
-    if (partyId === null) { giveUps.add(1); return; }
-    if (!waitUntil(me.token, partyId, ['COMPLETED'], WAIT_MAX)) { giveUps.add(1); leaveRoom(me.token, partyId); return; }
+    if (partyId === null) { giveUps.add(1, { cause: 'no-room' }); return; }   // 합승 탭에서 자기 조 방을 못 찾았다(또는 참여 실패)
+    if (!waitUntil(me.token, partyId, ['COMPLETED'], WAIT_MAX)) { giveUp(me.token, partyId); return; }
   }
 
   const closedBy = chat(me, `g${g}r${role}`, partyId, destName);                    // 폴링 앱은 채팅하는 동안에도 21 의 상세 폴링이 같이 돈다

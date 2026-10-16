@@ -49,11 +49,14 @@ if (note) out.push(`# ${note}`, '');
 const pad = (s, n) => s + ' '.repeat(Math.max(1, n - [...s].length));
 
 // ── THRESHOLDS ──
-const thresholds = Object.entries(metrics).filter(([, m]) => m.thresholds).sort();
+// count>=0 은 기준이 아니라 태그별 하위 지표를 요약에 내보내려고 건 것(lib/api.js breakdown) - 여기선 빼고 아래 CUSTOM 에서 본다
+const DISPLAY_ONLY = /^count\s*>=\s*0$/;
+const shown = (m) => Object.entries(m.thresholds || {}).filter(([expr]) => !DISPLAY_ONLY.test(expr.trim()));
+const thresholds = Object.entries(metrics).filter(([, m]) => shown(m).length).sort();
 if (thresholds.length) {
   out.push('█ THRESHOLDS');
   for (const [name, m] of thresholds) {
-    for (const [expr, crossed] of Object.entries(m.thresholds)) {   // --summary-export 는 true 가 "임계값을 넘었다(실패)" 다
+    for (const [expr, crossed] of shown(m)) {   // --summary-export 는 true 가 "임계값을 넘었다(실패)" 다
       out.push(`  ${pad(name, 42)} ${crossed ? '✗' : '✓'} '${expr}'  ${thresholdValue(name, m, expr)}`);
     }
   }

@@ -81,6 +81,11 @@ export function viewportAround(p, d = VIEW_DEG) {
   return { swLat: p.lat - d, swLng: p.lng - d, neLat: p.lat + d, neLng: p.lng + d };
 }
 
+/** 태그별 하위 지표를 끝 요약(--summary-export)에 나오게 한다. count>=0 은 늘 통과 - 기준이 아니라 표시용이다 */
+export function breakdown(metric, tag, values) {
+  return values.reduce((o, v) => ({ ...o, [`${metric}{${tag}:${v}}`]: ['count>=0'] }), {});
+}
+
 export function json() {
   return { headers: { 'Content-Type': 'application/json' } };
 }
@@ -110,8 +115,9 @@ export function listRooms(token, view = 뷰포트) {
   return http.get(`${BASE}/api/v1/matching/rooms?${q}`, auth(token, { tags: { name: 'GET /matching/rooms (viewport)' } }));
 }
 
-export function roomDetail(token, partyId) {
-  return http.get(`${BASE}/api/v1/matching/rooms/${partyId}`, auth(token, { tags: { name: 'GET /matching/rooms/{id}' } }));
+// name 은 myChatRooms 와 같다 - 측정용 조회는 (check) 를 붙여 앱 호출과 가른다
+export function roomDetail(token, partyId, name = 'GET /matching/rooms/{id}') {
+  return http.get(`${BASE}/api/v1/matching/rooms/${partyId}`, auth(token, { tags: { name } }));
 }
 
 // name 을 바꿔 부르면 지표에서 따로 잡힌다 - 탐침(측정용) 호출이 앱이 만드는 호출 수에 섞이지 않게 한다

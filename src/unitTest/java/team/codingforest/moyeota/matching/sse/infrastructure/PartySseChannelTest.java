@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.matching.sse.infrastructure;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.DefaultMessage;
 import org.springframework.data.redis.connection.Message;
@@ -69,6 +70,10 @@ class PartySseChannelTest {
     /** 실제 emitter 대신 호출 순서만 기록한다 */
     static class RecordingRegistry extends PartySseRegistry {
         final List<String> calls = new ArrayList<>();
+
+        RecordingRegistry() {
+            super(new PartySseMetrics(new SimpleMeterRegistry()));
+        }
 
         @Override
         public void notify(Long partyId, String event, String data) {
