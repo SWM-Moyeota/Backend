@@ -70,7 +70,7 @@ class PartySseRegistryTest {
         registry.subscribe(방, 철수, SNAPSHOT);
         registry.subscribe(다른방, 철수, SNAPSHOT);
 
-        registry.closeAll(방);
+        registry.closeAll(방, "42");
 
         assertThat(registry.connections()).as("다른 방 연결은 그대로").isEqualTo(1);
     }
@@ -78,7 +78,7 @@ class PartySseRegistryTest {
     @Test
     void 닫은_방에_다시_구독할_수_있다() {
         registry.subscribe(방, 철수, SNAPSHOT);
-        registry.closeAll(방);
+        registry.closeAll(방, "42");
 
         registry.subscribe(방, 철수, SNAPSHOT);
 
@@ -87,7 +87,7 @@ class PartySseRegistryTest {
 
     @Test
     void 연결_없는_방을_닫아도_아무_일도_없다() {
-        registry.closeAll(방);
+        registry.closeAll(방, "42");
 
         assertThat(registry.connections()).isZero();
     }
@@ -138,7 +138,7 @@ class PartySseRegistryTest {
         registry.subscribe(방, 영희, SNAPSHOT);
 
         registry.closeMember(방, 영희);
-        registry.closeAll(방);   // 빈 방이 남아 있어도 예외는 없어야 하고
+        registry.closeAll(방, "42");   // 빈 방이 남아 있어도 예외는 없어야 하고
 
         assertThat(registry.connections()).isZero();
     }

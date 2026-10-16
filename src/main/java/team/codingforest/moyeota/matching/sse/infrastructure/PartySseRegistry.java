@@ -80,7 +80,7 @@ public class PartySseRegistry {
                 metrics.sent("closed", false);
                 metrics.closed("error");
             }
-            completeQuietly(s.emitter);
+            completeQuietly(s.emitter());
         });
     }
 
@@ -95,7 +95,6 @@ public class PartySseRegistry {
         for (Subscription s : subscriptions) {
             if (!s.memberId().equals(memberId)) continue;
             remove(partyId, s.emitter(), reason);
-            s.emitter().complete();
             completeQuietly(s.emitter());
         }
     }
