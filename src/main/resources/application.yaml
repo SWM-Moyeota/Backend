@@ -96,6 +96,7 @@ management:
     distribution:
       percentiles-histogram:
         http.server.requests: true
+        party.sse.delivery: true
       slo:
         http.server.requests: 100ms, 300ms, 500ms, 1s
 

@@ -17,20 +17,21 @@ public class RedisPartyChangeNotifier implements PartyChangeNotifier {
 
     @Override
     public void memberJoined(Long partyId, MemberJoined event) {
-        publish(PartySseMessage.from(partyId, "member-joined", objectMapper.writeValueAsString(event), null));
+        publish(partyId, "member-joined", objectMapper.writeValueAsString(event), null);
     }
 
     @Override
     public void memberLeft(Long partyId, Long memberId, MemberLeft event) {
-        publish(PartySseMessage.from(partyId, "member-left", objectMapper.writeValueAsString(event), memberId));
+        publish(partyId, "member-left", objectMapper.writeValueAsString(event), memberId);
     }
 
     @Override
     public void closed(Long partyId) {
-        publish(PartySseMessage.from(partyId, "closed", String.valueOf(partyId), null));
+        publish(partyId, "closed", String.valueOf(partyId), null);
     }
 
-    private void publish(PartySseMessage message) {
+    private void publish(Long partyId, String event, String data, Long leftMemberId) {
+        PartySseMessage message = PartySseMessage.from(partyId, event, data, leftMemberId, System.currentTimeMillis());
         redisTemplate.convertAndSend(PartySseChannel.TOPIC, objectMapper.writeValueAsString(message));
     }
 }

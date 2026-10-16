@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.matching.sse.infrastructure;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -25,7 +26,7 @@ class PartySseRegistryTest {
 
     @BeforeEach
     void setUp() {
-        registry = new PartySseRegistry();
+        registry = new PartySseRegistry(new SimpleMeterRegistry());
     }
 
     @Test
@@ -93,7 +94,7 @@ class PartySseRegistryTest {
 
     @Test
     void 연결_없는_방에_알려도_예외가_없다() {
-        registry.notify(방, "member-joined", "{}");
+        registry.notify(방, "member-joined", "{}", null);
         registry.heartbeat();
 
         assertThat(registry.connections()).isZero();
@@ -104,7 +105,7 @@ class PartySseRegistryTest {
         registry.subscribe(방, 철수, SNAPSHOT);
         registry.subscribe(다른방, 철수, SNAPSHOT);
 
-        registry.notify(방, "member-joined", "{}");
+        registry.notify(방, "member-joined", "{}", null);
         registry.heartbeat();
 
         assertThat(registry.connections()).isEqualTo(2);

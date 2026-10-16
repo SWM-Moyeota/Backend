@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.matching.sse.infrastructure;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.DefaultMessage;
 import org.springframework.data.redis.connection.Message;
@@ -24,30 +25,54 @@ class PartySseChannelTest {
 
     @Test
     void 참여_신호는_그_방에_데이터와_함께_알린다() {
-        channel.onMessage(msg(new PartySseMessage(42L, "member-joined", "{\"status\":\"ACTIVE\"}", null)), null);
+        channel.onMessage(msg(new PartySseMessage(42L, "member-joined", "{\"status\":\"ACTIVE\"}", null, null)), null);
 
         assertThat(registry.calls).containsExactly("notify:42:member-joined:{\"status\":\"ACTIVE\"}");
     }
 
     @Test
     void 퇴장_신호는_나간_사람의_연결을_먼저_닫고_남은_사람에게_알린다() {
-        channel.onMessage(msg(new PartySseMessage(42L, "member-left", "{}", 7L)), null);
+        channel.onMessage(msg(new PartySseMessage(42L, "member-left", "{}", 7L, null)), null);
 
         assertThat(registry.calls).containsExactly("closeMember:42:7", "notify:42:member-left:{}");
     }
 
     @Test
     void closed_신호는_알린_뒤_그_방의_연결을_끊는다() {
-        channel.onMessage(msg(new PartySseMessage(42L, "closed", "42", null)), null);
+        channel.onMessage(msg(new PartySseMessage(42L, "closed", "42", null, null)), null);
 
         assertThat(registry.calls).containsExactly("notify:42:closed:42", "closeAll:42");
     }
 
     @Test
     void 참여_신호는_연결을_끊지_않는다() {
-        channel.onMessage(msg(new PartySseMessage(42L, "member-joined", "{}", null)), null);
+        channel.onMessage(msg(new PartySseMessage(42L, "member-joined", "{}", null, null)), null);
 
         assertThat(registry.calls).noneMatch(c -> c.startsWith("close"));
+    }
+
+    @Test
+    void 발행_시각을_레지스트리에_넘긴다() {
+        channel.onMessage(msg(new PartySseMessage(42L, "member-joined", "{}", null, 1_000L)), null);
+
+        assertThat(registry.publishedAts).containsExactly(1_000L);
+    }
+
+    @Test
+    void 발행_시각이_없는_옛_형식_메시지도_처리하고_발행_시각은_비워_넘긴다() {
+        channel.onMessage(raw("{\"partyId\":42,\"event\":\"member-joined\",\"data\":\"{}\",\"leftMemberId\":null}"), null);
+
+        assertThat(registry.calls).containsExactly("notify:42:member-joined:{}");
+        assertThat(registry.publishedAts).containsOnlyNulls().hasSize(1);
+    }
+
+    @Test
+    void 발행_시각이_실린_새_형식_메시지를_옛_형식으로도_읽을_수_있다() {
+        String body = objectMapper.writeValueAsString(new PartySseMessage(42L, "member-left", "{}", 7L, 1_000L));
+
+        OldPartySseMessage old = objectMapper.readValue(body, OldPartySseMessage.class);
+
+        assertThat(old).isEqualTo(new OldPartySseMessage(42L, "member-left", "{}", 7L));
     }
 
     @Test
@@ -67,12 +92,21 @@ class PartySseChannelTest {
     }
 
     /** 실제 emitter 대신 호출 순서만 기록한다 */
+    record OldPartySseMessage(Long partyId, String event, String data, Long leftMemberId) {
+    }
+
     static class RecordingRegistry extends PartySseRegistry {
         final List<String> calls = new ArrayList<>();
+        final List<Long> publishedAts = new ArrayList<>();
+
+        RecordingRegistry() {
+            super(new SimpleMeterRegistry());
+        }
 
         @Override
-        public void notify(Long partyId, String event, String data) {
+        public void notify(Long partyId, String event, String data, Long publishedAt) {
             calls.add("notify:" + partyId + ":" + event + ":" + data);
+            publishedAts.add(publishedAt);
         }
 
         @Override
