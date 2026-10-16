@@ -29,9 +29,9 @@ groups:
         annotations: { summary: "SSE 연결 수가 2분 전의 절반 아래로 급감 - 서버 재시작·ALB·네트워크 확인" }
 
       - alert: SseDeliverySlow
-        expr: histogram_quantile(0.95, sum by (le) (rate(party_sse_delivery_seconds_bucket[1m]))) > 1
+        expr: max(k6_sse_propagation_ms_p99) > 1000
         for: 1m
-        annotations: { summary: "SSE 전파 지연 p95 1초 초과 - Redis 발행·수신 적체 확인" }
+        annotations: { summary: "SSE 전파 지연 p99 1초 초과(k6 측정) - Redis 발행·수신 적체 확인" }
 
       - alert: SseViewMismatch
         expr: sum(increase(k6_sse_view_check_total{result=~"members|status"}[5m])) > 0

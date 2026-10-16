@@ -5,20 +5,29 @@
 //   settle  : churn 이 멈추고 SETTLE 초 뒤(CHECK_AT) 처음 오는 ping 에서, 그 시각을 걸친 hold 를 닫고 방 상세와 맞춘다(sse_view_check).
 //             churn 중에 끝난 hold 는 비교하지 않는다 - 도착 중인 변경분 때문에 거짓 경보가 난다.
 //             서버 ping 은 전역 30초 주기(모든 연결이 같은 순간)라 hold 는 그때만 닫힌다 - 마지막 단계를 그 ping 까지 늘린다
+//   propagation : 측정 전용 방 PROBE_VUS 개(정원 3, 방장 watcher 만 있음)에서 전파 지연을 잰다. holders 와 같은 구간 동안 반복:
+//             watcher 구독 → connected 콜백 안에서 t0 → prober join(동기 http) → prober 의 member-joined 를 읽은 시각 t1
+//             → sse_propagation_ms = t1 - t0 → 구독 종료 → prober leave. 한 VU 가 두 시각을 찍어 시계 차이가 없다.
+//             t0 은 join 요청 직전이라 값에 join 응답 시간이 들어간다. 서버는 커밋 직후(응답 전) 발행하지만 콜백이 http 로 막힌 동안
+//             이벤트를 못 읽으므로 실제 전파보다 약간 크게(보수적으로) 나온다. join 실패·미도착은 sse_propagation_miss{reason}
 //   본다: sse_connect_ms(헤더 즉시 나가나), sse_member_deltas(churn 이 구독자에게 닿나. applied:no 는 중복·순서 꼬임), sse_errors,
-//         sse_view_check(result:members·status 는 0 이어야 한다),
+//         sse_view_check(result:members·status 는 0 이어야 한다), sse_propagation_ms(부하 단계별 전파 지연),
 //         Grafana: process_open_fds · jvm_memory_used_bytes · tomcat_threads_busy(연결이 스레드를 잡지 않는지) · redis 명령 수
 //   ./k6 run -o experimental-prometheus-rw -e CONNS=300 loadtest/d7-sse-connections.js      (기본 3단계 x (1m 램프 + 2m 유지) + settle ≈ 10분)
 //   짧게: -e CONNS=30 -e RAMP=10s -e PLATEAU=20s -e HOLD_SEC=30      (CHURN_FOR 를 주지 않으면 마지막 단계 끝까지 돈다)
+//   사용자: holders·churn 은 0..CONNS-1, propagation 은 CONNS.. 부터 방마다 2명(watcher, prober) - users.json 에 CONNS + 2*PROBE_VUS 명. 끄려면 -e PROBE_VUS=0
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import { Counter } from 'k6/metrics';
 import exec from 'k6/execution';
-import { leaveRoom, joinRoom, finishRoom, fillRoom, groupUsers, roomDetail, breakdown } from './lib/api.js';
-import { watchParty, newRoomView, applyEvent, compareWithDetail, VIEW_CHECK_RESULTS } from './lib/sse.js';
+import { leaveRoom, joinRoom, finishRoom, fillRoom, groupUsers, roomDetail, breakdown, openRoom, spotOf, userInfo } from './lib/api.js';
+import { watchParty, newRoomView, applyEvent, compareWithDetail, VIEW_CHECK_RESULTS, propagationMs } from './lib/sse.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
 const CONNS = Number(__ENV.CONNS || 300);                    // 3의 배수. users.json 에 CONNS 명 이상
+const PROBE_VUS = Number(__ENV.PROBE_VUS || 5);              // 전파 지연 측정 방(= VU) 수. 0 이면 propagation 을 끈다
+const PROBE_TIMEOUT = Number(__ENV.PROBE_TIMEOUT_SEC || 10); // join 뒤 이만큼 member-joined 가 없으면 미도착 - 판정은 그 뒤 첫 ping 에서(최대 +30초)
+if (users.length < CONNS + 2 * PROBE_VUS) throw new Error(`users.json 에 ${users.length}명뿐이다 - CONNS=${CONNS} PROBE_VUS=${PROBE_VUS} 는 ${CONNS + 2 * PROBE_VUS}명 필요 (PROBE_VUS=0 이면 ${CONNS}명)`);
 const HOLD = Number(__ENV.HOLD_SEC || 90);
 const CHURN = Number(__ENV.CHURN || 2);                      // 초당 나갔다 들어오기 건수
 const ROOMS = CONNS / 3;
@@ -45,9 +54,20 @@ const CHECK = 'GET /matching/rooms/{id} (check)';           // 측정용 상세 
 const churnOutcome = new Counter('churn');                   // result 태그: ok / full / other
 const reconnectRetry = new Counter('sse_reconnect_retry');   // churn 이 내 자리를 뺀 순간(leave~join 0.5초)에 재연결해 403 → 잠시 뒤 재시도
 const memberDeltas = new Counter('sse_member_deltas');      // 받은 member-joined/left. applied 태그: yes(목록이 바뀜) / no(이미 반영된 변경분)
+const propagationMiss = new Counter('sse_propagation_miss'); // reason 태그: connect(구독·connected 실패) / join(참여 실패, 409 등) / timeout(이벤트 미도착)
+const PROPAGATION_MISS_REASONS = ['connect', 'join', 'timeout'];
+const HOLDERS_END = BEFORE_LAST + LAST_PLATEAU;             // holders 램프 다운 직전 - propagation 은 0 ~ 여기까지 돈다
+
+/** 측정 방 p 의 사용자 - holders·churn 이 쓰는 0..CONNS-1 뒤에 방마다 2명 */
+function probeUsers(p) { return { watcher: users[CONNS + 2 * p], prober: users[CONNS + 2 * p + 1] }; }
 
 export const options = {
   scenarios: {
+    ...(PROBE_VUS > 0 ? {
+      propagation: {
+        executor: 'constant-vus', exec: 'propagation', vus: PROBE_VUS, duration: `${HOLDERS_END}s`, gracefulStop: '45s',   // 미도착 판정(+ping 30초)까지 기다린다
+      },
+    } : {}),
     holders: {
       executor: 'ramping-vus', exec: 'holder', startVUs: 3, gracefulRampDown: '30s', gracefulStop: '30s',
       stages: [
@@ -68,6 +88,7 @@ export const options = {
     'churn{result:other}': ['count==0'],
     http_req_failed: ['rate<0.01'],
     ...breakdown('sse_view_check', 'result', VIEW_CHECK_RESULTS),   // 측정만 - 권장 기준은 README
+    ...(PROBE_VUS > 0 ? breakdown('sse_propagation_miss', 'reason', PROPAGATION_MISS_REASONS) : {}),
   },
 };
 
@@ -78,8 +99,18 @@ export function setup() {
     if (partyId) rooms.push({ g, partyId });
     else console.error(`조 ${g} 방 준비 실패`);
   }
-  console.log(`방 ${rooms.length}개, 최대 연결 ${CONNS}, churn ${CHURN}/s ${CHURN_START}~${CHURN_END}초, 비교 ${CHECK_AT}초 뒤 첫 ping`);
-  return { rooms };
+  // 측정 방: 방장(watcher)만 들어간 정원 3 방. prober 의 publicId 는 member-joined 를 가려내는 데 쓴다
+  const probes = [];
+  for (let p = 0; p < PROBE_VUS; p++) {
+    const { watcher, prober } = probeUsers(p);
+    const info = userInfo(prober.token);
+    const from = spotOf(ROOMS + p);
+    const r = openRoom(watcher.token, 3, from.dest, `LT-probe${p}`, from);
+    if (info.status === 200 && r.id) probes.push({ p, partyId: r.id, proberId: info.json('uuid') });
+    else console.error(`측정 방 ${p} 준비 실패: info ${info.status}, 방 생성 ${r.status} ${r.body}`);
+  }
+  console.log(`방 ${rooms.length}개, 최대 연결 ${CONNS}, churn ${CHURN}/s ${CHURN_START}~${CHURN_END}초, 비교 ${CHECK_AT}초 뒤 첫 ping, 측정 방 ${probes.length}개 0~${HOLDERS_END}초`);
+  return { rooms, probes };
 }
 
 /**
@@ -137,6 +168,54 @@ export function churner(data) {
   else { churnOutcome.add(1, { result: 'other' }); console.error(`join ${j.status}: ${j.body}`); }
 }
 
+// VU 마다 측정 방 하나. k6 는 시나리오 안 VU 번호를 주지 않아 첫 iteration 번호로 나눠 갖는다 - PROBE_VUS 개가 동시에 시작해 0..PROBE_VUS-1 을 받는다
+let probeSlot = null;
+let probeWarned = 0;
+
+/** watcher 로 구독 → connected 에서 t0 + prober join → prober 의 member-joined 에서 t1. 끝나면 prober 를 내보내 원상복구 */
+export function propagation(data) {
+  if (probeSlot === null) probeSlot = exec.scenario.iterationInTest;
+  const room = data.probes[probeSlot];
+  if (!room) { sleep(5); return; }                          // 측정 방 준비 실패 - 다른 VU 의 방을 건드리지 않는다
+  const { watcher, prober } = probeUsers(room.p);
+  let t0 = 0;
+  let joined = null;                                         // join 응답 status. null 이면 connected 전에 끝났다
+  let arrived = false;
+  const r = watchParty(watcher.token, room.partyId, {
+    holdSec: PROBE_TIMEOUT,
+    onEvent: (name, ev) => {
+      if (name === 'connected' && joined === null) {
+        t0 = Date.now();
+        joined = joinRoom(prober.token, room.partyId).status;   // 동기 - 끝날 때까지 이 구독의 이벤트를 못 읽는다
+        return joined === 200;
+      }
+      if (name === 'member-joined' && joined === 200 && ev && ev.member && ev.member.publicId === room.proberId) {
+        propagationMs.add(Date.now() - t0);
+        arrived = true;
+        return false;
+      }
+      return true;
+    },
+  });
+  const reason = joined === null ? 'connect' : joined !== 200 ? 'join' : arrived ? null : 'timeout';
+  if (reason) {
+    propagationMiss.add(1, { reason });
+    if (probeWarned++ < 5) console.warn(`propagation party=${room.partyId} ${reason}: sse ${r.status} ${r.closedBy}, join ${joined}`);
+  }
+  if (joined === 200) {
+    const l = leaveRoom(prober.token, room.partyId);
+    if (l.status !== 204) console.error(`propagation leave ${l.status}: ${l.body}`);
+  }
+  sleep(1 + Math.random());
+}
+
 export function teardown(data) {
   for (const room of data.rooms) finishRoom(groupUsers(users, room.g)[0].token, room.partyId);
+  // 측정 방은 ACTIVE 라 finish 가 안 된다(PARTY_NOT_COMPLETED) - 남아 있는 prober 를 내보내고 방장이 나가 CANCELED 로 닫는다
+  for (const room of data.probes || []) {
+    const { watcher, prober } = probeUsers(room.p);
+    const d = roomDetail(watcher.token, room.partyId);
+    if (d.status === 200 && (d.json('members') || []).some((m) => m.publicId === room.proberId)) leaveRoom(prober.token, room.partyId);
+    leaveRoom(watcher.token, room.partyId);
+  }
 }

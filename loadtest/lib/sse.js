@@ -13,6 +13,8 @@ export const sseEvents = new Counter('sse_events');                // name 태�
 export const sseReconnects = new Counter('sse_reconnects');        // 에러로 끊겨 3초 뒤 다시 붙은 횟수 (앱의 재연결)
 export const viewChecks = new Counter('sse_view_check');           // result 태그: match / members / status / host - 변경분으로 쌓은 화면 vs 방 상세
 export const VIEW_CHECK_RESULTS = ['match', 'members', 'status', 'host'];
+// 전파 지연 - 같은 VU 가 join 직전과 member-joined 수신을 찍는다(시계 차이 없음). 서버 쪽 Timer 는 없다 - k6 로만 잰다 (D7 propagation)
+export const propagationMs = new Trend('sse_propagation_ms', true);
 
 /** 서버 이벤트의 data 를 JSON 으로 읽는다. connected·member-* 는 객체, closed 는 방 번호 */
 function parse(data) {
