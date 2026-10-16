@@ -5,16 +5,18 @@
 //   방 만들기   즐겨찾기 → 경로 미리보기(POST /matching/routes) → POST /matching/rooms      ※ 장소 검색(카카오)은 부하에서 뺀다
 //   참여        GET /matching/rooms/{id}(참여 확인 화면) → POST join
 //   21 대기     GET /matching/rooms/{id} 즉시 + 4초 폴링. 1차 배포에선 COMPLETED 에서도 계속 돈다(FINISHED 까지)
-//              USE_SSE=1 이면 폴링 대신 /events 구독 - connected(방 상세 전체)로 그리고 member-joined·member-left 만 반영, closed 면 홈으로
+//              USE_SSE=1 이면 폴링 대신 /events 구독 - connected(방 상세 전체)로 그리고 member-joined·member-left 를 version 순서대로 반영
+//              (번호가 빠지거나 heartbeat 가 앞서면 상세 재조회), closed 면 홈으로
 //   채팅        채팅 탭 GET /chat-rooms/me → 방 열기 3건 → 소켓 + 폴링(3초→20초) + 읽음
 //              그 아래에서  폴링 앱: 21 의 방 상세 4초 폴링이 계속 돈다
-//                          SSE 앱 : 방 변화는 SSE 로만 받는다. 상세 재조회·상태 폴링은 없다
+//                          SSE 앱 : 방 변화는 SSE 로만 받는다. 상태 폴링은 없고 상세는 version 이 어긋날 때만 다시 읽는다
 //   종료        누군가 POST finish → 나머지는  폴링 앱: 상세 폴링으로 FINISHED 를 본다 / SSE 앱: closed 신호를 받는다
 //
 // SSE 앱 모델의 한계: k6 는 한 VU 가 WebSocket 과 SSE 를 동시에 붙잡지 못한다. 그래서 채팅하는 동안에는 SSE 연결을 들고 있지 않고
 //   (실제 앱은 들고 있다 - 유휴 연결 수는 D7 로 따로 본다), 채팅 중에 방이 닫혀도 모른 채 CHAT_SEC 을 채운다.
 //   채팅이 끝난 뒤 SSE 에 다시 붙어 connected 의 상태가 이미 닫힘이면 끝, 아니면 closed 를 기다린다(실제 앱에는 없는 재연결 1회).
-// SSE 가 에러로 끊기면 앱처럼 3초 뒤 다시 붙는다(sse_reconnects). 정원이 찬 직후 화면을 방 상세와 1회 맞춘다(sse_view_check, (check) 이름표).
+// SSE 가 에러로 끊기면 앱처럼 3초 뒤 다시 붙는다(sse_reconnects). version 이 어긋나면 앱처럼 상세를 다시 읽는다(sse_resync, (resync) 이름표).
+// 정원이 찬 직후 화면을 방 상세와 1회 맞춘다(sse_view_check, (check) 이름표).
 //
 // VU 3개가 한 조: (VU-1)%3 == 0 이 방장. VU 끼리 메모리를 못 나누므로 참여자는 앱처럼 목록을 폴링해 자기 조 방(destination 이 LT-g<조>- 로 시작)을 찾는다.
 import { sleep, check } from 'k6';
@@ -24,7 +26,7 @@ import {
   myChatRooms, openChatRoom, 판교역, GROUP, spotOf, viewportAround,
 } from './api.js';
 import { chatSession } from './stomp.js';
-import { watchParty, newRoomView, applyEvent, compareWithDetail, sseReconnects } from './sse.js';
+import { watchParty, newRoomView, follow, compareWithDetail, sseReconnects } from './sse.js';
 
 export const USE_SSE = __ENV.USE_SSE === '1';                     // 대기 화면을 폴링 대신 SSE 로 (서버·앱 모두 SSE 배포 후)
 
@@ -61,14 +63,14 @@ function pollUntil(token, partyId, wanted, maxSec) {
 
 /**
  * maxSec 안에서 방 변화를 듣다가 done() 이 참이면 끝. 에러로 끊기면 앱처럼 RECONNECT_SEC 뒤 다시 붙는다 -
- * 새 connected 가 view 를 통째로 바꾼다. 403·404 는 다시 붙어도 같은 답이라 멈춘다(앱도 같다). 돌려주는 값은 마지막 연결의 HTTP 상태
+ * 새 connected 는 version 이 화면 이상이면 view 를 통째로 바꾼다. 403·404 는 다시 붙어도 같은 답이라 멈춘다(앱도 같다). 돌려주는 값은 마지막 연결의 HTTP 상태
  */
 function sseWatch(token, partyId, view, done, maxSec) {
   const until = Date.now() + maxSec * 1000;
   for (;;) {
     const r = watchParty(token, partyId, {
       holdSec: Math.max(1, (until - Date.now()) / 1000),
-      onEvent: (name, data) => { applyEvent(view, name, data); return !done(); },
+      onEvent: (name, data) => { follow(view, token, partyId, name, data); return !done(); },
     });
     if (r.closedBy !== 'error' || r.status === 403 || r.status === 404 || done()) return r.status;
     if ((until - Date.now()) / 1000 <= RECONNECT_SEC) return r.status;
@@ -78,7 +80,7 @@ function sseWatch(token, partyId, view, done, maxSec) {
 }
 
 /**
- * SSE 로 기다린다. connected 로 방을 그리고 변경분만 반영해 원하는 상태가 되면 끝 - 앱처럼 상세를 다시 읽지 않는다.
+ * SSE 로 기다린다. connected 로 방을 그리고 변경분을 version 순서대로 반영해 원하는 상태가 되면 끝 - 상세는 앱처럼 version 이 어긋날 때만 다시 읽는다.
  * COMPLETED 를 봤으면 정원이 차 더 바뀌지 않으므로 그때 한 번만 상세와 맞춰 본다(측정용)
  */
 function sseUntil(token, partyId, wanted, maxSec) {
