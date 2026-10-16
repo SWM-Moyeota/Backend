@@ -25,7 +25,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     Optional<PartyEntity> findWithMembersById(@Param("id") Long id);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select p from PartyEntity p left join fetch p.members where p.id = :id")
+    @Query("select p from PartyEntity p where p.id = :id")
     Optional<PartyEntity> findByForUpdate(@Param("id") Long id);
 
     @Query("select p from PartyEntity p where p.status = :status")
@@ -58,4 +58,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 
     @Query("select p.id from PartyEntity p where p.status = :status and p.completedAt < :before")
     List<Long> findIdsByStatusAndCompletedBefore(@Param("status") PartyStatus status, @Param("before") Instant before);
+
+    @Query("select count(m) > 0 from PartyMemberEntity m where m.party.id = :partyId and m.memberId = :memberId")
+    boolean existsMember(@Param("partyId") Long partyId, @Param("memberId") Long memberId);
 }

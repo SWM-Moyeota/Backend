@@ -2,6 +2,7 @@ package team.codingforest.moyeota.matching.sse.infrastructure;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.checkerframework.checker.units.qual.A;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
@@ -27,10 +28,11 @@ public class PartySseChannel implements MessageListener {
                 partySseRegistry.closeMember(m.partyId(), m.leftMemberId());
             }
 
-            partySseRegistry.notify(m.partyId(), m.event(), m.data());
-
             if("closed".equals(m.event())) {
-                partySseRegistry.closeAll(m.partyId());
+                partySseRegistry.closeAll(m.partyId(), m.data());
+            }
+            else {
+                partySseRegistry.notify(m.partyId(), m.event(), m.data());
             }
         } catch (Exception e) {
             log.warn("SSE 처리 실패", e);

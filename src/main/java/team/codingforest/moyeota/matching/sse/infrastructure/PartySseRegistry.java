@@ -9,6 +9,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 @Slf4j
@@ -31,7 +32,13 @@ public class PartySseRegistry {
         closeMember(partyId, memberId, "replaced");
 
         SseEmitter emitter = newEmitter();
-        byParty.computeIfAbsent(partyId, k -> ConcurrentHashMap.newKeySet()).add(new Subscription(memberId, emitter));
+        Subscription subscription = new Subscription(memberId, emitter);
+        byParty.compute(partyId, (k, set) -> {
+            Set<Subscription> subscriptions = set == null ? ConcurrentHashMap.newKeySet() : set;
+            subscriptions.add(subscription);
+            return subscriptions;
+        });
+
         emitter.onCompletion(() -> remove(partyId, emitter, "complete"));
         emitter.onTimeout(() -> remove(partyId, emitter, "timeout"));
         emitter.onError(e -> remove(partyId, emitter, "error"));
@@ -42,6 +49,7 @@ public class PartySseRegistry {
         } catch (Exception ex) {
             metrics.sent("connected", false);
             remove(partyId, emitter, "error");
+            completeQuietly(emitter);
         }
 
         return emitter;
@@ -59,13 +67,20 @@ public class PartySseRegistry {
         }
     }
 
-    public void closeAll(Long partyId) {
+    public void closeAll(Long partyId, String data) {
         Set<Subscription> subscriptions = byParty.remove(partyId);
         if (subscriptions == null) return;
 
         subscriptions.forEach(s -> {
-            metrics.closed("closed");
-            s.emitter().complete();
+            try {
+                s.emitter().send(SseEmitter.event().name("closed").data(data));
+                metrics.sent("closed", true);
+                metrics.closed("closed");
+            } catch (Exception ex) {
+                metrics.sent("closed", false);
+                metrics.closed("error");
+            }
+            completeQuietly(s.emitter);
         });
     }
 
@@ -81,6 +96,7 @@ public class PartySseRegistry {
             if (!s.memberId().equals(memberId)) continue;
             remove(partyId, s.emitter(), reason);
             s.emitter().complete();
+            completeQuietly(s.emitter());
         }
     }
 
@@ -104,10 +120,21 @@ public class PartySseRegistry {
     }
 
     private void remove(Long partyId, SseEmitter emitter, String reason) {
-        Set<Subscription> set = byParty.get(partyId);
-        if (set == null || !set.removeIf(s -> s.emitter() == emitter)) return;
+        AtomicBoolean removed = new AtomicBoolean();
 
-        metrics.closed(reason);
-        if (set.isEmpty()) byParty.remove(partyId);
+        byParty.computeIfPresent(partyId, (k, set) -> {
+            removed.set(set.removeIf(s -> s.emitter() == emitter));
+            return set.isEmpty() ? null : set;
+        });
+
+        if (removed.get()) metrics.closed(reason);
+    }
+
+    private void completeQuietly(SseEmitter emitter) {
+        try {
+            emitter.complete();
+        } catch (Exception ex) {
+            log.debug("emitter complete 무시", ex);
+        }
     }
 }

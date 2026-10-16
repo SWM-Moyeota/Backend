@@ -22,11 +22,11 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class PartyJpa implements Parties {
 
-    private final PartyJpaRepository delegate;
+    private final PartyJpaRepository partyJpaRepository;
 
     @Override
     public Optional<Party> findById(Long id) {
-        return delegate.findWithMembersById(id)
+        return partyJpaRepository.findWithMembersById(id)
                 .map(PartyEntity::toDomain);
     }
 
@@ -36,10 +36,10 @@ public class PartyJpa implements Parties {
 
         if(party.getId() == null) {
             entity = PartyEntity.from(party);
-            delegate.save(entity);
+            partyJpaRepository.save(entity);
         }
         else {
-            entity = delegate.findById(party.getId())
+            entity = partyJpaRepository.findById(party.getId())
                     .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
             entity.update(party);                           // 더티체킹
         }
@@ -49,7 +49,7 @@ public class PartyJpa implements Parties {
 
     @Override
     public List<Party> findAllByStatus(PartyStatus status) {
-        return delegate.findAllByStatus(status).stream()
+        return partyJpaRepository.findAllByStatus(status).stream()
                 .map(PartyEntity::toDomain).toList();
     }
 
@@ -59,29 +59,29 @@ public class PartyJpa implements Parties {
                 .filter(PartyStatus::isOngoing)
                 .toList();
 
-        return delegate.existsByMemberIdAndStatusIn(memberId, ongoing);
+        return partyJpaRepository.existsByMemberIdAndStatusIn(memberId, ongoing);
     }
 
     @Override
     public Optional<Party> findByIdForUpdate(Long id) {
-        return delegate.findByForUpdate(id)
+        return partyJpaRepository.findByForUpdate(id)
                 .map(PartyEntity::toDomain);
     }
 
     @Override
     public List<MatchingTarget> findMatchingTargets() {
-        return delegate.findTargetsByStatus(PartyStatus.MATCHING)
+        return partyJpaRepository.findTargetsByStatus(PartyStatus.MATCHING)
                 .stream().map(PartyEntity::toMatchTarget).toList();
     }
 
     @Override
     public boolean hasOngoingRide(Long driverId) {
-        return delegate.existsByTaxiDriverIdStatus(driverId, List.of(PartyStatus.DRIVER_ASSIGNED, PartyStatus.IN_RIDE));
+        return partyJpaRepository.existsByTaxiDriverIdStatus(driverId, List.of(PartyStatus.DRIVER_ASSIGNED, PartyStatus.IN_RIDE));
     }
 
     @Override
     public List<PartySummary> findSummariesWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng, int limit) {
-        return delegate.findSummariesWithinBounds(status, swLat, neLat, swLng, neLng, Limit.of(limit));
+        return partyJpaRepository.findSummariesWithinBounds(status, swLat, neLat, swLng, neLng, Limit.of(limit));
     }
 
     @Override
@@ -90,7 +90,7 @@ public class PartyJpa implements Parties {
 
         Map<Long, Integer> counts = new HashMap<>();
 
-        for(MemberRideCount row : delegate.countByMemberIdsAndStatus(memberIds, PartyStatus.FINISHED)) {
+        for(MemberRideCount row : partyJpaRepository.countByMemberIdsAndStatus(memberIds, PartyStatus.FINISHED)) {
             counts.put(row.getMemberId(), row.getCount().intValue());
         }
 
@@ -99,6 +99,16 @@ public class PartyJpa implements Parties {
 
     @Override
     public List<Long> findCompletedBefore(Instant before) {
-        return delegate.findIdsByStatusAndCompletedBefore(PartyStatus.COMPLETED, before);
+        return partyJpaRepository.findIdsByStatusAndCompletedBefore(PartyStatus.COMPLETED, before);
+    }
+
+    @Override
+    public boolean existsById(Long id) {
+        return partyJpaRepository.existsById(id);
+    }
+
+    @Override
+    public boolean hasMember(Long partyId, Long memberId) {
+        return partyJpaRepository.existsMember(partyId, memberId);
     }
 }
