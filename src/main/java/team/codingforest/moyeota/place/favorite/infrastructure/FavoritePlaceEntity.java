@@ -2,8 +2,9 @@ package team.codingforest.moyeota.place.favorite.infrastructure;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -16,7 +17,6 @@ import team.codingforest.moyeota.place.favorite.domain.FavoritePlace;
 import java.time.Instant;
 
 @Entity
-@IdClass(FavoritePlaceId.class)
 @EnableJpaAuditing
 @Table(name = "favorite_place")
 @Getter
@@ -24,12 +24,12 @@ import java.time.Instant;
 public class FavoritePlaceEntity {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "place_id")
+    private Long placeId;
+
     @Column(name = "user_id")
     private Long userId;
-
-    @Id
-    @Column(name = "place_name")
-    private String placeName;
 
     private String roadName;
 
@@ -45,22 +45,26 @@ public class FavoritePlaceEntity {
     @LastModifiedDate
     private Instant updatedAt;
 
-    private FavoritePlaceEntity(Long userId, String placeName, String roadName, Double latitude, Double longitude, Integer placeSequence, Instant createdAt, Instant updatedAt) {
+    @Column(name = "place_name")
+    private String placeName;
+
+    private FavoritePlaceEntity(Long userId, Long placeId, String roadName, Double latitude, Double longitude, Integer placeSequence, Instant createdAt, Instant updatedAt, String placeName) {
         this.userId = userId;
-        this.placeName = placeName;
+        this.placeId = placeId;
         this.roadName = roadName;
         this.latitude = latitude;
         this.longitude = longitude;
         this.placeSequence = placeSequence;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.placeName = placeName;
     }
 
     public static FavoritePlaceEntity from(FavoritePlace place) {
-        return new FavoritePlaceEntity(place.getUserId(), place.getPlaceName(), place.getRoadName(), place.getLatitude(), place.getLongitude(), place.getPlaceSequence(), Instant.now(), Instant.now());
+        return new FavoritePlaceEntity(place.getUserId(), place.getPlaceId(), place.getRoadName(), place.getLatitude(), place.getLongitude(), place.getPlaceSequence(), place.getCreatedAt(), place.getUpdatedAt(), place.getPlaceName());
     }
 
     public FavoritePlace toDomain() {
-        return FavoritePlace.restore(userId, placeName, roadName, latitude, longitude, placeSequence, createdAt, updatedAt);
+        return FavoritePlace.restore(userId, placeId, placeName, roadName, latitude, longitude, placeSequence, createdAt, updatedAt);
     }
 }

@@ -15,3 +15,28 @@ groups:
         expr: api:error_ratio > 0.05
         for: 30s
         annotations: { summary: "5xx 5% 초과 - 테스트 중단" }
+
+  - name: sse
+    rules:
+      - alert: SseSendFailureSpike
+        expr: sum(rate(party_sse_sent_total{result="fail"}[1m])) / sum(rate(party_sse_sent_total[1m])) > 0.05
+        for: 1m
+        annotations: { summary: "SSE 쓰기 실패 5% 초과 - 죽은 연결이 쌓이거나 연결이 대량으로 끊기는 중" }
+
+      - alert: SseConnectionsDropped
+        expr: sum(party_sse_connections) < 0.5 * sum(party_sse_connections offset 2m) and sum(party_sse_connections offset 2m) > 100
+        for: 30s
+        annotations: { summary: "SSE 연결 수가 2분 전의 절반 아래로 급감 - 서버 재시작·ALB·네트워크 확인" }
+
+      - alert: SseDeliverySlow
+        expr: max(k6_sse_propagation_ms_p99) > 1000
+        for: 1m
+        annotations: { summary: "SSE 전파 지연 p99 1초 초과(k6 측정) - Redis 발행·수신 적체 확인" }
+
+      - alert: SseViewMismatch
+        expr: sum(increase(k6_sse_view_check_total{result=~"members|status"}[5m])) > 0
+        annotations: { summary: "SSE 로 만든 방 화면이 DB 와 어긋남 - k6 로그의 partyId 로 이벤트 순서·유실 확인" }
+
+      - alert: SseMissedEvent
+        expr: sum(increase(k6_journey_give_up_total{cause="missed-event"}[5m])) > 0
+        annotations: { summary: "DB 는 정원이 찼는데 SSE 이벤트를 못 받아 방을 포기한 사용자 발생" }

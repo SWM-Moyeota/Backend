@@ -17,23 +17,31 @@ public class PartySseRegistry {
     private static final int HEARTBEAT_MS = 30_000;
 
     private final Map<Long, Set<Subscription>> byParty = new ConcurrentHashMap<>();
+    private final PartySseMetrics metrics;
 
     private record Subscription(Long memberId, SseEmitter emitter) {
     }
 
-    public SseEmitter subscribe(Long partyId, Long memberId, Supplier<Object> snapshot) {
-        closeMember(partyId, memberId);
+    public PartySseRegistry(PartySseMetrics metrics) {
+        this.metrics = metrics;
+        metrics.bindConnections(this::connections);
+    }
 
-        SseEmitter emitter = new SseEmitter(0L);
+    public SseEmitter subscribe(Long partyId, Long memberId, Supplier<Object> snapshot) {
+        closeMember(partyId, memberId, "replaced");
+
+        SseEmitter emitter = newEmitter();
         byParty.computeIfAbsent(partyId, k -> ConcurrentHashMap.newKeySet()).add(new Subscription(memberId, emitter));
-        emitter.onCompletion(() -> remove(partyId, emitter));
-        emitter.onTimeout(() -> remove(partyId, emitter));
-        emitter.onError(e -> remove(partyId, emitter));
+        emitter.onCompletion(() -> remove(partyId, emitter, "complete"));
+        emitter.onTimeout(() -> remove(partyId, emitter, "timeout"));
+        emitter.onError(e -> remove(partyId, emitter, "error"));
 
         try {
             emitter.send(SseEmitter.event().name("connected").data(snapshot.get(), MediaType.APPLICATION_JSON));
+            metrics.sent("connected", true);
         } catch (Exception ex) {
-            remove(partyId, emitter);
+            metrics.sent("connected", false);
+            remove(partyId, emitter, "error");
         }
 
         return emitter;
@@ -43,24 +51,35 @@ public class PartySseRegistry {
         for (Subscription s : byParty.getOrDefault(partyId, Set.of())) {
             try {
                 s.emitter().send(SseEmitter.event().name(event).data(data));
+                metrics.sent(event, true);
             } catch (Exception ex) {
-                remove(partyId, s.emitter());
+                metrics.sent(event, false);
+                remove(partyId, s.emitter(), "error");
             }
         }
     }
 
     public void closeAll(Long partyId) {
         Set<Subscription> subscriptions = byParty.remove(partyId);
-        if (subscriptions != null) subscriptions.forEach(s -> s.emitter().complete());
+        if (subscriptions == null) return;
+
+        subscriptions.forEach(s -> {
+            metrics.closed("closed");
+            s.emitter().complete();
+        });
     }
 
     public void closeMember(Long partyId, Long memberId) {
+        closeMember(partyId, memberId, "left");
+    }
+
+    private void closeMember(Long partyId, Long memberId, String reason) {
         Set<Subscription> subscriptions = byParty.get(partyId);
         if (subscriptions == null) return;
 
         for (Subscription s : subscriptions) {
             if (!s.memberId().equals(memberId)) continue;
-            remove(partyId, s.emitter());
+            remove(partyId, s.emitter(), reason);
             s.emitter().complete();
         }
     }
@@ -71,7 +90,7 @@ public class PartySseRegistry {
             try {
                 s.emitter().send(SseEmitter.event().comment("ping"));
             } catch (Exception ex) {
-                remove(partyId, s.emitter());
+                remove(partyId, s.emitter(), "heartbeat");
             }
         }));
     }
@@ -80,8 +99,15 @@ public class PartySseRegistry {
         return byParty.values().stream().mapToInt(Set::size).sum();
     }
 
-    private void remove(Long partyId, SseEmitter emitter) {
+    SseEmitter newEmitter() {
+        return new SseEmitter(0L);
+    }
+
+    private void remove(Long partyId, SseEmitter emitter, String reason) {
         Set<Subscription> set = byParty.get(partyId);
-        if (set != null && set.removeIf(s -> s.emitter() == emitter) && set.isEmpty()) byParty.remove(partyId);
+        if (set == null || !set.removeIf(s -> s.emitter() == emitter)) return;
+
+        metrics.closed(reason);
+        if (set.isEmpty()) byParty.remove(partyId);
     }
 }

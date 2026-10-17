@@ -64,7 +64,8 @@ export default function () {
     check(pollChat(a.token, chatRoomId, lastId), { '커서 폴링(after) 200': (r) => r.status === 200 });
   }
 
-  check(finishRoom(b.token, room.id), { '아무나 한 명이 종료할 수 있다 (204)': (r) => r.status === 204 });
+  check(finishRoom(b.token, room.id), { '방장이 아니면 종료할 수 없다 (403)': (r) => r.status === 403 });
+  check(finishRoom(host.token, room.id), { '방장이 종료할 수 있다 (204)': (r) => r.status === 204 });
   check(roomDetail(host.token, room.id), { 'FINISHED': (r) => r.json('status') === 'FINISHED' });
 
   const again = openRoom(host.token, 3, 판교역, 'LT-smoke-2');

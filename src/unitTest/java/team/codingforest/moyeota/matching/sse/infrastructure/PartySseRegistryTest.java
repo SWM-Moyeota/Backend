@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.matching.sse.infrastructure;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -25,7 +26,7 @@ class PartySseRegistryTest {
 
     @BeforeEach
     void setUp() {
-        registry = new PartySseRegistry();
+        registry = new PartySseRegistry(new PartySseMetrics(new SimpleMeterRegistry()));
     }
 
     @Test

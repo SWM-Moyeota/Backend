@@ -1,0 +1,182 @@
+### 즐겨찾기 장소 API 를 처음부터 끝까지 걷기
+###   준비: docker compose up -d
+###   실행: ./gradlew bootRun --args='--spring.profiles.active=dev'
+###   IntelliJ 에서 이 파일을 열고 위에서부터 ▶ 를 순서대로 누른다. 각 요청 위 주석에 기대 응답을 적어 두었다.
+###   placeId 는 DB 가 자동 채번한다. 삭제 요청은 목록 응답(2-1, 2-2)에서 받은 placeId 를 변수로 꺼내 쓴다.
+
+@host = http://localhost:8080
+
+### ---------- 0. 유저 2명 준비 (민수·영희) ----------
+### 가입에는 휴대폰 인증 토큰이 필요하다. dev 프로파일은 인증번호가 000000 으로 고정돼 있다.
+### 이미 가입돼 있으면 0-3·0-6 에서 409 가 나도 상관없다. 바로 로그인으로 넘어간다.
+
+### 0-1. 민수 인증번호 발송 (204)
+POST {{host}}/api/v1/auth/sms/send
+Content-Type: application/json
+
+{ "phoneNumber": "010-1111-0001" }
+
+### 0-2. 민수 인증 (200, verificationToken)
+# @name verifyMinsu
+POST {{host}}/api/v1/auth/sms/verify
+Content-Type: application/json
+
+{ "phoneNumber": "010-1111-0001", "code": "000000" }
+
+### 0-3. 민수 가입 (201)
+POST {{host}}/api/v1/auth/register
+Content-Type: application/json
+
+{ "loginId": "minsu01", "password": "Passw0rd!", "nickname": "민수", "name": "김민수", "birthDate": "2000-01-01T00:00:00Z", "phoneNumber": "010-1111-0001", "gender": "MALE", "email": "minsu@example.com", "verificationToken": "{{verifyMinsu.response.body.verificationToken}}" }
+
+### 0-4. 영희 인증번호 발송 (204)
+POST {{host}}/api/v1/auth/sms/send
+Content-Type: application/json
+
+{ "phoneNumber": "010-1111-0002" }
+
+### 0-5. 영희 인증 (200, verificationToken)
+# @name verifyYounghee
+POST {{host}}/api/v1/auth/sms/verify
+Content-Type: application/json
+
+{ "phoneNumber": "010-1111-0002", "code": "000000" }
+
+### 0-6. 영희 가입 (201)
+POST {{host}}/api/v1/auth/register
+Content-Type: application/json
+
+{ "loginId": "younghee01", "password": "Passw0rd!", "nickname": "영희", "name": "이영희", "birthDate": "2000-01-01T00:00:00Z", "phoneNumber": "010-1111-0002", "gender": "FEMALE", "email": "younghee@example.com", "verificationToken": "{{verifyYounghee.response.body.verificationToken}}" }
+
+### 0-7. 민수 로그인
+# @name loginMinsu
+POST {{host}}/api/v1/auth/login
+Content-Type: application/json
+
+{ "loginId": "minsu01", "password": "Passw0rd!" }
+
+### 0-8. 영희 로그인
+# @name loginYounghee
+POST {{host}}/api/v1/auth/login
+Content-Type: application/json
+
+{ "loginId": "younghee01", "password": "Passw0rd!" }
+
+@minsu = {{loginMinsu.response.body.accessToken}}
+@younghee = {{loginYounghee.response.body.accessToken}}
+
+### ---------- 1. 등록 ----------
+
+### 1-1. 민수 - 집 등록 (204)
+POST {{host}}/api/v1/users/me/favorite-places
+Authorization: Bearer {{minsu}}
+Content-Type: application/json
+
+{ "placeName": "집", "roadName": "서울 강남구 테헤란로 152", "latitude": 37.4979, "longitude": 127.0276 }
+
+### 1-2. 민수 - 회사 등록 (204)
+POST {{host}}/api/v1/users/me/favorite-places
+Authorization: Bearer {{minsu}}
+Content-Type: application/json
+
+{ "placeName": "회사", "roadName": "경기 성남시 분당구 판교역로 166", "latitude": 37.3948, "longitude": 127.1112 }
+
+### 1-3. 민수 - 헬스장 등록 (204)
+POST {{host}}/api/v1/users/me/favorite-places
+Authorization: Bearer {{minsu}}
+Content-Type: application/json
+
+{ "placeName": "헬스장", "roadName": "서울 강남구 역삼로 180", "latitude": 37.4950, "longitude": 127.0330 }
+
+### 1-4. 영희 - 집 등록 (204). 민수와 placeName 이 같아도 placeId 가 다르니 각자 저장된다
+POST {{host}}/api/v1/users/me/favorite-places
+Authorization: Bearer {{younghee}}
+Content-Type: application/json
+
+{ "placeName": "집", "roadName": "서울 마포구 월드컵북로 396", "latitude": 37.5796, "longitude": 126.8896 }
+
+### 1-5. 민수 - 같은 이름으로 다시 등록 (409 FAVORITE_PLACE_DUPLICATED)
+POST {{host}}/api/v1/users/me/favorite-places
+Authorization: Bearer {{minsu}}
+Content-Type: application/json
+
+{ "placeName": "집", "roadName": "다른 주소", "latitude": 37.5, "longitude": 127.0 }
+
+### 1-6. 민수 - placeName 없이 등록 (400 INVALID_PLACE_NAME)
+POST {{host}}/api/v1/users/me/favorite-places
+Authorization: Bearer {{minsu}}
+Content-Type: application/json
+
+{ "placeName": "", "roadName": "주소", "latitude": 37.5, "longitude": 127.0 }
+
+### ---------- 2. 조회 ----------
+
+### 2-1. 민수 목록 (200, 집·회사·헬스장 3건, placeSequence 1·2·3)
+# @name listMinsu
+GET {{host}}/api/v1/users/me/favorite-places
+Authorization: Bearer {{minsu}}
+
+### 2-2. 영희 목록 (200, 집 1건만)
+# @name listYounghee
+GET {{host}}/api/v1/users/me/favorite-places
+Authorization: Bearer {{younghee}}
+
+@minsuHome = {{listMinsu.response.body.places[0].placeId}}
+@minsuOffice = {{listMinsu.response.body.places[1].placeId}}
+@minsuGym = {{listMinsu.response.body.places[2].placeId}}
+@youngheeHome = {{listYounghee.response.body.places[0].placeId}}
+
+### ---------- 3. 삭제 ----------
+
+### 3-1. 민수 - 영희의 즐겨찾기 삭제 시도 (404 FAVORITE_PLACE_NOT_FOUND). 남의 것은 못 지운다
+DELETE {{host}}/api/v1/users/me/favorite-places/{{youngheeHome}}
+Authorization: Bearer {{minsu}}
+
+### 3-2. 민수 - 집 한 건 삭제 (204)
+DELETE {{host}}/api/v1/users/me/favorite-places/{{minsuHome}}
+Authorization: Bearer {{minsu}}
+
+### 3-3. 민수 - 같은 것 다시 삭제 (404 FAVORITE_PLACE_NOT_FOUND)
+DELETE {{host}}/api/v1/users/me/favorite-places/{{minsuHome}}
+Authorization: Bearer {{minsu}}
+
+### 3-4. 민수 - 숫자가 아닌 placeId (400)
+DELETE {{host}}/api/v1/users/me/favorite-places/abc
+Authorization: Bearer {{minsu}}
+
+### 3-5. 민수 - 다건 삭제, 없는 ID 가 섞이면 하나도 지우지 않는다 (404 FAVORITE_PLACE_NOT_FOUND)
+POST {{host}}/api/v1/users/me/favorite-places/batch-delete
+Authorization: Bearer {{minsu}}
+Content-Type: application/json
+
+{ "placeIds": [{{minsuOffice}}, 9999] }
+
+### 3-6. 민수 - 다건 삭제, 빈 목록 (400 INVALID_PLACE_IDS)
+POST {{host}}/api/v1/users/me/favorite-places/batch-delete
+Authorization: Bearer {{minsu}}
+Content-Type: application/json
+
+{ "placeIds": [] }
+
+### 3-7. 민수 - 다건 삭제, 회사·헬스장 (204). 중복 ID 는 한 번만 센다
+POST {{host}}/api/v1/users/me/favorite-places/batch-delete
+Authorization: Bearer {{minsu}}
+Content-Type: application/json
+
+{ "placeIds": [{{minsuOffice}}, {{minsuGym}}, {{minsuOffice}}] }
+
+### 3-8. 민수 목록 (200, 빈 목록)
+GET {{host}}/api/v1/users/me/favorite-places
+Authorization: Bearer {{minsu}}
+
+### 3-9. 민수 - 즐겨찾기가 없는데 전체 삭제 (404 FAVORITE_PLACE_NOT_FOUND)
+DELETE {{host}}/api/v1/users/me/favorite-places/all
+Authorization: Bearer {{minsu}}
+
+### 3-10. 영희 - 전체 삭제 (204)
+DELETE {{host}}/api/v1/users/me/favorite-places/all
+Authorization: Bearer {{younghee}}
+
+### 3-11. 영희 목록 (200, 빈 목록)
+GET {{host}}/api/v1/users/me/favorite-places
+Authorization: Bearer {{younghee}}
