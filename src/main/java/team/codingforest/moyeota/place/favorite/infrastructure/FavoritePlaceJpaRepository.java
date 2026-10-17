@@ -7,19 +7,23 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
-public interface FavoritePlaceJpaRepository extends JpaRepository<FavoritePlaceEntity, FavoritePlaceId> {
+public interface FavoritePlaceJpaRepository extends JpaRepository<FavoritePlaceEntity, Long> {
 
     List<FavoritePlaceEntity> findByUserId(Long userId);
 
     @Query("select count(fp) from FavoritePlaceEntity fp where fp.userId = :userId")
     int countByUserId(@Param("userId") Long userId);
 
-    @Query("select count(fp) > 0 from FavoritePlaceEntity  fp where fp.userId = :userId and fp.placeName = :placeName")
-    boolean existsByUserIdAndPlace(@Param("userId") Long userId, @Param("placeName") String placeName);
+    @Query("select count(fp) > 0 from FavoritePlaceEntity  fp where fp.userId = :userId and fp.placeId = :placeId")
+    boolean existsByUserIdAndPlace(@Param("userId") Long userId, @Param("placeId") Long placeId);
 
     @Modifying
-    @Query("delete from FavoritePlaceEntity fp where fp.userId = :userId and fp.placeName = :placeName")
-    void deleteByUserIdAndPlaceName(@Param("userId") Long userId, @Param("placeName") String placeName);
+    @Query("delete from FavoritePlaceEntity fp where fp.userId = :userId and fp.placeId = :placeId")
+    void deleteByUserIdAndPlaceName(@Param("userId") Long userId, @Param("placeId") Long placeId);
+
+    @Modifying
+    @Query("delete from FavoritePlaceEntity fp where fp.userId = :userId and fp.placeId in :placeIds")
+    void deleteByUserIdAndPlaceIdIn(@Param("userId") Long userId, @Param("placeIds") List<Long> placeIds);
 
     @Modifying
     @Query("delete from FavoritePlaceEntity fp where fp.userId = :userId")

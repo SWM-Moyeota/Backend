@@ -31,13 +31,18 @@ public class FavoritePlaceJpa implements FavoritePlaces {
     }
 
     @Override
-    public boolean existsByUserIdAndPlace(Long userId, String placeName) {
-        return delegate.existsByUserIdAndPlace(userId, placeName);
+    public boolean existsByUserIdAndPlace(Long userId, Long placeId) {
+        return delegate.existsByUserIdAndPlace(userId, placeId);
     }
 
     @Override
-    public void deleteByUserIdAndPlaceName(Long userId, String placeName) {
-        delegate.deleteByUserIdAndPlaceName(userId, placeName);
+    public void deleteByUserIdAndPlaceName(Long userId, Long placeId) {
+        delegate.deleteByUserIdAndPlaceName(userId, placeId);
+    }
+
+    @Override
+    public void deleteByUserIdAndPlaceIdIn(Long userId, List<Long> placeIds) {
+        delegate.deleteByUserIdAndPlaceIdIn(userId, placeIds);
     }
 
     @Override
