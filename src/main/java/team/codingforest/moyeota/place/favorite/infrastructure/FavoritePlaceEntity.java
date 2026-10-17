@@ -45,6 +45,7 @@ public class FavoritePlaceEntity {
     @LastModifiedDate
     private Instant updatedAt;
 
+    @Column(name = "place_name")
     private String placeName;
 
     private FavoritePlaceEntity(Long userId, Long placeId, String roadName, Double latitude, Double longitude, Integer placeSequence, Instant createdAt, Instant updatedAt, String placeName) {
