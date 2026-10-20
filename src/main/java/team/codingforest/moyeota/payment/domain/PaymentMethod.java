@@ -1,6 +1,8 @@
 package team.codingforest.moyeota.payment.domain;
 
 import lombok.Getter;
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.payment.exception.PaymentErrorCode;
 
 import java.time.Instant;
 
@@ -28,9 +30,9 @@ public class PaymentMethod {
     }
 
     public static PaymentMethod registerCard(Long userId, String billingKey, CardDetail card, Instant now) {
-        if(userId == null) throw new IllegalArgumentException("userId 는 필수입니다.");
-        if(billingKey == null || billingKey.isBlank()) throw new IllegalArgumentException("billingKey 는 필수입니다.");
-        if(card == null) throw new IllegalArgumentException("카드 정보는 필수입니다.");
+        if(userId == null) throw new BusinessException(PaymentErrorCode.PAYMENT_USER_ID_REQUIRED);
+        if(billingKey == null || billingKey.isBlank()) throw new BusinessException(PaymentErrorCode.BILLING_KEY_REQUIRED);
+        if(card == null) throw new BusinessException(PaymentErrorCode.CARD_INFO_REQUIRED);
 
         return new PaymentMethod(null, userId, billingKey, card, now, null);
     }
@@ -42,7 +44,7 @@ public class PaymentMethod {
     }
 
     public void selectAsDefault() {
-        if(!isActive()) throw new IllegalArgumentException("삭제된 카드는 기본 카드로 선택할 수 없습니다.");
+        if(!isActive()) throw new BusinessException(PaymentErrorCode.PAYMENT_METHOD_DELETED);
         defaultMethod = true;
     }
 

@@ -1,6 +1,8 @@
 package team.codingforest.moyeota.payment.domain;
 
 import org.junit.jupiter.api.Test;
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.payment.exception.PaymentErrorCode;
 
 import java.time.Instant;
 
@@ -34,8 +36,12 @@ class PaymentMethodTest {
     @Test
     void 빌링키나_카드_정보가_없으면_만들_수_없다() {
         // 빌링키 없는 수단은 청구에 쓸 수 없고, 카드 정보 없는 수단은 화면에 보여줄 게 없다
-        assertThatThrownBy(() -> PaymentMethod.registerCard(1L, " ", 신한카드, Instant.now())).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> PaymentMethod.registerCard(1L, "bk-1", null, Instant.now())).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> PaymentMethod.registerCard(1L, " ", 신한카드, Instant.now()))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(PaymentErrorCode.BILLING_KEY_REQUIRED);
+        assertThatThrownBy(() -> PaymentMethod.registerCard(1L, "bk-1", null, Instant.now()))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(PaymentErrorCode.CARD_INFO_REQUIRED);
     }
 
     @Test
@@ -50,6 +56,8 @@ class PaymentMethodTest {
         assertThat(method.isDefaultMethod()).isTrue();
         method.delete(Instant.now());
         assertThat(method.isDefaultMethod()).isFalse();
-        assertThatThrownBy(method::selectAsDefault).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(method::selectAsDefault)
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(PaymentErrorCode.PAYMENT_METHOD_DELETED);
     }
 }
