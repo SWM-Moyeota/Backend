@@ -50,7 +50,7 @@ public class PaymentMethodController {
         return ResponseEntity.ok(service.list(userId));
     }
 
-    @Operation(summary = "기본 카드 선택", description = "본인의 사용 가능한 카드만 선택할 수 있다. 기존 카드는 삭제하지 않는다.")
+    @Operation(summary = "기본 결제수단 선택", description = "본인의 사용 가능한 결제수단만 선택할 수 있다. 현재는 카드만 지원한다. 기존 결제수단은 삭제하지 않는다.")
     @PutMapping("/{methodId}/default")
     public ResponseEntity<PaymentMethodResponse> selectDefault(@CurrentUser Long userId,
             @PathVariable Long methodId) {
