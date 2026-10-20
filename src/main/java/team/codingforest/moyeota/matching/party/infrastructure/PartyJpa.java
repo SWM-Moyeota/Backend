@@ -10,6 +10,7 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
+import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -100,5 +101,10 @@ public class PartyJpa implements Parties {
     @Override
     public List<Long> findCompletedBefore(Instant before) {
         return delegate.findIdsByStatusAndCompletedBefore(PartyStatus.COMPLETED, before);
+    }
+
+    @Override
+    public List<NearbyPartySummary> findMatchesWithinRadius(double departLat, double departLng, double destLat, double destLng, int radius) {
+        return delegate.findNearbyParties(departLat, departLng, destLat, destLng, radius);
     }
 }

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
+import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -58,4 +59,23 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 
     @Query("select p.id from PartyEntity p where p.status = :status and p.completedAt < :before")
     List<Long> findIdsByStatusAndCompletedBefore(@Param("status") PartyStatus status, @Param("before") Instant before);
+
+    @Query(value = """
+            SELECT m.id, m.departure_lat, m.departure_lng, m.destination_lat, m.destination_lng, m.departure, m.destination, m.capacity
+            FROM match_room m
+            WHERE m.status = 'WAITING'
+              AND ST_DWithin(m.departure_geog,
+                             CAST(ST_SetSRID(ST_MakePoint(:depLng, :depLat), 4326) AS geography),
+                             :radius)
+              AND ST_DWithin(m.destination_geog,
+                             CAST(ST_SetSRID(ST_MakePoint(:destLng, :destLat), 4326) AS geography),
+                             :radius)
+            ORDER BY ST_Distance(m.departure_geog,
+                                 CAST(ST_SetSRID(ST_MakePoint(:depLng, :depLat), 4326) AS geography))
+            """, nativeQuery = true)
+    List<NearbyPartySummary> findNearbyParties(@Param("depLat") double depLat,
+                                               @Param("depLng") double depLng,
+                                               @Param("destLat") double destLat,
+                                               @Param("destLng") double destLng,
+                                               @Param("radius") int radius);
 }

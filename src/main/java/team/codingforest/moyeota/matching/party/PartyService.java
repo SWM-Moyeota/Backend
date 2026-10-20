@@ -16,6 +16,7 @@ import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy
 import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
 import team.codingforest.moyeota.matching.party.dto.MemberJoined;
 import team.codingforest.moyeota.matching.party.dto.MemberLeft;
+import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
@@ -27,6 +28,7 @@ import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.Radius;
+import team.codingforest.moyeota.matching.party.dto.RealTimeMatchingCommand;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
@@ -44,6 +46,7 @@ import java.util.UUID;
 public class PartyService {
     /** 지도 한 화면에 내려주는 방 수 상한. 넘으면 최신순으로 자른다 */
     static final int MAP_LIST_LIMIT = 100;
+    private static final int RADIUS = 300;
 
     private final Parties parties;
     private final ApplicationEventPublisher eventPublisher;
@@ -196,6 +199,20 @@ public class PartyService {
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
 
         log.warn("정원 충족 후 방치된 방 자동 종료 partyId={}", partyId);
+    }
+
+    @Transactional
+    public void realtimeMatch(Long memberId, RealTimeMatchingCommand command) {
+        validateNotInOngoingParty(memberId);
+
+        // 1. 입력으로 들어온 출발지 위경도와 목적지 위경도에서 300m 반경의 매칭방을 찾기
+        List<NearbyPartySummary> summary = parties.findMatchesWithinRadius(command.departureLat(), command.departureLng(), command.destLat(), command.destLng(), RADIUS);
+
+        // 2. OSRM으로 매칭방 목록과 현재 출발하고 싶은 출발점 위경도와 목적지 위경도 estimateTime 계산
+
+        // 3. 우선순위 뽑아서 비교 가장 최적인거 계산
+
+
     }
 
     private Party getParty(Long partyId) {
