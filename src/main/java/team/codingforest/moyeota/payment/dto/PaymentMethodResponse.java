@@ -1,8 +1,9 @@
 package team.codingforest.moyeota.payment.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import team.codingforest.moyeota.payment.domain.PaymentMethod;
-import team.codingforest.moyeota.payment.domain.PaymentMethodType;
+import team.codingforest.moyeota.payment.entity.Card;
+import team.codingforest.moyeota.payment.entity.PaymentMethod;
+import team.codingforest.moyeota.payment.entity.PaymentMethodType;
 
 import java.time.Instant;
 
@@ -16,7 +17,8 @@ public record PaymentMethodResponse(
         boolean isDefault
 ) {
     public static PaymentMethodResponse from(PaymentMethod method) {
-        return new PaymentMethodResponse(method.getId(), method.getType(), method.getCard().label(),
-                method.getCard().number(), method.getCard().brand(), method.getCreatedAt(), method.isDefaultMethod());
+        Card card = method.getCard();
+        return new PaymentMethodResponse(method.getId(), method.getType(), card.getLabel(),
+                card.getNumber(), card.getBrand(), method.getCreatedAt(), method.isDefaultMethod());
     }
 }
