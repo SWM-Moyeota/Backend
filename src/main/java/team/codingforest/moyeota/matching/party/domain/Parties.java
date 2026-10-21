@@ -15,8 +15,9 @@ public interface Parties {
     Optional<Party> findByIdForUpdate(Long id);
     List<MatchingTarget> findMatchingTargets();
     boolean hasOngoingRide(Long driverId);
-    /** 최신순으로 최대 limit 개 */
     List<PartySummary> findSummariesWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng, int limit);
     Map<Long, Integer> countFinishedRides(List<Long> memberIds);
     List<Long> findCompletedBefore(Instant before);
+    boolean existsById(Long id);
+    boolean hasMember(Long partyId, Long memberId);
 }
