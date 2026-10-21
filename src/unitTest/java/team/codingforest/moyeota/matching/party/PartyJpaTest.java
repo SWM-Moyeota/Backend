@@ -5,9 +5,11 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
+import team.codingforest.moyeota.matching.party.domain.PartyVersion;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -32,7 +34,7 @@ public class PartyJpaTest implements Parties {
                 party.getDepartureRadius(), party.getDestinationRadius(),
                 party.getDeparture(), party.getDestination(), party.getCapacity(),
                 party.getMembers(), party.getCreatedAt(), party.getStatus(),
-                party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getTaxiDriverId(), party.getMatchingStartedAt(), party.getCompletedAt());
+                party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getTaxiDriverId(), party.getMatchingStartedAt(), party.getCompletedAt(), party.getVersion());
 
         store.put(id, saved);
         return saved;
@@ -103,6 +105,26 @@ public class PartyJpaTest implements Parties {
                 .filter(p -> p.getStatus() == PartyStatus.COMPLETED)
                 .filter(p -> p.getCompletedAt() != null && p.getCompletedAt().isBefore(before))
                 .map(Party::getId)
+                .toList();
+    }
+
+    @Override
+    public boolean existsById(Long id) {
+        return store.containsKey(id);
+    }
+
+    @Override
+    public boolean hasMember(Long partyId, Long memberId) {
+        Party party = store.get(partyId);
+        return party != null && party.hasMember(memberId);
+    }
+
+    @Override
+    public List<PartyVersion> findVersions(Collection<Long> ids) {
+        return ids.stream()
+                .map(store::get)
+                .filter(p -> p != null)
+                .map(p -> new PartyVersion(p.getId(), p.getVersion(), p.getStatus()))
                 .toList();
     }
 

@@ -7,6 +7,7 @@ import team.codingforest.moyeota.common.event.EventResubmitter;
 import team.codingforest.moyeota.dispatch.call.MatchingSweeper;
 import team.codingforest.moyeota.driver.DriverRetentionSweeper;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
+import team.codingforest.moyeota.matching.sse.infrastructure.PartySseHeartbeat;
 import team.codingforest.moyeota.matching.sse.infrastructure.PartySseRegistry;
 import team.codingforest.moyeota.user.deletion.application.UserDeletionSweeper;
 
@@ -24,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SchedulerLockAnnotationTest {
 
     @Test
-    void DB를_건드리는_스케줄러는_전부_잠근다() {
+    void DB를_고치는_스케줄러는_전부_잠근다() {
         assertLocked(EventResubmitter.class, "run", "event-resubmit");
         assertLocked(CompletedPartySweeper.class, "sweep", "completed-party-sweep");
         assertLocked(MatchingSweeper.class, "sweep", "matching-sweep");
@@ -37,6 +38,13 @@ class SchedulerLockAnnotationTest {
         Method heartbeat = scheduled(PartySseRegistry.class, "heartbeat");
 
         assertThat(heartbeat.isAnnotationPresent(SchedulerLock.class)).isFalse();
+    }
+
+    @Test
+    void SSE_버전_heartbeat_는_DB_를_읽어도_잠그지_않는다() {
+        Method beat = scheduled(PartySseHeartbeat.class, "beat");
+
+        assertThat(beat.isAnnotationPresent(SchedulerLock.class)).isFalse();
     }
 
     @Test

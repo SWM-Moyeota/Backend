@@ -16,7 +16,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  *  Redis 채널 수신 → 로컬 레지스트리. 메시지는 PartySseMessage JSON 이다.
  *  나간 사람이 있으면 그 연결부터 닫고 알린다 - 순서가 바뀌면 나간 사람도 자기 퇴장 이벤트를 받는다.
- *  closed 는 알린 뒤 이 인스턴스의 연결을 끊는다 - 순서가 바뀌면 아무도 못 받는다.
  */
 class PartySseChannelTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -38,10 +37,10 @@ class PartySseChannelTest {
     }
 
     @Test
-    void closed_신호는_알린_뒤_그_방의_연결을_끊는다() {
+    void closed_신호는_따로_알리지_않고_데이터와_함께_방을_닫는다() {
         channel.onMessage(msg(new PartySseMessage(42L, "closed", "42", null)), null);
 
-        assertThat(registry.calls).containsExactly("notify:42:closed:42", "closeAll:42");
+        assertThat(registry.calls).containsExactly("closeAll:42:42");
     }
 
     @Test
@@ -81,8 +80,8 @@ class PartySseChannelTest {
         }
 
         @Override
-        public void closeAll(Long partyId) {
-            calls.add("closeAll:" + partyId);
+        public void closeAll(Long partyId, String data) {
+            calls.add("closeAll:" + partyId + ":" + data);
         }
 
         @Override

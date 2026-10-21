@@ -2,7 +2,6 @@ package team.codingforest.moyeota.matching.sse;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
@@ -18,7 +17,6 @@ public class PartySseService {
     private final PartyService partyService;
     private final PartySseRegistry partySseRegistry;
 
-    @Transactional(readOnly = true)
     public SseEmitter subscribe(Long partyId, Long memberId) {
         Party party = parties.findById(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));

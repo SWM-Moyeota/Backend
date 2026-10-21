@@ -20,7 +20,7 @@ class PartySseRegistryMetricsTest {
     private static final Long 영희 = 2L;
 
     private static final Supplier<Object> SNAPSHOT = () -> "detail";
-    private static final List<String> REASONS = List.of("complete", "timeout", "error", "replaced", "left", "closed", "heartbeat");
+    private static final List<String> REASONS = List.of("complete", "timeout", "error", "replaced", "left", "closed", "heartbeat", "heartbeat-closed");
 
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final FakeEmitterRegistry registry = new FakeEmitterRegistry(meters);
@@ -35,7 +35,7 @@ class PartySseRegistryMetricsTest {
         registry.closeMember(방, 영희);
         assertThat(connections()).isEqualTo(2);
 
-        registry.closeAll(방);
+        registry.closeAll(방, "42");
         assertThat(connections()).isEqualTo(1);
     }
 
@@ -92,9 +92,47 @@ class PartySseRegistryMetricsTest {
         registry.subscribe(방, 영희, SNAPSHOT);
         registry.subscribe(다른방, 철수, SNAPSHOT);
 
-        registry.closeAll(방);
+        registry.closeAll(방, "42");
 
         assertClosedOnly("closed", 2);
+        assertThat(sent("closed", "ok")).isEqualTo(2);
+    }
+
+    @Test
+    void 방을_닫을_때_closed_전송에_실패하면_error_로_한_번만_센다() {
+        registry.subscribe(방, 철수, SNAPSHOT);
+        registry.last().failSend = true;
+
+        registry.closeAll(방, "42");
+        registry.last().error();
+
+        assertClosedOnly("error", 1);
+        assertThat(sent("closed", "fail")).isEqualTo(1);
+        assertThat(connections()).isZero();
+    }
+
+    @Test
+    void 방을_닫을_때_한_연결이_실패해도_나머지_연결은_closed_를_받는다() {
+        registry.subscribe(방, 철수, SNAPSHOT);
+        registry.subscribe(방, 영희, SNAPSHOT);
+        registry.emitters.getFirst().failComplete = true;
+
+        registry.closeAll(방, "42");
+
+        assertThat(sent("closed", "ok")).isEqualTo(2);
+        assertThat(registry.last().completed).isTrue();
+    }
+
+    @Test
+    void 옛_연결을_닫다_예외가_나도_다시_연결할_수_있다() {
+        registry.subscribe(방, 철수, SNAPSHOT);
+        registry.last().failComplete = true;
+
+        registry.subscribe(방, 철수, SNAPSHOT);
+
+        assertClosedOnly("replaced", 1);
+        assertThat(connections()).isEqualTo(1);
+        assertThat(sent("connected", "ok")).isEqualTo(2);
     }
 
     @Test
@@ -142,6 +180,47 @@ class PartySseRegistryMetricsTest {
         assertThat(sent("connected", "ok")).isEqualTo(2);
         assertThat(sent("member-left", "ok")).isEqualTo(1);
         assertThat(sent("member-left", "fail")).isEqualTo(1);
+    }
+
+    @Test
+    void heartbeat_로_닫은_방은_heartbeat_closed_로_센다() {
+        registry.subscribe(방, 철수, SNAPSHOT);
+        registry.subscribe(방, 영희, SNAPSHOT);
+
+        registry.closeAll(방, "{}", "heartbeat-closed");
+
+        assertClosedOnly("heartbeat-closed", 2);
+        assertThat(sent("closed", "ok")).isEqualTo(2);
+    }
+
+    @Test
+    void 버전_heartbeat_전송에_실패하면_heartbeat_로_한_번만_센다() {
+        registry.subscribe(방, 철수, SNAPSHOT);
+        registry.last().failSend = true;
+
+        registry.sendHeartbeat(방, "{\"version\":1}");
+        registry.last().error();
+
+        assertClosedOnly("heartbeat", 1);
+        assertThat(connections()).isZero();
+    }
+
+    @Test
+    void 버전_heartbeat_는_보낸_이벤트로_세지_않는다() {
+        registry.subscribe(방, 철수, SNAPSHOT);
+
+        registry.sendHeartbeat(방, "{\"version\":1}");
+
+        assertThat(meters.find("party.sse.sent").counters()).hasSize(1);
+    }
+
+    @Test
+    void 연결이_있는_방_번호만_돌려준다() {
+        registry.subscribe(방, 철수, SNAPSHOT);
+        registry.subscribe(다른방, 영희, SNAPSHOT);
+        registry.closeMember(다른방, 영희);
+
+        assertThat(registry.partyIds()).containsExactly(방);
     }
 
     @Test
@@ -197,6 +276,8 @@ class PartySseRegistryMetricsTest {
 
     static class FakeEmitter extends SseEmitter {
         boolean failSend;
+        boolean failComplete;
+        boolean completed;
         private Runnable completion = () -> {};
         private Runnable timeout = () -> {};
         private Consumer<Throwable> error = e -> {};
@@ -223,6 +304,8 @@ class PartySseRegistryMetricsTest {
 
         @Override
         public void complete() {
+            if (failComplete) throw new IllegalStateException("AsyncContext after onError");
+            completed = true;
             completion.run();
         }
 

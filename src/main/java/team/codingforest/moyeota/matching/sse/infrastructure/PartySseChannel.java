@@ -27,10 +27,11 @@ public class PartySseChannel implements MessageListener {
                 partySseRegistry.closeMember(m.partyId(), m.leftMemberId());
             }
 
-            partySseRegistry.notify(m.partyId(), m.event(), m.data());
-
             if("closed".equals(m.event())) {
-                partySseRegistry.closeAll(m.partyId());
+                partySseRegistry.closeAll(m.partyId(), m.data());
+            }
+            else {
+                partySseRegistry.notify(m.partyId(), m.event(), m.data());
             }
         } catch (Exception e) {
             log.warn("SSE 처리 실패", e);

@@ -101,14 +101,11 @@ class PartyAccessService implements PartyAccess {
     @Transactional(readOnly = true)
     @Override
     public boolean hasMemberOnParty(Long partyId, Long memberId) {
-        Party party = parties.findById(partyId)
-                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
-
-        for(PartyMember partyMember : party.getMembers()) {
-            if(partyMember.getMemberId().equals(memberId)) return true;
+        if(!parties.existsById(partyId)) {
+            throw new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND);
         }
 
-        return false;
+        return parties.hasMember(partyId, memberId);
     }
 
     @Transactional(readOnly = true)
