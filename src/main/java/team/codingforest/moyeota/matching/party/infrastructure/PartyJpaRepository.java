@@ -72,6 +72,9 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
                              :radius)
             ORDER BY ST_Distance(m.departure_geog,
                                  CAST(ST_SetSRID(ST_MakePoint(:depLng, :depLat), 4326) AS geography))
+                   + ST_Distance(m.destination_geog,
+                                 CAST(ST_SetSRID(ST_MakePoint(:destLng, :destLat), 4326) AS geography))
+            limit 5
             """, nativeQuery = true)
     List<NearbyPartySummary> findNearbyParties(@Param("depLat") double depLat,
                                                @Param("depLng") double depLng,
