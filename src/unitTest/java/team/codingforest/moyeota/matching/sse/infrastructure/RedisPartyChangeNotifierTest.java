@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import team.codingforest.moyeota.matching.party.dto.MemberJoined;
 import team.codingforest.moyeota.matching.party.dto.MemberLeft;
+import team.codingforest.moyeota.matching.party.dto.PartyClosed;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.sse.dto.PartySseMessage;
 import tools.jackson.databind.ObjectMapper;
@@ -29,7 +30,7 @@ class RedisPartyChangeNotifierTest {
     @Test
     void 참여는_들어온_사람_정보를_데이터로_실어_채널에_낸다() {
         UUID publicId = UUID.randomUUID();
-        MemberJoined event = MemberJoined.from(new PartyDetailResult.MemberInfo(publicId, "철수", null, null, 3, false), "ACTIVE");
+        MemberJoined event = MemberJoined.from(new PartyDetailResult.MemberInfo(publicId, "철수", null, null, 3, false), "ACTIVE", 2L);
 
         notifier.memberJoined(방, event);
 
@@ -45,7 +46,7 @@ class RedisPartyChangeNotifierTest {
         // 내부 번호는 연결을 닫는 데만 쓰고, 앱에는 publicId 만 간다
         UUID publicId = UUID.randomUUID();
         UUID hostPublicId = UUID.randomUUID();
-        MemberLeft event = MemberLeft.from(publicId, "ACTIVE", hostPublicId);
+        MemberLeft event = MemberLeft.from(publicId, "ACTIVE", hostPublicId, 3L);
 
         notifier.memberLeft(방, 7L, event);
 
@@ -57,18 +58,20 @@ class RedisPartyChangeNotifierTest {
     }
 
     @Test
-    void closed_는_방_번호만_실어_채널에_낸다() {
-        notifier.closed(방);
+    void closed_는_방_번호와_상태와_version_을_실어_채널에_낸다() {
+        PartyClosed event = PartyClosed.from(방, "FINISHED", 4L);
+
+        notifier.closed(방, event);
 
         PartySseMessage sent = onlySent();
         assertThat(sent.event()).isEqualTo("closed");
-        assertThat(sent.data()).isEqualTo("42");
+        assertThat(objectMapper.readValue(sent.data(), PartyClosed.class)).isEqualTo(event);
         assertThat(sent.leftMemberId()).isNull();
     }
 
     @Test
     void 모든_신호는_같은_채널로_낸다() {
-        notifier.closed(방);
+        notifier.closed(방, PartyClosed.from(방, "FINISHED", 1L));
 
         assertThat(redis.channels).containsExactly(PartySseChannel.TOPIC);
     }

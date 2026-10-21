@@ -18,6 +18,7 @@ import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.party.dto.MemberJoined;
 import team.codingforest.moyeota.matching.party.dto.MemberLeft;
+import team.codingforest.moyeota.matching.party.dto.PartyClosed;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
@@ -465,6 +466,49 @@ class PartyServiceTest {
     }
 
     @Test
+    void 마지막_멤버가_나가면_closed_에_CANCELED_와_올라간_version_이_실린다() {
+        PartyResult party = service.open(createParty(host, 3));
+
+        service.leave(party.id(), host);
+
+        assertThat(signals.closed.getLast().status()).isEqualTo("CANCELED");
+        assertThat(signals.closed.getLast().version()).isEqualTo(1).isEqualTo(versionOf(party.id()));
+    }
+
+    @Test
+    void 신호마다_저장된_version_이_실리고_1씩_오른다() {
+        service = serviceWith(new ChatOnlyCompletionPolicy());
+        userAccess.등록(guest, "게스트");
+        PartyResult party = service.open(createParty(host, 3));
+
+        service.join(party.id(), participant);
+        assertThat(signals.joined.getLast().version()).isEqualTo(1).isEqualTo(versionOf(party.id()));
+
+        service.join(party.id(), guest);
+        assertThat(signals.joined.getLast().version()).isEqualTo(2).isEqualTo(versionOf(party.id()));
+
+        service.leave(party.id(), guest);
+        assertThat(signals.left.getLast().version()).isEqualTo(3).isEqualTo(versionOf(party.id()));
+
+        service.join(party.id(), guest);
+        service.finish(party.id(), host);
+        assertThat(signals.closed.getLast().version()).isEqualTo(5).isEqualTo(versionOf(party.id()));
+        assertThat(signals.closed.getLast().status()).isEqualTo("FINISHED");
+        assertThat(service.getPartyDetail(party.id()).version()).isEqualTo(5);
+    }
+
+    @Test
+    void 정원이_차_배차가_시작돼도_참여_신호의_version_은_1만_오른다() {
+        PartyResult party = service.open(createParty(host, 2));
+
+        service.join(party.id(), participant);
+
+        assertThat(versionOf(party.id())).isEqualTo(1);
+        assertThat(signals.joined.getLast().version()).isEqualTo(1);
+        assertThat(signals.sent).containsExactly(party.id() + ":member-joined");
+    }
+
+    @Test
     void 신호는_직접_내지_않고_커밋_후_실행기에_맡긴다() {
         List<Runnable> deferred = new ArrayList<>();
         service = serviceWith(new DispatchCompletionPolicy(events), (name, task) -> deferred.add(task));
@@ -659,6 +703,16 @@ class PartyServiceTest {
         }
 
         @Test
+        void 자동_종료_신호에도_올라간_version_이_실린다() {
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);
+
+            service.expire(오래된방);
+
+            assertThat(signals.closed.getLast().status()).isEqualTo("FINISHED");
+            assertThat(signals.closed.getLast().version()).isEqualTo(1).isEqualTo(versionOf(오래된방));
+        }
+
+        @Test
         void 이미_닫힌_방을_스윕이_다시_닫으려_하면_거부된다() {
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
@@ -679,7 +733,7 @@ class PartyServiceTest {
             seed.join(guest);   // 멤버 목록만 빌려 쓴다 (PartyMember 생성자는 도메인 패키지 밖에서 못 부른다)
 
             Party party = Party.restore(null, 강남역, 판교역, new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
-                    seed.getMembers(), completedAt, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", driverId, null, completedAt);
+                    seed.getMembers(), completedAt, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", driverId, null, completedAt, 0L);
             return parties.save(party).getId();
         }
     }
@@ -849,6 +903,10 @@ class PartyServiceTest {
                 "강남역", "판교역", capacity);
     }
 
+    private long versionOf(Long partyId) {
+        return parties.findById(partyId).orElseThrow().getVersion();
+    }
+
     private OpenPartyCommand createParty(Long creatorId, int capacity) {
         return new OpenPartyCommand(creatorId, 37.4979, 127.0276, 37.3948, 127.1112,
                 "강남역", "판교역", capacity);
@@ -862,6 +920,7 @@ class PartyServiceTest {
         final List<String> sent = new ArrayList<>();
         final List<MemberJoined> joined = new ArrayList<>();
         final List<MemberLeft> left = new ArrayList<>();
+        final List<PartyClosed> closed = new ArrayList<>();
 
         @Override
         public void memberJoined(Long partyId, MemberJoined event) {
@@ -876,8 +935,9 @@ class PartyServiceTest {
         }
 
         @Override
-        public void closed(Long partyId) {
+        public void closed(Long partyId, PartyClosed event) {
             sent.add(partyId + ":closed");
+            closed.add(event);
         }
     }
 
