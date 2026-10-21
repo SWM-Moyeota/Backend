@@ -30,21 +30,29 @@ import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.dto.RealTimeMatchingCommand;
 import team.codingforest.moyeota.matching.route.RouteService;
+import team.codingforest.moyeota.matching.route.domain.Coordinate;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
+import team.codingforest.moyeota.matching.route.domain.WalkRouteFinder;
+import team.codingforest.moyeota.matching.route.domain.WalkingEstimate;
+import team.codingforest.moyeota.matching.party.dto.MatchCandidate;
 import team.codingforest.moyeota.user.api.MemberSummary;
 import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class PartyService {
-    /** 지도 한 화면에 내려주는 방 수 상한. 넘으면 최신순으로 자른다 */
+    /**
+     * 지도 한 화면에 내려주는 방 수 상한. 넘으면 최신순으로 자른다
+     */
     static final int MAP_LIST_LIMIT = 100;
     private static final int RADIUS = 300;
 
@@ -56,6 +64,7 @@ public class PartyService {
     private final PartyCompletionPolicy partyCompletionPolicy;
     private final AfterCommitExecutor afterCommitExecutor;
     private final PartyChangeNotifier partyChangeNotifier;
+    private final WalkRouteFinder walkRouteFinder;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
@@ -72,7 +81,7 @@ public class PartyService {
 
         Party saved = parties.save(party);
 
-        if(saved.isFull()) {
+        if (saved.isFull()) {
             partyCompletionPolicy.onCompleted(saved);
             parties.save(saved);
             return PartyResult.from(saved);
@@ -92,11 +101,11 @@ public class PartyService {
         int rideCount = parties.countFinishedRides(List.of(memberId)).getOrDefault(memberId, 0);
 
         Party party = parties.findByIdForUpdate(partyId)
-                        .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
         party.join(memberId);
 
-        if(party.isFull()) {
+        if (party.isFull()) {
             partyCompletionPolicy.onCompleted(party);
         }
 
@@ -120,17 +129,16 @@ public class PartyService {
         UUID publicId = summary == null ? null : summary.publicId();
 
         Party party = parties.findByIdForUpdate(partyId)
-                        .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
         party.leave(memberId);
         parties.save(party);
         eventPublisher.publishEvent(new PartyMemberLeftEvent(partyId, memberId));
 
-        if(party.getStatus() == PartyStatus.CANCELED) {
+        if (party.getStatus() == PartyStatus.CANCELED) {
             eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
             afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId));
-        }
-        else {
+        } else {
             Long hostId = party.hostId();   // leave 반영 후 = 승계 결과. 이 분기에선 멤버가 반드시 남아 있음
             MemberSummary hostSummary = userAccess.findMemberSummaries(List.of(hostId)).get(hostId);
             UUID hostPublicId = hostSummary == null ? null : hostSummary.publicId();
@@ -162,7 +170,7 @@ public class PartyService {
         Party party = getParty(partyId);
 
         Long driverId = party.getTaxiDriverId();
-        if(driverId == null) throw new BusinessException(MatchingErrorCode.DRIVER_NOT_ASSIGNED);
+        if (driverId == null) throw new BusinessException(MatchingErrorCode.DRIVER_NOT_ASSIGNED);
 
         return driverAccess.findSummary(driverId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.ASSIGNED_DRIVER_NOT_FOUND));
@@ -170,7 +178,7 @@ public class PartyService {
 
     @Transactional(readOnly = true)
     public List<PartySummary> findActivePartiesWithin(double swLat, double swLng, double neLat, double neLng) {
-        if(swLat >= neLat || swLng >= neLng) throw new BusinessException(MatchingErrorCode.INVALID_MAP_BOUNDS);
+        if (swLat >= neLat || swLng >= neLng) throw new BusinessException(MatchingErrorCode.INVALID_MAP_BOUNDS);
 
         return parties.findSummariesWithinBounds(PartyStatus.ACTIVE, swLat, neLat, swLng, neLng, MAP_LIST_LIMIT);
     }
@@ -201,18 +209,30 @@ public class PartyService {
         log.warn("정원 충족 후 방치된 방 자동 종료 partyId={}", partyId);
     }
 
-    @Transactional
-    public void realtimeMatch(Long memberId, RealTimeMatchingCommand command) {
+    public List<MatchCandidate> realtimeMatch(Long memberId, RealTimeMatchingCommand command) {
+        Location departureLocation = new Location(command.departureLat(), command.departureLng());
+        Location destinationLocation = new Location(command.destLat(), command.destLng());
         validateNotInOngoingParty(memberId);
 
         // 1. 입력으로 들어온 출발지 위경도와 목적지 위경도에서 300m 반경의 매칭방을 찾기
-        List<NearbyPartySummary> summary = parties.findMatchesWithinRadius(command.departureLat(), command.departureLng(), command.destLat(), command.destLng(), RADIUS);
+        List<NearbyPartySummary> summary = parties.findMatchesWithinRadius(departureLocation.latitude(), departureLocation.longitude(), destinationLocation.latitude(), destinationLocation.longitude(), RADIUS);
 
         // 2. OSRM으로 매칭방 목록과 현재 출발하고 싶은 출발점 위경도와 목적지 위경도 estimateTime 계산
+        Coordinate departure = Coordinate.from(departureLocation.latitude(), departureLocation.longitude());
+        Coordinate destination = Coordinate.from(destinationLocation.latitude(), destinationLocation.longitude());
 
-        // 3. 우선순위 뽑아서 비교 가장 최적인거 계산
+        List<WalkingEstimate> toPickup = walkRouteFinder.fromTo(departure, summary.stream()
+                .map(p -> new Coordinate(p.departureLat(), p.departureLng())).toList());
 
+        List<WalkingEstimate> dropOff = walkRouteFinder.toFrom(destination, summary.stream()
+                .map(p -> new Coordinate(p.destinationLat(), p.destinationLng())).toList());
 
+        // 3. 출발지에서 인근 방으로 걸리는 시간 + 방의 목적지에서 원래 목적지로 걸리는 시간 정렬
+        return IntStream.range(0, summary.size())
+                .filter(i -> toPickup.get(i) != null && dropOff.get(i) != null)
+                .mapToObj(i -> new MatchCandidate(summary.get(i), toPickup.get(i).durationSeconds() + dropOff.get(i).durationSeconds()))
+                .sorted(Comparator.comparingInt(MatchCandidate::totalSeconds))
+                .toList();
     }
 
     private Party getParty(Long partyId) {
@@ -221,9 +241,8 @@ public class PartyService {
     }
 
     private void validateNotInOngoingParty(Long memberId) {
-        if(parties.existsOngoingByMemberId(memberId)) {
+        if (parties.existsOngoingByMemberId(memberId)) {
             throw new BusinessException(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
         }
     }
-
 }

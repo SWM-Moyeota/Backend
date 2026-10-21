@@ -10,6 +10,6 @@ ALTER TABLE match_room
 DROP INDEX IF EXISTS idx_match_room_status_location;
 
 CREATE INDEX idx_match_room_departure_geog
-    ON match_room USING GIST (departure_geog) WHERE status = 'WAITING';
+    ON match_room USING GIST (departure_geog) WHERE status = 'ACTIVE';
 CREATE INDEX idx_match_room_destination_geog
-    ON match_room USING GIST (destination_geog) WHERE status = 'WAITING';
+    ON match_room USING GIST (destination_geog) WHERE status = 'ACTIVE';

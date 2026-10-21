@@ -63,7 +63,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     @Query(value = """
             SELECT m.id, m.departure_lat, m.departure_lng, m.destination_lat, m.destination_lng, m.departure, m.destination, m.capacity
             FROM match_room m
-            WHERE m.status = 'WAITING'
+            WHERE m.status = 'ACTIVE'
               AND ST_DWithin(m.departure_geog,
                              CAST(ST_SetSRID(ST_MakePoint(:depLng, :depLat), 4326) AS geography),
                              :radius)
