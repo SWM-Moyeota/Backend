@@ -66,6 +66,8 @@ fcm:
 portone:
   api:
     secret: ${PORTONE_SECRET:}
+  webhook:
+    secret: ${PORTONE_WEBHOOK_SECRET:}
 
 jwt:
   secret: ${JWT_SECRET:deXiPUTSbvL2Qg673qn22K4S6fjf6VSBMLfW54E16DrUPty9aapfs/PGqoO+NdP9}   # 로컬 전용 기본값
