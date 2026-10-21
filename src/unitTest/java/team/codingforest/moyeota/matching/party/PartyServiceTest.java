@@ -27,7 +27,10 @@ import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.route.RouteService;
+import team.codingforest.moyeota.matching.route.domain.Coordinate;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
+import team.codingforest.moyeota.matching.route.domain.WalkRouteFinder;
+import team.codingforest.moyeota.matching.route.domain.WalkingEstimate;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
@@ -79,7 +82,8 @@ class PartyServiceTest {
         RouteService routeService = new RouteService(
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
                 new RouteCacheTest());
-        return new PartyService(parties, events, routeService, driverAccess, userAccess, policy, afterCommit, signals);
+        return new PartyService(parties, events, routeService, driverAccess, userAccess, policy, afterCommit, signals,
+                new FakeWalkRouteFinder());
     }
 
     @Test
@@ -912,6 +916,19 @@ class PartyServiceTest {
             return published.stream()
                     .filter(e -> e instanceof PartyMemberLeftEvent l && l.partyId().equals(partyId) && l.memberId().equals(memberId))
                     .count();
+        }
+    }
+
+    /** 도보 경로 가짜 (OSRM 미호출) - 입력 좌표마다 1분을 같은 순서로 반환 */
+    static class FakeWalkRouteFinder implements WalkRouteFinder {
+        @Override
+        public List<WalkingEstimate> fromTo(Coordinate from, List<Coordinate> to) {
+            return to.stream().map(c -> new WalkingEstimate(60)).toList();
+        }
+
+        @Override
+        public List<WalkingEstimate> toFrom(Coordinate to, List<Coordinate> from) {
+            return from.stream().map(c -> new WalkingEstimate(60)).toList();
         }
     }
 
