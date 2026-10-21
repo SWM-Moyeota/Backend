@@ -103,4 +103,24 @@ class PaymentMethodControllerTest {
                 .andExpect(status().isUnauthorized());
         verifyNoInteractions(service);
     }
+
+    @Test
+    void 카드_삭제에_인증된_사용자와_경로_ID를_전달한다() throws Exception {
+        when(service.deleteCard(7L, 100L)).thenReturn(new PaymentMethodResponse(
+                100L, PaymentMethodType.CARD, null, null, null, Instant.now(), false));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/payments/methods/card/100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(100))
+                .andExpect(jsonPath("$.isDefault").value(false))
+                .andExpect(jsonPath("$.billingKey").doesNotExist());
+        verify(service).deleteCard(7L, 100L);
+    }
+
+    @Test
+    void 카드_삭제도_인증이_필요하다() throws Exception {
+        SecurityContextHolder.clearContext();
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/payments/methods/card/100"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(service);
+    }
 }

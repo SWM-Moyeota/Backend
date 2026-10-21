@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import team.codingforest.moyeota.common.JpaAuditingConfig;
@@ -44,6 +45,7 @@ class PaymentMethodServiceTest {
 
     @Autowired PaymentMethodRepository methods;
     @Autowired PaymentMethodService service;
+    @Autowired TestEntityManager em;
     @MockitoBean PortOneClient gateway;
     @MockitoBean UserAccess users;
     private UUID 유저publicId;
@@ -219,5 +221,99 @@ class PaymentMethodServiceTest {
                 .isInstanceOf(BusinessException.class);
         assertThat(service.list(다른유저)).isEmpty();
         assertThat(methods.findDefaultByUserId(유저).orElseThrow().getId()).isEqualTo(first.id());
+    }
+
+    @Test
+    void 본인_카드를_삭제하면_목록에서_빠지고_카드_표시정보가_지워진다() {
+        결제사에_발급됨("bk-1", 유저publicId, 신한카드);
+        PaymentMethodResponse registered = service.register(유저, "bk-1");
+
+        PaymentMethodResponse deleted = service.deleteCard(유저, registered.id());
+        em.flush();
+        em.clear();
+
+        assertThat(deleted.id()).isEqualTo(registered.id());
+        assertThat(deleted.isDefault()).isFalse();
+        assertThat(service.list(유저)).isEmpty();
+        PaymentMethod stored = methods.findById(registered.id()).orElseThrow();
+        assertThat(stored.isActive()).isFalse();
+        assertThat(stored.getDeletedAt()).isNotNull();
+        assertThat(stored.getBillingKey()).isEqualTo("bk-1");
+        assertThat(stored.getCard().getLabel()).isNull();
+        assertThat(stored.getCard().getNumber()).isNull();
+        assertThat(stored.getCard().getBrand()).isNull();
+    }
+
+    @Test
+    void 기본_카드를_삭제하면_기본_지정이_해제되고_남은_카드는_기본이_아니다() {
+        결제사에_발급됨("bk-old", 유저publicId, 신한카드);
+        PaymentMethodResponse first = service.register(유저, "bk-old");
+        결제사에_발급됨("bk-new", 유저publicId, 국민카드);
+        PaymentMethodResponse second = service.register(유저, "bk-new");
+
+        service.deleteCard(유저, first.id());
+
+        assertThat(methods.findDefaultByUserId(유저)).isEmpty();
+        assertThat(service.list(유저)).extracting(PaymentMethodResponse::id).containsExactly(second.id());
+        assertThat(service.list(유저)).noneMatch(PaymentMethodResponse::isDefault);
+    }
+
+    @Test
+    void 다른_사용자의_카드는_삭제할_수_없다() {
+        // 남의 카드 ID 를 알아내 지우는 시나리오 차단. 존재 여부를 노출하지 않도록 NOT_FOUND 로 응답한다
+        결제사에_발급됨("bk-1", 유저publicId, 신한카드);
+        PaymentMethodResponse first = service.register(유저, "bk-1");
+
+        assertThatThrownBy(() -> service.deleteCard(다른유저, first.id()))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(PaymentErrorCode.PAYMENT_METHOD_NOT_FOUND);
+        assertThat(methods.findById(first.id()).orElseThrow().isActive()).isTrue();
+        assertThat(service.list(유저)).hasSize(1);
+    }
+
+    @Test
+    void 없는_카드는_삭제할_수_없다() {
+        assertThatThrownBy(() -> service.deleteCard(유저, 999L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(PaymentErrorCode.PAYMENT_METHOD_NOT_FOUND);
+    }
+
+    @Test
+    void 이미_삭제된_카드를_다시_삭제하면_PAYMENT_METHOD_DELETED() {
+        결제사에_발급됨("bk-1", 유저publicId, 신한카드);
+        PaymentMethodResponse first = service.register(유저, "bk-1");
+        service.deleteCard(유저, first.id());
+        Instant 처음삭제시각 = methods.findById(first.id()).orElseThrow().getDeletedAt();
+
+        assertThatThrownBy(() -> service.deleteCard(유저, first.id()))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(PaymentErrorCode.PAYMENT_METHOD_DELETED);
+        assertThat(methods.findById(first.id()).orElseThrow().getDeletedAt()).isEqualTo(처음삭제시각);
+    }
+
+    @Test
+    void 삭제한_카드의_빌링키는_다시_등록할_수_없고_기본으로도_선택할_수_없다() {
+        결제사에_발급됨("bk-1", 유저publicId, 신한카드);
+        PaymentMethodResponse first = service.register(유저, "bk-1");
+        service.deleteCard(유저, first.id());
+
+        assertThatThrownBy(() -> service.register(유저, "bk-1"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(PaymentErrorCode.PAYMENT_METHOD_CONFLICT);
+        assertThatThrownBy(() -> service.selectDefault(유저, first.id()))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(PaymentErrorCode.PAYMENT_METHOD_NOT_FOUND);
+        assertThat(methods.count()).isEqualTo(1);
+    }
+
+    @Test
+    void 없는_사용자는_카드를_삭제할_수_없다() {
+        결제사에_발급됨("bk-1", 유저publicId, 신한카드);
+        PaymentMethodResponse first = service.register(유저, "bk-1");
+
+        assertThatThrownBy(() -> service.deleteCard(999L, first.id()))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode").isEqualTo(PaymentErrorCode.PAYMENT_USER_NOT_FOUND);
+        assertThat(methods.findById(first.id()).orElseThrow().isActive()).isTrue();
     }
 }

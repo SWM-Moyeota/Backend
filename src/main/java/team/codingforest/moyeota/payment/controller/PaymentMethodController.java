@@ -1,6 +1,8 @@
 package team.codingforest.moyeota.payment.controller;
 
 import java.util.List;
+
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -56,6 +58,14 @@ public class PaymentMethodController {
             @PathVariable Long methodId) {
         return ResponseEntity.ok(service.selectDefault(userId, methodId));
     }
+
+
+    @Operation(summary="카드 삭제", description="선택한 카드를 삭제한다.")
+    @DeleteMapping("/card/{methodId}")
+    public ResponseEntity<PaymentMethodResponse> deleteCard(@CurrentUser Long userId, @PathVariable Long methodId){
+        return ResponseEntity.ok(service.deleteCard(userId, methodId));
+    }
+
 
 
 }

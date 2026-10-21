@@ -16,6 +16,7 @@ import team.codingforest.moyeota.user.api.MemberSummary;
 import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -105,4 +106,34 @@ public class PaymentMethodService {
 
         return summary.publicId().toString();
     }
+
+    @Transactional
+    public PaymentMethodResponse deleteCard(Long userId, Long methodId){
+        publicIdOf(userId); //유효한 유저인지 확인한다. (전달받은 ID에 해당하는 사용자 정보가 있는지 확인)
+
+        //등록된 카드가 있는지 찾는다
+        PaymentMethod paymentMethod=paymentMethodRepository.findById(methodId).orElseThrow(()->new BusinessException(PaymentErrorCode.PAYMENT_METHOD_NOT_FOUND));
+
+        //요청 사용자 소유의 카드인지 확인
+        /*
+        다른 사람의 카드 ID를 넣어서 삭제하는 것을 막기 위해서 사용한다.
+        paymentMethodRepository.findById(methodId)는 카드ID만 확인한다. 누가 요청했는지 확인하지 않아서, 다른 사람의 카드도 조회할 수 있다.
+        예를들어서 내가 로그인한 상태에서 다른 사람 카드 ID인 100으로 삭제를 요청하면 이 검사없이 아래의 단계(method.delete(...)를 실행할 경우, 그 사람의 카드가 삭제된다.
+        그래서 삭제 전에 확인한다.
+         */
+        if(!paymentMethod.getUserId().equals(userId)){
+            throw new BusinessException(PaymentErrorCode.PAYMENT_METHOD_NOT_FOUND);
+        }
+
+        //카드가 삭제되었는지 유무를 찾는다.
+        if(paymentMethod.getDeletedAt()!=null){
+            throw new BusinessException(PaymentErrorCode.PAYMENT_METHOD_DELETED);
+        }
+
+        paymentMethod.delete(Instant.now()); //삭제 시각 기록 및 기본 결제 수단 해제
+        paymentMethod.getCard().clearDisplayInfo(); //카드테이블에 있는 내용 null로 변경한다.
+
+        return PaymentMethodResponse.from(paymentMethod);
+    }
+
 }

@@ -28,7 +28,7 @@ class PaymentMethodRepositoryTest {
 
         PaymentMethod reloaded = repository.findById(saved.getId()).orElseThrow();
 
-        assertThat(reloaded.getCard().getName()).isEqualTo("신한카드");
+        assertThat(reloaded.getCard().getLabel()).isEqualTo("신한카드");
         assertThat(reloaded.getCard().getNumber()).isEqualTo("1234-56**-****-7890");
         assertThat(reloaded.getCard().getBrand()).isEqualTo("VISA");
         assertThat(reloaded.getBillingKey()).isEqualTo("bk-card");

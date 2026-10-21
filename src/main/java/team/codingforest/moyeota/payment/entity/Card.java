@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.payment.entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
@@ -30,26 +31,33 @@ public class Card {
     @JoinColumn(name = "payment_method_id")
     private PaymentMethod method;
 
-    private String name;
+    @Column(name = "label")
+    private String label;
 
     /** 결제사가 마스킹해서 준 번호만 저장 */
     private String number;
 
     private String brand;
 
-    private Card(PaymentMethod method, String name, String number, String brand) {
+    private Card(PaymentMethod method, String label, String number, String brand) {
         this.method = method;
-        this.name = name;
+        this.label = label;
         this.number = number;
         this.brand = brand;
     }
 
     static Card of(PaymentMethod method, CardDetail card) {
-        return new Card(method, card.name(), card.number(), card.brand());
+        return new Card(method, card.label(), card.number(), card.brand());
     }
 
     /** 카드명이 없으면 브랜드로 대신 표시 */
     public String getLabel() {
-        return name != null ? name : brand;
+        return label != null ? label : brand;
+    }
+
+    public void clearDisplayInfo(){
+        this.label=null;
+        this.number=null;
+        this.brand=null;
     }
 }
