@@ -12,7 +12,7 @@ permissions:
 hooks:
   ApplicationStop:
     - location: scripts/stop.sh
-      timeout: 60
+      timeout: 100
       runas: root
   AfterInstall:
     - location: scripts/after_install.sh
