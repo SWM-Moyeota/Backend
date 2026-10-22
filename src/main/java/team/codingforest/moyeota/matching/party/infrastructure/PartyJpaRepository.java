@@ -1,16 +1,13 @@
 package team.codingforest.moyeota.matching.party.infrastructure;
 
 import jakarta.persistence.LockModeType;
-import jakarta.persistence.QueryHint;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
-import team.codingforest.moyeota.matching.party.domain.PartyVersion;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
@@ -87,8 +84,4 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 
     @Query("select count(m) > 0 from PartyMemberEntity m where m.party.id = :partyId and m.memberId = :memberId")
     boolean existsMember(@Param("partyId") Long partyId, @Param("memberId") Long memberId);
-
-    @QueryHints(@QueryHint(name = "jakarta.persistence.query.timeout", value = "2000"))
-    @Query("select new team.codingforest.moyeota.matching.party.domain.PartyVersion(p.id, p.version, p.status) from PartyEntity p where p.id in :ids")
-    List<PartyVersion> findVersions(@Param("ids") Collection<Long> ids);
 }

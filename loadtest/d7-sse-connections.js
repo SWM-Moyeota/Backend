@@ -2,7 +2,7 @@
 //   holders : 연결을 CONNS/3 → 2/3 → CONNS 로 올리며 각 VU 가 자기 방의 /events 를 HOLD_SEC 붙잡는다 (끊고 재연결 반복)
 //   churn   : 초당 CHURN 건, 무작위 방에서 한 명이 나갔다 다시 들어온다 → 그 방 다른 구독자들에게 member-left·member-joined 가 간다
 //             (나간 본인은 서버가 연결을 끊는다). holder 는 앱처럼 변경분을 version 순서대로 목록에 반영하고,
-//             번호가 빠지거나 heartbeat 가 앞서는 등 화면을 믿을 수 없을 때만 방 상세를 다시 읽는다(resync)
+//             번호가 빠지는 등 화면을 믿을 수 없을 때만 방 상세를 다시 읽는다(resync)
 //   settle  : churn 이 멈추고 SETTLE 초 뒤(CHECK_AT) 처음 오는 ping 에서, 그 시각을 걸친 hold 를 닫고 방 상세와 맞춘다(sse_view_check).
 //             churn 중에 끝난 hold 는 비교하지 않는다 - 도착 중인 변경분 때문에 거짓 경보가 난다.
 //             서버 ping 은 전역 30초 주기(모든 연결이 같은 순간)라 hold 는 그때만 닫힌다 - 마지막 단계를 그 ping 까지 늘린다
@@ -12,7 +12,7 @@
 //             t0 은 join 요청 직전이라 값에 join 응답 시간이 들어간다. 서버는 커밋 직후(응답 전) 발행하지만 콜백이 http 로 막힌 동안
 //             이벤트를 못 읽으므로 실제 전파보다 약간 크게(보수적으로) 나온다. join 실패·미도착은 sse_propagation_miss{reason}
 //   본다: sse_connect_ms(헤더 즉시 나가나), sse_events{name:member-*}(churn 이 구독자에게 닿나), sse_stale_event(이미 반영된 변경분),
-//         sse_resync{reason}·sse_resync_result{result}(번호 빠짐·heartbeat 앞섬 등으로 상세 재조회), sse_heartbeats, sse_errors,
+//         sse_resync{reason}·sse_resync_result{result}(번호 빠짐 등으로 상세 재조회), sse_errors,
 //         sse_view_check(result:match 말고는 0 이어야 한다), sse_propagation_ms(부하 단계별 전파 지연),
 //         Grafana: process_open_fds · jvm_memory_used_bytes · tomcat_threads_busy(연결이 스레드를 잡지 않는지) · redis 명령 수
 //   ./k6 run -o experimental-prometheus-rw -e CONNS=300 loadtest/d7-sse-connections.js      (기본 3단계 x (1m 램프 + 2m 유지) + settle ≈ 10분)

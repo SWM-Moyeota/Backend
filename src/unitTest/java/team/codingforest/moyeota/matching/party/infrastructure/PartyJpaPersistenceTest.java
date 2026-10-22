@@ -13,7 +13,6 @@ import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
-import team.codingforest.moyeota.matching.party.domain.PartyVersion;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -81,22 +80,6 @@ class PartyJpaPersistenceTest {
         em.clear();
 
         assertThat(parties.findById(saved.getId()).orElseThrow().getVersion()).isEqualTo(1);
-    }
-
-    @Test
-    void 방_번호들로_version_과_상태를_한_번에_읽는다() {
-        Party joined = openAndSave();
-        joined.join(2L);
-        parties.save(joined);
-        Party untouched = openAndSave();
-        em.flush();
-        em.clear();
-
-        List<PartyVersion> versions = parties.findVersions(List.of(joined.getId(), untouched.getId(), 999_999L));
-
-        assertThat(versions).containsExactlyInAnyOrder(
-                new PartyVersion(joined.getId(), 1, PartyStatus.ACTIVE),
-                new PartyVersion(untouched.getId(), 0, PartyStatus.ACTIVE));
     }
 
     @Test

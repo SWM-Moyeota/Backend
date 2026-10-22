@@ -10,12 +10,10 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
-import team.codingforest.moyeota.matching.party.domain.PartyVersion;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -113,13 +111,6 @@ public class PartyJpa implements Parties {
     @Override
     public boolean hasMember(Long partyId, Long memberId) {
         return partyJpaRepository.existsMember(partyId, memberId);
-    }
-
-    @Override
-    public List<PartyVersion> findVersions(Collection<Long> ids) {
-        if(ids.isEmpty()) return List.of();
-
-        return partyJpaRepository.findVersions(ids);
     }
 
     @Override

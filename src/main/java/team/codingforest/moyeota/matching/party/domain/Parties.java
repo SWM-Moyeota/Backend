@@ -4,7 +4,6 @@ import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,5 +22,4 @@ public interface Parties {
     List<NearbyPartySummary> findMatchesWithinRadius(double departLat, double departLng, double destLat, double destLng, int radius);
     boolean existsById(Long id);
     boolean hasMember(Long partyId, Long memberId);
-    List<PartyVersion> findVersions(Collection<Long> ids);
 }
