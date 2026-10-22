@@ -133,7 +133,7 @@ class PartyJpaPersistenceTest {
         Location 판교역 = new Location(37.3948, 127.1112);
         Party seed = Party.open(1L, 강남역, 판교역, "강남역", "판교역", new Capacity(2), 하루전, new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
         seed.join(2L);   // 멤버 목록만 빌려 쓴다
-        Party 오래된방 = parties.save(Party.restore(null, 강남역, 판교역, new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
+        Party 오래된방 = parties.save(Party.load(null, 강남역, 판교역, new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
                 seed.getMembers(), 하루전, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", null, null, 하루전, 0L));
         Party 방금찬방 = openAndSave();
         방금찬방.join(2L);
