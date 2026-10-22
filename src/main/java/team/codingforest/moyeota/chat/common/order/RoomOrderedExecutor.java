@@ -55,6 +55,7 @@ public class RoomOrderedExecutor {
 
     @PreDestroy
     void shutdown() {
+        lanes.forEach(lane -> lane.getThreadPoolExecutor().shutdown());
         lanes.forEach(ThreadPoolTaskExecutor::shutdown);
     }
 }
