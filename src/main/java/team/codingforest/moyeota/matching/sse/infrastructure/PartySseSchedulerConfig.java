@@ -11,7 +11,7 @@ public class PartySseSchedulerConfig {
     @Bean(SCHEDULER)
     public ThreadPoolTaskScheduler partySseScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(2);
+        scheduler.setPoolSize(1);
         scheduler.setThreadNamePrefix("party-sse-");
         return scheduler;
     }

@@ -5,10 +5,8 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
-import team.codingforest.moyeota.matching.party.domain.PartyVersion;
 
 import java.time.Instant;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -116,14 +114,5 @@ public class PartyJpaTest implements Parties {
     public boolean hasMember(Long partyId, Long memberId) {
         Party party = store.get(partyId);
         return party != null && party.hasMember(memberId);
-    }
-
-    @Override
-    public List<PartyVersion> findVersions(Collection<Long> ids) {
-        return ids.stream()
-                .map(store::get)
-                .filter(p -> p != null)
-                .map(p -> new PartyVersion(p.getId(), p.getVersion(), p.getStatus()))
-                .toList();
     }
 }

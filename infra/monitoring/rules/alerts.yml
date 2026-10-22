@@ -42,7 +42,7 @@ groups:
         annotations: { summary: "DB 는 정원이 찼는데 SSE 이벤트를 못 받아 방을 포기한 사용자 발생" }
 
       - alert: SseResyncRate
-        expr: sum(rate(k6_sse_resync_total{reason=~"gap|heartbeat"}[2m])) / clamp_min(sum(rate(k6_sse_events_total{name=~"member-.*"}[2m])), 1) > 0.05
+        expr: sum(rate(k6_sse_resync_total{reason="gap"}[2m])) / clamp_min(sum(rate(k6_sse_events_total{name=~"member-.*"}[2m])), 1) > 0.05
         for: 2m
         labels: { severity: warning }
-        annotations: { summary: "SSE 상세 재조회(gap·heartbeat)가 member 이벤트의 5% 초과 - 이벤트 유실·순서 역전·Redis 전달 지연 확인. 임계값은 기준선 측정 후 조정" }
+        annotations: { summary: "SSE 상세 재조회(gap)가 member 이벤트의 5% 초과 - 이벤트 유실·순서 역전·Redis 전달 지연 확인. 임계값은 기준선 측정 후 조정" }

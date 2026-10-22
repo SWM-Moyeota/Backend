@@ -6,7 +6,7 @@
 //   참여        GET /matching/rooms/{id}(참여 확인 화면) → POST join
 //   21 대기     GET /matching/rooms/{id} 즉시 + 4초 폴링. 1차 배포에선 COMPLETED 에서도 계속 돈다(FINISHED 까지)
 //              USE_SSE=1 이면 폴링 대신 /events 구독 - connected(방 상세 전체)로 그리고 member-joined·member-left 를 version 순서대로 반영
-//              (번호가 빠지거나 heartbeat 가 앞서면 상세 재조회), closed 면 홈으로
+//              (번호가 빠지면 상세 재조회), closed 면 홈으로
 //   채팅        채팅 탭 GET /chat-rooms/me → 방 열기 3건 → 소켓 + 폴링(3초→20초) + 읽음
 //              그 아래에서  폴링 앱: 21 의 방 상세 4초 폴링이 계속 돈다
 //                          SSE 앱 : 방 변화는 SSE 로만 받는다. 상태 폴링은 없고 상세는 version 이 어긋날 때만 다시 읽는다

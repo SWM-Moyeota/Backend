@@ -3,7 +3,6 @@ package team.codingforest.moyeota.matching.party.domain;
 import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
 
 import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -21,5 +20,4 @@ public interface Parties {
     List<Long> findCompletedBefore(Instant before);
     boolean existsById(Long id);
     boolean hasMember(Long partyId, Long memberId);
-    List<PartyVersion> findVersions(Collection<Long> ids);
 }

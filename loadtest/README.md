@@ -33,7 +33,7 @@
 | 방 만들기 | 즐겨찾기 → 경로 미리보기(`POST /matching/routes`) → 방 생성. 장소 검색(카카오)은 부하에서 뺀다 |
 | 참여 | 상세 1회(참여 확인 화면) → join |
 | 21 대기 (폴링, SSE 전) | 상세 즉시 + **4초** 폴링. 1차 배포에선 `COMPLETED` 에서도 계속 돈다(`FINISHED` 까지) |
-| 21 대기 (SSE 후) | `GET /rooms/{id}/events` 연결 1개 유지. `connected`(방 상세 전체, 재연결도 같다)로 화면을 그리고, `member-joined`·`member-left`(변경분)는 `version` 이 하나씩 이어질 때만 들고 있는 멤버 목록에 더하고 뺀다. 번호가 빠지거나 `heartbeat` 의 `version` 이 앞서면 상세를 1회 다시 읽는다(resync, 아래 SSE 정합성). `closed` 면 홈. 서버가 30초마다 `:ping` 주석과 `heartbeat` 이벤트 |
+| 21 대기 (SSE 후) | `GET /rooms/{id}/events` 연결 1개 유지. `connected`(방 상세 전체, 재연결도 같다)로 화면을 그리고, `member-joined`·`member-left`(변경분)는 `version` 이 하나씩 이어질 때만 들고 있는 멤버 목록에 더하고 뺀다. 번호가 빠지면 상세를 1회 다시 읽는다(resync, 아래 SSE 정합성). `closed` 면 홈. 서버가 30초마다 `:ping` 주석 |
 | 채팅 (폴링, SSE 전) | 채팅 탭 `/chat-rooms/me` → 방 열기 3건(첫 페이지·참여자·방 정보) → 소켓 + 읽음(소켓) + 폴링. **21 의 4초 폴링은 채팅 화면 아래에서 계속 돈다** |
 | 채팅 (SSE 후) | 위와 같되 방 상세 4초 폴링이 없다. 방 변화는 SSE 변경분(`member-joined`·`member-left`·`closed`)으로만 받는다. 상태 폴링·지문 비교 없음(`/rooms/{id}/status` 는 서버에서 제거). 상세는 resync 때만 다시 읽는다 |
 | 채팅 폴링 | 소켓으로 메시지를 **한 번이라도 받기 전엔 3초**, 받은 뒤엔 20초. 커서가 없으면 첫 페이지를 다시 읽는다 (`after?cursor=0` 은 서버가 400) |
@@ -113,26 +113,24 @@ SSE 배포 뒤: 폴링 D1 결과를 baseline 으로 두고 → D1-SSE → D2 `US
 
 ### SSE 정합성 - 변경분으로 그린 화면이 맞는가
 
-서버는 방이 바뀔 때마다(참여·나가기·합승 종료·30분 자동 종료) `version` 을 정확히 1 올린다(생성 시 0, 생성자가 들어 있는 상태). 방 상세와 `connected` 끝, `member-joined`(`{ member, status, version }`), `member-left`(`{ publicId, status, hostPublicId, version }`), `closed`(`{ partyId, status, version }`)에 실린다. 30초마다 `:ping` 주석과 별도로 인스턴스마다 30초 주기로 `heartbeat`(`{"version": n}`, DB 의 현재 값)가 오고, DB 에서 이미 닫힌 방이면 heartbeat 대신 `closed` 를 보내고 끊는다. k6 는 앱과 같은 규칙으로 화면을 갱신한다(`lib/sse.js` 의 `follow`).
+서버는 방이 바뀔 때마다(참여·나가기·합승 종료·30분 자동 종료) `version` 을 정확히 1 올린다(생성 시 0, 생성자가 들어 있는 상태). 방 상세와 `connected` 끝, `member-joined`(`{ member, status, version }`), `member-left`(`{ publicId, status, hostPublicId, version }`), `closed`(`{ partyId, status, version }`)에 실린다. 30초마다 `:ping` 주석이 온다(연결 유지). k6 는 앱과 같은 규칙으로 화면을 갱신한다(`lib/sse.js` 의 `follow`).
 
 | 받은 것 | 처리 |
 |---|---|
 | `connected` | 새 상세의 `version` 이 화면 이상이면(화면에 아직 없으면 무조건) 통째로 교체, 낮으면 버린다(`sse_stale_event`) |
 | `member-*` | 화면 `version`+1 이면 반영하고 화면 `version` 을 올린다. 화면 이하면 버린다(`sse_stale_event`). `connected` 전이거나, 그보다 크거나(번호 빠짐), 정수가 아니면 resync `gap` |
-| `heartbeat` | 화면과 heartbeat 모두 정수이고 heartbeat 가 크면 resync `heartbeat`, 아니면 무시 |
 | `closed` | `version` 과 상관없이 종료(직전과 같은 `version` 일 수 있다). 옛 서버의 방 번호 문자열(`"42"`)도 받는다 |
 
 반영은 했지만 화면을 믿을 수 없을 때도 resync 한다 - 들어온·나간 사람을 모름(`unknown-member`), `member-left` 의 `hostPublicId` 가 null 이거나 목록에 없음(`unknown-host`), 목록이 status 와 모순(`drift`). resync 는 스트림을 끊지 않고 상세를 1회 다시 읽어(`GET /matching/rooms/{id} (resync)` - 앱도 하는 호출이지만 이름표로 따로 잡힌다) 그 `version` 이 화면 이상일 때만 통째로 바꾼다.
 
-놓친 이벤트는 다음 변경분이나 heartbeat 에서 드러나 resync 로 메워진다. 그래도 화면이 맞는지 **조용한 시점에만** 방 상세를 1회 읽어 맞춰 본다. 호출은 `GET /matching/rooms/{id} (check)` 로 따로 잡혀 앱 호출 수에 안 섞인다.
+놓친 이벤트는 다음 변경분에서 번호가 빠진 것으로 드러나 resync 로 메워진다. 뒤에 변경분이 없으면 에러로 끊겨 재연결할 때(D7 은 hold 마다) `connected` 로 메워지고, D2 에서 재연결이 없으면 `missed-event` 로 드러난다. 그래도 화면이 맞는지 **조용한 시점에만** 방 상세를 1회 읽어 맞춰 본다. 호출은 `GET /matching/rooms/{id} (check)` 로 따로 잡혀 앱 호출 수에 안 섞인다.
 
 | 지표 (k6 → Prometheus) | 기록 시점 | 뜻 |
 |---|---|---|
 | `sse_view_check` → `k6_sse_view_check_total{result}` | D2: 대기 중 `COMPLETED` 를 본 직후(정원이 차 더 바뀌지 않는다) / D7: settle 뒤 | 멤버 publicId 집합 → status → 방장 → `version` 순으로 비교해 처음 어긋난 것 하나. `match` · `members` · `status` · `host` · `version`. 어긋나면 VU 당 5건까지 `console.warn` 에 partyId 와 양쪽 요약(`version` 포함) |
-| `sse_resync` → `k6_sse_resync_total{reason}` | D2 SSE 대기·D7 holder 가 상세를 다시 읽을 때 | `gap`(번호 빠짐·`connected` 전 변경분) · `heartbeat`(heartbeat 가 화면보다 앞섬) · `unknown-member` · `unknown-host` · `drift` |
+| `sse_resync` → `k6_sse_resync_total{reason}` | D2 SSE 대기·D7 holder 가 상세를 다시 읽을 때 | `gap`(번호 빠짐·`connected` 전 변경분) · `unknown-member` · `unknown-host` · `drift` |
 | `sse_resync_result` → `k6_sse_resync_result_total{result}` | resync 상세를 읽은 뒤 | `applied`(교체) · `stale`(상세 `version` 이 화면보다 낮아 버림) · `failed`(200 이 아니거나 JSON 이 아님) |
 | `sse_stale_event` → `k6_sse_stale_event_total{name}` | `version` 이 화면 이하라 버린 `member-*`, 화면보다 낮은 `connected` | resync 로 이미 반영된 변경분이 늦게 도착한 것이면 정상 |
-| `sse_heartbeats` → `k6_sse_heartbeats_total` | 이름 있는 `heartbeat` 를 받을 때마다 | `sse_events` 에는 섞지 않는다 - 방 버전 전 결과와 `sse_events` 수치를 그대로 비교할 수 있게 |
 | `journey_give_up` → `k6_journey_give_up_total{cause}` | D2·D6 대기 포기 때 | SSE: 상세를 1회 읽어 이미 `COMPLETED` 면 `missed-event`(방은 찼는데 신호를 못 받았다), 아니면 `not-full`. 폴링 앱은 `poll-timeout`, 합승 탭에서 방을 못 찾았으면 `no-room`, 상세 조회 실패는 `unknown` |
 | `sse_reconnects` → `k6_sse_reconnects_total` | D2 SSE 가 에러로 끊겨 다시 붙을 때 | 앱처럼 3초 뒤 남은 대기 시간 안에서 재연결. 새 `connected` 는 `version` 이 화면 이상이면 화면을 통째로 바꾼다. 403·404 는 재연결하지 않는다 |
 | `sse_propagation_ms` → `k6_sse_propagation_ms_p95` 등 | D7 `propagation`: 측정 방의 `member-joined` 를 받았을 때 | join 요청 직전(t0) → 구독자가 그 사람의 `member-joined` 를 읽은 시각(t1). join 응답 시간이 들어가 보수적이다(아래) |
@@ -150,7 +148,7 @@ SSE 배포 뒤: 폴링 D1 결과를 baseline 으로 두고 → D1-SSE → D2 `US
   'journey_give_up{cause:missed-event}': ['count==0'],      // D2 USE_SSE=1
   ```
   Grafana: `k6_sse_view_check_total{result=~"members|status|host|version"}`, `k6_journey_give_up_total{cause="missed-event"}`, `k6_sse_reconnects_total`, `k6_sse_resync_total{reason}`
-- resync 비율: 경고 `SseResyncRate` 는 `gap`·`heartbeat` resync 가 `member-*` 이벤트의 5% 를 넘으면 울린다. heartbeat 가 막 커밋된 변경분보다 먼저 도착하는 경합이 있어 0 이 아닐 수 있다 - 임계값은 기준선을 잰 뒤 조정한다
+- resync 비율: 경고 `SseResyncRate` 는 `gap` resync 가 `member-*` 이벤트의 5% 를 넘으면 울린다. 참여 직후 자기 참여 신호가 `connected` 보다 먼저 도착하는 경합이 있어 0 이 아닐 수 있다 - 임계값은 기준선을 잰 뒤 조정한다
 
 ### SSE 전파 지연 - D7 `propagation`
 
@@ -184,7 +182,7 @@ SSE 배포 뒤: 폴링 D1 결과를 baseline 으로 두고 → D1-SSE → D2 `US
 - **D3 은 동시 요청이 Hikari 풀(10)을 넘는다.** 5xx 나 30초 멈춤이 나오면 커넥션 풀 데드락이다 - 서버 로그에서 `Connection is not available` 을 찾을 것. `-e ROOMS=3 -e RACERS=3` 으로 낮춰 스크립트 자체는 확인할 수 있다.
 - D4·D2 의 전달 지연은 보낸 쪽과 받는 쪽이 같은 k6 장비라 시계 오차가 없다. k6 를 여러 대로 나누면 이 지표는 못 쓴다.
 - D2 는 반영 지연을 재지 않는다. 서버 응답에서 `joinedAt` 이 빠져 남이 들어온 시각을 k6 가 알 수 없다. 대신 D7 `propagation` 이 같은 VU 안에서 join 과 수신을 찍어 `sse_propagation_ms` 를 잰다(위 SSE 전파 지연). D2 에 넣지 않는 건 부하 모양을 바꾸지 않기 위해서다.
-- xk6-sse 는 `:ping` 주석도 event 콜백으로 올린다(name 빈 문자열). 스크립트는 그걸 틱으로 써서 `HOLD_SEC` 가 지나면 닫는다. 이름 있는 `heartbeat` 이벤트는 틱으로 쓰지 않는다. 서버 `:ping` 이 30초라 실제 유지 시간은 `HOLD_SEC` 보다 최대 30초 길 수 있다.
+- xk6-sse 는 `:ping` 주석도 event 콜백으로 올린다(name 빈 문자열). 스크립트는 그걸 틱으로 써서 `HOLD_SEC` 가 지나면 닫는다. 서버 `:ping` 이 30초라 실제 유지 시간은 `HOLD_SEC` 보다 최대 30초 길 수 있다.
 - SSE 지표의 `url` 태그: 방마다 시계열이 생기지 않게 `sse.open` 의 `tags.url` 을 `name` 과 같은 고정 문자열로 준다. 다만 xk6-sse v0.2.0 소스는 사용자 태그를 적용한 **뒤** `url` 시스템 태그를 실제 URL 로 다시 써서 효과가 없을 수 있다. Prometheus 에서 `k6_sse_event_total` 의 `url` 이 방마다 갈라져 보이면 `--system-tags`(옵션 `systemTags`) 목록에서 `url` 을 빼고 돌린다 - 그러면 `tags.url` 이 남고, http 지표는 `url` 없이 `name` 으로만 갈린다.
 
 
