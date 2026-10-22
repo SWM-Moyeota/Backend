@@ -60,7 +60,7 @@ public class PartyEntity extends BaseTimeEntity {
     private Integer destinationRadius;
 
     @OneToMany(mappedBy = "party", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("joinedAt ASC, memberId ASC")   // 응답 members 순서 = 합류 순. 방장(host) 표시가 이 순서에 기대지는 않지만 화면 일관성을 위해 고정
+    @OrderBy("joinedAt ASC, memberId ASC")
     private List<PartyMemberEntity> members = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)

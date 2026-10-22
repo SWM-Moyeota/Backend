@@ -62,3 +62,5 @@ infra/monitoring/.env
 
 # 증거 캡처 이미지는 레포 밖에 보관 (txt 만 커밋)
 docs/evidence/**/*.png
+
+infra/osrm/*.osm.pbf*
