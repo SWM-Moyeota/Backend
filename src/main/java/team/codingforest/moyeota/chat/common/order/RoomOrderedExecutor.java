@@ -3,6 +3,7 @@ package team.codingforest.moyeota.chat.common.order;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
@@ -13,6 +14,7 @@ import java.util.List;
 /**
  * 방 번호로 스레드를 골라 같은 방의 작업은 한 스레드에서 순서대로 처리함. 다른 방은 다른 스레드에서 동시에 처리
  */
+@Slf4j
 @Component
 public class RoomOrderedExecutor implements SmartLifecycle {
 
@@ -54,7 +56,15 @@ public class RoomOrderedExecutor implements SmartLifecycle {
      * @param task       실행할 작업
      */
     public void execute(Long chatRoomId, Runnable task) {
-        lanes.get(Math.floorMod(chatRoomId, LANES)).execute(task);
+        lanes.get(Math.floorMod(chatRoomId, LANES)).execute(() -> runQuietly(chatRoomId, task));
+    }
+
+    private void runQuietly(Long chatRoomId, Runnable task) {
+        try {
+            task.run();
+        } catch (RuntimeException e) {
+            log.error("채팅 순서 대기열 작업 실패 chatRoomId={}", chatRoomId, e);
+        }
     }
 
     @Override
