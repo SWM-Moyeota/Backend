@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.matching.party.domain;
 
 import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
+import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -19,6 +20,7 @@ public interface Parties {
     List<PartySummary> findSummariesWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng, int limit);
     Map<Long, Integer> countFinishedRides(List<Long> memberIds);
     List<Long> findCompletedBefore(Instant before);
+    List<NearbyPartySummary> findMatchesWithinRadius(double departLat, double departLng, double destLat, double destLng, int radius);
     boolean existsById(Long id);
     boolean hasMember(Long partyId, Long memberId);
     List<PartyVersion> findVersions(Collection<Long> ids);

@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.matching.route.infrastructure;
+package team.codingforest.moyeota.matching.route.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
