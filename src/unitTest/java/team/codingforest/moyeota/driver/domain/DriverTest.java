@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.driver.domain;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.exception.DriverErrorCode;

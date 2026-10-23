@@ -168,7 +168,7 @@ class ReportServiceTest {
         assertThat(reports.findById(첫신고).orElseThrow().getStatus()).isEqualTo(ReportStatus.REPORTED);
     }
 
-    /** 인메모리 신고 저장소 - save가 id를 부여하고 restore로 복사본을 보관 */
+    /** 인메모리 신고 저장소 - save가 id를 부여하고 load로 복사본을 보관 */
     static class InMemoryReports implements Reports {
         private final Map<Long, Report> store = new HashMap<>();
         private Long sequence = 0L;
@@ -176,7 +176,7 @@ class ReportServiceTest {
         @Override
         public Report save(Report report) {
             Long id = report.getId() != null ? report.getId() : ++sequence;
-            Report saved = Report.restore(id, report.getReporterId(), report.getPartyId(), report.getDriverId(),
+            Report saved = Report.load(id, report.getReporterId(), report.getPartyId(), report.getDriverId(),
                     report.getReporterLatitude(), report.getReporterLongitude(), report.getStatus());
 
             store.put(id, saved);

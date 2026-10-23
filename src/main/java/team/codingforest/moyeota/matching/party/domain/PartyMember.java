@@ -14,7 +14,7 @@ public class PartyMember {
         this.joinedAt = joinedAt;
     }
 
-    public static PartyMember restore(Long memberId, Instant joinedAt) {
+    public static PartyMember load(Long memberId, Instant joinedAt) {
         return new PartyMember(memberId, joinedAt);
     }
 }

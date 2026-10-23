@@ -521,7 +521,7 @@ class PartyTest {
 
     /** 합류 시각을 조작해 복원한 정원 충족 방 - 도메인 경로로는 joinedAt 이 항상 Instant.now() 로 찍힌다 */
     private Party completedPartyWith(PartyMember... members) {
-        return Party.restore(1L, 강남역, 판교역, 기본반경, 기본반경, 강남역출발, 판교역도착, new Capacity(members.length),
+        return Party.load(1L, 강남역, 판교역, 기본반경, 기본반경, 강남역출발, 판교역도착, new Capacity(members.length),
                 List.of(members), 지금, PartyStatus.COMPLETED, 예상요금, 예상시간, 경로, null, null, 지금, 0L);
     }
 
@@ -545,7 +545,7 @@ class PartyTest {
 
     @Test
     void 합류_시각이_같으면_memberId가_작은_멤버가_방장이다() {
-        Party party = completedPartyWith(PartyMember.restore(5L, 지금), PartyMember.restore(3L, 지금));
+        Party party = completedPartyWith(PartyMember.load(5L, 지금), PartyMember.load(3L, 지금));
 
         assertThat(party.hostId()).isEqualTo(3L);
     }
@@ -574,7 +574,7 @@ class PartyTest {
     @Test
     void 승계된_방장은_합승_완료할_수_있다() {
         // 원래 방장이 빠진 뒤 복원된 방 - 창설자가 아니라 "현재 멤버 중 가장 일찍 합류한 사람"이 권한을 가진다
-        Party party = completedPartyWith(PartyMember.restore(참여자, 지금), PartyMember.restore(생성자, 지금.plusSeconds(60)));
+        Party party = completedPartyWith(PartyMember.load(참여자, 지금), PartyMember.load(생성자, 지금.plusSeconds(60)));
 
         party.finishWithoutDriver(참여자);
 

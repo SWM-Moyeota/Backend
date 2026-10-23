@@ -27,7 +27,7 @@ public class PartyJpaTest implements Parties {
     @Override
     public Party save(Party party) {
         Long id = party.getId() != null ? party.getId() : ++sequence;
-        Party saved = Party.restore(id,
+        Party saved = Party.load(id,
                 party.getDepartureLocation(), party.getDestinationLocation(),
                 party.getDepartureRadius(), party.getDestinationRadius(),
                 party.getDeparture(), party.getDestination(), party.getCapacity(),

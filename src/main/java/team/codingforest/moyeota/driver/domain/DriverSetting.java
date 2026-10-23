@@ -24,7 +24,7 @@ public class DriverSetting {
         this.callEnabled = false;
     }
 
-    public static DriverSetting restore(boolean callEnabled) {
+    public static DriverSetting load(boolean callEnabled) {
         return new DriverSetting(callEnabled);
     }
 }

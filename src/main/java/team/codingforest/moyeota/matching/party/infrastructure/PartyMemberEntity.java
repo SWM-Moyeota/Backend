@@ -45,6 +45,6 @@ public class PartyMemberEntity {
     }
 
     public PartyMember toDomain() {
-        return PartyMember.restore(memberId, joinedAt);
+        return PartyMember.load(memberId, joinedAt);
     }
 }

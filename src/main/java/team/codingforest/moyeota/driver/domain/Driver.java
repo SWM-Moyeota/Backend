@@ -1,11 +1,15 @@
 package team.codingforest.moyeota.driver.domain;
 
+import io.micrometer.common.util.StringUtils;
 import lombok.Getter;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.driver.exception.DriverErrorCode;
 
 import java.time.Instant;
 
+/**
+ *
+ */
 @Getter
 public class Driver {
     private final Long id;
@@ -34,7 +38,11 @@ public class Driver {
     }
 
     /**
-     *  기사 등록 신청 PENDING으로 시작
+     *
+     * @param userId
+     * @param qualificationNumber
+     * @param bankAccount
+     * @return
      */
     public static Driver register(Long userId, String qualificationNumber, BankAccount bankAccount) {
         return new Driver(null, userId, qualificationNumber, null, bankAccount, null, DriverSetting.defaults(), DriverStatus.PENDING, null, null);
@@ -44,7 +52,9 @@ public class Driver {
      *  자격 검증 완료
      */
     public void verify(Instant verifiedAt) {
-        if(status != DriverStatus.PENDING) throw new BusinessException(DriverErrorCode.DRIVER_NOT_PENDING);
+        if(status != DriverStatus.PENDING) {
+            throw new BusinessException(DriverErrorCode.DRIVER_NOT_PENDING);
+        }
 
         this.verifiedAt = verifiedAt;
         this.status = DriverStatus.VERIFIED;
@@ -76,10 +86,13 @@ public class Driver {
      *  Fcm 토큰 관련
      */
     public void registerFcmToken(String token) {
-        if(token == null || token.isBlank()) throw new BusinessException(DriverErrorCode.DRIVER_EMPTY_FCM_TOKEN);
+        if(StringUtils.isBlank(token)) {
+            throw new BusinessException(DriverErrorCode.DRIVER_EMPTY_FCM_TOKEN);
+        }
 
         this.fcmToken = token;
     }
+
     public boolean hasFcmToken() {
         return fcmToken != null;
     }
@@ -88,9 +101,13 @@ public class Driver {
         this.fcmToken = null;
     }
 
-    public void withdraw(Instant withdrawnAt) {
+    public void clearBankAccount() {
         this.bankAccount = null;
-        this.fcmToken = null;
+    }
+
+    public void withdraw(Instant withdrawnAt) {
+        clearBankAccount();
+        clearFcmToken();
         this.setting.disableCall();
         this.deletedAt = withdrawnAt;
     }
@@ -102,7 +119,7 @@ public class Driver {
     /**
      *  영속 복원용
      */
-    public static Driver restore(Long id, Long userId, String qualificationNumber, Instant verifiedAt,
+    public static Driver load(Long id, Long userId, String qualificationNumber, Instant verifiedAt,
                                  BankAccount account, Vehicle vehicle, DriverSetting setting, DriverStatus status, String fcmToken, Instant deletedAt) {
         return new Driver(id, userId, qualificationNumber, verifiedAt, account, vehicle, setting, status, fcmToken, deletedAt);
     }

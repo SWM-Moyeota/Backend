@@ -154,7 +154,7 @@ public class Party {
     /**
      *  영속 복원용
      */
-    public static Party restore(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status,
+    public static Party load(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status,
                                     Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version) {
         return new Party(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, createdAt, status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version);
     }

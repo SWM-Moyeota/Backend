@@ -140,7 +140,7 @@ public class PartyEntity extends BaseTimeEntity {
     }
 
     public Party toDomain() {
-        return Party.restore(getId(), new Location(departureLat, departureLng), new Location(destinationLat, destinationLng),
+        return Party.load(getId(), new Location(departureLat, departureLng), new Location(destinationLat, destinationLng),
                 new Radius(departureRadius), new Radius(destinationRadius), departure, destination, new Capacity(capacity),
                 members.stream().map(PartyMemberEntity::toDomain).toList(), getCreatedAt(), status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version);
     }
