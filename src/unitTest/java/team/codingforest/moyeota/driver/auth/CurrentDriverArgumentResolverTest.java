@@ -117,7 +117,7 @@ class CurrentDriverArgumentResolverTest {
         @Override
         public Driver save(Driver driver) {
             Long id = driver.getId() != null ? driver.getId() : ++sequence;
-            Driver saved = Driver.restore(id, driver.getUserId(), driver.getQualificationNumber(),
+            Driver saved = Driver.load(id, driver.getUserId(), driver.getQualificationNumber(),
                     driver.getVerifiedAt(), driver.getBankAccount(), driver.getVehicle(),
                     driver.getSetting(), driver.getStatus(), driver.getFcmToken(), driver.getDeletedAt());
             store.put(id, saved);

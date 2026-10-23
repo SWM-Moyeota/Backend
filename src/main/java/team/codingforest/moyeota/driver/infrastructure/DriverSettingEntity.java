@@ -54,7 +54,7 @@ public class DriverSettingEntity {
     }
 
     public DriverSetting toDomain() {
-        return DriverSetting.restore(callEnabled);
+        return DriverSetting.load(callEnabled);
     }
 
     public void update(DriverSetting setting) {

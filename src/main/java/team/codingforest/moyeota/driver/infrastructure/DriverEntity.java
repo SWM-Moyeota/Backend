@@ -75,7 +75,7 @@ public class DriverEntity extends BaseTimeEntity {
 
     public Driver toDomain() {
         BankAccount account = bankName == null ? null : new BankAccount(bankName, bankNumber);
-        return Driver.restore(getId(), userId, qualificationNumber, verifiedAt, account, vehicle == null? null : vehicle.toDomain(), setting.toDomain(), status, fcmToken, deletedAt);
+        return Driver.load(getId(), userId, qualificationNumber, verifiedAt, account, vehicle == null? null : vehicle.toDomain(), setting.toDomain(), status, fcmToken, deletedAt);
     }
 
     public void update(Driver driver) {

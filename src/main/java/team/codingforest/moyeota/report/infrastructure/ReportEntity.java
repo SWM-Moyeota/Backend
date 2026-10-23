@@ -46,7 +46,7 @@ public class ReportEntity extends BaseTimeEntity {
     }
 
     public Report toDomain() {
-        return Report.restore(getId(), reporterId, partyId, driverId,
+        return Report.load(getId(), reporterId, partyId, driverId,
                 reporterLatitude, reporterLongitude, status);
     }
 

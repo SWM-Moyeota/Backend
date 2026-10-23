@@ -728,7 +728,7 @@ class PartyServiceTest {
                     .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
         }
 
-        /** 정원 2가 찬 방을 원하는 충족 시각으로 저장 - 도메인은 Instant.now() 만 찍으므로 과거 시각은 restore 로만 만들 수 있다 */
+        /** 정원 2가 찬 방을 원하는 충족 시각으로 저장 - 도메인은 Instant.now() 만 찍으므로 과거 시각은 load 로만 만들 수 있다 */
         private Long saveCompleted(Instant completedAt, Long driverId) {
             Location 강남역 = new Location(37.4979, 127.0276);
             Location 판교역 = new Location(37.3948, 127.1112);
@@ -736,7 +736,7 @@ class PartyServiceTest {
                     completedAt, new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
             seed.join(guest);   // 멤버 목록만 빌려 쓴다 (PartyMember 생성자는 도메인 패키지 밖에서 못 부른다)
 
-            Party party = Party.restore(null, 강남역, 판교역, new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
+            Party party = Party.load(null, 강남역, 판교역, new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
                     seed.getMembers(), completedAt, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", driverId, null, completedAt, 0L);
             return parties.save(party).getId();
         }

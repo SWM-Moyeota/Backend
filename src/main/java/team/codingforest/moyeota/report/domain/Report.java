@@ -45,7 +45,7 @@ public class Report {
         this.status = called ? ReportStatus.CALL_CONFIRMED : ReportStatus.CALL_NOT_MADE;
     }
 
-    public static Report restore(Long id, Long reporterId, Long partyId, Long driverId,
+    public static Report load(Long id, Long reporterId, Long partyId, Long driverId,
                                  Double reporterLatitude, Double reporterLongitude, ReportStatus status) {
         return new Report(id, reporterId, partyId, driverId,
                 reporterLatitude, reporterLongitude, status);
