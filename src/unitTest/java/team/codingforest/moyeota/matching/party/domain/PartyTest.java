@@ -522,7 +522,7 @@ class PartyTest {
     /** 합류 시각을 조작해 복원한 정원 충족 방 - 도메인 경로로는 joinedAt 이 항상 Instant.now() 로 찍힌다 */
     private Party completedPartyWith(PartyMember... members) {
         return Party.restore(1L, 강남역, 판교역, 기본반경, 기본반경, 강남역출발, 판교역도착, new Capacity(members.length),
-                List.of(members), 지금, PartyStatus.COMPLETED, 예상요금, 예상시간, 경로, null, null, 지금);
+                List.of(members), 지금, PartyStatus.COMPLETED, 예상요금, 예상시간, 경로, null, null, 지금, 0L);
     }
 
     @Test
@@ -579,5 +579,94 @@ class PartyTest {
         party.finishWithoutDriver(참여자);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
+    }
+
+    // ───────────────────────── version ─────────────────────────
+
+    @Test
+    void 새_방의_version_은_0_이다() {
+        assertThat(openParty(3).getVersion()).isZero();
+    }
+
+    @Test
+    void 참여_나가기_합승완료는_version_을_1씩_올린다() {
+        Party party = openParty(3);
+
+        party.join(참여자);
+        assertThat(party.getVersion()).isEqualTo(1);
+
+        party.leave(참여자);
+        assertThat(party.getVersion()).isEqualTo(2);
+
+        party.join(참여자);
+        party.join(3L);
+        assertThat(party.getVersion()).isEqualTo(4);
+
+        party.finishWithoutDriver(생성자);
+        assertThat(party.getVersion()).isEqualTo(5);
+    }
+
+    @Test
+    void 정원이_차는_참여도_version_은_1만_오른다() {
+        Party party = openParty(2);
+
+        party.join(참여자);
+
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(party.getVersion()).isEqualTo(1);
+    }
+
+    @Test
+    void 마지막_사람이_나가_방이_닫혀도_version_은_1만_오른다() {
+        Party party = openParty(2);
+
+        party.leave(생성자);
+
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.CANCELED);
+        assertThat(party.getVersion()).isEqualTo(1);
+    }
+
+    @Test
+    void 방치된_방의_자동_종료는_version_을_1_올린다() {
+        Party party = openParty(2);
+        party.join(참여자);
+
+        party.expireCompleted();
+
+        assertThat(party.getVersion()).isEqualTo(2);
+    }
+
+    @Test
+    void 매칭_이후_단계는_version_을_올리지_않는다() {
+        Party party = matchingParty();
+        long before = party.getVersion();
+
+        party.assignDriver(기사);
+        party.startRide(기사);
+        party.completeRide(기사, 12000);
+
+        assertThat(party.getVersion()).isEqualTo(before);
+    }
+
+    @Test
+    void 기사를_못_구해_닫혀도_version_을_올리지_않는다() {
+        Party party = matchingParty();
+        long before = party.getVersion();
+
+        party.failMatching();
+
+        assertThat(party.getVersion()).isEqualTo(before);
+    }
+
+    @Test
+    void 거부된_명령은_version_을_바꾸지_않는다() {
+        Party party = openParty(2);
+        party.join(참여자);
+
+        assertThatThrownBy(() -> party.join(3L)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> party.leave(3L)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> party.finishWithoutDriver(참여자)).isInstanceOf(BusinessException.class);
+
+        assertThat(party.getVersion()).isEqualTo(1);
     }
 }

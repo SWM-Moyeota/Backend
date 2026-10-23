@@ -1,0 +1,68 @@
+name: Build OSRM image
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 18 1 * *'
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: osrm-image
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: moyeota-osrm
+  PBF_URL: https://download.geofabrik.de/asia/south-korea-latest.osm.pbf
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download OSM extract
+        working-directory: infra/osrm
+        run: |
+          curl -fsSL -o south-korea-latest.osm.pbf "$PBF_URL"
+          curl -fsSL -o south-korea-latest.osm.pbf.md5 "$PBF_URL.md5"
+          md5sum -c south-korea-latest.osm.pbf.md5
+
+      - name: Build image
+        run: docker build -t osrm-foot:test infra/osrm
+
+      - name: Smoke test
+        run: |
+          docker run -d --name osrm-check -p 5000:5000 osrm-foot:test
+          for _ in $(seq 1 30); do
+            if curl -fs "http://localhost:5000/table/v1/foot/127.0276,37.4979;127.0364,37.5006?sources=0&destinations=1" | grep -q '"code":"Ok"'; then
+              echo "OSRM 응답 정상"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs osrm-check
+          exit 1
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          TAG=$(date -u +%Y%m%d)
+          IMAGE="$REGISTRY/$ECR_REPOSITORY"
+          docker tag osrm-foot:test "$IMAGE:$TAG"
+          docker tag osrm-foot:test "$IMAGE:latest"
+          docker push "$IMAGE:$TAG"
+          docker push "$IMAGE:latest"

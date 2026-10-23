@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SchedulerLockAnnotationTest {
 
     @Test
-    void DB를_건드리는_스케줄러는_전부_잠근다() {
+    void DB를_고치는_스케줄러는_전부_잠근다() {
         assertLocked(EventResubmitter.class, "run", "event-resubmit");
         assertLocked(CompletedPartySweeper.class, "sweep", "completed-party-sweep");
         assertLocked(MatchingSweeper.class, "sweep", "matching-sweep");

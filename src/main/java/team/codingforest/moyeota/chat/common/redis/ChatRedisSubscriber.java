@@ -1,10 +1,5 @@
 package team.codingforest.moyeota.chat.common.redis;
 
-import team.codingforest.moyeota.chat.location.infrastructure.ChatLocationPayload;
-import team.codingforest.moyeota.chat.member.infrastructure.ChatRoomLeftResult;
-import team.codingforest.moyeota.chat.member.infrastructure.MemberChangedPayload;
-import team.codingforest.moyeota.chat.member.infrastructure.RoomLeftPayload;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
@@ -12,6 +7,11 @@ import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
+import team.codingforest.moyeota.chat.common.session.ChatSubscriptionCleaner;
+import team.codingforest.moyeota.chat.location.infrastructure.ChatLocationPayload;
+import team.codingforest.moyeota.chat.member.infrastructure.ChatRoomLeftResult;
+import team.codingforest.moyeota.chat.member.infrastructure.MemberChangedPayload;
+import team.codingforest.moyeota.chat.member.infrastructure.RoomLeftPayload;
 import team.codingforest.moyeota.chat.message.dto.ChatMessageResult;
 import tools.jackson.databind.ObjectMapper;
 
@@ -27,6 +27,7 @@ public class ChatRedisSubscriber implements MessageListener {
 
     private final ObjectMapper objectMapper;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ChatSubscriptionCleaner subscriptionCleaner;
 
     @Override
     public void onMessage(@NonNull Message message, byte[] pattern) {
@@ -54,6 +55,7 @@ public class ChatRedisSubscriber implements MessageListener {
     private void handleRoomLeft(String payload) {
         ChatRoomLeftResult result = objectMapper.readValue(payload, ChatRoomLeftResult.class);
 
+        subscriptionCleaner.unsubscribeRoom(result.userId(), result.chatRoomId());
         messagingTemplate.convertAndSendToUser(
                 String.valueOf(result.userId()),
                 ROOM_LEFT_DESTINATION,

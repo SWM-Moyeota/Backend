@@ -30,6 +30,12 @@ export default function () {
 
   const room = openRoom(host.token, 3, 판교역, 'LT-smoke');
   if (!check(room, { '방 생성 200': (r) => r.status === 200 })) { console.error(room.body); return; }
+  const created = roomDetail(host.token, room.id);
+  const v0 = created.status === 200 ? created.json('version') : null;
+  check(v0, {
+    '방 상세에 정수 version 이 있다 (없으면 방 버전 전 서버)': (v) => Number.isInteger(v),
+    '생성 직후 version 0': (v) => v === 0,
+  });
   check(joinRoom(a.token, room.id), { '참여 1': (r) => r.status === 200 });
   // join 응답은 {status, currentMembers} 만 준다 (지문 필드는 서버에서 빠졌다)
   check(joinRoom(b.token, room.id), {
@@ -39,12 +45,14 @@ export default function () {
   });
 
   const detail = roomDetail(host.token, room.id);
+  const v2 = detail.status === 200 ? detail.json('version') : null;
   check(detail, {
     '정원이 차면 COMPLETED 에 머문다 (MATCHING 이면 택시가 켜진 서버)': (r) => r.json('status') === 'COMPLETED',
     '멤버 3명': (r) => r.json('members').length === 3,
     // 방 상세는 SSE connected 의 data 와 같은 JSON 이다. 지문·입장 시각은 서버에서 빠졌다 - 여기서 떨어지면 옛 서버다
     '방 상세에 fingerprint 가 없다': (r) => r.json('fingerprint') === undefined,
     '방 상세 members 에 joinedAt 이 없다': (r) => r.json('members').every((m) => m.joinedAt === undefined),
+    '참여 2번에 version 이 2 오른다 (0 → 2)': () => Number.isInteger(v0) && Number.isInteger(v2) && v2 === v0 + 2,
   });
 
   const chatRoomId = resolveChatRoomId(a.token, sleep);
@@ -64,8 +72,12 @@ export default function () {
     check(pollChat(a.token, chatRoomId, lastId), { '커서 폴링(after) 200': (r) => r.status === 200 });
   }
 
-  check(finishRoom(b.token, room.id), { '아무나 한 명이 종료할 수 있다 (204)': (r) => r.status === 204 });
-  check(roomDetail(host.token, room.id), { 'FINISHED': (r) => r.json('status') === 'FINISHED' });
+  check(finishRoom(b.token, room.id), { '방장이 아니면 종료할 수 없다 (403)': (r) => r.status === 403 });
+  check(finishRoom(host.token, room.id), { '방장이 종료할 수 있다 (204)': (r) => r.status === 204 });
+  check(roomDetail(host.token, room.id), {
+    'FINISHED': (r) => r.json('status') === 'FINISHED',
+    '합승 완료에 version 이 1 오른다': (r) => Number.isInteger(v2) && r.json('version') === v2 + 1,
+  });
 
   const again = openRoom(host.token, 3, 판교역, 'LT-smoke-2');
   check(again, { '종료 뒤 새 방을 만들 수 있다': (r) => r.status === 200 });

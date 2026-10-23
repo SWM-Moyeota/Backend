@@ -15,3 +15,34 @@ groups:
         expr: api:error_ratio > 0.05
         for: 30s
         annotations: { summary: "5xx 5% 초과 - 테스트 중단" }
+
+  - name: sse
+    rules:
+      - alert: SseSendFailureSpike
+        expr: sum(rate(party_sse_sent_total{event="connected",result="fail"}[1m])) / sum(rate(party_sse_sent_total{event="connected"}[1m])) > 0.05
+        for: 1m
+        annotations: { summary: "SSE connected 쓰기 실패 5% 초과 - 구독 직후 첫 이벤트를 못 보내는 중. 그 외 이벤트의 쓰기 실패는 이미 떠난 클라이언트 정리라 보지 않는다" }
+
+      - alert: SseConnectionsDropped
+        expr: sum(party_sse_connections) < 0.5 * sum(party_sse_connections offset 2m) and sum(party_sse_connections offset 2m) > 100 and on() sum(k6_vus) > 0.8 * sum(k6_vus offset 2m)
+        for: 30s
+        annotations: { summary: "SSE 연결 수가 2분 전의 절반 아래로 급감(k6 VU 는 80% 이상 유지 - 램프다운 아님) - 서버 재시작·ALB·네트워크 확인" }
+
+      - alert: SseDeliverySlow
+        expr: max(k6_sse_propagation_ms_p99) > 1000
+        for: 1m
+        annotations: { summary: "SSE 전파 지연 p99 1초 초과(k6 측정) - Redis 발행·수신 적체 확인" }
+
+      - alert: SseViewMismatch
+        expr: sum(increase(k6_sse_view_check_total{result=~"members|status|host|version"}[5m])) > 0
+        annotations: { summary: "SSE 로 만든 방 화면이 DB 와 어긋남 - k6 로그의 partyId 로 이벤트 순서·유실 확인" }
+
+      - alert: SseMissedEvent
+        expr: sum(increase(k6_journey_give_up_total{cause="missed-event"}[5m])) > 0
+        annotations: { summary: "DB 는 정원이 찼는데 SSE 이벤트를 못 받아 방을 포기한 사용자 발생" }
+
+      - alert: SseResyncRate
+        expr: sum(rate(k6_sse_resync_total{reason="gap"}[2m])) / clamp_min(sum(rate(k6_sse_events_total{name=~"member-.*"}[2m])), 1) > 0.05
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: "SSE 상세 재조회(gap)가 member 이벤트의 5% 초과 - 이벤트 유실·순서 역전·Redis 전달 지연 확인. 임계값은 기준선 측정 후 조정" }

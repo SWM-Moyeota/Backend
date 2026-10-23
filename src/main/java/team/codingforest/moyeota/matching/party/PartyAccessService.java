@@ -4,13 +4,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.dto.PartyChatSummary;
 import team.codingforest.moyeota.matching.api.dto.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
+import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
+import team.codingforest.moyeota.matching.party.dto.PartyClosed;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
 import java.util.List;
@@ -20,6 +23,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 class PartyAccessService implements PartyAccess {
     private final Parties parties;
+    private final AfterCommitExecutor afterCommitExecutor;
+    private final PartyChangeNotifier partyChangeNotifier;
 
     @Transactional(readOnly = true)
     @Override
@@ -46,6 +51,7 @@ class PartyAccessService implements PartyAccess {
         party.failMatching();
 
         parties.save(party);
+        notifyClosed(party);
     }
 
     @Transactional(readOnly = true)
@@ -70,6 +76,7 @@ class PartyAccessService implements PartyAccess {
 
         party.completeRide(driverId, fare);
         parties.save(party);
+        notifyClosed(party);
     }
 
     @Transactional(readOnly = true)
@@ -101,14 +108,11 @@ class PartyAccessService implements PartyAccess {
     @Transactional(readOnly = true)
     @Override
     public boolean hasMemberOnParty(Long partyId, Long memberId) {
-        Party party = parties.findById(partyId)
-                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
-
-        for(PartyMember partyMember : party.getMembers()) {
-            if(partyMember.getMemberId().equals(memberId)) return true;
+        if(!parties.existsById(partyId)) {
+            throw new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND);
         }
 
-        return false;
+        return parties.hasMember(partyId, memberId);
     }
 
     @Transactional(readOnly = true)
@@ -133,6 +137,11 @@ class PartyAccessService implements PartyAccess {
         return parties.findById(partyId)
                 .map(party -> party.getMembers().stream().map(PartyMember::getMemberId).toList())
                 .orElse(List.of());
+    }
+
+    private void notifyClosed(Party party) {
+        PartyClosed closed = PartyClosed.from(party.getId(), party.getStatus().name(), party.getVersion());
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(party.getId(), closed));
     }
 
     private Party getForUpdate(Long partyId) {

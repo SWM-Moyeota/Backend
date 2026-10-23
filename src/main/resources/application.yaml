@@ -66,6 +66,8 @@ fcm:
 portone:
   api:
     secret: ${PORTONE_SECRET:}
+  webhook:
+    secret: ${PORTONE_WEBHOOK_SECRET:}
 
 jwt:
   secret: ${JWT_SECRET:deXiPUTSbvL2Qg673qn22K4S6fjf6VSBMLfW54E16DrUPty9aapfs/PGqoO+NdP9}   # 로컬 전용 기본값
@@ -113,3 +115,6 @@ moyeota:
       from: ${SOLAPI_FROM:}
   profile-image:
     base-url: ${PROFILE_IMAGE_BASE_URL:https://cdn.moyeota.co.kr/}   # 목록은 profile-images.yaml
+
+osrm:
+  base-url: ${OSRM_BASE_URL:http://localhost:5000}

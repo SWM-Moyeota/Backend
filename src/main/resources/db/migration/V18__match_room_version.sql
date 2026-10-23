@@ -1,0 +1,1 @@
+ALTER TABLE match_room ADD COLUMN version bigint NOT NULL DEFAULT 0;

@@ -3,6 +3,7 @@ package team.codingforest.moyeota.matching.party;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.matching.api.dto.PartyChatSummary;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
@@ -12,6 +13,8 @@ import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -31,13 +34,17 @@ class PartyAccessServiceTest {
     private static final Radius 기본반경 = new Radius(100);
     private static final Instant 지금 = Instant.now();
 
+    private static final AfterCommitExecutor IMMEDIATE = (name, task) -> task.run();
+
     private PartyJpaTest parties;
+    private PartyServiceTest.RecordingPartyChangeNotifier signals;
     private PartyAccessService access;
 
     @BeforeEach
     void setUp() {
         parties = new PartyJpaTest();
-        access = new PartyAccessService(parties);
+        signals = new PartyServiceTest.RecordingPartyChangeNotifier();
+        access = new PartyAccessService(parties, IMMEDIATE, signals);
     }
 
     // ───────────────────────── 종료 전 상태는 전부 true ─────────────────────────
@@ -177,6 +184,62 @@ class PartyAccessServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.PARTY_NOT_FOUND);
+    }
+
+    // ───────────────────────── 배차 실패·운행 완료도 SSE 로 closed 를 보낸다 ─────────────────────────
+
+    @Test
+    void 배차에_실패하면_closed_를_보낸다() {
+        Long partyId = save(matchingParty());
+
+        access.failMatching(partyId);
+
+        assertThat(signals.sent).containsExactly(partyId + ":closed");
+        assertThat(signals.closed.getLast().status()).isEqualTo("CANCELED");
+        assertThat(signals.closed.getLast().version()).isEqualTo(parties.findById(partyId).orElseThrow().getVersion());
+    }
+
+    @Test
+    void 운행이_끝나면_closed_를_보낸다() {
+        Long partyId = save(ridingParty());
+
+        access.completeRide(partyId, 기사, 12000);
+
+        assertThat(signals.sent).containsExactly(partyId + ":closed");
+        assertThat(signals.closed.getLast().status()).isEqualTo("FINISHED");
+        assertThat(signals.closed.getLast().version()).isEqualTo(parties.findById(partyId).orElseThrow().getVersion());
+    }
+
+    @Test
+    void closed_는_커밋_뒤에_나간다() {
+        List<Runnable> afterCommit = new ArrayList<>();
+        PartyAccessService deferred = new PartyAccessService(parties, (name, task) -> afterCommit.add(task), signals);
+        Long partyId = save(matchingParty());
+
+        deferred.failMatching(partyId);
+
+        assertThat(signals.sent).isEmpty();
+        afterCommit.forEach(Runnable::run);
+        assertThat(signals.sent).containsExactly(partyId + ":closed");
+    }
+
+    @Test
+    void 상태가_맞지_않아_거절되면_closed_를_보내지_않는다() {
+        Long partyId = save(openParty(3));
+
+        assertThatThrownBy(() -> access.failMatching(partyId)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> access.completeRide(partyId, 기사, 12000)).isInstanceOf(BusinessException.class);
+        assertThat(signals.sent).isEmpty();
+    }
+
+    @Test
+    void 기사_배정과_운행_시작은_closed_를_보내지_않는다() {
+        Long partyId = save(matchingParty());
+
+        access.assignDriver(partyId, 기사);
+        access.startRide(partyId, 기사);
+
+        assertThat(signals.sent).isEmpty();
     }
 
     // ───────────────────────── 헬퍼 ─────────────────────────

@@ -5,6 +5,7 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
+import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
 import java.util.Comparator;
@@ -31,7 +32,7 @@ public class PartyJpaTest implements Parties {
                 party.getDepartureRadius(), party.getDestinationRadius(),
                 party.getDeparture(), party.getDestination(), party.getCapacity(),
                 party.getMembers(), party.getCreatedAt(), party.getStatus(),
-                party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getTaxiDriverId(), party.getMatchingStartedAt(), party.getCompletedAt());
+                party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getTaxiDriverId(), party.getMatchingStartedAt(), party.getCompletedAt(), party.getVersion());
 
         store.put(id, saved);
         return saved;
@@ -103,5 +104,22 @@ public class PartyJpaTest implements Parties {
                 .filter(p -> p.getCompletedAt() != null && p.getCompletedAt().isBefore(before))
                 .map(Party::getId)
                 .toList();
+    }
+
+    @Override
+    public boolean existsById(Long id) {
+        return store.containsKey(id);
+    }
+
+    @Override
+    public boolean hasMember(Long partyId, Long memberId) {
+        Party party = store.get(partyId);
+        return party != null && party.hasMember(memberId);
+    }
+
+    @Override
+    public List<NearbyPartySummary> findMatchesWithinRadius(double departLat, double departLng, double destLat, double destLng, int radius) {
+        // PostGIS 반경 쿼리는 메모리로 흉내 내지 않는다 - 실제 쿼리 검증은 Postgres 통합 테스트 몫
+        return List.of();
     }
 }

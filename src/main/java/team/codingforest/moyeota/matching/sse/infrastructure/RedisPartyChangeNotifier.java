@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
 import team.codingforest.moyeota.matching.party.dto.MemberJoined;
 import team.codingforest.moyeota.matching.party.dto.MemberLeft;
+import team.codingforest.moyeota.matching.party.dto.PartyClosed;
 import team.codingforest.moyeota.matching.sse.dto.PartySseMessage;
 import tools.jackson.databind.ObjectMapper;
 
@@ -26,8 +27,8 @@ public class RedisPartyChangeNotifier implements PartyChangeNotifier {
     }
 
     @Override
-    public void closed(Long partyId) {
-        publish(PartySseMessage.from(partyId, "closed", String.valueOf(partyId), null));
+    public void closed(Long partyId, PartyClosed event) {
+        publish(PartySseMessage.from(partyId, "closed", objectMapper.writeValueAsString(event), null));
     }
 
     private void publish(PartySseMessage message) {

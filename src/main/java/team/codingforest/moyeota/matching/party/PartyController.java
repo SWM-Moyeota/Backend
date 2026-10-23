@@ -21,7 +21,11 @@ import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyListResponse;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
+import team.codingforest.moyeota.matching.party.dto.MatchCandidate;
+import team.codingforest.moyeota.matching.party.dto.RealTimeMatchingRequest;
 import team.codingforest.moyeota.user.api.CurrentUser;
+
+import java.util.List;
 
 @Tag(name = "매칭방", description = "동승 매칭방 생성·참여·조회. 정원이 차면 자동으로 매칭(기사 콜) 시작")
 @RestController
@@ -55,7 +59,7 @@ public class PartyController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "방 상세", description = "members 에 동승자 publicId·닉네임·이미지·탑승 횟수·host(방장 여부, 합류 순 정렬). 방장 = 가장 먼저 합류한 현재 멤버이고 나가면 다음으로 일찍 합류한 멤버가 승계, 항상 정확히 한 명. 본인 판별은 publicId 와 토큰 sub 비교. SSE 구독(/events)의 connected 이벤트도 같은 모양이다")
+    @Operation(summary = "방 상세", description = "members 에 동승자 publicId·닉네임·이미지·탑승 횟수·host(방장 여부, 합류 순 정렬). 방장 = 가장 먼저 합류한 현재 멤버이고 나가면 다음으로 일찍 합류한 멤버가 승계, 항상 정확히 한 명. 본인 판별은 publicId 와 토큰 sub 비교. SSE 구독(/events)의 connected 이벤트도 같은 모양이다. version 은 참여·나가기·합승 종료 때 1 오르는 번호 - SSE 이벤트의 version 과 비교해 놓친 변경을 알아챈다")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "방 상세"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND")})
     @GetMapping("/matching/rooms/{partyId}")
     public ResponseEntity<PartyDetailResult> detail(@PathVariable Long partyId) {
@@ -95,4 +99,10 @@ public class PartyController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "실시간 매칭 후보", description = "출발지·도착지 반경 300m 안의 ACTIVE 방을 도보 시간 합(탑승지까지 + 하차지에서 목적지까지) 오름차순으로 반환")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "후보 목록(없으면 빈 배열)"), @ApiResponse(responseCode = "400", description = "OUT_OF_SERVICE_AREA - 좌표 누락 또는 서비스 지역 밖"), @ApiResponse(responseCode = "409", description = "ALREADY_JOINED_OTHER_PARTY"), @ApiResponse(responseCode = "502", description = "ROUTE_SEARCH_FAILED - OSRM 장애")})
+    @PostMapping("/matching/rooms/realtime")
+    public ResponseEntity<List<MatchCandidate>> getListCandidate(@CurrentUser Long memberId, @RequestBody RealTimeMatchingRequest request) {
+        return ResponseEntity.ok(partyService.realtimeMatch(memberId, request.toCommand()));
+    }
 }
