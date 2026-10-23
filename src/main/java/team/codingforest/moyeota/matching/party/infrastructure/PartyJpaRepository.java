@@ -61,7 +61,8 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     List<Long> findIdsByStatusAndCompletedBefore(@Param("status") PartyStatus status, @Param("before") Instant before);
 
     @Query(value = """
-            SELECT m.id, m.departure_lat, m.departure_lng, m.destination_lat, m.destination_lng, m.departure, m.destination, m.capacity
+            SELECT m.id, m.departure_lat, m.departure_lng, m.destination_lat, m.destination_lng, m.departure, m.destination, m.capacity,
+                   CAST((SELECT COUNT(*) FROM user_match_room um WHERE um.match_id = m.id) AS integer) AS current_members
             FROM match_room m
             WHERE m.status = 'ACTIVE'
               AND ST_DWithin(m.departure_geog,
