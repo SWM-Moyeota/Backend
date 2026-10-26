@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: moyeota-socket
+
+server:
+  port: 8081   # 로컬에서 API(8080)와 같이 띄우기 위함
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health, prometheus, info
+  endpoint:
+    health:
+      show-details: never
+  metrics:
+    tags:
+      application: moyeota-socket
