@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'src/**'
+      - 'chat-contract/**'
+      - 'socket-app/**'
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
       - 'gradle/**'
@@ -14,6 +16,8 @@ on:
     branches: [develop]
     paths:
       - 'src/**'
+      - 'chat-contract/**'
+      - 'socket-app/**'
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
       - 'gradle/**'
