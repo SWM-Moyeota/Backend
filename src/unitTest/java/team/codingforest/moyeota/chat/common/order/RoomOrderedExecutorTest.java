@@ -20,7 +20,7 @@ class RoomOrderedExecutorTest {
 
     @AfterEach
     void tearDown() {
-        executor.shutdown();
+        executor.stop();
     }
 
     @Test
