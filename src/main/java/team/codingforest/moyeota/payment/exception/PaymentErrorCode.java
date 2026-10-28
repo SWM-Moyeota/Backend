@@ -20,8 +20,16 @@ public enum PaymentErrorCode implements ErrorCode {
     // 결제사(포트원)
     GATEWAY_ERROR(HttpStatus.BAD_GATEWAY, "결제사 연동에 실패했습니다. 잠시 후 다시 시도해주세요."),
 
+    //매칭방 관련
+    NOT_PARTY_MEMBER(HttpStatus.FORBIDDEN, "해당 파티의 참여자가 아닙니다."),
+    PAYMENT_PARTY_NOT_FOUND(HttpStatus.NOT_FOUND, "결제 대상 매칭방을 찾을 수 없습니다."),
+
+    //결제 관련
+    INVALID_PAYMENT_AMOUNT(HttpStatus.BAD_REQUEST, "결제 금액은 필수이며 0보다 커야 합니다."),
+
     //기타
     PAYMENT_USER_ID_REQUIRED(HttpStatus.BAD_REQUEST, "userId는 필수입니다.");
+
 
     private final HttpStatus httpStatus;
     private final String message;
