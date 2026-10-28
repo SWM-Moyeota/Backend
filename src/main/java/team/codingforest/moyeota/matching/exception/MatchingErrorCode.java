@@ -30,6 +30,8 @@ public enum MatchingErrorCode implements ErrorCode {
 
     // 지도 영역 조회 검증
     INVALID_MAP_BOUNDS(HttpStatus.BAD_REQUEST, "영역 좌표가 올바르지 않습니다."),
+    INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "조회 개수는 1~50 이어야 합니다."),
+    INVALID_CURSOR(HttpStatus.BAD_REQUEST, "커서가 올바르지 않습니다."),
 
     // 방 생성 입력 검증
     SAME_DEPARTURE_DESTINATION(HttpStatus.BAD_REQUEST, "출발지와 도착지가 같습니다."),

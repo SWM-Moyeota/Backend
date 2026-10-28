@@ -38,6 +38,8 @@ import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.route.domain.WalkRouteFinder;
 import team.codingforest.moyeota.matching.route.domain.WalkingEstimate;
 import team.codingforest.moyeota.matching.party.dto.MatchCandidate;
+import team.codingforest.moyeota.matching.record.domain.RideRecord;
+import team.codingforest.moyeota.matching.record.domain.RideRecords;
 import team.codingforest.moyeota.user.api.MemberSummary;
 import team.codingforest.moyeota.user.api.UserAccess;
 
@@ -66,6 +68,7 @@ public class PartyService {
     private final AfterCommitExecutor afterCommitExecutor;
     private final PartyChangeNotifier partyChangeNotifier;
     private final WalkRouteFinder walkRouteFinder;
+    private final RideRecords rideRecords;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
@@ -192,6 +195,7 @@ public class PartyService {
 
         party.finishWithoutDriver(memberId);
         parties.save(party);
+        rideRecords.save(RideRecord.withoutDriver(partyId, party.getDeparture(), party.getDestination()));
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
         PartyClosed closed = PartyClosed.from(partyId, party.getStatus().name(), party.getVersion());
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));

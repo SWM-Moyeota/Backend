@@ -1,10 +1,13 @@
 package team.codingforest.moyeota.matching.party;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.matching.api.dto.PartyChatSummary;
+import team.codingforest.moyeota.matching.record.FakeRideRecords;
+import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
@@ -13,6 +16,7 @@ import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,13 +42,15 @@ class PartyAccessServiceTest {
 
     private PartyJpaTest parties;
     private PartyServiceTest.RecordingPartyChangeNotifier signals;
+    private FakeRideRecords rideRecords;
     private PartyAccessService access;
 
     @BeforeEach
     void setUp() {
         parties = new PartyJpaTest();
         signals = new PartyServiceTest.RecordingPartyChangeNotifier();
-        access = new PartyAccessService(parties, IMMEDIATE, signals);
+        rideRecords = new FakeRideRecords(parties);
+        access = new PartyAccessService(parties, IMMEDIATE, signals, rideRecords);
     }
 
     // ───────────────────────── 종료 전 상태는 전부 true ─────────────────────────
@@ -213,7 +219,7 @@ class PartyAccessServiceTest {
     @Test
     void closed_는_커밋_뒤에_나간다() {
         List<Runnable> afterCommit = new ArrayList<>();
-        PartyAccessService deferred = new PartyAccessService(parties, (name, task) -> afterCommit.add(task), signals);
+        PartyAccessService deferred = new PartyAccessService(parties, (name, task) -> afterCommit.add(task), signals, rideRecords);
         Long partyId = save(matchingParty());
 
         deferred.failMatching(partyId);
@@ -240,6 +246,122 @@ class PartyAccessServiceTest {
         access.startRide(partyId, 기사);
 
         assertThat(signals.sent).isEmpty();
+    }
+
+    @Nested
+    class 탑승_기록 {
+        private static final Long 다른기사 = 8L;
+
+        @Test
+        void 기사가_탑승_처리하면_기록이_생기고_탑승_시각이_찍힌다() {
+            Long partyId = save(assignedParty());
+            Instant 직전 = Instant.now().truncatedTo(ChronoUnit.MICROS);
+
+            access.startRide(partyId, 기사);
+
+            RideRecord rideRecord = rideRecords.findById(partyId).orElseThrow();
+            assertThat(rideRecord.getTaxiDriverId()).isEqualTo(기사);
+            assertThat(rideRecord.getDeparturePlace()).isEqualTo("강남역");
+            assertThat(rideRecord.getDestinationPlace()).isEqualTo("판교역");
+            assertThat(rideRecord.getPickupTime()).isBetween(직전, Instant.now());
+            assertThat(rideRecord.getDropoffTime()).isNull();
+            assertThat(rideRecord.getTotalFare()).isNull();
+        }
+
+        @Test
+        void 기사가_요금을_입력해_운행을_마치면_하차_시각과_실제_요금이_채워진다() {
+            Long partyId = save(assignedParty());
+            access.startRide(partyId, 기사);
+            Instant 탑승시각 = rideRecords.findById(partyId).orElseThrow().getPickupTime();
+
+            access.completeRide(partyId, 기사, 15000);
+
+            RideRecord rideRecord = rideRecords.findById(partyId).orElseThrow();
+            assertThat(rideRecord.getPickupTime()).isEqualTo(탑승시각);
+            assertThat(rideRecord.getDropoffTime()).isAfterOrEqualTo(탑승시각);
+            assertThat(rideRecord.getTotalFare()).isEqualTo(15000);
+        }
+
+        @Test
+        void 기록_없이_운행_중이던_방이_끝나면_탑승_시각_없이_기록이_생긴다() {
+            Long partyId = save(ridingParty());
+
+            access.completeRide(partyId, 기사, 15000);
+
+            RideRecord rideRecord = rideRecords.findById(partyId).orElseThrow();
+            assertThat(rideRecord.getPickupTime()).isNull();
+            assertThat(rideRecord.getDropoffTime()).isNotNull();
+            assertThat(rideRecord.getTotalFare()).isEqualTo(15000);
+            assertThat(rideRecord.getTaxiDriverId()).isEqualTo(기사);
+            assertThat(rideRecord.getDeparturePlace()).isEqualTo("강남역");
+            assertThat(rideRecord.getDestinationPlace()).isEqualTo("판교역");
+        }
+
+        @Test
+        void 기사_배정만으로는_기록이_생기지_않는다() {
+            Long partyId = save(matchingParty());
+
+            access.assignDriver(partyId, 기사);
+
+            assertThat(rideRecords.findById(partyId)).isEmpty();
+        }
+
+        @Test
+        void 기사를_못_구해_해산된_방은_기록이_없다() {
+            Long partyId = save(matchingParty());
+
+            access.failMatching(partyId);
+
+            assertThat(rideRecords.findById(partyId)).isEmpty();
+        }
+
+        @Test
+        void 기사_없이_합승_종료된_방은_운행_완료가_거절된다() {
+            Party party = completedParty();
+            party.finishWithoutDriver(방장);
+            Long partyId = save(party);
+
+            assertThatThrownBy(() -> access.completeRide(partyId, 기사, 15000)).isInstanceOf(BusinessException.class);
+            assertThat(rideRecords.findById(partyId)).isEmpty();
+        }
+
+        @Test
+        void 자동_만료된_방은_기록이_없고_운행_완료도_거절된다() {
+            Party party = completedParty();
+            party.expireCompleted();
+            Long partyId = save(party);
+
+            assertThatThrownBy(() -> access.completeRide(partyId, 기사, 15000)).isInstanceOf(BusinessException.class);
+            assertThat(rideRecords.findById(partyId)).isEmpty();
+        }
+
+        @Test
+        void 배정_기사가_아니면_탑승_처리가_거절되고_기록이_없다() {
+            Long partyId = save(assignedParty());
+
+            assertThatThrownBy(() -> access.startRide(partyId, 다른기사))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(MatchingErrorCode.NOT_ASSIGNED_DRIVER);
+            assertThat(rideRecords.findById(partyId)).isEmpty();
+        }
+
+        @Test
+        void 이미_끝난_운행을_다시_마치려_하면_거절되고_기록은_그대로다() {
+            Long partyId = save(assignedParty());
+            access.startRide(partyId, 기사);
+            access.completeRide(partyId, 기사, 15000);
+            RideRecord 완료 = rideRecords.findById(partyId).orElseThrow();
+
+            assertThatThrownBy(() -> access.completeRide(partyId, 기사, 20000))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(MatchingErrorCode.NOT_RIDING);
+
+            RideRecord 그대로 = rideRecords.findById(partyId).orElseThrow();
+            assertThat(그대로.getDropoffTime()).isEqualTo(완료.getDropoffTime());
+            assertThat(그대로.getTotalFare()).isEqualTo(15000);
+        }
     }
 
     // ───────────────────────── 헬퍼 ─────────────────────────
