@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
+import java.util.List;
 
 public record SettlementPeriod(Instant start, Instant end) {
     public static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
@@ -38,6 +39,10 @@ public record SettlementPeriod(Instant start, Instant end) {
 
     public LocalDate lastDate() {
         return LocalDate.ofInstant(end, ZONE).minusDays(1);
+    }
+
+    public List<LocalDate> dates() {
+        return startDate().datesUntil(lastDate().plusDays(1)).toList();
     }
 
     private static Instant startOf(LocalDate date) {

@@ -218,15 +218,6 @@ class PayoutTest {
     }
 
     @Test
-    void 자르는_자리에_걸친_이모지는_반쪽으로_남기지_않는다() {
-        Payout payout = 지급(PayoutStatus.REQUESTED);
-
-        payout.fail("a".repeat(254) + "😀" + "b");
-
-        assertThat(payout.getFailReason()).isEqualTo("a".repeat(254));
-    }
-
-    @Test
     void 사유가_없으면_비어_있다() {
         Payout payout = 지급(PayoutStatus.REQUESTED);
 

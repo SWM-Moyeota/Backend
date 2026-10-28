@@ -24,15 +24,15 @@ import java.util.Optional;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class PayoutSteps {
-    public static final int MAX_PAYOUT_ATTEMPTS = 3;
+public class PayoutRecorder {
+    static final int MAX_PAYOUT_ATTEMPTS = 3;
 
     private final Settlements settlements;
     private final Payouts payouts;
     private final PayoutAccounts payoutAccounts;
 
     @Transactional
-    public Optional<PayoutOrder> prepare(Long settlementId) {
+    public Optional<PayoutOrder> recordRequest(Long settlementId) {
         Optional<Settlement> found = settlements.findByIdForUpdate(settlementId);
         if(found.isEmpty()) return Optional.empty();
 
@@ -45,11 +45,12 @@ public class PayoutSteps {
             return Optional.empty();
         }
 
-        return Optional.of(startPayout(settlement, account.get()));
+        Payout payout = saveRequestedPayout(settlement, account.get());
+        return Optional.of(payout.toOrder());
     }
 
     @Transactional
-    public void complete(Long payoutId, PayoutResult result) {
+    public void recordResult(Long payoutId, PayoutResult result) {
         Optional<Payout> found = payouts.findByIdForUpdate(payoutId);
         if(found.isEmpty()) {
             log.warn("결과를 반영할 지급이 없음 payoutId={}", payoutId);
@@ -90,10 +91,13 @@ public class PayoutSteps {
     private boolean canPayNow(Settlement settlement) {
         if(!settlement.isPayable()) return false;
         if(payouts.existsActiveBySettlementId(settlement.getId())) return false;
+        if(settlement.getStatus() == SettlementStatus.FAILED) return hasAttemptsLeft(settlement);
 
-        boolean usedUpAttempts = settlement.getStatus() == SettlementStatus.FAILED
-                && payouts.countFailedBySettlementId(settlement.getId()) >= MAX_PAYOUT_ATTEMPTS;
-        return !usedUpAttempts;
+        return true;
+    }
+
+    private boolean hasAttemptsLeft(Settlement settlement) {
+        return payouts.countFailedBySettlementId(settlement.getId()) < MAX_PAYOUT_ATTEMPTS;
     }
 
     private void hold(Settlement settlement) {
@@ -102,13 +106,13 @@ public class PayoutSteps {
         log.warn("지급 계좌가 없어 정산서 지급 보류 settlementId={}, driverId={}", settlement.getId(), settlement.getTaxiDriverId());
     }
 
-    private PayoutOrder startPayout(Settlement settlement, PayoutAccount account) {
+    private Payout saveRequestedPayout(Settlement settlement, PayoutAccount account) {
         settlement.startPayout();
         Settlement started = settlements.save(settlement);
         Payout payout = payouts.save(Payout.request(started, account));
         log.info("지급 요청 기록 payoutId={}, settlementId={}, driverId={}, amount={}",
                 payout.getId(), started.getId(), started.getTaxiDriverId(), payout.getAmount());
 
-        return payout.toOrder();
+        return payout;
     }
 }

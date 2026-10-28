@@ -52,22 +52,20 @@ public class FakeSettlementLedgers implements SettlementLedgers {
     }
 
     @Override
-    public List<SettlementLedger> findUnsettledByDriver(Long taxiDriverId) {
-        return store.values().stream()
-                .filter(l -> l.getTaxiDriverId().equals(taxiDriverId) && l.getSettlementId() == null)
-                .sorted(Comparator.comparing(SettlementLedger::getOccurredAt).thenComparing(SettlementLedger::getId))
+    public List<SettlementLedger> findUnsettledByDriverIn(Long taxiDriverId, SettlementPeriod week) {
+        return findUnsettledByDriver(taxiDriverId).stream()
+                .filter(l -> week.contains(l.getOccurredAt()))
                 .toList();
     }
 
     @Override
-    public List<Long> findDriverIdsToSettle(SettlementPeriod week, long afterDriverId, int limit) {
+    public List<Long> findDriverIdsToSettle(SettlementPeriod week) {
         return store.values().stream()
-                .filter(l -> l.getSettlementId() == null && l.getOccurredAt().isBefore(week.end()) && l.getTaxiDriverId() > afterDriverId)
+                .filter(l -> l.getSettlementId() == null && l.getOccurredAt().isBefore(week.end()))
                 .map(SettlementLedger::getTaxiDriverId)
                 .distinct()
                 .filter(driverId -> settlements.findByDriverAndPeriod(driverId, week).isEmpty())
                 .sorted()
-                .limit(limit)
                 .toList();
     }
 
@@ -90,6 +88,13 @@ public class FakeSettlementLedgers implements SettlementLedgers {
                 .mapToLong(SettlementLedger::getSettlementAmount)
                 .sum();
         return Math.toIntExact(sum);
+    }
+
+    public List<SettlementLedger> findUnsettledByDriver(Long taxiDriverId) {
+        return store.values().stream()
+                .filter(l -> l.getTaxiDriverId().equals(taxiDriverId) && l.getSettlementId() == null)
+                .sorted(Comparator.comparing(SettlementLedger::getOccurredAt).thenComparing(SettlementLedger::getId))
+                .toList();
     }
 
     public Optional<SettlementLedger> findByMatchId(Long matchId) {

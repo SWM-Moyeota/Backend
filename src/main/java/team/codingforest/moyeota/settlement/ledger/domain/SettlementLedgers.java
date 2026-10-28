@@ -7,8 +7,8 @@ public interface SettlementLedgers {
     SettlementLedger save(SettlementLedger ledger);
     boolean existsByMatchId(Long matchId);
     List<SettlementLedger> findBySettlementId(Long settlementId);
-    List<SettlementLedger> findUnsettledByDriver(Long taxiDriverId);
-    List<Long> findDriverIdsToSettle(SettlementPeriod week, long afterDriverId, int limit);
+    List<SettlementLedger> findUnsettledByDriverIn(Long taxiDriverId, SettlementPeriod week);
+    List<Long> findDriverIdsToSettle(SettlementPeriod week);
     int assignToSettlement(Long taxiDriverId, Instant cutoff, Long settlementId);
     int sumSettlementAmount(Long settlementId);
 }

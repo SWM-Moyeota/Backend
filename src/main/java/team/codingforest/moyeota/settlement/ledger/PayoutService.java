@@ -13,7 +13,6 @@ import team.codingforest.moyeota.settlement.ledger.domain.Settlements;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 
 @ConditionalOnProperty(prefix = "moyeota.settlement.payout", name = "enabled", havingValue = "true")
@@ -21,64 +20,46 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class PayoutService {
-    static final int BATCH_SIZE = 200;
     static final Duration STALE_AFTER = Duration.ofMinutes(10);
     static final String NO_RESULT_REASON = "지급 요청 결과를 받지 못함";
 
     private final Settlements settlements;
     private final Payouts payouts;
     private final PayoutGateway gateway;
-    private final PayoutSteps steps;
+    private final PayoutRecorder recorder;
 
-    public int payDue() {
-        int requested = 0;
-
-        List<Long> settlementIds = settlements.findPayableIds(PayoutSteps.MAX_PAYOUT_ATTEMPTS, 0L, BATCH_SIZE);
-        while(!settlementIds.isEmpty()) {
-            for(Long settlementId : settlementIds) {
-                if(pay(settlementId)) requested++;
-            }
-            settlementIds = settlements.findPayableIds(PayoutSteps.MAX_PAYOUT_ATTEMPTS, settlementIds.getLast(), BATCH_SIZE);
+    public void payDue() {
+        for(Long settlementId : settlements.findUnpaidIds()) {
+            payOne(settlementId);
         }
-        return requested;
     }
 
-    public int reconcile(Instant now) {
+    public void reconcile(Instant now) {
         Instant staleBefore = now.minus(STALE_AFTER);
-        int settled = 0;
 
-        List<Long> payoutIds = payouts.findStaleIds(staleBefore, 0L, BATCH_SIZE);
-        while(!payoutIds.isEmpty()) {
-            for(Long payoutId : payoutIds) {
-                if(reconcileSafely(payoutId, staleBefore)) settled++;
-            }
-            payoutIds = payouts.findStaleIds(staleBefore, payoutIds.getLast(), BATCH_SIZE);
+        for(Long payoutId : payouts.findStaleIds(staleBefore)) {
+            reconcileSafely(payoutId, staleBefore);
         }
-        return settled;
     }
 
-    private boolean pay(Long settlementId) {
-        Optional<PayoutOrder> order;
-        try {
-            order = steps.prepare(settlementId);
-        } catch (RuntimeException e) {
-            log.error("지급 준비 실패 settlementId={}", settlementId, e);
-            return false;
-        }
+    private void payOne(Long settlementId) {
+        Optional<PayoutOrder> order = recordRequestSafely(settlementId);
+        if(order.isEmpty()) return;
 
-        if(order.isEmpty()) return false;
-
-        PayoutResult result = request(order.get());
-        try {
-            steps.complete(order.get().payoutId(), result);
-        } catch (RuntimeException e) {
-            log.error("지급 결과 반영 실패, 대사에서 확정 payoutId={}, settlementId={}, result={}",
-                    order.get().payoutId(), settlementId, result, e);
-        }
-        return true;
+        PayoutResult result = callGateway(order.get());
+        recordResultSafely(order.get(), result);
     }
 
-    private PayoutResult request(PayoutOrder order) {
+    private Optional<PayoutOrder> recordRequestSafely(Long settlementId) {
+        try {
+            return recorder.recordRequest(settlementId);
+        } catch (RuntimeException e) {
+            log.error("지급 요청 기록 실패 settlementId={}", settlementId, e);
+            return Optional.empty();
+        }
+    }
+
+    private PayoutResult callGateway(PayoutOrder order) {
         try {
             PayoutResult result = gateway.request(order);
 
@@ -91,42 +72,38 @@ public class PayoutService {
         }
     }
 
-    private boolean reconcileSafely(Long payoutId, Instant staleBefore) {
+    private void recordResultSafely(PayoutOrder order, PayoutResult result) {
         try {
-            return reconcileOne(payoutId, staleBefore);
+            recorder.recordResult(order.payoutId(), result);
         } catch (RuntimeException e) {
-            log.error("지급 대사 실패 payoutId={}", payoutId, e);
-            return false;
+            log.error("지급 결과 반영 실패, 대사에서 확정 payoutId={}, result={}", order.payoutId(), result, e);
         }
     }
 
-    private boolean reconcileOne(Long payoutId, Instant staleBefore) {
+    private void reconcileSafely(Long payoutId, Instant staleBefore) {
+        try {
+            reconcileOne(payoutId, staleBefore);
+        } catch (RuntimeException e) {
+            log.error("지급 대사 실패, 다음 대사에서 다시 확인 payoutId={}", payoutId, e);
+        }
+    }
+
+    private void reconcileOne(Long payoutId, Instant staleBefore) {
         Optional<Payout> found = payouts.findById(payoutId);
-        if(found.isEmpty() || found.get().isFinished()) return false;
+        if(found.isEmpty() || found.get().isFinished()) return;
 
         Payout payout = found.get();
-        Optional<PayoutResult> recorded;
-        try {
-            recorded = gateway.find(payout.payoutKey());
-        } catch (RuntimeException e) {
-            log.warn("결제사 지급 조회 실패, 다음 대사에서 다시 확인 payoutId={}", payoutId, e);
-            return false;
-        }
-
+        Optional<PayoutResult> recorded = gateway.find(payout.payoutKey());
         if(recorded.isPresent()) {
-            steps.complete(payoutId, recorded.get());
-            return !(recorded.get() instanceof PayoutResult.Unknown);
+            recorder.recordResult(payoutId, recorded.get());
+            return;
         }
 
         boolean waitedLongEnough = payout.getCreatedAt().isBefore(staleBefore);
-        if(!waitedLongEnough) return false;
+        if(!waitedLongEnough) return;
 
-        PayoutResult resent = request(payout.toOrder());
-
-        steps.complete(payoutId, resent);
-
-        log.info("결제사에 기록이 없는 지급을 같은 지급 키로 다시 요청 payoutId={}, result={}", payoutId, resent);
-
-        return !(resent instanceof PayoutResult.Unknown);
+        PayoutResult result = callGateway(payout.toOrder());
+        recorder.recordResult(payoutId, result);
+        log.info("결제사에 기록이 없는 지급을 같은 지급 키로 다시 요청 payoutId={}, result={}", payoutId, result);
     }
 }

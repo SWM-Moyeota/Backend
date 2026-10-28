@@ -15,12 +15,7 @@ import java.util.TreeMap;
 
 public class FakeSettlements implements Settlements {
     private final Map<Long, Settlement> store = new TreeMap<>();
-    private final FakePayouts payouts;
     private long sequence = 0;
-
-    public FakeSettlements(FakePayouts payouts) {
-        this.payouts = payouts;
-    }
 
     @Override
     public Settlement save(Settlement settlement) {
@@ -61,17 +56,13 @@ public class FakeSettlements implements Settlements {
     }
 
     @Override
-    public List<Long> findPayableIds(int maxPayoutAttempts, long afterId, int limit) {
+    public List<Long> findUnpaidIds() {
         return store.values().stream()
-                .filter(s -> s.getId() > afterId)
-                .filter(s -> s.getAmount() > 0)
                 .filter(s -> s.getStatus() == SettlementStatus.CONFIRMED
                         || s.getStatus() == SettlementStatus.HOLD
-                        || (s.getStatus() == SettlementStatus.FAILED && payouts.countFailedBySettlementId(s.getId()) < maxPayoutAttempts))
-                .filter(s -> !payouts.existsActiveBySettlementId(s.getId()))
+                        || s.getStatus() == SettlementStatus.FAILED)
                 .map(Settlement::getId)
                 .sorted()
-                .limit(limit)
                 .toList();
     }
 

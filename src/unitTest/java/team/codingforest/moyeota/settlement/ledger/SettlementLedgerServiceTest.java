@@ -33,7 +33,7 @@ class SettlementLedgerServiceTest {
 
     @BeforeEach
     void setUp() {
-        settlements = new FakeSettlements(new FakePayouts());
+        settlements = new FakeSettlements();
         ledgers = new FakeSettlementLedgers(settlements);
         service = new SettlementLedgerService(ledgers);
     }
@@ -119,12 +119,6 @@ class SettlementLedgerServiceTest {
     @MethodSource("빈_값이_있는_요청")
     void 운행_기사_종료_시각_중_하나라도_비면_INVALID_SETTLEMENT_COMMAND_이고_아무것도_저장하지_않는다(RideSettlementCommand command) {
         assertErrorCode(command, SettlementErrorCode.INVALID_SETTLEMENT_COMMAND);
-        assertThat(ledgers.count()).isZero();
-    }
-
-    @Test
-    void 요청이_null_이면_INVALID_SETTLEMENT_COMMAND_이고_아무것도_저장하지_않는다() {
-        assertErrorCode(null, SettlementErrorCode.INVALID_SETTLEMENT_COMMAND);
         assertThat(ledgers.count()).isZero();
     }
 

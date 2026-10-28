@@ -117,6 +117,28 @@ class SettlementPeriodTest {
     }
 
     @Test
+    void 주의_날짜는_월요일부터_일요일까지_7개다() {
+        SettlementPeriod period = SettlementPeriod.weekOf(LocalDate.of(2026, 10, 28));
+
+        assertThat(period.dates()).containsExactly(
+                LocalDate.of(2026, 10, 26), LocalDate.of(2026, 10, 27), LocalDate.of(2026, 10, 28), LocalDate.of(2026, 10, 29),
+                LocalDate.of(2026, 10, 30), LocalDate.of(2026, 10, 31), 십일월_1일_일요일);
+    }
+
+    @Test
+    void 해를_넘어가는_주와_윤년_2월_29일이_낀_주도_날짜가_7개다() {
+        SettlementPeriod 연말 = SettlementPeriod.weekOf(LocalDate.of(2026, 12, 31));
+        SettlementPeriod 윤년 = SettlementPeriod.weekOf(LocalDate.of(2028, 2, 29));
+
+        assertThat(연말.dates()).containsExactly(
+                LocalDate.of(2026, 12, 28), LocalDate.of(2026, 12, 29), LocalDate.of(2026, 12, 30), LocalDate.of(2026, 12, 31),
+                LocalDate.of(2027, 1, 1), LocalDate.of(2027, 1, 2), LocalDate.of(2027, 1, 3));
+        assertThat(윤년.dates()).containsExactly(
+                LocalDate.of(2028, 2, 28), LocalDate.of(2028, 2, 29), LocalDate.of(2028, 3, 1), LocalDate.of(2028, 3, 2),
+                LocalDate.of(2028, 3, 3), LocalDate.of(2028, 3, 4), LocalDate.of(2028, 3, 5));
+    }
+
+    @Test
     void 바로_앞_주는_7일_전_월요일부터_이_주_월요일_KST_자정까지다() {
         SettlementPeriod period = SettlementPeriod.weekOf(LocalDate.of(2026, 10, 28));
 

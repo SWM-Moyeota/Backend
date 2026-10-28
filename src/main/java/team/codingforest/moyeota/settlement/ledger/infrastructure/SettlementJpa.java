@@ -1,12 +1,10 @@
 package team.codingforest.moyeota.settlement.ledger.infrastructure;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.settlement.exception.SettlementErrorCode;
-import team.codingforest.moyeota.settlement.ledger.domain.PayoutStatus;
 import team.codingforest.moyeota.settlement.ledger.domain.Settlement;
 import team.codingforest.moyeota.settlement.ledger.domain.SettlementPeriod;
 import team.codingforest.moyeota.settlement.ledger.domain.SettlementStatus;
@@ -18,7 +16,7 @@ import java.util.Optional;
 @Repository
 @RequiredArgsConstructor
 public class SettlementJpa implements Settlements {
-    private static final List<SettlementStatus> READY_TO_PAY = List.of(SettlementStatus.CONFIRMED, SettlementStatus.HOLD);
+    private static final List<SettlementStatus> UNPAID_STATUSES = List.of(SettlementStatus.CONFIRMED, SettlementStatus.HOLD, SettlementStatus.FAILED);
 
     private final SettlementJpaRepository settlementJpaRepository;
 
@@ -54,8 +52,7 @@ public class SettlementJpa implements Settlements {
     }
 
     @Override
-    public List<Long> findPayableIds(int maxPayoutAttempts, long afterId, int limit) {
-        return settlementJpaRepository.findPayableIds(afterId, READY_TO_PAY, SettlementStatus.FAILED, PayoutStatus.FAILED, maxPayoutAttempts,
-                PayoutJpa.ACTIVE_STATUSES, Limit.of(limit));
+    public List<Long> findUnpaidIds() {
+        return settlementJpaRepository.findIdsByStatusIn(UNPAID_STATUSES);
     }
 }

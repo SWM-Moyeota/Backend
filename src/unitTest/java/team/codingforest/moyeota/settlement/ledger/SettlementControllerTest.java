@@ -46,7 +46,7 @@ class SettlementControllerTest {
     @BeforeEach
     void setUp() {
         payouts = new FakePayouts();
-        settlements = new FakeSettlements(payouts);
+        settlements = new FakeSettlements();
         ledgers = new FakeSettlementLedgers(settlements);
         closeService = new SettlementCloseService(settlements, ledgers);
 
@@ -114,9 +114,23 @@ class SettlementControllerTest {
                 .andExpect(jsonPath("$.days", hasSize(7)));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"2026-10-19", "2026-10-21", "2026-10-25"})
+    void 그_주의_어느_날짜로_조회해도_같은_주를_준다(String date) throws Exception {
+        운행(기사, 1001L, 12000, 0, kst("2026-10-21T09:00"));
+        Settlement 지난_주 = 정산서_생성(기사, LocalDate.of(2026, 10, 21));
+
+        mvc.perform(get("/api/v1/drivers/me/settlements").param("date", date))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.weekStart").value("2026-10-19"))
+                .andExpect(jsonPath("$.weekEnd").value("2026-10-25"))
+                .andExpect(jsonPath("$.settlementId").value(지난_주.getId()));
+    }
+
     @Test
-    void 정산서가_없는_지난_주는_정산서_ID_와_상태가_null_이고_0원에_7칸_모두_0이다() throws Exception {
+    void 정산서가_아직_없는_지난_주는_그_주_미정산_운행으로_예정_금액을_주고_정산서_ID_와_상태는_null_이다() throws Exception {
         운행(기사, 1001L, 9000, 0, kst("2026-03-04T10:00"));
+        운행(기사, 1002L, 7000, 0, kst("2026-03-09T10:00"));
 
         mvc.perform(get("/api/v1/drivers/me/settlements").param("date", "2026-03-04"))
                 .andExpect(status().isOk())
@@ -124,10 +138,29 @@ class SettlementControllerTest {
                 .andExpect(jsonPath("$.weekEnd").value("2026-03-08"))
                 .andExpect(jsonPath("$.settlementId").value(nullValue()))
                 .andExpect(jsonPath("$.status").value(nullValue()))
-                .andExpect(jsonPath("$.amount").value(0))
+                .andExpect(jsonPath("$.amount").value(9000))
                 .andExpect(jsonPath("$.days", hasSize(7)))
                 .andExpect(jsonPath("$.days[0].date").value("2026-03-02"))
-                .andExpect(jsonPath("$.days[6].date").value("2026-03-08"))
+                .andExpect(jsonPath("$.days[2].date").value("2026-03-04"))
+                .andExpect(jsonPath("$.days[2].amount").value(9000))
+                .andExpect(jsonPath("$.days[2].rideCount").value(1))
+                .andExpect(jsonPath("$.days[6].date").value("2026-03-08"));
+    }
+
+    @Test
+    void 운행이_없는_주는_정산서_ID_와_상태가_null_이고_0원에_7칸_모두_0이다() throws Exception {
+        운행(기사, 1001L, 9000, 0, kst("2026-03-04T10:00"));
+
+        mvc.perform(get("/api/v1/drivers/me/settlements").param("date", "2026-03-11"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.weekStart").value("2026-03-09"))
+                .andExpect(jsonPath("$.weekEnd").value("2026-03-15"))
+                .andExpect(jsonPath("$.settlementId").value(nullValue()))
+                .andExpect(jsonPath("$.status").value(nullValue()))
+                .andExpect(jsonPath("$.amount").value(0))
+                .andExpect(jsonPath("$.days", hasSize(7)))
+                .andExpect(jsonPath("$.days[0].date").value("2026-03-09"))
+                .andExpect(jsonPath("$.days[6].date").value("2026-03-15"))
                 .andExpect(jsonPath("$.days[*].amount", everyItem(is(0))))
                 .andExpect(jsonPath("$.days[*].rideCount", everyItem(is(0))));
     }

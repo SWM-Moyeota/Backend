@@ -1,7 +1,6 @@
 package team.codingforest.moyeota.settlement.ledger.infrastructure;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.settlement.ledger.domain.Payout;
@@ -15,7 +14,7 @@ import java.util.Optional;
 @Repository
 @RequiredArgsConstructor
 public class PayoutJpa implements Payouts {
-    static final List<PayoutStatus> ACTIVE_STATUSES = List.of(PayoutStatus.REQUESTED, PayoutStatus.UNKNOWN, PayoutStatus.SUCCEED);
+    private static final List<PayoutStatus> ACTIVE_STATUSES = List.of(PayoutStatus.REQUESTED, PayoutStatus.UNKNOWN, PayoutStatus.SUCCEED);
 
     private final PayoutJpaRepository payoutJpaRepository;
 
@@ -61,7 +60,7 @@ public class PayoutJpa implements Payouts {
     }
 
     @Override
-    public List<Long> findStaleIds(Instant requestedBefore, long afterId, int limit) {
-        return payoutJpaRepository.findStaleIds(afterId, PayoutStatus.REQUESTED, requestedBefore, PayoutStatus.UNKNOWN, Limit.of(limit));
+    public List<Long> findStaleIds(Instant requestedBefore) {
+        return payoutJpaRepository.findStaleIds(PayoutStatus.REQUESTED, requestedBefore, PayoutStatus.UNKNOWN);
     }
 }

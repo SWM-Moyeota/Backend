@@ -7,6 +7,7 @@ import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.settlement.exception.SettlementErrorCode;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,6 +60,15 @@ class SettlementLedgerTest {
 
         assertThat(ledger.getOccurredAt()).isEqualTo(Instant.parse("2026-11-01T14:59:59.999999Z"));
         assertThat(SettlementPeriod.weekOf(ledger.getOccurredAt())).isEqualTo(SettlementPeriod.weekOf(Instant.parse("2026-11-01T14:59:59.999999999Z")));
+    }
+
+    @Test
+    void 운행_날짜는_운행_종료_시각의_KST_날짜다() {
+        SettlementLedger 일요일_자정_직전 = SettlementLedger.record(기사, 운행, 15000, 0, Instant.parse("2026-11-01T14:59:59.999999Z"));
+        SettlementLedger 월요일_자정 = SettlementLedger.record(기사, 운행, 15000, 0, Instant.parse("2026-11-01T15:00:00Z"));
+
+        assertThat(일요일_자정_직전.occurredDate()).as("UTC 11-01 14:59:59.999999 는 KST 11-01(일) 23:59:59.999999 다").isEqualTo(LocalDate.of(2026, 11, 1));
+        assertThat(월요일_자정.occurredDate()).as("UTC 11-01 15:00 은 KST 11-02(월) 00:00 이다").isEqualTo(LocalDate.of(2026, 11, 2));
     }
 
     @Test

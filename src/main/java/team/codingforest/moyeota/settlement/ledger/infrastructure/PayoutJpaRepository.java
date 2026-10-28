@@ -1,7 +1,6 @@
 package team.codingforest.moyeota.settlement.ledger.infrastructure;
 
 import jakarta.persistence.LockModeType;
-import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -27,11 +26,9 @@ public interface PayoutJpaRepository extends JpaRepository<PayoutEntity, Long> {
 
     @Query("""
             select p.id from PayoutEntity p
-            where p.id > :afterId
-                and ((p.status = :requestedStatus and p.createdAt < :requestedBefore) or p.status = :unknownStatus)
+            where (p.status = :requestedStatus and p.createdAt < :requestedBefore) or p.status = :unknownStatus
             order by p.id
             """)
-    List<Long> findStaleIds(@Param("afterId") long afterId,
-                            @Param("requestedStatus") PayoutStatus requestedStatus, @Param("requestedBefore") Instant requestedBefore,
-                            @Param("unknownStatus") PayoutStatus unknownStatus, Limit limit);
+    List<Long> findStaleIds(@Param("requestedStatus") PayoutStatus requestedStatus, @Param("requestedBefore") Instant requestedBefore,
+                            @Param("unknownStatus") PayoutStatus unknownStatus);
 }

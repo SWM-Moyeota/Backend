@@ -49,11 +49,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest(properties = "spring.profiles.active=dev")
 class SettlementPostgresTest {
-    private static final int 넉넉한_한도 = 10_000;
     private static final BankCode 은행 = BankCode.values()[0];
     private static final String 계좌번호 = "110123456789";
     private static final String 예금주 = "김기사";
     private static final String 정산서_생성_배치가_닿지_않는_해 = "2999";
+    private static final SettlementPeriod 모든_기간 = new SettlementPeriod(Instant.EPOCH, Instant.parse("3000-01-01T00:00:00Z"));
 
     @Autowired Settlements settlements;
     @Autowired SettlementLedgers ledgers;
@@ -97,7 +97,7 @@ class SettlementPostgresTest {
         rideService.complete(partyId, 기사, 15_000);
 
         assertThat(jdbc.queryForObject("SELECT total_fare FROM ride_record WHERE match_id = ?", Integer.class, partyId)).isEqualTo(15_000);
-        assertThat(ledgers.findUnsettledByDriver(기사)).singleElement().satisfies(ledger -> {
+        assertThat(미정산_원장(기사)).singleElement().satisfies(ledger -> {
             assertThat(ledger.getMatchId()).isEqualTo(partyId);
             assertThat(ledger.getTaxiDriverId()).isEqualTo(기사);
             assertThat(ledger.getTotalFare()).isEqualTo(15_000);
@@ -114,7 +114,7 @@ class SettlementPostgresTest {
 
         assertThatThrownBy(() -> rideService.complete(partyId, 기사, 20_000)).isInstanceOf(BusinessException.class);
 
-        assertThat(ledgers.findUnsettledByDriver(기사)).singleElement()
+        assertThat(미정산_원장(기사)).singleElement()
                 .extracting(SettlementLedger::getTotalFare).isEqualTo(15_000);
     }
 
@@ -126,7 +126,7 @@ class SettlementPostgresTest {
         settlementAccess.record(command);
         settlementAccess.record(command);
 
-        assertThat(ledgers.findUnsettledByDriver(기사)).singleElement().satisfies(ledger -> {
+        assertThat(미정산_원장(기사)).singleElement().satisfies(ledger -> {
             assertThat(ledger.getMatchId()).isEqualTo(운행번호);
             assertThat(ledger.getTaxiDriverId()).isEqualTo(기사);
             assertThat(ledger.getSettlementId()).isNull();
@@ -162,13 +162,9 @@ class SettlementPostgresTest {
         ledgers.save(원장(넷째기사, 운행번호 + 4, 1_000, 앞_주.start()));
 
         List<Long> 이번_기사들 = List.of(기사, 다른기사, 셋째기사, 넷째기사);
-        assertThat(ledgers.findDriverIdsToSettle(한_주, 0L, 넉넉한_한도))
+        assertThat(ledgers.findDriverIdsToSettle(한_주))
                 .filteredOn(이번_기사들::contains)
                 .containsExactly(기사, 넷째기사);
-        assertThat(ledgers.findDriverIdsToSettle(한_주, 기사, 넉넉한_한도))
-                .as("afterDriverId 보다 큰 기사만 이어서 읽는다")
-                .filteredOn(이번_기사들::contains)
-                .containsExactly(넷째기사);
     }
 
     @Test
@@ -187,8 +183,8 @@ class SettlementPostgresTest {
         assertThat(ledgers.findBySettlementId(정산서)).extracting(SettlementLedger::getMatchId)
                 .containsExactly(운행번호, 운행번호 + 1, 운행번호 + 2);
         assertThat(ledgers.sumSettlementAmount(정산서)).isEqualTo(6_000);
-        assertThat(ledgers.findUnsettledByDriver(기사)).extracting(SettlementLedger::getMatchId).containsExactly(운행번호 + 3);
-        assertThat(ledgers.findUnsettledByDriver(다른기사)).extracting(SettlementLedger::getMatchId).containsExactly(운행번호 + 4);
+        assertThat(미정산_원장(기사)).extracting(SettlementLedger::getMatchId).containsExactly(운행번호 + 3);
+        assertThat(미정산_원장(다른기사)).extracting(SettlementLedger::getMatchId).containsExactly(운행번호 + 4);
         assertThat(ledgers.assignToSettlement(기사, 한_주.end(), 정산서)).as("이미 연결한 원장은 다시 연결하지 않는다").isZero();
     }
 
@@ -218,7 +214,7 @@ class SettlementPostgresTest {
         assertThat(created).isTrue();
         assertThat(정산서.getStatus()).isEqualTo(SettlementStatus.CONFIRMED);
         assertThat(정산서.getAmount()).isEqualTo(5_000).isEqualTo(ledgers.sumSettlementAmount(정산서.getId()));
-        assertThat(ledgers.findUnsettledByDriver(기사)).extracting(SettlementLedger::getMatchId).containsExactly(운행번호 + 1);
+        assertThat(미정산_원장(기사)).extracting(SettlementLedger::getMatchId).containsExactly(운행번호 + 1);
     }
 
     @Test
@@ -229,7 +225,7 @@ class SettlementPostgresTest {
         assertThatThrownBy(() -> closeService.close(기사, 한_주)).isInstanceOf(IllegalStateException.class);
 
         assertThat(countSettlements(기사)).isZero();
-        assertThat(ledgers.findUnsettledByDriver(기사)).hasSize(1);
+        assertThat(미정산_원장(기사)).hasSize(1);
     }
 
     @Test
@@ -243,7 +239,7 @@ class SettlementPostgresTest {
 
         assertThat(countSettlements(기사)).isEqualTo(1);
         assertThat(settlementOf(기사, 한_주).getAmount()).isEqualTo(1_000);
-        assertThat(ledgers.findUnsettledByDriver(기사)).extracting(SettlementLedger::getMatchId).containsExactly(운행번호 + 1);
+        assertThat(미정산_원장(기사)).extracting(SettlementLedger::getMatchId).containsExactly(운행번호 + 1);
     }
 
     @Test
@@ -266,13 +262,33 @@ class SettlementPostgresTest {
         Long 이른 = ledgers.save(원장(기사, 운행번호 + 1, 2_000, 정오)).getId();
         Long 같은시각 = ledgers.save(원장(기사, 운행번호 + 2, 1_000, 정오)).getId();
 
-        assertThat(ledgers.findUnsettledByDriver(기사)).extracting(SettlementLedger::getId).containsExactly(이른, 같은시각, 늦은);
+        assertThat(ledgers.findUnsettledByDriverIn(기사, 한_주)).extracting(SettlementLedger::getId).containsExactly(이른, 같은시각, 늦은);
 
         ledgers.assignToSettlement(기사, 한_주.end(), 정산서);
 
         assertThat(ledgers.findBySettlementId(정산서)).extracting(SettlementLedger::getId).containsExactly(이른, 같은시각, 늦은);
         assertThat(ledgers.sumSettlementAmount(정산서)).isEqualTo(6_000);
         assertThat(ledgers.sumSettlementAmount(빈정산서)).isZero();
+    }
+
+    @Test
+    void 기간의_미정산_원장은_기간_시작_이상_끝_미만에_끝났고_정산서에_담기지_않은_그_기사의_원장을_운행_시각_순으로_읽는다() {
+        SettlementPeriod 한_주 = 미래_주("05-04");
+        Long 정산서 = settlement(기사, 한_주, SettlementStatus.CONFIRMED, 0);
+        ledgers.save(원장(기사, 운행번호, 1_000, 한_주.start().plusSeconds(60)));
+        ledgers.assignToSettlement(기사, 한_주.end(), 정산서);
+        ledgers.save(원장(기사, 운행번호 + 1, 1_000, 한_주.start().minus(1, ChronoUnit.MICROS)));
+        ledgers.save(원장(기사, 운행번호 + 2, 1_000, 한_주.end().minus(1, ChronoUnit.MICROS)));
+        ledgers.save(원장(기사, 운행번호 + 3, 1_000, 한_주.start()));
+        ledgers.save(원장(기사, 운행번호 + 4, 1_000, 한_주.end()));
+        ledgers.save(원장(다른기사, 운행번호 + 5, 1_000, 한_주.start()));
+
+        assertThat(ledgers.findUnsettledByDriverIn(기사, 한_주)).extracting(SettlementLedger::getMatchId)
+                .containsExactly(운행번호 + 3, 운행번호 + 2);
+        assertThat(ledgers.findUnsettledByDriverIn(기사, 한_주.previous())).extracting(SettlementLedger::getMatchId)
+                .containsExactly(운행번호 + 1);
+        assertThat(ledgers.findUnsettledByDriverIn(다른기사, 한_주)).extracting(SettlementLedger::getMatchId)
+                .containsExactly(운행번호 + 5);
     }
 
     @Test
@@ -312,7 +328,7 @@ class SettlementPostgresTest {
     }
 
     @Test
-    void 지급_대상은_금액이_있고_진행_중인_지급이_없으며_실패가_한도_미만인_정산서다() {
+    void 지급_전_정산서는_진행_중인_지급이나_실패_횟수와_상관없이_확정_보류_실패_상태의_정산서를_id_순으로_고른다() {
         Long 확정 = settlement(기사, 주("2026-04-06"), SettlementStatus.CONFIRMED, 1_000);
         Long 보류 = settlement(기사, 주("2026-04-13"), SettlementStatus.HOLD, 1_000);
         Long 두번실패 = settlement(기사, 주("2026-04-20"), SettlementStatus.FAILED, 1_000);
@@ -331,13 +347,32 @@ class SettlementPostgresTest {
         payout(지급완료, PayoutStatus.SUCCEED);
 
         List<Long> 이번_기사 = List.of(확정, 보류, 두번실패, 세번실패, 지급중, 결과모름, 지급완료, 금액없음);
-        assertThat(settlements.findPayableIds(3, 0L, 넉넉한_한도))
+        assertThat(settlements.findUnpaidIds())
                 .filteredOn(이번_기사::contains)
-                .containsExactly(확정, 보류, 두번실패);
-        assertThat(settlements.findPayableIds(3, 확정, 넉넉한_한도))
-                .as("afterId 보다 큰 id 만 이어서 읽는다")
-                .filteredOn(이번_기사::contains)
-                .containsExactly(보류, 두번실패);
+                .containsExactly(확정, 보류, 두번실패, 세번실패, 지급중, 결과모름, 금액없음);
+    }
+
+    @Test
+    void 요청_결과모름_성공_지급은_진행_중으로_보고_실패한_지급만_있으면_진행_중으로_보지_않는다() {
+        Long 지급없음 = settlement(기사, 주("2026-06-01"), SettlementStatus.CONFIRMED, 1_000);
+        Long 지급중 = settlement(기사, 주("2026-06-08"), SettlementStatus.CONFIRMED, 1_000);
+        Long 결과모름 = settlement(기사, 주("2026-06-15"), SettlementStatus.CONFIRMED, 1_000);
+        Long 지급완료 = settlement(기사, 주("2026-06-22"), SettlementStatus.PAID, 1_000);
+        Long 세번실패 = settlement(기사, 주("2026-06-29"), SettlementStatus.FAILED, 1_000);
+        payout(지급중, PayoutStatus.REQUESTED);
+        payout(결과모름, PayoutStatus.UNKNOWN);
+        payout(지급완료, PayoutStatus.SUCCEED);
+        payout(세번실패, PayoutStatus.FAILED);
+        payout(세번실패, PayoutStatus.FAILED);
+        payout(세번실패, PayoutStatus.FAILED);
+
+        assertThat(payouts.existsActiveBySettlementId(지급중)).isTrue();
+        assertThat(payouts.existsActiveBySettlementId(결과모름)).isTrue();
+        assertThat(payouts.existsActiveBySettlementId(지급완료)).isTrue();
+        assertThat(payouts.existsActiveBySettlementId(세번실패)).isFalse();
+        assertThat(payouts.existsActiveBySettlementId(지급없음)).isFalse();
+        assertThat(payouts.countFailedBySettlementId(세번실패)).isEqualTo(3);
+        assertThat(payouts.countFailedBySettlementId(지급중)).isZero();
     }
 
     @Test
@@ -390,13 +425,9 @@ class SettlementPostgresTest {
         Long 실패 = payoutCreatedAt(주("2026-07-06"), PayoutStatus.FAILED, 요청기한.minusSeconds(3_600));
 
         List<Long> 이번_기사 = List.of(오래된요청, 기한과같은요청, 최근요청, 결과모름, 성공, 실패);
-        assertThat(payouts.findStaleIds(요청기한, 0L, 넉넉한_한도))
+        assertThat(payouts.findStaleIds(요청기한))
                 .filteredOn(이번_기사::contains)
                 .containsExactly(오래된요청, 결과모름);
-        assertThat(payouts.findStaleIds(요청기한, 오래된요청, 넉넉한_한도))
-                .as("afterId 보다 큰 id 만 이어서 읽는다")
-                .filteredOn(이번_기사::contains)
-                .containsExactly(결과모름);
     }
 
     private Long settlement(Long taxiDriverId, SettlementPeriod period, SettlementStatus status, int amount) {
@@ -417,6 +448,10 @@ class SettlementPostgresTest {
 
     private Settlement settlementOf(Long taxiDriverId, SettlementPeriod period) {
         return settlements.findByDriverAndPeriod(taxiDriverId, period).orElseThrow();
+    }
+
+    private List<SettlementLedger> 미정산_원장(Long taxiDriverId) {
+        return ledgers.findUnsettledByDriverIn(taxiDriverId, 모든_기간);
     }
 
     private int countSettlements(Long taxiDriverId) {

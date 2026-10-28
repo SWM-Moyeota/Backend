@@ -2,8 +2,6 @@ package team.codingforest.moyeota.settlement.ledger;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.settlement.exception.SettlementErrorCode;
 import team.codingforest.moyeota.settlement.ledger.domain.Payout;
@@ -34,7 +32,6 @@ class SettlementQueryServiceTest {
     private static final LocalDate 시월_26일_월요일 = LocalDate.of(2026, 10, 26);
     private static final LocalDate 시월_28일_수요일 = LocalDate.of(2026, 10, 28);
     private static final LocalDate 십일월_1일_일요일 = LocalDate.of(2026, 11, 1);
-    private static final Instant 지금 = kst("2026-10-28T12:00");
 
     private FakePayouts payouts;
     private FakeSettlements settlements;
@@ -45,7 +42,7 @@ class SettlementQueryServiceTest {
     @BeforeEach
     void setUp() {
         payouts = new FakePayouts();
-        settlements = new FakeSettlements(payouts);
+        settlements = new FakeSettlements();
         ledgers = new FakeSettlementLedgers(settlements);
         closeService = new SettlementCloseService(settlements, ledgers);
         service = new SettlementQueryService(settlements, ledgers, payouts);
@@ -59,7 +56,7 @@ class SettlementQueryServiceTest {
         운행(기사, 1004L, 20000, 1000, kst("2026-10-25T23:59:59.999999"));
         Settlement 지난_주 = 정산서_생성(기사, 시월_19일_월요일);
 
-        WeeklySettlementResponse response = service.findWeekly(기사, 시월_21일_수요일, 지금);
+        WeeklySettlementResponse response = service.findWeekly(기사, 주(시월_21일_수요일));
 
         assertThat(response.weekStart()).isEqualTo(시월_19일_월요일);
         assertThat(response.weekEnd()).isEqualTo(시월_25일_일요일);
@@ -74,19 +71,6 @@ class SettlementQueryServiceTest {
         assertThat(response.days().stream().mapToInt(DailyEarning::amount).sum()).isEqualTo(response.amount());
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"2026-10-19", "2026-10-21", "2026-10-25"})
-    void 그_주의_어느_날짜로_조회해도_같은_주를_준다(String date) {
-        운행(기사, 1001L, 12000, 0, kst("2026-10-21T09:00"));
-        Settlement 지난_주 = 정산서_생성(기사, 시월_19일_월요일);
-
-        WeeklySettlementResponse response = service.findWeekly(기사, LocalDate.parse(date), 지금);
-
-        assertThat(response.settlementId()).isEqualTo(지난_주.getId());
-        assertThat(response.weekStart()).isEqualTo(시월_19일_월요일);
-        assertThat(response.weekEnd()).isEqualTo(시월_25일_일요일);
-    }
-
     @Test
     void 이번_주는_정산서가_없어_settlementId_와_status_가_null_이고_미정산_운행으로_예정_금액을_준다() {
         운행(기사, 1001L, 8000, 0, kst("2026-10-20T10:00"));
@@ -95,7 +79,7 @@ class SettlementQueryServiceTest {
         운행(기사, 1003L, 12000, 0, kst("2026-10-28T09:00"));
         운행(다른기사, 1004L, 50000, 0, kst("2026-10-27T11:00"));
 
-        WeeklySettlementResponse response = service.findWeekly(기사, 시월_28일_수요일, 지금);
+        WeeklySettlementResponse response = service.findWeekly(기사, 주(시월_28일_수요일));
 
         assertThat(response.weekStart()).isEqualTo(시월_26일_월요일);
         assertThat(response.weekEnd()).isEqualTo(십일월_1일_일요일);
@@ -108,11 +92,29 @@ class SettlementQueryServiceTest {
     }
 
     @Test
+    void 정산서가_아직_없는_지난_주는_그_주에_끝난_미정산_운행으로_예정_금액과_7칸을_준다() {
+        운행(기사, 1001L, 8000, 0, kst("2026-10-21T10:00"));
+        운행(기사, 1002L, 15000, 1000, kst("2026-10-25T22:00"));
+        운행(기사, 1003L, 9000, 0, kst("2026-10-26T00:01"));
+        운행(다른기사, 1004L, 50000, 0, kst("2026-10-21T11:00"));
+
+        WeeklySettlementResponse response = service.findWeekly(기사, 주(시월_21일_수요일));
+
+        assertThat(response.weekStart()).isEqualTo(시월_19일_월요일);
+        assertThat(response.weekEnd()).isEqualTo(시월_25일_일요일);
+        assertThat(response.settlementId()).isNull();
+        assertThat(response.status()).isNull();
+        assertThat(response.days()).extracting(DailyEarning::amount).containsExactly(0, 0, 8000, 0, 0, 0, 16000);
+        assertThat(response.days()).extracting(DailyEarning::rideCount).containsExactly(0, 0, 1, 0, 0, 0, 1);
+        assertThat(response.amount()).isEqualTo(8000 + 16000);
+    }
+
+    @Test
     void 월요일_마감_전_지난_주_미정산_운행은_이번_주_금액과_7칸에_들어가지_않는다() {
         운행(기사, 1001L, 15000, 0, kst("2026-10-25T22:00"));
         운행(기사, 1002L, 9000, 0, kst("2026-10-26T00:01"));
 
-        WeeklySettlementResponse response = service.findWeekly(기사, null, kst("2026-10-26T00:02"));
+        WeeklySettlementResponse response = service.findWeekly(기사, 주(시월_26일_월요일));
 
         assertThat(response.weekStart()).isEqualTo(시월_26일_월요일);
         assertThat(response.amount()).isEqualTo(9000);
@@ -121,12 +123,26 @@ class SettlementQueryServiceTest {
     }
 
     @Test
+    void 월요일_KST_자정_정각에_끝난_운행은_새_주이고_그_직전에_끝난_운행은_앞_주다() {
+        운행(기사, 1001L, 10000, 0, kst("2026-10-25T23:59:59.999999"));
+        운행(기사, 1002L, 20000, 0, kst("2026-10-26T00:00"));
+
+        WeeklySettlementResponse 앞_주 = service.findWeekly(기사, 주(시월_21일_수요일));
+        WeeklySettlementResponse 새_주 = service.findWeekly(기사, 주(시월_28일_수요일));
+
+        assertThat(앞_주.amount()).isEqualTo(10000);
+        assertThat(앞_주.days()).extracting(DailyEarning::rideCount).containsExactly(0, 0, 0, 0, 0, 0, 1);
+        assertThat(새_주.amount()).isEqualTo(20000);
+        assertThat(새_주.days()).extracting(DailyEarning::rideCount).containsExactly(1, 0, 0, 0, 0, 0, 0);
+    }
+
+    @Test
     void 앞선_주_운행이_함께_담긴_정산서는_그_운행이_7칸에_보이지_않아_금액이_7칸_합보다_크다() {
         운행(기사, 1001L, 8000, 0, kst("2026-10-21T10:00"));
         운행(기사, 1002L, 12000, 0, kst("2026-10-27T10:00"));
         Settlement 시월_26일_주 = 정산서_생성(기사, 시월_26일_월요일);
 
-        WeeklySettlementResponse response = service.findWeekly(기사, 시월_28일_수요일, 지금);
+        WeeklySettlementResponse response = service.findWeekly(기사, 주(시월_28일_수요일));
 
         assertThat(response.settlementId()).isEqualTo(시월_26일_주.getId());
         assertThat(response.amount()).isEqualTo(20000);
@@ -139,7 +155,7 @@ class SettlementQueryServiceTest {
         정산서_생성(기사, 시월_19일_월요일);
         운행(다른기사, 1002L, 50000, 0, kst("2026-10-27T11:00"));
 
-        WeeklySettlementResponse response = service.findWeekly(기사, 시월_28일_수요일, 지금);
+        WeeklySettlementResponse response = service.findWeekly(기사, 주(시월_28일_수요일));
 
         assertThat(response.settlementId()).isNull();
         assertThat(response.status()).isNull();
@@ -152,55 +168,21 @@ class SettlementQueryServiceTest {
     }
 
     @Test
-    void 정산서가_없는_지난_주는_미정산_운행이_있어도_금액_0_에_7칸_모두_0이다() {
-        운행(기사, 1001L, 8000, 0, kst("2026-10-21T10:00"));
-
-        WeeklySettlementResponse response = service.findWeekly(기사, 시월_21일_수요일, 지금);
-
-        assertThat(response.weekStart()).isEqualTo(시월_19일_월요일);
-        assertThat(response.weekEnd()).isEqualTo(시월_25일_일요일);
-        assertThat(response.settlementId()).isNull();
-        assertThat(response.status()).isNull();
-        assertThat(response.amount()).isZero();
-        assertThat(response.days()).hasSize(7).allSatisfy(day -> assertThat(day.amount()).isZero());
-        assertThat(response.days()).extracting(DailyEarning::date).startsWith(시월_19일_월요일).endsWith(시월_25일_일요일);
-    }
-
-    @Test
     void 미래_주는_이번_주_미정산_운행이_있어도_금액_0_에_7칸_모두_0이다() {
         운행(기사, 1001L, 8000, 0, kst("2026-10-27T10:00"));
 
-        WeeklySettlementResponse response = service.findWeekly(기사, LocalDate.of(2026, 11, 4), 지금);
+        WeeklySettlementResponse response = service.findWeekly(기사, 주(LocalDate.of(2026, 11, 4)));
 
         assertThat(response.weekStart()).isEqualTo(LocalDate.of(2026, 11, 2));
-        assertThat(response.settlementId()).isNull();
-        assertThat(response.amount()).isZero();
-        assertThat(response.days()).allSatisfy(day -> assertThat(day.rideCount()).isZero());
-    }
-
-    @Test
-    void date_가_없으면_지금의_KST_날짜가_속한_주를_준다() {
-        운행(기사, 1001L, 12000, 0, kst("2026-11-02T00:10"));
-        Instant UTC로는_일요일 = Instant.parse("2026-11-01T15:30:00Z");
-
-        WeeklySettlementResponse response = service.findWeekly(기사, null, UTC로는_일요일);
-
-        assertThat(response.weekStart()).as("UTC 11-01(일) 15:30 은 KST 11-02(월) 00:30 이다").isEqualTo(LocalDate.of(2026, 11, 2));
         assertThat(response.weekEnd()).isEqualTo(LocalDate.of(2026, 11, 8));
-        assertThat(response.days()).extracting(DailyEarning::amount).containsExactly(12000, 0, 0, 0, 0, 0, 0);
-        assertThat(response.amount()).isEqualTo(12000);
-    }
-
-    @Test
-    void date_가_있으면_지금과_무관하게_그_날짜가_속한_주를_준다() {
-        운행(기사, 1001L, 9000, 0, kst("2026-10-27T10:00"));
-        Settlement 시월_26일_주 = 정산서_생성(기사, 시월_26일_월요일);
-
-        WeeklySettlementResponse response = service.findWeekly(기사, 십일월_1일_일요일, kst("2026-12-15T12:00"));
-
-        assertThat(response.weekStart()).isEqualTo(시월_26일_월요일);
-        assertThat(response.settlementId()).isEqualTo(시월_26일_주.getId());
-        assertThat(response.amount()).isEqualTo(9000);
+        assertThat(response.settlementId()).isNull();
+        assertThat(response.status()).isNull();
+        assertThat(response.amount()).isZero();
+        assertThat(response.days()).hasSize(7)
+                .allSatisfy(day -> {
+                    assertThat(day.amount()).isZero();
+                    assertThat(day.rideCount()).isZero();
+                });
     }
 
     @Test
@@ -209,7 +191,7 @@ class SettlementQueryServiceTest {
         운행(기사, 1002L, 15000, 0, kst("2027-01-01T01:00"));
         Settlement 연말 = 정산서_생성(기사, LocalDate.of(2026, 12, 31));
 
-        WeeklySettlementResponse response = service.findWeekly(기사, LocalDate.of(2027, 1, 2), 지금);
+        WeeklySettlementResponse response = service.findWeekly(기사, 주(LocalDate.of(2027, 1, 2)));
 
         assertThat(response.weekStart()).isEqualTo(LocalDate.of(2026, 12, 28));
         assertThat(response.weekEnd()).isEqualTo(LocalDate.of(2027, 1, 3));
@@ -333,6 +315,10 @@ class SettlementQueryServiceTest {
         String pgId = status == PayoutStatus.SUCCEED ? "pg-" + settlement.getId() : null;
         payouts.save(Payout.load(null, settlement.getId(), settlement.getAmount(), status, pgId, FakePayoutAccounts.SAMPLE_BANK,
                 FakePayoutAccounts.SAMPLE_ACCOUNT_NUMBER, FakePayoutAccounts.SAMPLE_ACCOUNT_HOLDER, failReason, null, null));
+    }
+
+    private static SettlementPeriod 주(LocalDate date) {
+        return SettlementPeriod.weekOf(date);
     }
 
     private static Instant kst(String localDateTime) {

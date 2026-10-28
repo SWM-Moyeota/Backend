@@ -41,7 +41,7 @@ class SettlementCloseServiceTest {
 
     @BeforeEach
     void setUp() {
-        settlements = new FakeSettlements(new FakePayouts());
+        settlements = new FakeSettlements();
         ledgers = new FakeSettlementLedgers(settlements);
         service = new SettlementCloseService(settlements, ledgers);
         운행_순번 = 0;
@@ -110,7 +110,7 @@ class SettlementCloseServiceTest {
         service.close(기사, 시월_26일_주);
         Long 늦은_운행 = 원장(기사, 시월_26일_주.end().minus(Duration.ofMinutes(10)), 6000);
 
-        assertThat(service.findDriversToClose(시월_26일_주, 0L)).isEmpty();
+        assertThat(service.findDriversToClose(시월_26일_주)).isEmpty();
         assertThat(service.close(기사, 시월_26일_주)).isFalse();
 
         Settlement 먼저_만든 = 정산서(기사, 시월_26일_주);
@@ -135,7 +135,7 @@ class SettlementCloseServiceTest {
         원장(셋째_기사, 시월_19일_주.start().plus(Duration.ofDays(1)), 10000);
         service.close(셋째_기사, 시월_19일_주);
 
-        assertThat(service.findDriversToClose(시월_26일_주, 0L)).containsExactly(기사);
+        assertThat(service.findDriversToClose(시월_26일_주)).containsExactly(기사);
     }
 
     @Test
@@ -158,17 +158,12 @@ class SettlementCloseServiceTest {
     }
 
     @Test
-    void 정산_대상_기사는_id_순으로_afterDriverId_뒤부터_한_번에_BATCH_SIZE_명까지_고른다() {
-        int 기사_수 = SettlementCloseService.BATCH_SIZE + 1;
-        for(long driverId = 1; driverId <= 기사_수; driverId++) {
-            원장(driverId, 시월_26일_주.start().plus(Duration.ofDays(1)), 1000);
-        }
+    void 정산_대상_기사를_id_순으로_모두_고른다() {
+        원장(셋째_기사, 시월_26일_주.start().plus(Duration.ofDays(1)), 1000);
+        원장(기사, 시월_26일_주.start().plus(Duration.ofDays(2)), 1000);
+        원장(다른_기사, 시월_26일_주.start().plus(Duration.ofDays(3)), 1000);
 
-        List<Long> 첫_묶음 = service.findDriversToClose(시월_26일_주, 0L);
-        List<Long> 다음_묶음 = service.findDriversToClose(시월_26일_주, 첫_묶음.getLast());
-
-        assertThat(첫_묶음).hasSize(SettlementCloseService.BATCH_SIZE).isSorted().startsWith(1L);
-        assertThat(다음_묶음).containsExactly((long) 기사_수);
+        assertThat(service.findDriversToClose(시월_26일_주)).containsExactly(기사, 다른_기사, 셋째_기사);
     }
 
     @Nested
@@ -177,8 +172,8 @@ class SettlementCloseServiceTest {
         private final Instant 먼_미래 = Instant.parse("2999-01-01T03:00:00Z");
 
         @Test
-        void 방금_끝난_주까지의_미정산_원장으로_기사마다_정산서를_만들고_한_묶음보다_기사가_많아도_모두_만든다() {
-            int 기사_수 = SettlementCloseService.BATCH_SIZE + 1;
+        void 방금_끝난_주까지의_미정산_원장으로_기사마다_정산서를_만들고_기사가_여러_명이어도_모두_만든다() {
+            int 기사_수 = 3;
             for(long driverId = 1; driverId <= 기사_수; driverId++) {
                 원장(driverId, 오래전, 1000);
             }

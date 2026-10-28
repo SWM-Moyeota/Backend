@@ -15,14 +15,12 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class SettlementCloseService {
-    static final int BATCH_SIZE = 500;
-
     private final Settlements settlements;
     private final SettlementLedgers ledgers;
 
     @Transactional(readOnly = true)
-    public List<Long> findDriversToClose(SettlementPeriod week, long afterDriverId) {
-        return ledgers.findDriverIdsToSettle(week, afterDriverId, BATCH_SIZE);
+    public List<Long> findDriversToClose(SettlementPeriod week) {
+        return ledgers.findDriverIdsToSettle(week);
     }
 
     @Transactional

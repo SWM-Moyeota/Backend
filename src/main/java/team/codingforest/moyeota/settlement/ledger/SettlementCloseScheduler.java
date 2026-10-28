@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
 import team.codingforest.moyeota.settlement.ledger.domain.SettlementPeriod;
 
 import java.time.Instant;
-import java.util.List;
 
 @ConditionalOnProperty(prefix = "moyeota.taxi", name = "enabled", havingValue = "true", matchIfMissing = true)
 @Slf4j
@@ -18,21 +17,17 @@ import java.util.List;
 public class SettlementCloseScheduler {
     private final SettlementCloseService closeService;
 
-	@Scheduled(cron = "0 5 0-9 * * MON", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 5 0-9 * * MON", zone = "Asia/Seoul")
     @SchedulerLock(name = "settlement-close", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1M")
     public void close() {
-        SettlementPeriod endedWeek = SettlementPeriod.weekOf(Instant.now()).previous();
+        SettlementPeriod lastWeek = SettlementPeriod.weekOf(Instant.now()).previous();
         int created = 0;
 
-        List<Long> driverIds = closeService.findDriversToClose(endedWeek, 0L);
-        while(!driverIds.isEmpty()) {
-            for(Long driverId : driverIds) {
-                if(closeSafely(driverId, endedWeek)) created++;
-            }
-            driverIds = closeService.findDriversToClose(endedWeek, driverIds.getLast());
+        for(Long driverId : closeService.findDriversToClose(lastWeek)) {
+            if(closeSafely(driverId, lastWeek)) created++;
         }
 
-        log.info("정산서 생성 배치 periodStart={}, count={}", endedWeek.startDate(), created);
+        log.info("정산서 생성 배치 periodStart={}, count={}", lastWeek.startDate(), created);
     }
 
     private boolean closeSafely(Long driverId, SettlementPeriod week) {

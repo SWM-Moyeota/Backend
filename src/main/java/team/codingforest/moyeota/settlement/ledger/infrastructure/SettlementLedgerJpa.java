@@ -1,7 +1,6 @@
 package team.codingforest.moyeota.settlement.ledger.infrastructure;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.settlement.ledger.domain.SettlementLedger;
@@ -38,14 +37,14 @@ public class SettlementLedgerJpa implements SettlementLedgers {
     }
 
     @Override
-    public List<SettlementLedger> findUnsettledByDriver(Long taxiDriverId) {
-        return settlementLedgerJpaRepository.findUnsettledByDriver(taxiDriverId).stream()
+    public List<SettlementLedger> findUnsettledByDriverIn(Long taxiDriverId, SettlementPeriod week) {
+        return settlementLedgerJpaRepository.findUnsettledByDriverIn(taxiDriverId, week.start(), week.end()).stream()
                 .map(SettlementLedgerEntity::toDomain).toList();
     }
 
     @Override
-    public List<Long> findDriverIdsToSettle(SettlementPeriod week, long afterDriverId, int limit) {
-        return settlementLedgerJpaRepository.findDriverIdsToSettle(week.start(), week.end(), afterDriverId, Limit.of(limit));
+    public List<Long> findDriverIdsToSettle(SettlementPeriod week) {
+        return settlementLedgerJpaRepository.findDriverIdsToSettle(week.start(), week.end());
     }
 
     @Override

@@ -1,6 +1,5 @@
 package team.codingforest.moyeota.settlement.ledger.infrastructure;
 
-import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -16,20 +15,25 @@ public interface SettlementLedgerJpaRepository extends JpaRepository<SettlementL
     @Query("select l from SettlementLedgerEntity l where l.settlementId = :settlementId order by l.occurredAt, l.id")
     List<SettlementLedgerEntity> findBySettlementId(@Param("settlementId") Long settlementId);
 
-    @Query("select l from SettlementLedgerEntity l where l.taxiDriverId = :taxiDriverId and l.settlementId is null order by l.occurredAt, l.id")
-    List<SettlementLedgerEntity> findUnsettledByDriver(@Param("taxiDriverId") Long taxiDriverId);
+    @Query("""
+            select l from SettlementLedgerEntity l
+            where l.taxiDriverId = :taxiDriverId
+                and l.settlementId is null
+                and l.occurredAt >= :start and l.occurredAt < :end
+            order by l.occurredAt, l.id
+            """)
+    List<SettlementLedgerEntity> findUnsettledByDriverIn(@Param("taxiDriverId") Long taxiDriverId, @Param("start") Instant start,
+                                                         @Param("end") Instant end);
 
     @Query("""
             select distinct l.taxiDriverId from SettlementLedgerEntity l
             where l.settlementId is null
                 and l.occurredAt < :cutoff
-                and l.taxiDriverId > :afterDriverId
                 and not exists (select s.id from SettlementEntity s
                                 where s.taxiDriverId = l.taxiDriverId and s.periodStart = :periodStart)
             order by l.taxiDriverId
             """)
-    List<Long> findDriverIdsToSettle(@Param("periodStart") Instant periodStart, @Param("cutoff") Instant cutoff,
-                                     @Param("afterDriverId") long afterDriverId, Limit limit);
+    List<Long> findDriverIdsToSettle(@Param("periodStart") Instant periodStart, @Param("cutoff") Instant cutoff);
 
     @Modifying(flushAutomatically = true)
     @Query("""

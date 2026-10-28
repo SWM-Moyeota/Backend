@@ -8,5 +8,5 @@ public interface Settlements {
     Optional<Settlement> findById(Long id);
     Optional<Settlement> findByIdForUpdate(Long id);
     Optional<Settlement> findByDriverAndPeriod(Long taxiDriverId, SettlementPeriod period);
-    List<Long> findPayableIds(int maxPayoutAttempts, long afterId, int limit);
+    List<Long> findUnpaidIds();
 }
