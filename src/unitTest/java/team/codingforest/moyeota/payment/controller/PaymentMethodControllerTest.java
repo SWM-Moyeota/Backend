@@ -10,7 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import team.codingforest.moyeota.common.exception.GlobalExceptionHandler;
 import team.codingforest.moyeota.payment.service.PaymentMethodService;
-import team.codingforest.moyeota.payment.entity.PaymentMethodType;
+import team.codingforest.moyeota.payment.entity.enums.PaymentMethodType;
 import team.codingforest.moyeota.payment.dto.PaymentMethodResponse;
 import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
 import team.codingforest.moyeota.user.auth.presentation.security.CurrentUserArgumentResolver;

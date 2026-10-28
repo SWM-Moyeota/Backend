@@ -3,6 +3,7 @@ package team.codingforest.moyeota.payment.entity;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.payment.dto.CardDetail;
+import team.codingforest.moyeota.payment.entity.enums.PaymentMethodType;
 import team.codingforest.moyeota.payment.exception.PaymentErrorCode;
 
 import java.time.Instant;

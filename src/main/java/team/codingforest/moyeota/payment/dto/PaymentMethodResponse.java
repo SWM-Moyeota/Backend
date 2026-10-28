@@ -3,7 +3,7 @@ package team.codingforest.moyeota.payment.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import team.codingforest.moyeota.payment.entity.Card;
 import team.codingforest.moyeota.payment.entity.PaymentMethod;
-import team.codingforest.moyeota.payment.entity.PaymentMethodType;
+import team.codingforest.moyeota.payment.entity.enums.PaymentMethodType;
 
 import java.time.Instant;
 

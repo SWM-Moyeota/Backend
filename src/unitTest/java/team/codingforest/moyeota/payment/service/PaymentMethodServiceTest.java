@@ -14,7 +14,7 @@ import team.codingforest.moyeota.payment.dto.BillingKeyInfo;
 import team.codingforest.moyeota.payment.dto.CardDetail;
 import team.codingforest.moyeota.payment.dto.PaymentMethodResponse;
 import team.codingforest.moyeota.payment.entity.PaymentMethod;
-import team.codingforest.moyeota.payment.entity.PaymentMethodType;
+import team.codingforest.moyeota.payment.entity.enums.PaymentMethodType;
 import team.codingforest.moyeota.payment.exception.PaymentErrorCode;
 import team.codingforest.moyeota.payment.repository.PaymentMethodRepository;
 import team.codingforest.moyeota.user.api.MemberSummary;
