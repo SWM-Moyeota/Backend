@@ -4,7 +4,6 @@ import lombok.Getter;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.report.exception.ReportErrorCode;
 
-@Getter
 public class Report {
     private final Long id;
     private final Long reporterId;
@@ -50,4 +49,32 @@ public class Report {
         return new Report(id, reporterId, partyId, driverId,
                 reporterLatitude, reporterLongitude, status);
     }
+
+	public Long getId() {
+		return id;
+	}
+
+	public Long getReporterId() {
+		return reporterId;
+	}
+
+	public Long getPartyId() {
+		return partyId;
+	}
+
+	public Long getDriverId() {
+		return driverId;
+	}
+
+	public Double getReporterLatitude() {
+		return reporterLatitude;
+	}
+
+	public Double getReporterLongitude() {
+		return reporterLongitude;
+	}
+
+	public ReportStatus getStatus() {
+		return status;
+	}
 }
