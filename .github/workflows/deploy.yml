@@ -4,6 +4,8 @@ name: Deploy to EC2
 on:
   push:
     branches: [develop, main]
+    paths-ignore:
+      - 'socket-app/**'
 
 # 같은 환경에 배포가 겹치지 않게. dev 와 prod 는 서로 독립
 concurrency:
@@ -34,7 +36,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build
-        run: ./gradlew bootJar --no-daemon
+        run: ./gradlew :bootJar --no-daemon
 
       - name: Package
         run: |

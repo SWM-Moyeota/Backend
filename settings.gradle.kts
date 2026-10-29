@@ -3,3 +3,5 @@ plugins {
 }
 
 rootProject.name = "moyeota"
+
+include("chat-contract", "socket-app")
