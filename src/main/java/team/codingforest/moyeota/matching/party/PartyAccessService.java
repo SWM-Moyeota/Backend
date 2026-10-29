@@ -9,6 +9,8 @@ import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.dto.PartyChatSummary;
 import team.codingforest.moyeota.matching.api.dto.PartySummary;
+import team.codingforest.moyeota.matching.record.domain.RideRecords;
+import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
@@ -25,6 +27,7 @@ class PartyAccessService implements PartyAccess {
     private final Parties parties;
     private final AfterCommitExecutor afterCommitExecutor;
     private final PartyChangeNotifier partyChangeNotifier;
+    private final RideRecords rideRecords;
 
     @Transactional(readOnly = true)
     @Override
@@ -67,6 +70,7 @@ class PartyAccessService implements PartyAccess {
 
         party.startRide(driverId);
         parties.save(party);
+        rideRecords.save(RideRecord.pickUp(party.getId(), party.getTaxiDriverId(), party.getDeparture(), party.getDestination()));
     }
 
     @Transactional
@@ -76,6 +80,7 @@ class PartyAccessService implements PartyAccess {
 
         party.completeRide(driverId, fare);
         parties.save(party);
+        recordDropOff(party, fare);
         notifyClosed(party);
     }
 
@@ -137,6 +142,14 @@ class PartyAccessService implements PartyAccess {
         return parties.findById(partyId)
                 .map(party -> party.getMembers().stream().map(PartyMember::getMemberId).toList())
                 .orElse(List.of());
+    }
+
+    private void recordDropOff(Party party, int fare) {
+        RideRecord rideRecord = rideRecords.findById(party.getId())
+                .orElseGet(() -> RideRecord.withoutPickup(party.getId(), party.getTaxiDriverId(), party.getDeparture(), party.getDestination()));
+
+        rideRecord.dropOff(fare);
+        rideRecords.save(rideRecord);
     }
 
     private void notifyClosed(Party party) {

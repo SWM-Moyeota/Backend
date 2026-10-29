@@ -10,7 +10,6 @@ import java.time.Instant;
 /**
  *
  */
-@Getter
 public class Driver {
     private final Long id;
     private final Long userId;
@@ -123,4 +122,44 @@ public class Driver {
                                  BankAccount account, Vehicle vehicle, DriverSetting setting, DriverStatus status, String fcmToken, Instant deletedAt) {
         return new Driver(id, userId, qualificationNumber, verifiedAt, account, vehicle, setting, status, fcmToken, deletedAt);
     }
+
+	public Long getId() {
+		return id;
+	}
+
+	public Long getUserId() {
+		return userId;
+	}
+
+	public String getQualificationNumber() {
+		return qualificationNumber;
+	}
+
+	public Instant getVerifiedAt() {
+		return verifiedAt;
+	}
+
+	public BankAccount getBankAccount() {
+		return bankAccount;
+	}
+
+	public Vehicle getVehicle() {
+		return vehicle;
+	}
+
+	public DriverSetting getSetting() {
+		return setting;
+	}
+
+	public DriverStatus getStatus() {
+		return status;
+	}
+
+	public String getFcmToken() {
+		return fcmToken;
+	}
+
+	public Instant getDeletedAt() {
+		return deletedAt;
+	}
 }
