@@ -74,7 +74,7 @@ public class FakePayouts implements Payouts {
     }
 
     @Override
-    public List<Long> findStaleIds(Instant requestedBefore) {
+    public List<Long> findIdsToReconcile(Instant requestedBefore) {
         return store.values().stream()
                 .filter(p -> (p.getStatus() == PayoutStatus.REQUESTED && p.getCreatedAt().isBefore(requestedBefore))
                         || p.getStatus() == PayoutStatus.UNKNOWN)

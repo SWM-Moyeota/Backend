@@ -11,5 +11,5 @@ public interface Payouts {
     boolean existsActiveBySettlementId(Long settlementId);
     int countFailedBySettlementId(Long settlementId);
     Optional<Payout> findLatestBySettlementId(Long settlementId);
-    List<Long> findStaleIds(Instant requestedBefore);
+    List<Long> findIdsToReconcile(Instant requestedBefore);
 }

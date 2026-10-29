@@ -37,7 +37,7 @@ public class PayoutService {
     public void reconcile(Instant now) {
         Instant staleBefore = now.minus(STALE_AFTER);
 
-        for(Long payoutId : payouts.findStaleIds(staleBefore)) {
+        for(Long payoutId : payouts.findIdsToReconcile(staleBefore)) {
             reconcileSafely(payoutId, staleBefore);
         }
     }

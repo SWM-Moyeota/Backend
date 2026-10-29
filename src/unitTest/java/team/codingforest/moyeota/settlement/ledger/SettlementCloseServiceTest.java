@@ -37,14 +37,14 @@ class SettlementCloseServiceTest {
     private FakeSettlements settlements;
     private FakeSettlementLedgers ledgers;
     private SettlementCloseService service;
-    private long 운행_순번;
+    private long 결제그룹_순번;
 
     @BeforeEach
     void setUp() {
         settlements = new FakeSettlements();
         ledgers = new FakeSettlementLedgers(settlements);
         service = new SettlementCloseService(settlements, ledgers);
-        운행_순번 = 0;
+        결제그룹_순번 = 0;
     }
 
     @Test
@@ -281,9 +281,9 @@ class SettlementCloseServiceTest {
     }
 
     private Long 원장(Long taxiDriverId, Instant occurredAt, int totalFare) {
-        long matchId = ++운행_순번;
-        ledgers.save(SettlementLedger.record(taxiDriverId, matchId, totalFare, 0, occurredAt));
-        return matchId;
+        long paymentGroupId = ++결제그룹_순번;
+        ledgers.save(SettlementLedger.record(taxiDriverId, paymentGroupId, totalFare, 0, occurredAt));
+        return paymentGroupId;
     }
 
     private Settlement 정산서(Long taxiDriverId, SettlementPeriod week) {
@@ -291,11 +291,11 @@ class SettlementCloseServiceTest {
     }
 
     private List<Long> 담긴_운행(Settlement settlement) {
-        return ledgers.findBySettlementId(settlement.getId()).stream().map(SettlementLedger::getMatchId).toList();
+        return ledgers.findBySettlementId(settlement.getId()).stream().map(SettlementLedger::getPaymentGroupId).toList();
     }
 
     private List<Long> 미정산_운행(Long taxiDriverId) {
-        return ledgers.findUnsettledByDriver(taxiDriverId).stream().map(SettlementLedger::getMatchId).toList();
+        return ledgers.findUnsettledByDriver(taxiDriverId).stream().map(SettlementLedger::getPaymentGroupId).toList();
     }
 
     private static CronExpression cronOf(Class<?> scheduler, String method) throws NoSuchMethodException {

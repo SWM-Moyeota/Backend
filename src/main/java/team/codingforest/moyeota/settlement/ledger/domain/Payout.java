@@ -5,16 +5,15 @@ import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.settlement.exception.SettlementErrorCode;
 
 import java.time.Instant;
-import java.util.EnumSet;
 import java.util.Set;
 
 public class Payout {
     private static final String PAYOUT_KEY_PREFIX = "moyeota-payout-";
     private static final int MAX_REASON_LENGTH = 255;
 
-    private static final Set<PayoutStatus> AWAITING_RESULT = EnumSet.of(PayoutStatus.REQUESTED, PayoutStatus.UNKNOWN);
-    private static final Set<PayoutStatus> ACTIVE = EnumSet.of(PayoutStatus.REQUESTED, PayoutStatus.UNKNOWN, PayoutStatus.SUCCEED);
-    private static final Set<PayoutStatus> FINISHED = EnumSet.of(PayoutStatus.SUCCEED, PayoutStatus.FAILED);
+    private static final Set<PayoutStatus> AWAITING_RESULT = Set.of(PayoutStatus.REQUESTED, PayoutStatus.UNKNOWN);
+    public static final Set<PayoutStatus> ACTIVE_STATUSES = Set.of(PayoutStatus.REQUESTED, PayoutStatus.UNKNOWN, PayoutStatus.SUCCEED);
+    private static final Set<PayoutStatus> FINISHED = Set.of(PayoutStatus.SUCCEED, PayoutStatus.FAILED);
 
     private final Long id;
     private final Long settlementId;
@@ -45,7 +44,7 @@ public class Payout {
 
     public static Payout request(Settlement settlement, PayoutAccount account) {
         if(account == null) throw new IllegalArgumentException("지급 계좌가 없습니다.");
-        if(!settlement.isInPayoutStage()) throw new BusinessException(SettlementErrorCode.INVALID_SETTLEMENT_STATUS);
+        if(!settlement.isUnpaid()) throw new BusinessException(SettlementErrorCode.INVALID_SETTLEMENT_STATUS);
         if(settlement.getAmount() <= 0) throw new BusinessException(SettlementErrorCode.INVALID_PAYOUT_AMOUNT);
 
         return new Payout(null, settlement.getId(), settlement.getAmount(), PayoutStatus.REQUESTED, null,
@@ -86,7 +85,7 @@ public class Payout {
     }
 
     public boolean isActive() {
-        return ACTIVE.contains(status);
+        return ACTIVE_STATUSES.contains(status);
     }
 
     public boolean isFinished() {
