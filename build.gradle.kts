@@ -32,6 +32,9 @@ dependencyManagement {
 }
 
 dependencies {
+    // 내부 모듈
+    implementation(project(":chat-contract"))   // Redis 봉투·목적지 계약 - socket-app 과 같이 씀
+
     // Spring Boot
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
