@@ -11,12 +11,11 @@ import org.springframework.messaging.simp.user.SimpUser;
 import org.springframework.messaging.simp.user.SimpUserRegistry;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
+import team.codingforest.moyeota.chat.contract.ChatDestinations;
 
 @Component
 @RequiredArgsConstructor
 public class ChatSubscriptionCleaner {
-
-    private static final String ROOM_DESTINATION_PREFIX = "/sub/chat-rooms/";
 
     private final SimpUserRegistry userRegistry;
     private final SimpMessagingTemplate messagingTemplate;
@@ -28,7 +27,7 @@ public class ChatSubscriptionCleaner {
             return;
         }
 
-        String room = ROOM_DESTINATION_PREFIX + chatRoomId;
+        String room = ChatDestinations.room(chatRoomId);
         for (SimpSession session : user.getSessions()) {
             for (SimpSubscription subscription : session.getSubscriptions()) {
                 if (isRoom(subscription.getDestination(), room)) {

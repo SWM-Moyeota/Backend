@@ -12,6 +12,7 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 import team.codingforest.moyeota.chat.common.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.common.exception.ChatException;
+import team.codingforest.moyeota.chat.contract.ChatDestinations;
 import team.codingforest.moyeota.chat.member.domain.ChatRoomUsers;
 import team.codingforest.moyeota.user.api.AuthenticatedPrincipal;
 import team.codingforest.moyeota.user.api.TokenAuthenticator;
@@ -23,7 +24,6 @@ import java.security.Principal;
 public class StompAuthInterceptor implements ChannelInterceptor {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String APP_DESTINATION_PREFIX = "/pub/";
-    private static final String ROOM_DESTINATION_PREFIX = "/sub/chat-rooms/";
     private static final String USER_QUEUE_PREFIX = "/user/queue";
 
     private final ChatRoomUsers chatRoomUsers;
@@ -92,11 +92,11 @@ public class StompAuthInterceptor implements ChannelInterceptor {
     }
 
     private Long parseChatRoomId(String destination) {
-        if (destination == null || !destination.startsWith(ROOM_DESTINATION_PREFIX)) {
+        if (destination == null || !destination.startsWith(ChatDestinations.ROOM_PREFIX)) {
             return null;
         }
 
-        String remainder = destination.substring(ROOM_DESTINATION_PREFIX.length());
+        String remainder = destination.substring(ChatDestinations.ROOM_PREFIX.length());
         int slashIndex = remainder.indexOf("/");
         String rawId = slashIndex < 0 ? remainder : remainder.substring(0, slashIndex);
 
