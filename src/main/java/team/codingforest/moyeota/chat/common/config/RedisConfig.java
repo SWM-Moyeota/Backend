@@ -10,15 +10,15 @@ import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import team.codingforest.moyeota.chat.common.redis.ChatRedisSubscriber;
+import team.codingforest.moyeota.chat.contract.ChatChannels;
 
 @Slf4j
 @Configuration
 public class RedisConfig {
-    public static final String CHAT_CHANNEL = "chat_channel";
 
     @Bean
     public ChannelTopic chatTopic() {
-        return new ChannelTopic(CHAT_CHANNEL);
+        return new ChannelTopic(ChatChannels.CHAT);
     }
 
     @Bean

@@ -5,25 +5,22 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.messaging.simp.SimpMessageType;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MimeTypeUtils;
 import team.codingforest.moyeota.chat.common.session.ChatSubscriptionCleaner;
-import team.codingforest.moyeota.chat.location.infrastructure.ChatLocationPayload;
-import team.codingforest.moyeota.chat.member.infrastructure.ChatRoomLeftResult;
-import team.codingforest.moyeota.chat.member.infrastructure.MemberChangedPayload;
-import team.codingforest.moyeota.chat.member.infrastructure.RoomLeftPayload;
-import team.codingforest.moyeota.chat.message.dto.ChatMessageResult;
+import team.codingforest.moyeota.chat.contract.ChatEventEnvelope;
 import tools.jackson.databind.ObjectMapper;
+
+import java.nio.charset.StandardCharsets;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class ChatRedisSubscriber implements MessageListener {
-
-    private static final String ROOM_DESTINATION = "/sub/chat-rooms/";
-    private static final String ROOM_LEFT_DESTINATION = "/queue/room-left";
-    private static final String LOCATION_DESTINATION_SUFFIX = "/location";
-    private static final String MEMBER_DESTINATION_SUFFIX = "/members";
 
     private final ObjectMapper objectMapper;
     private final SimpMessagingTemplate messagingTemplate;
@@ -34,46 +31,27 @@ public class ChatRedisSubscriber implements MessageListener {
         try {
             ChatEventEnvelope envelope = objectMapper.readValue(message.getBody(), ChatEventEnvelope.class);
 
-            switch (envelope.type()) {
-                case ChatEventEnvelope.TYPE_MESSAGE -> handleMessage(envelope.payload());
-                case ChatEventEnvelope.TYPE_ROOM_LEFT -> handleRoomLeft(envelope.payload());
-                case ChatEventEnvelope.TYPE_LOCATION -> handleLocation(envelope.payload());
-                case ChatEventEnvelope.TYPE_MEMBER -> handleMember(envelope.payload());
-                default -> log.warn("알 수 없는 이벤트 타입 type={}", envelope.type());
+            if (envelope.destination() == null) {
+                log.warn("목적지 없는 이벤트를 버림 type={}", envelope.type());
+                return;
             }
+
+            if (ChatEventEnvelope.TYPE_ROOM_LEFT.equals(envelope.type())) {
+                subscriptionCleaner.unsubscribeRoom(envelope.userId(), envelope.chatRoomId());
+            }
+
+            deliver(envelope.destination(), envelope.payload());
         } catch (Exception e) {
             log.error("Redis 메시지 처리 실패", e);
         }
     }
 
-    private void handleMessage(String payload) {
-        ChatMessageResult result = objectMapper.readValue(payload, ChatMessageResult.class);
+    private void deliver(String destination, String payload) {
+        SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
+        accessor.setContentType(MimeTypeUtils.APPLICATION_JSON);
+        accessor.setLeaveMutable(true);
 
-        messagingTemplate.convertAndSend(ROOM_DESTINATION + result.chatRoomId(), result);
-    }
-
-    private void handleRoomLeft(String payload) {
-        ChatRoomLeftResult result = objectMapper.readValue(payload, ChatRoomLeftResult.class);
-
-        subscriptionCleaner.unsubscribeRoom(result.userId(), result.chatRoomId());
-        messagingTemplate.convertAndSendToUser(
-                String.valueOf(result.userId()),
-                ROOM_LEFT_DESTINATION,
-                new RoomLeftPayload(result.publicId(), result.chatRoomId()));
-    }
-
-    private void handleLocation(String payload) {
-        ChatLocationPayload result = objectMapper.readValue(payload, ChatLocationPayload.class);
-
-        messagingTemplate.convertAndSend(
-                ROOM_DESTINATION + result.chatRoomId() + LOCATION_DESTINATION_SUFFIX, result);
-    }
-
-    private void handleMember(String payload) {
-        MemberChangedPayload result = objectMapper.readValue(payload, MemberChangedPayload.class);
-
-        messagingTemplate.convertAndSend(
-                ROOM_DESTINATION + result.chatRoomId() + MEMBER_DESTINATION_SUFFIX, result // sub/chat-rooms/{chatRoomId}/members
-        );
+        messagingTemplate.send(destination, MessageBuilder.createMessage(
+                payload.getBytes(StandardCharsets.UTF_8), accessor.getMessageHeaders()));
     }
 }

@@ -8,7 +8,7 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import team.codingforest.moyeota.chat.common.config.RedisConfig;
+import team.codingforest.moyeota.chat.contract.ChatChannels;
 import team.codingforest.moyeota.chat.member.domain.ChatMember;
 import team.codingforest.moyeota.chat.member.domain.enums.MemberChangeType;
 import team.codingforest.moyeota.chat.member.infrastructure.MemberChangedPayload;
@@ -42,7 +42,7 @@ class ChatRedisPublisherTest {
     void 퇴장하면_본인_동기화와_방_알림을_모두_발행한다() {
         publisher.memberLeft(ROOM_ID, USER_ID, PUBLIC_ID, MEMBER);
 
-        verify(redisTemplate, times(2)).convertAndSend(eq(RedisConfig.CHAT_CHANNEL), anyString());
+        verify(redisTemplate, times(2)).convertAndSend(eq(ChatChannels.CHAT), anyString());
     }
 
     @Test
