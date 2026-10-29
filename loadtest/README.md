@@ -113,13 +113,13 @@ SSE 배포 뒤: 폴링 D1 결과를 baseline 으로 두고 → D1-SSE → D2 `US
 
 ### SSE 정합성 - 변경분으로 그린 화면이 맞는가
 
-서버는 방이 바뀔 때마다(참여·나가기·합승 종료·30분 자동 종료) `version` 을 정확히 1 올린다(생성 시 0, 생성자가 들어 있는 상태). 방 상세와 `connected` 끝, `member-joined`(`{ member, status, version }`), `member-left`(`{ publicId, status, hostPublicId, version }`), `closed`(`{ partyId, status, version }`)에 실린다. 30초마다 `:ping` 주석이 온다(연결 유지). k6 는 앱과 같은 규칙으로 화면을 갱신한다(`lib/sse.js` 의 `follow`).
+서버는 방이 바뀔 때마다(참여·나가기·합승 종료·30분 자동 종료) `version` 을 정확히 1 올린다(생성 시 0, 생성자가 들어 있는 상태). 방 상세와 `connected` 끝, `member-joined`(`{ member, status, version }`), `member-left`(`{ publicId, status, hostPublicId, version }`)에 실린다. `closed`(`{ status }`)에는 없다. 30초마다 `:ping` 주석이 온다(연결 유지). k6 는 앱과 같은 규칙으로 화면을 갱신한다(`lib/sse.js` 의 `follow`).
 
 | 받은 것 | 처리 |
 |---|---|
 | `connected` | 새 상세의 `version` 이 화면 이상이면(화면에 아직 없으면 무조건) 통째로 교체, 낮으면 버린다(`sse_stale_event`) |
 | `member-*` | 화면 `version`+1 이면 반영하고 화면 `version` 을 올린다. 화면 이하면 버린다(`sse_stale_event`). `connected` 전이거나, 그보다 크거나(번호 빠짐), 정수가 아니면 resync `gap` |
-| `closed` | `version` 과 상관없이 종료(직전과 같은 `version` 일 수 있다). 옛 서버의 방 번호 문자열(`"42"`)도 받는다 |
+| `closed` | 받으면 종료. `{ status }` 만 실린다. 옛 서버의 방 번호 문자열(`"42"`)이나 `{ partyId, status, version }` 도 받는다 |
 
 반영은 했지만 화면을 믿을 수 없을 때도 resync 한다 - 들어온·나간 사람을 모름(`unknown-member`), `member-left` 의 `hostPublicId` 가 null 이거나 목록에 없음(`unknown-host`), 목록이 status 와 모순(`drift`). resync 는 스트림을 끊지 않고 상세를 1회 다시 읽어(`GET /matching/rooms/{id} (resync)` - 앱도 하는 호출이지만 이름표로 따로 잡힌다) 그 `version` 이 화면 이상일 때만 통째로 바꾼다.
 

@@ -58,20 +58,19 @@ class RedisPartyChangeNotifierTest {
     }
 
     @Test
-    void closed_는_방_번호와_상태와_version_을_실어_채널에_낸다() {
-        PartyClosed event = PartyClosed.from(방, "FINISHED", 4L);
-
-        notifier.closed(방, event);
+    void closed_는_상태만_실어_채널에_낸다() {
+        notifier.closed(방, PartyClosed.from("FINISHED"));
 
         PartySseMessage sent = onlySent();
+        assertThat(sent.partyId()).isEqualTo(방);
         assertThat(sent.event()).isEqualTo("closed");
-        assertThat(objectMapper.readValue(sent.data(), PartyClosed.class)).isEqualTo(event);
+        assertThat(sent.data()).isEqualTo("{\"status\":\"FINISHED\"}");
         assertThat(sent.leftMemberId()).isNull();
     }
 
     @Test
     void 모든_신호는_같은_채널로_낸다() {
-        notifier.closed(방, PartyClosed.from(방, "FINISHED", 1L));
+        notifier.closed(방, PartyClosed.from("FINISHED"));
 
         assertThat(redis.channels).containsExactly(PartySseChannel.TOPIC);
     }

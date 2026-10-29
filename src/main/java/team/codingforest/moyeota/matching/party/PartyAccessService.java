@@ -153,7 +153,7 @@ class PartyAccessService implements PartyAccess {
     }
 
     private void notifyClosed(Party party) {
-        PartyClosed closed = PartyClosed.from(party.getId(), party.getStatus().name(), party.getVersion());
+        PartyClosed closed = PartyClosed.from(party.getStatus().name());
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(party.getId(), closed));
     }
 
