@@ -1,6 +1,12 @@
 spring:
   application:
     name: moyeota-socket
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 1s           # API 와 같게 - 기본 60초
+      connect-timeout: 1s   # Redis 가 멈췄다 돌아올 때 구독 재연결 시도가 오래 매달리지 않게
 
 server:
   port: 8081   # 로컬에서 API(8080)와 같이 띄우기 위함
@@ -18,3 +24,10 @@ management:
   metrics:
     tags:
       application: moyeota-socket
+
+chat:
+  websocket:
+    allowed-origins: http://localhost:*
+  api:
+    base-url: http://localhost:8080   # 인증·방 멤버 확인을 묻는 API 주소
+    timeout: 1s
