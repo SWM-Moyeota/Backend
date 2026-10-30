@@ -41,6 +41,24 @@ class PortOneClientTest {
     void 모든_기대_요청을_검증한다() { server.verify(); }
 
     @Test
+    void 빌링키_결제_요청과_중첩_응답을_변환한다() {
+        server.expect(requestTo(BASE + "/payments/123/billing-key"))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.content().json(
+                        """
+                        {"billingKey":"bk-1","orderName":"모여타 사전 결제",
+                         "amount":{"total":12000},"currency":"KRW"}
+                        """))
+                .andRespond(withSuccess(
+                        """
+                        {"payment":{"pgTxId":"pg-123","paidAt":"2026-10-29T15:00:00+09:00"}}
+                        """, MediaType.APPLICATION_JSON));
+        var response = client.payWithBillingKey("123", "bk-1", 12000L);
+        assertThat(response.payment().pgTxId()).isEqualTo("pg-123");
+        assertThat(response.payment().paidAt()).isEqualTo("2026-10-29T15:00:00+09:00");
+    }
+
+    @Test
     void 발급된_카드_빌링키는_상태_명의_카드_정보로_풀린다() {
         server.expect(requestTo(BASE + "/billing-keys/bk-1")).andExpect(method(HttpMethod.GET))
                 .andExpect(header("Authorization", "PortOne test-secret"))
