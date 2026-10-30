@@ -23,8 +23,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Payment extends BaseEntity {
 
-    @Column(name = "pg_payment_id")
-    private String pgPaymentId;
+    // PG사가 발급하고 포트원 응답으로 전달하는 거래번호. 요청용 paymentId와 구분한다.
+    @Column(name = "pg_tx_id")
+    private String pgTxId;
 
     @Column(name = "user_id")
     private Long userId;
@@ -63,7 +64,7 @@ public class Payment extends BaseEntity {
     private LocalDateTime updatedAt;
 
     private Payment(
-            String pgPaymentId,
+            String pgTxId,
             Long userId,
             Long paymentGroupId,
             Long paymentMethodId,
@@ -72,7 +73,7 @@ public class Payment extends BaseEntity {
             PaymentCurrency currency,
             String orderName
     ) {
-        this.pgPaymentId = pgPaymentId;
+        this.pgTxId = pgTxId;
         this.userId = userId;
         this.paymentGroupId = paymentGroupId;
         this.paymentMethodId = paymentMethodId;
@@ -84,7 +85,7 @@ public class Payment extends BaseEntity {
     }
 
     public static Payment create(
-            String pgPaymentId,
+            String pgTxId,
             Long userId,
             Long paymentGroupId,
             Long paymentMethodId,
@@ -94,7 +95,7 @@ public class Payment extends BaseEntity {
             String orderName
     ) {
         return new Payment(
-                pgPaymentId,
+                pgTxId,
                 userId,
                 paymentGroupId,
                 paymentMethodId,
@@ -103,6 +104,15 @@ public class Payment extends BaseEntity {
                 currency,
                 orderName
         );
+    }
+
+    public void markPaid(String pgTxId) {
+        this.pgTxId = pgTxId;
+        this.status = PaymentStatus.PAID;
+    }
+
+    public void markCanceled() {
+        this.status = PaymentStatus.CANCELED;
     }
 
     @PrePersist

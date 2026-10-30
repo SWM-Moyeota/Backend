@@ -9,6 +9,11 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.payment.dto.BillingKeyInfo;
+import team.codingforest.moyeota.payment.dto.portone.PaymentAmount;
+import team.codingforest.moyeota.payment.dto.portone.PortOnePaymentCancelReqeust;
+import team.codingforest.moyeota.payment.dto.portone.PortOnePaymentRequest;
+import team.codingforest.moyeota.payment.dto.portone.PortOnePaymentResponse;
+import team.codingforest.moyeota.payment.entity.enums.PaymentCurrency;
 import team.codingforest.moyeota.payment.exception.PaymentErrorCode;
 
 /**
@@ -70,4 +75,41 @@ public class PortOneClient {
         log.warn("포트원 {} 실패 exceptionType={}", action, cause.getClass().getSimpleName());
         return new BusinessException(PaymentErrorCode.GATEWAY_ERROR);
     }
+
+    /*결제 요청*/
+    public PortOnePaymentResponse payWithBillingKey(String paymentId, String billingKey, Long estimatedFare){
+
+        PortOnePaymentRequest paymentRequest = new PortOnePaymentRequest(
+                billingKey, "모여타 사전 결제", new PaymentAmount(estimatedFare), PaymentCurrency.KRW);
+
+        try{
+            return portOneRestClient.post()
+                    .uri("/payments/{paymentId}/billing-key",paymentId)
+                    .body(paymentRequest)
+                    .retrieve()
+                    .body(PortOnePaymentResponse.class);
+
+        }catch (RestClientException e) {
+            throw gatewayError("빌링키 결제", e);
+        }
+    }
+
+
+    /** 전액 취소를 요청하고 포트원의 JSON 응답을 그대로 반환한다. paymentId는 결제 요청 시 사용한 ID다. */
+    public String cancelPayment(String paymentId, String reason) {
+        if (paymentId == null || paymentId.isBlank() || reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("paymentId와 reason은 필수입니다.");
+        }
+
+        try {
+            return portOneRestClient.post()
+                    .uri("/payments/{paymentId}/cancel", paymentId)
+                    .body(new PortOnePaymentCancelReqeust(reason))
+                    .retrieve()
+                    .body(String.class);
+        } catch (RestClientException e) {
+            throw gatewayError("결제 취소", e);
+        }
+    }
+
 }
