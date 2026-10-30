@@ -3,15 +3,18 @@
 //   표를 채우려면 CONNS 를 바꿔 여러 번 돌린다. 결과는 node d8-table.mjs results/<파일>.json... 으로 단계별 표가 된다.
 //   ./k6 run -o experimental-prometheus-rw --tag testid=d8-c300-r1 --summary-export=results/d8-c300-r1.json -e CONNS=300 d8-sse-event-sweep.js
 //   짧게: -e CONNS=20 -e EVENT_RATES=5,20 -e STEP_SEC=20 -e CONNECT_SEC=5 -e WARM_SEC=5
+//   폴링 비교: -e MODE=poll 이면 구독자가 SSE 대신 POLL_SEC 마다 방 상세를 읽는다. 방 구성과 입퇴장은 같다
 //   사용자: (CONNS/2 + PROBE_ROOMS) x 3 명. 지표와 판정은 README 의 D8 절.
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import { Counter, Trend } from 'k6/metrics';
 import exec from 'k6/execution';
 import { leaveRoom, joinRoom, roomDetail, openRoom, spotOf, breakdown, groupUsers } from './lib/api.js';
-import { watchParty, newRoomView, follow, compareWithDetail, sseErrors, sseReconnects, RESYNC_REASONS } from './lib/sse.js';
+import { watchParty, newRoomView, follow, applyEvent, compareWithDetail, sseErrors, sseReconnects, RESYNC_REASONS } from './lib/sse.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
+const MODE = __ENV.MODE || 'sse';
+const POLL_SEC = Number(__ENV.POLL_SEC || 4);
 const CONNS = Number(__ENV.CONNS || 300);
 const RATES = (__ENV.EVENT_RATES || '5,20,50,100,200').split(',').map(Number);
 const STEP_SEC = Number(__ENV.STEP_SEC || 120);
@@ -27,6 +30,8 @@ const PING_SEC = 30;
 
 const ROOMS = CONNS / 2;
 const NEEDED = (ROOMS + PROBE_ROOMS) * 3;
+if (MODE !== 'sse' && MODE !== 'poll') throw new Error(`MODE=${MODE} 는 sse 또는 poll 이어야 한다`);
+if (!(POLL_SEC > 0)) throw new Error(`POLL_SEC=${__ENV.POLL_SEC} 는 양수여야 한다`);
 if (!Number.isInteger(ROOMS) || ROOMS < 1) throw new Error(`CONNS=${CONNS} 는 2 이상의 짝수여야 한다 - 방마다 고정 구독자가 2명이다`);
 if (RATES.some((r) => !(r > 0))) throw new Error(`EVENT_RATES=${__ENV.EVENT_RATES} 는 양수 목록이어야 한다`);
 if (users.length < NEEDED) throw new Error(`users.json 에 ${users.length}명뿐이다 - ${NEEDED}명 필요`);
@@ -50,6 +55,10 @@ const deliveryTail = new Counter('sse_delivery_tail');        // 마지막으로
 const unverified = new Counter('sse_delivery_unverified');    // 도중에 끊겨 받은 수를 대조하지 못한 구독 구간
 const eventLatency = new Trend('sse_event_latency_ms', true); // name, step - 측정 방의 예약 시각 → 다른 구독자 수신
 const tickSkips = new Counter('sse_probe_tick_skip');         // step - 측정 방에서 예약 주기 하나가 비었다. 수신 유실이거나 요청이 주기를 넘겼다
+const polls = new Counter('d8_polls');                         // step - 폴링 모드의 방 상세 조회 수
+const pollMs = new Trend('d8_poll_ms', true);                  // step - 폴링 모드의 방 상세 응답 시간
+const pollErrors = new Counter('d8_poll_errors');              // 폴링 모드에서 200 이 아닌 응답
+const coalesced = new Counter('d8_poll_coalesced');            // 폴링 한 번 사이에 지나가 화면에 나타나지 못한 변경 수
 const actionMs = new Trend('d8_action_ms', true);              // step - 입퇴장 요청 자체의 응답 시간
 const probeSendLate = new Trend('sse_probe_send_late_ms', true); // step - 예약 시각보다 늦게 보낸 정도. 크면 k6 가 밀렸다는 뜻
 
@@ -81,11 +90,14 @@ export const options = {
       [`d8_action{step:${s},result:other}`]: ['count>=0'],
       [`d8_action_ms{step:${s}}`]: ['p(95)>=0'],
       [`sse_probe_send_late_ms{step:${s}}`]: ['p(95)>=0'],
-      [`sse_event_latency_ms{step:${s}}`]: ['p(95)<1000'],
+      [`sse_event_latency_ms{step:${s}}`]: [MODE === 'sse' ? 'p(95)<1000' : 'p(95)>=0'],
+      [`d8_polls{step:${s}}`]: ['count>=0'],
+      [`d8_poll_ms{step:${s}}`]: ['p(95)>=0'],
     }), {}),
     checks: ['rate==1'],
     dropped_iterations: ['count==0'],
     sse_errors: ['count==0'],
+    d8_poll_errors: ['count==0'],
     sse_delivery_lost: ['count==0'],
     sse_delivery_tail: ['count==0'],
     sse_delivery_unverified: ['count==0'],
@@ -117,7 +129,7 @@ export function setup() {
   const probes = [];
   for (let p = 0; p < PROBE_ROOMS; p++) probes.push(prepareRoom(ROOMS + p, `LT-d8-probe${p}`, true));
   console.log(`방 ${rooms.length}개, 고정 연결 ${CONNS}, 단계 ${RATES.join('→')}건/s, 측정 방 ${probes.length}개(${(PROBE_ROOMS / PROBE_PERIOD_SEC).toFixed(2)}건/s 추가), 입퇴장 ${CHURN_START}~${CHURN_END}초`);
-  return { rooms, probes, stepSec: STEP_SEC + STEP_RAMP_SEC, settleSec: SETTLE_SEC, probePeriodSec: PROBE_PERIOD_SEC };
+  return { rooms, probes, stepSec: STEP_SEC + STEP_RAMP_SEC, settleSec: SETTLE_SEC, probePeriodSec: PROBE_PERIOD_SEC, mode: MODE, pollSec: POLL_SEC };
 }
 
 const elapsedSec = (startedAt, base = 0) => (Date.now() - startedAt) / 1000 + base;
@@ -197,6 +209,45 @@ function hold(me, partyId, startedAt, onChange) {
   }
 }
 
+function poll(me, partyId, startedAt, name) {
+  const res = roomDetail(me.token, partyId, name);
+  const step = stepAt(elapsedSec(startedAt));
+  polls.add(1, { step });
+  pollMs.add(res.timings.duration, { step });
+  check(res, { '방 상세 200': (r) => r.status === 200 });
+  if (res.status !== 200) {
+    pollErrors.add(1, { status: String(res.status) });
+    return null;
+  }
+  return { at: Date.now(), detail: res.json() };
+}
+
+function pollHold(me, partyId, startedAt, onChange) {
+  const view = newRoomView();
+  const seen = (result) => {
+    if (!result) return;
+    const { at, detail } = result;
+    const before = view.version;
+    const size = view.members.size;
+    applyEvent(view, 'connected', detail);
+    if (before === null || detail.version <= before) return;
+    if (detail.version > before + 1) coalesced.add(detail.version - before - 1);
+    if (onChange) onChange(view.members.size > size ? 'member-joined' : 'member-left', at);
+  };
+  sleep(Math.random() * POLL_SEC);
+  let next = Date.now();
+  while (elapsedSec(startedAt) < CHECK_AT) {
+    seen(poll(me, partyId, startedAt, 'GET /matching/rooms/{id} (poll)'));
+    next += POLL_SEC * 1000;
+    sleep(Math.max(0, (next - Date.now()) / 1000));
+  }
+  sleep(Math.random() * 5);
+  seen(poll(me, partyId, startedAt, 'GET /matching/rooms/{id} (poll)'));
+  compareWithDetail(view, roomDetail(me.token, partyId, 'GET /matching/rooms/{id} (check)'));
+}
+
+const listen = MODE === 'poll' ? pollHold : hold;
+
 let slot = null;
 let finished = false;
 
@@ -210,7 +261,7 @@ export function subscriber(data) {
   if (finished || slot >= CONNS) { idle(startedAt); return; }
   const room = data.rooms[Math.floor(slot / 2)];
   sleep((slot / CONNS) * CONNECT_SEC);
-  hold(groupUsers(users, room.g)[slot % 2], room.partyId, startedAt);
+  listen(groupUsers(users, room.g)[slot % 2], room.partyId, startedAt);
   finished = true;
   idle(startedAt);
 }
@@ -227,7 +278,7 @@ export function probeSubscriber(data) {
   const offset = tickOffsetMs(p);
   let lastTick = null;
   sleep((slot / (PROBE_ROOMS * 2)) * CONNECT_SEC);
-  hold(groupUsers(users, room.g)[slot % 2], room.partyId, startedAt, (name, at) => {
+  listen(groupUsers(users, room.g)[slot % 2], room.partyId, startedAt, (name, at) => {
     const tick = Math.floor((at - offset) / period);
     const step = stepAt(elapsedSec(startedAt));
     if (lastTick !== null && tick > lastTick + 1) tickSkips.add(1, { step });

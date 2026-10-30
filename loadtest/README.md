@@ -180,6 +180,7 @@ D7 은 연결 수를 올리고 입퇴장은 초당 2건으로 고정한다. D8 �
 | `CONNECT_SEC` · `WARM_SEC` · `SETTLE_SEC` | 60 · 30 · 45 | 연결을 나눠 붙이는 시간, 입퇴장 전 대기, 입퇴장 뒤 대기 |
 | `PROBE_ROOMS` · `PROBE_PERIOD_SEC` | 5 · 15 | 수신 지연 측정 방 수와 주기 |
 | `CHURN_ROOMS` | 전체 | 입퇴장을 앞쪽 방 몇 개에 몰지. 같은 방 이벤트 간격을 좁혀 순서 역전 조건을 만든다 |
+| `MODE` · `POLL_SEC` | sse · 4 | `poll` 이면 구독자가 SSE 대신 `POLL_SEC` 마다 방 상세를 읽는다. 방 구성과 입퇴장은 같다 |
 | `MAX_CHURN_VUS` | 500 | 입퇴장 VU 상한. `dropped_iterations` 가 0 이 아니면 서버 응답이 느려 VU 가 고갈됐거나 k6 가 밀린 것이다. `d8_action_ms` 와 `sse_probe_send_late_ms` 로 가른다 |
 
 | 지표 | 뜻 |
@@ -192,6 +193,11 @@ D7 은 연결 수를 올리고 입퇴장은 초당 2건으로 고정한다. D8 �
 
 - `CONNS` 가 1000 이상이거나 `STEP_SEC` 을 늘리면 토큰 30분 안에 seed·setup·시험·teardown 이 다 끝나지 않을 수 있다. 대상 서버에 `JWT_ACCESS_VALIDITY=2h` 를 넣는다.
 - 시작 전에 `ulimit -n` 과 `executor_queued_tasks`(앞 실행의 채팅 후처리 적체가 0 인지)를 확인한다. 짧게 돌리면 겹쳐 거절된 요청이 `http_req_failed` 에 들어가니 이 값은 보지 않는다.
+
+**폴링과 비교할 때**는 같은 `CONNS`·`EVENT_RATES` 로 `-e MODE=poll` 만 더해 돌린다. 대기 화면만 비교하며 목록·채팅 화면의 요청은 넣지 않는다. 폴링은 SSE 와 달리 입퇴장이 없어도 `CONNS`/`POLL_SEC` 건/s 의 방 상세 조회가 나간다.
+- `sse_event_latency_ms` 는 폴링 모드에서 예약 시각 → 조회로 변화를 발견한 시각이다. 합격선 p95 < 1초는 SSE 모드에만 건다. 폴링은 주기에서 나오는 지연이 있어 그대로 비교하려고 값만 남긴다
+- `d8_polls{step}`·`d8_poll_ms{step}`: 방 상세 조회 수와 응답 시간. `d8_poll_coalesced`: 폴링 사이에 지나가 화면에 나타나지 못한 변경 수(유실이 아니라 폴링의 특성). 미수신 지표는 쓰지 않는다
+- 함께 볼 값: 같은 단계의 `system_cpu_usage`, RDS CPU, `hikaricp_connections_active`·`pending`, `jvm_memory_used_bytes`
 
 결과는 `node d8-table.mjs results/d8-c300-r1.json results/d8-c1000-r1.json` 으로 단계별 표가 된다. 함께 볼 Grafana 값: `party_sse_connections`(`CONNS`+측정 구독자 수와 맞아야 한다), `jvm_threads_live_threads`, `jvm_threads_started_threads_total`, `system_cpu_usage`, `hikaricp_connections_pending`, `executor_queued_tasks`, RDS CPU, `after_commit_task_total{name="party.sse",result="fail"}`.
 
