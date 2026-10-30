@@ -2,6 +2,9 @@ package team.codingforest.moyeota.payment.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.PrePersist;
@@ -10,7 +13,6 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import team.codingforest.moyeota.common.BaseEntity;
 import team.codingforest.moyeota.payment.entity.enums.PaymentGroupStatus;
 
 import java.time.LocalDateTime;
@@ -19,7 +21,11 @@ import java.time.LocalDateTime;
 @Getter
 @Table(name = "payment_group")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class PaymentGroup extends BaseEntity {
+public class PaymentGroup {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "match_id")
     private Long matchId;

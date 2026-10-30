@@ -1,9 +1,12 @@
 package team.codingforest.moyeota.payment.entity;
 
-import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
@@ -12,7 +15,10 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import team.codingforest.moyeota.common.BaseTimeEntity;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import team.codingforest.moyeota.common.TimeTrackable;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.payment.dto.CardDetail;
 import team.codingforest.moyeota.payment.entity.enums.PaymentMethodType;
@@ -26,11 +32,23 @@ import java.time.Instant;
  *  카드 표시 정보는 card 테이블에 PK 공유(1:1)로 둔다 - ERD 그대로. 종류가 늘면 easy_pay / mobile 테이블이 같은 식으로 붙는다.
  */
 @Entity
-@AttributeOverride(name = "id", column = @Column(name = "payment_method_id"))
+@EntityListeners(AuditingEntityListener.class)
 @Getter
 @Table(name = "payment_method", indexes = @Index(name = "idx_payment_method_user_id", columnList = "user_id"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class PaymentMethod extends BaseTimeEntity {
+public class PaymentMethod implements TimeTrackable {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "payment_method_id")
+    private Long id;
+
+    @CreatedDate
+    @Column(updatable = false, nullable = false)
+    private Instant createdAt;
+
+    @LastModifiedDate
+    private Instant updatedAt;
 
     @Column(nullable = false, unique = true)
     private String billingKey;
