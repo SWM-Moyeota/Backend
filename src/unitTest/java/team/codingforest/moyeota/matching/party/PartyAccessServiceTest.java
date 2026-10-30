@@ -202,7 +202,6 @@ class PartyAccessServiceTest {
 
         assertThat(signals.sent).containsExactly(partyId + ":closed");
         assertThat(signals.closed.getLast().status()).isEqualTo("CANCELED");
-        assertThat(signals.closed.getLast().version()).isEqualTo(parties.findById(partyId).orElseThrow().getVersion());
     }
 
     @Test
@@ -213,7 +212,6 @@ class PartyAccessServiceTest {
 
         assertThat(signals.sent).containsExactly(partyId + ":closed");
         assertThat(signals.closed.getLast().status()).isEqualTo("FINISHED");
-        assertThat(signals.closed.getLast().version()).isEqualTo(parties.findById(partyId).orElseThrow().getVersion());
     }
 
     @Test

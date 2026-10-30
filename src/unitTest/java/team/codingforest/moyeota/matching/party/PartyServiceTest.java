@@ -474,13 +474,13 @@ class PartyServiceTest {
     }
 
     @Test
-    void 마지막_멤버가_나가면_closed_에_CANCELED_와_올라간_version_이_실린다() {
+    void 마지막_멤버가_나가면_closed_에_CANCELED_가_실리고_version_은_오른다() {
         PartyResult party = service.open(createParty(host, 3));
 
         service.leave(party.id(), host);
 
-        assertThat(signals.closed.getLast().status()).isEqualTo("CANCELED");
-        assertThat(signals.closed.getLast().version()).isEqualTo(1).isEqualTo(versionOf(party.id()));
+        assertThat(signals.closed.getLast()).isEqualTo(PartyClosed.from("CANCELED"));
+        assertThat(versionOf(party.id())).isEqualTo(1);
     }
 
     @Test
@@ -500,9 +500,8 @@ class PartyServiceTest {
 
         service.join(party.id(), guest);
         service.finish(party.id(), host);
-        assertThat(signals.closed.getLast().version()).isEqualTo(5).isEqualTo(versionOf(party.id()));
         assertThat(signals.closed.getLast().status()).isEqualTo("FINISHED");
-        assertThat(service.getPartyDetail(party.id()).version()).isEqualTo(5);
+        assertThat(service.getPartyDetail(party.id()).version()).isEqualTo(5).isEqualTo(versionOf(party.id()));
     }
 
     @Test
@@ -746,13 +745,13 @@ class PartyServiceTest {
         }
 
         @Test
-        void 자동_종료_신호에도_올라간_version_이_실린다() {
+        void 자동_종료하면_closed_에_FINISHED_가_실리고_version_은_오른다() {
             Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);
 
             service.expire(오래된방);
 
-            assertThat(signals.closed.getLast().status()).isEqualTo("FINISHED");
-            assertThat(signals.closed.getLast().version()).isEqualTo(1).isEqualTo(versionOf(오래된방));
+            assertThat(signals.closed.getLast()).isEqualTo(PartyClosed.from("FINISHED"));
+            assertThat(versionOf(오래된방)).isEqualTo(1);
         }
 
         @Test
