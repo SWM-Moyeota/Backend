@@ -55,7 +55,7 @@ const CHURN_END = CHURN_START + Math.max(1, __ENV.CHURN_FOR ? sec(__ENV.CHURN_FO
 const CHECK_AT = CHURN_END + SETTLE;
 const LAST_PLATEAU = Math.max(sec(PLATEAU), CHECK_AT + HEARTBEAT + 10 - BEFORE_LAST);   // 첫 ping + 상세 조회(흩뿌림 5초)까지
 const CHECK = 'GET /matching/rooms/{id} (check)';           // 측정용 상세 조회 - 지표에서 따로 잡힌다
-const churnOutcome = new Counter('churn');                   // result 태그: ok / full / other
+const churnOutcome = new Counter('churn');                   // result 태그: ok / full / busy / other
 const reconnectRetry = new Counter('sse_reconnect_retry');   // churn 이 내 자리를 뺀 순간(leave~join 0.5초)에 재연결해 403 → 잠시 뒤 재시도
 const propagationMiss = new Counter('sse_propagation_miss'); // reason 태그: connect(구독·connected 실패) / join(참여 실패, 409 등) / timeout(이벤트 미도착)
 const PROPAGATION_MISS_REASONS = ['connect', 'join', 'timeout'];
@@ -156,6 +156,7 @@ export function churner(data) {
   const room = data.rooms[Math.floor(Math.random() * data.rooms.length)];
   const who = groupUsers(users, room.g)[1 + Math.floor(Math.random() * 2)];
   const l = leaveRoom(who.token, room.partyId);
+  if (l.status === 403 && String(l.body).includes('NOT_PARTY_MEMBER')) { churnOutcome.add(1, { result: 'busy' }); return; }   // 다른 churner 가 먼저 내보낸 사람 - 정상
   if (l.status !== 204 && l.status !== 409) { churnOutcome.add(1, { result: 'other' }); console.error(`leave ${l.status}: ${l.body}`); return; }
   sleep(0.5);
   const j = joinRoom(who.token, room.partyId);
