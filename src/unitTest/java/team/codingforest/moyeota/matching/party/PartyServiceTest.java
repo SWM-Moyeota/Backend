@@ -88,7 +88,7 @@ class PartyServiceTest {
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
                 new RouteCacheTest());
         return new PartyService(parties, events, routeService, driverAccess, userAccess, policy, afterCommit, signals,
-                new FakeWalkRouteFinder(), rideRecords);
+                new FakeWalkRouteFinder(), rideRecords, new PartyOpener(parties, events, policy));
     }
 
     @Test
@@ -239,6 +239,18 @@ class PartyServiceTest {
         service.open(createParty(host, 3));
 
         assertThatThrownBy(() -> service.open(createParty(host, 3)))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
+    }
+
+    @Test
+    void 경로_조회_중_다른_방에_들어갔으면_저장_단계에서_거절한다() {
+        // 경로 조회는 트랜잭션 밖이라 첫 검사와 저장 사이에 다른 방에 들어갈 수 있다
+        PartyOpener opener = new PartyOpener(parties, events, new DispatchCompletionPolicy(events));
+        service.open(createParty(host, 3));
+
+        assertThatThrownBy(() -> opener.open(createParty(host, 3), new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC")))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
