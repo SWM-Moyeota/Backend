@@ -114,6 +114,29 @@ class FavoritePlaceServiceTest {
     }
 
     @Test
+    void 좌표가_없으면_등록할_수_없다() {
+        FavoritePlaceCommand 좌표없음 = new FavoritePlaceCommand("집", "서울 강남구 테헤란로 123", null, null);
+
+        assertThatThrownBy(() -> service.save(좌표없음, 유저))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(PlaceErrorCode.INVALID_COORDINATES);
+        assertThat(service.getList(유저).places()).isEmpty();
+    }
+
+    @Test
+    void 서비스_지역_밖_좌표는_등록할_수_없다() {
+        // 도쿄 - 앱은 이런 값을 보내지 않지만 API 를 직접 호출하면 들어올 수 있다
+        FavoritePlaceCommand 도쿄 = new FavoritePlaceCommand("호텔", "", 35.6762, 139.6503);
+
+        assertThatThrownBy(() -> service.save(도쿄, 유저))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(PlaceErrorCode.INVALID_COORDINATES);
+        assertThat(service.getList(유저).places()).isEmpty();
+    }
+
+    @Test
     void 중간이_삭제된_상태에서_등록해도_sequence가_겹치지_않는다() {
         // 1, 3만 있는 상태 = 2번이 삭제된 뒤 상황을 가짜에 직접 심음
         fake.save(FavoritePlace.from(유저, "집", "주소", 37.5, 127.0, 1));

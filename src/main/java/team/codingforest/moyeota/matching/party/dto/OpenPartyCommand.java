@@ -2,8 +2,8 @@ package team.codingforest.moyeota.matching.party.dto;
 
 public record OpenPartyCommand(
         long creatorId,
-        double departureLat, double departureLng,
-        double destinationLat, double destinationLng,
+        Double departureLat, Double departureLng,
+        Double destinationLat, Double destinationLng,
         String departure, String destination,
-        int capacity) {
+        Integer capacity) {
 }
