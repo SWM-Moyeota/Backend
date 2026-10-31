@@ -81,6 +81,7 @@ dependencies {
     // 테스트
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-security-test")   // Boot 4.1 은 이게 있어야 @WebMvcTest 에 시큐리티 auto-config 이 붙는다
     testImplementation("org.springframework.boot:spring-boot-starter-websocket-test")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
     testImplementation("org.awaitility:awaitility")
