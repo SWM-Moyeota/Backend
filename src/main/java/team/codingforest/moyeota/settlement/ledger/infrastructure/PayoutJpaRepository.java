@@ -29,6 +29,6 @@ public interface PayoutJpaRepository extends JpaRepository<PayoutEntity, Long> {
             where (p.status = :requestedStatus and p.createdAt < :requestedBefore) or p.status = :unknownStatus
             order by p.id
             """)
-    List<Long> findStaleIds(@Param("requestedStatus") PayoutStatus requestedStatus, @Param("requestedBefore") Instant requestedBefore,
-                            @Param("unknownStatus") PayoutStatus unknownStatus);
+    List<Long> findIdsToReconcile(@Param("requestedStatus") PayoutStatus requestedStatus, @Param("requestedBefore") Instant requestedBefore,
+                                  @Param("unknownStatus") PayoutStatus unknownStatus);
 }

@@ -24,7 +24,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 @ConditionalOnProperty(prefix = "moyeota.taxi", name = "enabled", havingValue = "true", matchIfMissing = true)
-@Tag(name = "정산", description = "기사 정산. 기사가 요금을 입력해 운행을 마치면 결제 결과와 상관없이 바로 정산 원장에 미정산 운행으로 기록되고, 주(KST 월요일 00:00 ~ 다음 월요일 00:00)가 끝나면 기사마다 정산서로 묶여 지급된다. 배치 일정(KST) - 정산서 생성: 월요일 00:05, 만들지 못한 기사는 같은 날 09:05 까지 매시 5분에 다시 시도(이미 정산서가 있는 기사는 건너뜀) / 지급: 매일 10:00, 지급 보류(HOLD)·실패(FAILED) 정산서도 이때 다시 시도(실패한 지급이 3건 쌓이면 더 시도하지 않음) / 결과를 모르는 지급(UNKNOWN): 10분마다 결제사에 확인")
+@Tag(name = "정산", description = "기사 정산. 기사가 요금을 입력해 결제 그룹이 만들어지면, 승객 결제 결과와 상관없이 결제 그룹 총금액으로 정산 원장에 미정산 운행으로 기록되고, 주(KST 월요일 00:00 ~ 다음 월요일 00:00)가 끝나면 기사마다 정산서로 묶여 지급된다. 배치 일정(KST) - 정산서 생성: 월요일 00:05, 만들지 못한 기사는 같은 날 09:05 까지 매시 5분에 다시 시도(이미 정산서가 있는 기사는 건너뜀) / 지급: 매일 10:00, 지급 보류(HOLD)·실패(FAILED) 정산서도 이때 다시 시도(실패한 지급이 3건 쌓이면 더 시도하지 않음) / 결과를 모르는 지급(UNKNOWN): 10분마다 결제사에 확인")
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
