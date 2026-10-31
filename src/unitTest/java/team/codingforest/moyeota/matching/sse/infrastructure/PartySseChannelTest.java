@@ -38,9 +38,9 @@ class PartySseChannelTest {
 
     @Test
     void closed_신호는_따로_알리지_않고_데이터와_함께_방을_닫는다() {
-        channel.onMessage(msg(new PartySseMessage(42L, "closed", "42", null)), null);
+        channel.onMessage(msg(new PartySseMessage(42L, "closed", "{\"status\":\"FINISHED\"}", null)), null);
 
-        assertThat(registry.calls).containsExactly("closeAll:42:42");
+        assertThat(registry.calls).containsExactly("closeAll:42:{\"status\":\"FINISHED\"}");
     }
 
     @Test

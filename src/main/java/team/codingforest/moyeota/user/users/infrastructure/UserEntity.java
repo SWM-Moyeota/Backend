@@ -4,6 +4,9 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -19,6 +22,9 @@ import java.util.UUID;
 @NoArgsConstructor
 @Table(name = "users")   // "user" 는 PostgreSQL·H2 예약어라 insert 자체가 실패한다
 public class UserEntity extends BaseTimeEntity {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     // 필터가 매 요청 publicId 로 조회하므로 unique 인덱스 필요
     @Column(nullable = false, unique = true, updatable = false)

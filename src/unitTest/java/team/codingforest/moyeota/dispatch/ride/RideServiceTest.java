@@ -11,7 +11,11 @@ import team.codingforest.moyeota.dispatch.ride.domain.PassengerNotifier;
 import team.codingforest.moyeota.dispatch.exception.DispatchErrorCode;
 import team.codingforest.moyeota.matching.api.dto.PartySummary;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
+import team.codingforest.moyeota.settlement.api.SettlementAccess;
+import team.codingforest.moyeota.settlement.api.dto.RideSettlementCommand;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,6 +36,7 @@ class RideServiceTest {
     private FakePartyAccess partyAccess;
     private RecordingPassengerNotifier passengers;
     private FakeDriverLocations locations;
+    private RecordingSettlementAccess settlements;
     private RideService service;
 
     @BeforeEach
@@ -39,7 +44,8 @@ class RideServiceTest {
         partyAccess = new FakePartyAccess(강남출발방);
         passengers = new RecordingPassengerNotifier();
         locations = new FakeDriverLocations();
-        service = new RideService(partyAccess, passengers, locations);
+        settlements = new RecordingSettlementAccess();
+        service = new RideService(partyAccess, passengers, locations, settlements);
     }
 
     private void 기사배정됨() {
@@ -136,6 +142,34 @@ class RideServiceTest {
     }
 
     @Test
+    void 운행을_종료하면_그_운행과_요금으로_정산_원장_기록을_요청한다() {
+        기사배정됨();
+        service.board(방번호, 기사);
+        Instant 종료_전 = Instant.now().truncatedTo(ChronoUnit.MICROS);
+
+        service.complete(방번호, 기사, 15000);
+
+        assertThat(settlements.commands).singleElement().satisfies(command -> {
+            assertThat(command.partyId()).isEqualTo(방번호);
+            assertThat(command.taxiDriverId()).isEqualTo(기사);
+            assertThat(command.totalFare()).isEqualTo(15000);
+            assertThat(command.platformPromotion()).isZero();
+            assertThat(command.occurredAt()).isBetween(종료_전, Instant.now());
+        });
+    }
+
+    @Test
+    void 운행_종료가_거부되면_정산_원장_기록을_요청하지_않는다() {
+        기사배정됨();
+
+        assertThatThrownBy(() -> service.complete(방번호, 기사, 15000))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.NOT_RIDING);
+        assertThat(settlements.commands).isEmpty();
+    }
+
+    @Test
     void 탑승_확정_전에는_운행을_종료할_수_없다() {
         // 도착 통보만 하고 board 없이 complete를 누른 경우 - 순서 강제
         기사배정됨();
@@ -212,6 +246,15 @@ class RideServiceTest {
         @Override
         public void notifyDriverArrived(Long partyId) {
             arrivedParties.add(partyId);
+        }
+    }
+
+    static class RecordingSettlementAccess implements SettlementAccess {
+        final List<RideSettlementCommand> commands = new ArrayList<>();
+
+        @Override
+        public void record(RideSettlementCommand command) {
+            commands.add(command);
         }
     }
 }

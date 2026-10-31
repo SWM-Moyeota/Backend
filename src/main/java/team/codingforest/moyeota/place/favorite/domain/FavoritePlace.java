@@ -6,9 +6,7 @@ import team.codingforest.moyeota.place.exception.PlaceErrorCode;
 
 import java.time.Instant;
 
-@Getter
 public class FavoritePlace {
-    /** 저장 전에는 null. DB 가 자동 채번한 뒤 restore 로 돌아온 객체에만 값이 있다 */
     private final Long placeId;
     private final Long userId;
     private final String placeName;
@@ -49,4 +47,40 @@ public class FavoritePlace {
     public void updateSequence(Integer count) {
         this.placeSequence = count;
     }
+
+	public Long getPlaceId() {
+		return placeId;
+	}
+
+	public Long getUserId() {
+		return userId;
+	}
+
+	public String getPlaceName() {
+		return placeName;
+	}
+
+	public String getRoadName() {
+		return roadName;
+	}
+
+	public Double getLatitude() {
+		return latitude;
+	}
+
+	public Double getLongitude() {
+		return longitude;
+	}
+
+	public Integer getPlaceSequence() {
+		return placeSequence;
+	}
+
+	public Instant getCreatedAt() {
+		return createdAt;
+	}
+
+	public Instant getUpdatedAt() {
+		return updatedAt;
+	}
 }

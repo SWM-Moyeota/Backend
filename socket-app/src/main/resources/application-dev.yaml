@@ -1,0 +1,3 @@
+management:
+  server:
+    port: 9091   # API 와 같게 - 지표·헬스는 앱 포트(8081)와 분리, 대상 그룹 헬스체크가 9091/health 를 봄

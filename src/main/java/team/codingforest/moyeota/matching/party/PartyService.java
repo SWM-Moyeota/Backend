@@ -38,6 +38,8 @@ import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.route.domain.WalkRouteFinder;
 import team.codingforest.moyeota.matching.route.domain.WalkingEstimate;
 import team.codingforest.moyeota.matching.party.dto.MatchCandidate;
+import team.codingforest.moyeota.matching.record.domain.RideRecord;
+import team.codingforest.moyeota.matching.record.domain.RideRecords;
 import team.codingforest.moyeota.user.api.MemberSummary;
 import team.codingforest.moyeota.user.api.UserAccess;
 
@@ -66,6 +68,7 @@ public class PartyService {
     private final AfterCommitExecutor afterCommitExecutor;
     private final PartyChangeNotifier partyChangeNotifier;
     private final WalkRouteFinder walkRouteFinder;
+    private final RideRecords rideRecords;
 
     @Transactional
     public PartyResult open(OpenPartyCommand command) {
@@ -138,7 +141,7 @@ public class PartyService {
 
         if (party.getStatus() == PartyStatus.CANCELED) {
             eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
-            PartyClosed closed = PartyClosed.from(partyId, party.getStatus().name(), party.getVersion());
+            PartyClosed closed = PartyClosed.from(party.getStatus().name());
             afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
         } else {
             Long hostId = party.hostId();   // leave 반영 후 = 승계 결과. 이 분기에선 멤버가 반드시 남아 있음
@@ -192,8 +195,9 @@ public class PartyService {
 
         party.finishWithoutDriver(memberId);
         parties.save(party);
+        rideRecords.save(RideRecord.withoutDriver(partyId, party.getDeparture(), party.getDestination()));
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
-        PartyClosed closed = PartyClosed.from(partyId, party.getStatus().name(), party.getVersion());
+        PartyClosed closed = PartyClosed.from(party.getStatus().name());
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
 
         log.info("기사 없이 합승 종료 partyId={}, memberId={}", partyId, memberId);
@@ -207,7 +211,7 @@ public class PartyService {
         party.expireCompleted();
         parties.save(party);
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
-        PartyClosed closed = PartyClosed.from(partyId, party.getStatus().name(), party.getVersion());
+        PartyClosed closed = PartyClosed.from(party.getStatus().name());
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
 
         log.warn("정원 충족 후 방치된 방 자동 종료 partyId={}", partyId);

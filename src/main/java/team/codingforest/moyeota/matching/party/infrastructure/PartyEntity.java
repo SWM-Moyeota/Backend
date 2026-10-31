@@ -5,6 +5,9 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
@@ -31,6 +34,9 @@ import java.util.stream.Collectors;
 @Table(name = "match_room",
         indexes = @Index(name = "idx_match_room_status_location", columnList = "status, departure_lat, departure_lng"))
 public class PartyEntity extends BaseTimeEntity {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(nullable = false)
     private Double departureLat;

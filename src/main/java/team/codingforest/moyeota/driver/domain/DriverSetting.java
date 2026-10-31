@@ -4,7 +4,6 @@ package team.codingforest.moyeota.driver.domain;
 import lombok.Getter;
 
 // 확장성을 위한 세팅
-@Getter
 public class DriverSetting {
     private boolean callEnabled;
 
@@ -27,4 +26,8 @@ public class DriverSetting {
     public static DriverSetting load(boolean callEnabled) {
         return new DriverSetting(callEnabled);
     }
+
+	public boolean isCallEnabled() {
+		return callEnabled;
+	}
 }

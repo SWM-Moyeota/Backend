@@ -4,6 +4,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
+import team.codingforest.moyeota.matching.record.domain.RideRecord;
+import team.codingforest.moyeota.matching.record.FakeRideRecords;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.driver.api.DriverAccess;
@@ -59,6 +61,7 @@ class PartyServiceTest {
     private FakeDriverAccess driverAccess;
     private FakeUserAccess userAccess;
     private RecordingPartyChangeNotifier signals;
+    private FakeRideRecords rideRecords;
     private PartyService service;
 
     @BeforeEach
@@ -68,6 +71,7 @@ class PartyServiceTest {
         driverAccess = new FakeDriverAccess();
         userAccess = new FakeUserAccess();
         signals = new RecordingPartyChangeNotifier();
+        rideRecords = new FakeRideRecords(parties);
         userAccess.등록(host, "방장");
         userAccess.등록(participant, "동승자");
         service = serviceWith(new DispatchCompletionPolicy(events));   // 기본은 발표 모드 - 정원이 차면 배차 시작
@@ -84,7 +88,7 @@ class PartyServiceTest {
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
                 new RouteCacheTest());
         return new PartyService(parties, events, routeService, driverAccess, userAccess, policy, afterCommit, signals,
-                new FakeWalkRouteFinder());
+                new FakeWalkRouteFinder(), rideRecords);
     }
 
     @Test
@@ -470,13 +474,13 @@ class PartyServiceTest {
     }
 
     @Test
-    void 마지막_멤버가_나가면_closed_에_CANCELED_와_올라간_version_이_실린다() {
+    void 마지막_멤버가_나가면_closed_에_CANCELED_가_실리고_version_은_오른다() {
         PartyResult party = service.open(createParty(host, 3));
 
         service.leave(party.id(), host);
 
-        assertThat(signals.closed.getLast().status()).isEqualTo("CANCELED");
-        assertThat(signals.closed.getLast().version()).isEqualTo(1).isEqualTo(versionOf(party.id()));
+        assertThat(signals.closed.getLast()).isEqualTo(PartyClosed.from("CANCELED"));
+        assertThat(versionOf(party.id())).isEqualTo(1);
     }
 
     @Test
@@ -496,9 +500,8 @@ class PartyServiceTest {
 
         service.join(party.id(), guest);
         service.finish(party.id(), host);
-        assertThat(signals.closed.getLast().version()).isEqualTo(5).isEqualTo(versionOf(party.id()));
         assertThat(signals.closed.getLast().status()).isEqualTo("FINISHED");
-        assertThat(service.getPartyDetail(party.id()).version()).isEqualTo(5);
+        assertThat(service.getPartyDetail(party.id()).version()).isEqualTo(5).isEqualTo(versionOf(party.id()));
     }
 
     @Test
@@ -584,6 +587,32 @@ class PartyServiceTest {
             service.finish(party.id(), host);
 
             assertThat(service.getPartyDetail(party.id()).status()).isEqualTo("FINISHED");
+        }
+
+        @Test
+        void 방장이_합승_완료하면_기사_탑승_시각_요금_없이_하차_기록이_남는다() {
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);
+
+            service.finish(party.id(), host);
+
+            RideRecord rideRecord = rideRecords.findById(party.id()).orElseThrow();
+            assertThat(rideRecord.getTaxiDriverId()).isNull();
+            assertThat(rideRecord.getPickupTime()).isNull();
+            assertThat(rideRecord.getDropoffTime()).isNotNull();
+            assertThat(rideRecord.getTotalFare()).isNull();
+            assertThat(rideRecord.getDeparturePlace()).isEqualTo("강남역");
+            assertThat(rideRecord.getDestinationPlace()).isEqualTo("판교역");
+        }
+
+        @Test
+        void 방장이_아닌_참여자가_합승_완료를_시도하면_기록이_남지_않는다() {
+            PartyResult party = service.open(createParty(host, 2));
+            service.join(party.id(), participant);
+
+            assertThatThrownBy(() -> service.finish(party.id(), participant)).isInstanceOf(BusinessException.class);
+
+            assertThat(rideRecords.findById(party.id())).isEmpty();
         }
 
         @Test
@@ -685,6 +714,15 @@ class PartyServiceTest {
         }
 
         @Test
+        void 자동_종료된_방은_하차_기록이_남지_않는다() {
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);
+
+            service.expire(오래된방);
+
+            assertThat(rideRecords.findById(오래된방)).isEmpty();
+        }
+
+        @Test
         void 합승_완료하면_closed_신호를_보낸다() {
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
@@ -707,13 +745,13 @@ class PartyServiceTest {
         }
 
         @Test
-        void 자동_종료_신호에도_올라간_version_이_실린다() {
+        void 자동_종료하면_closed_에_FINISHED_가_실리고_version_은_오른다() {
             Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);
 
             service.expire(오래된방);
 
-            assertThat(signals.closed.getLast().status()).isEqualTo("FINISHED");
-            assertThat(signals.closed.getLast().version()).isEqualTo(1).isEqualTo(versionOf(오래된방));
+            assertThat(signals.closed.getLast()).isEqualTo(PartyClosed.from("FINISHED"));
+            assertThat(versionOf(오래된방)).isEqualTo(1);
         }
 
         @Test

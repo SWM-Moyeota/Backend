@@ -18,6 +18,9 @@ import team.codingforest.moyeota.matching.party.completion.ChatOnlyCompletionPol
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
 import team.codingforest.moyeota.matching.party.completion.DispatchCompletionPolicy;
 import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
+import team.codingforest.moyeota.settlement.api.SettlementAccess;
+import team.codingforest.moyeota.settlement.ledger.SettlementCloseScheduler;
+import team.codingforest.moyeota.settlement.ledger.SettlementController;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -42,6 +45,8 @@ class TaxiDisabledContextTest {
         assertThat(ctx.getBeanNamesForType(DriverLocationController.class)).isEmpty();
         assertThat(ctx.getBeanNamesForType(RideController.class)).isEmpty();
         assertThat(ctx.getBeanNamesForType(DriverController.class)).isEmpty();
+        assertThat(ctx.getBeanNamesForType(SettlementController.class)).isEmpty();
+        assertThat(ctx.getBeanNamesForType(SettlementCloseScheduler.class)).as("택시 운행이 없으니 마감할 정산서도 없다").isEmpty();
     }
 
     /** 단위 테스트는 정책을 new 로 꽂으므로 @ConditionalOnProperty 가 뒤바뀐 실수는 여기서만 잡힌다 */
@@ -62,6 +67,7 @@ class TaxiDisabledContextTest {
         // ReportService·PartyService 가 DriverAccess 를 주입받으므로 driver 서비스는 살아 있어야 한다
         assertThat(ctx.getBeanNamesForType(DriverService.class)).isNotEmpty();
         assertThat(ctx.getBeanNamesForType(DispatchService.class)).isNotEmpty();
+        assertThat(ctx.getBeanNamesForType(SettlementAccess.class)).as("운행 종료 때 정산 원장을 기록하는 RideService 가 택시 설정과 무관하게 떠서 함께 떠야 한다").isNotEmpty();
     }
 
     /** 정책 빈은 채팅만인데 앱에는 true 가 나가면 대기 화면이 오지 않는 택시를 기다린다 */

@@ -14,13 +14,13 @@
 5. 사용자 생성: `BASE_URL=http://TARGET:8080 USERS=350 node seed.mjs` → `users.json`
    속도 조절: `PARALLEL`(동시 최대, 기본 10), `RATE`(초당 출발 인원), `DURATION_SEC`(전체를 이 시간에 맞춤). 예) `USERS=4000 DURATION_SEC=300 PARALLEL=40` 이면 약 5분. 한 명이 실패해도 멈추지 않고 성공한 사람만 번호순으로 저장한다
    토큰 유효 30분. 지나면 다시 seed (가입은 409 로 건너뛰고 로그인만 한다 — 같은 `RUN_ID` 를 줄 것).
-6. **SSE 시나리오(D1-SSE·D2 `USE_SSE=1`·D7)는 xk6-sse 확장이 든 k6 가 필요하다.** 자동 프로비저닝 카탈로그에 없어 직접 빌드한다 (k6 서버, Docker 만 있으면 됨. Go 불필요):
+6. **SSE 시나리오(D1-SSE·D2 `USE_SSE=1`·D7·D8)는 xk6-sse 확장이 든 k6 가 필요하다.** 버전이 맞는 것으로 직접 빌드한다 (k6 서버, Docker 만 있으면 됨. Go 불필요):
    ```
    mkdir -p ~/k6-sse && cd ~/k6-sse
-   docker run --rm -v "$PWD:/xk6" grafana/xk6 build v1.5.0 --with github.com/phymbert/xk6-sse@v0.2.0
-   ./k6 version        # k6 v1.5.0 … 이 바이너리로 SSE 스크립트를 돌린다. 나머지 스크립트도 이걸로 돌려도 된다
+   docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/xk6" grafana/xk6 build v1.8.2 --with github.com/phymbert/xk6-sse@v0.1.11
+   ./k6 version        # k6 v1.8.2 + xk6-sse v0.1.11 이 보여야 한다. 이 바이너리로 SSE 스크립트를 돌린다. 나머지 스크립트도 이걸로 돌려도 된다
    ```
-   `-o experimental-prometheus-rw` 는 v1.5.0 에서도 같은 이름이다. 맥에서 검증하려면 `-e GOOS=darwin -e GOARCH=arm64` 를 docker run 에 붙인다.
+   실행할 때 `K6_AUTO_EXTENSION_RESOLUTION=false` 를 줘서 다른 버전으로 몰래 바뀌지 않게 한다. xk6-sse v0.2.0 은 k6 v2 전용이라 k6 v1 과 함께 빌드하면 확장이 빠진다. `-o experimental-prometheus-rw` 는 이 버전에서도 같은 이름이다. 맥에서 검증하려면 `-e GOOS=darwin -e GOARCH=arm64` 를 docker run 에 붙인다.
 
 ## 1차 배포 시나리오 (D)
 
@@ -93,6 +93,7 @@ k6 run -o experimental-prometheus-rw -e VUS=30 d6-soak.js                 # 45�
 ./k6 run -o experimental-prometheus-rw -e CONCURRENT=100 d1-polling-sse.js         # D1 과 같은 100명, 요청은 절반·연결 60개
 ./k6 run -o experimental-prometheus-rw -e VUS=90 -e USE_SSE=1 --summary-export=results/d2-sse-90.json d2-journey.js   # 대기를 SSE 로, 채팅 중에는 방 호출 없음. 요청 수·sse_connect_ms·sse_errors 를 본다
 ./k6 run -o experimental-prometheus-rw -e CONNS=300 d7-sse-connections.js          # 연결 100→200→300 + 초당 2건 나갔다 들어오기(member-left·member-joined) → settle 뒤 화면 vs 상세 비교. 그동안 측정 방 5개에서 전파 지연(sse_propagation_ms)
+./k6 run -o experimental-prometheus-rw --tag testid=d8-c300-r1 --summary-export=results/d8-c300-r1.json -e CONNS=300 d8-sse-event-sweep.js   # 연결 고정 + 입퇴장 5→200건/s. 어디서 꺾이는가
 ```
 
 | # | 확인하는 것 | 합격선 |
@@ -107,19 +108,20 @@ k6 run -o experimental-prometheus-rw -e VUS=30 d6-soak.js                 # 45�
 | D1-SSE | D1 과 같은 동시 접속에서 요청 수·연결 수·힙이 어떻게 바뀌나 (전후 비교) | 요청별 p95 < 300ms, `sse_connect_ms` p95 < 1s, `sse_errors` 0 |
 | D2 `USE_SSE=1` | 대기를 SSE 로 바꿨을 때 전체 여정의 요청 수·지연이 폴링 D2 대비 어떻게 바뀌나. 변경분만으로 그린 화면이 맞는가(`sse_view_check`), 번호가 빠져 상세를 다시 읽었나(`sse_resync`), 신호를 놓쳐 포기했나(`journey_give_up{cause:missed-event}`). 반영 지연 지표는 제거됐다(아래 주의) | D2 와 같음 (p95 < 500ms, 채팅 전달 p95 < 500ms). 종료 확인 때 이미 비어 닫힌 방(CANCELED)은 구독이 403 이라 `sse_errors` 에 잡힌다 |
 | D7 | SSE 동시 연결 한계. `process_open_fds`·힙·`tomcat_threads_busy`(연결이 스레드를 안 잡는지). churn 을 받은 화면이 settle 뒤 상세와 맞는가(`sse_view_check`), resync 가 얼마나 나나(`sse_resync`). 부하가 걸린 동안 전파 지연(`sse_propagation_ms`, 아래 전파 지연) | 연결 300 에서 `sse_connect_ms` p95 < 1s 유지, `sse_errors` 0 |
+| D8 | 입퇴장 이벤트 발생률 한계. 단계별 수신 지연, 번호 건너뜀, 순서 역전, 미수신 | 초안: 미수신·화면 불일치 0, 단계별 수신 지연 p95 < 1초, 끝난 뒤 연결 0 복귀. 기준선 측정 뒤 확정 |
 
 순서: D0 → D3 → D5 로 천장 → 그 60~70% 로 D1·D2 → D4 → D6.
 SSE 배포 뒤: 폴링 D1 결과를 baseline 으로 두고 → D1-SSE → D2 `USE_SSE=1` → D7. 같은 `CONCURRENT`·`VUS` 로 돌려야 비교가 된다.
 
 ### SSE 정합성 - 변경분으로 그린 화면이 맞는가
 
-서버는 방이 바뀔 때마다(참여·나가기·합승 종료·30분 자동 종료) `version` 을 정확히 1 올린다(생성 시 0, 생성자가 들어 있는 상태). 방 상세와 `connected` 끝, `member-joined`(`{ member, status, version }`), `member-left`(`{ publicId, status, hostPublicId, version }`), `closed`(`{ partyId, status, version }`)에 실린다. 30초마다 `:ping` 주석이 온다(연결 유지). k6 는 앱과 같은 규칙으로 화면을 갱신한다(`lib/sse.js` 의 `follow`).
+서버는 방이 바뀔 때마다(참여·나가기·합승 종료·30분 자동 종료) `version` 을 정확히 1 올린다(생성 시 0, 생성자가 들어 있는 상태). 방 상세와 `connected` 끝, `member-joined`(`{ member, status, version }`), `member-left`(`{ publicId, status, hostPublicId, version }`)에 실린다. `closed`(`{ status }`)에는 없다. 30초마다 `:ping` 주석이 온다(연결 유지). k6 는 앱과 같은 규칙으로 화면을 갱신한다(`lib/sse.js` 의 `follow`).
 
 | 받은 것 | 처리 |
 |---|---|
 | `connected` | 새 상세의 `version` 이 화면 이상이면(화면에 아직 없으면 무조건) 통째로 교체, 낮으면 버린다(`sse_stale_event`) |
 | `member-*` | 화면 `version`+1 이면 반영하고 화면 `version` 을 올린다. 화면 이하면 버린다(`sse_stale_event`). `connected` 전이거나, 그보다 크거나(번호 빠짐), 정수가 아니면 resync `gap` |
-| `closed` | `version` 과 상관없이 종료(직전과 같은 `version` 일 수 있다). 옛 서버의 방 번호 문자열(`"42"`)도 받는다 |
+| `closed` | 받으면 종료. `{ status }` 만 실린다. 옛 서버의 방 번호 문자열(`"42"`)이나 `{ partyId, status, version }` 도 받는다 |
 
 반영은 했지만 화면을 믿을 수 없을 때도 resync 한다 - 들어온·나간 사람을 모름(`unknown-member`), `member-left` 의 `hostPublicId` 가 null 이거나 목록에 없음(`unknown-host`), 목록이 status 와 모순(`drift`). resync 는 스트림을 끊지 않고 상세를 1회 다시 읽어(`GET /matching/rooms/{id} (resync)` - 앱도 하는 호출이지만 이름표로 따로 잡힌다) 그 `version` 이 화면 이상일 때만 통째로 바꾼다.
 
@@ -162,6 +164,43 @@ SSE 배포 뒤: 폴링 D1 결과를 baseline 으로 두고 → D1-SSE → D2 `US
 - teardown: 측정 방은 `ACTIVE` 라 finish 가 안 된다(`PARTY_NOT_COMPLETED`). 남은 prober 를 내보내고 방장이 나가 `CANCELED` 로 닫는다
 - 처음에는 기준 없이 측정만 한다. `PROBE_VUS=0` 이면 끈다(사용자도 `CONNS`명이면 된다)
 
+### D8 - 입퇴장 이벤트 발생률 한계
+
+D7 은 연결 수를 올리고 입퇴장은 초당 2건으로 고정한다. D8 은 반대로 연결 수를 고정하고 입퇴장을 올린다. 표를 채우려면 `CONNS` 를 300 / 1000 / 3000 으로 바꿔 돌린다. 실행마다 새 `RUN_ID` 로 seed 하고 `sql/reset.sql` 을 먼저 돌린다.
+
+- 방 하나에 고정 구독자 2명(방장, 조원 1)과 입퇴장 담당 1명(조원 2)이 있다. 구독자는 시험 내내 끊지 않아 재연결이 유실을 가리지 않는다. 입퇴장 담당은 구독하지 않으므로 서버가 끊는 연결도 없다.
+- 입퇴장은 방을 차례로 돌며 보낸다. 방 절반은 담당자 없이 시작해 어느 단계에서나 입장과 퇴장이 반반이다. 방별로 요청을 직렬화하지는 않아 앞 요청과 겹치면 서버가 409·403 으로 거절하고 `d8_action{result:skipped}` 로 센다. 그만큼 실제 부하가 목표보다 낮아지므로 표의 달성 건/s 를 함께 본다.
+- 정원이 3이라 입장할 때마다 방이 `COMPLETED` 가 되고 채팅방 입장·퇴장 처리도 함께 돈다. 꺾였을 때 SSE 때문인지 그 뒤처리 때문인지 Grafana 에서 가른다.
+
+| 환경변수 | 기본 | 뜻 |
+|---|---|---|
+| `CONNS` | 300 | 고정 구독자 수(짝수). 방은 `CONNS`/2 개 |
+| `EVENT_RATES` | 5,20,50,100,200 | 단계별 입퇴장 건/s. 측정 방 몫(`PROBE_ROOMS`/`PROBE_PERIOD_SEC`)이 더해진다 |
+| `STEP_SEC` · `STEP_RAMP_SEC` | 120 · 10 | 단계 유지 시간, 다음 단계로 올리는 시간 |
+| `CONNECT_SEC` · `WARM_SEC` · `SETTLE_SEC` | 60 · 30 · 45 | 연결을 나눠 붙이는 시간, 입퇴장 전 대기, 입퇴장 뒤 대기 |
+| `PROBE_ROOMS` · `PROBE_PERIOD_SEC` | 5 · 15 | 수신 지연 측정 방 수와 주기 |
+| `CHURN_ROOMS` | 전체 | 입퇴장을 앞쪽 방 몇 개에 몰지. 같은 방 이벤트 간격을 좁혀 순서 역전 조건을 만든다 |
+| `MODE` · `POLL_SEC` | sse · 4 | `poll` 이면 구독자가 SSE 대신 `POLL_SEC` 마다 방 상세를 읽는다. 방 구성과 입퇴장은 같다 |
+| `MAX_CHURN_VUS` | 500 | 입퇴장 VU 상한. `dropped_iterations` 가 0 이 아니면 서버 응답이 느려 VU 가 고갈됐거나 k6 가 밀린 것이다. `d8_action_ms` 와 `sse_probe_send_late_ms` 로 가른다 |
+
+| 지표 | 뜻 |
+|---|---|
+| `sse_event_latency_ms{name,step}` | 입퇴장 요청을 보낸 예약 시각 → 같은 방 다른 구독자 수신. 같은 k6 장비 시계라 오차가 없고, 측정 방에서 resync 가 나지 않는 동안 콜백이 막히지 않는다. `PROBE_PERIOD_SEC` 이상은 접혀서 작게 읽히므로 `sse_probe_tick_skip` 이 0 인 단계만 믿는다 |
+| `sse_delivery_expected` · `received` · `lost{step}` · `tail` | 끊기지 않은 구독에서 `connected` 의 version 다음부터 끝 version 까지 대조. `lost` 는 뒤 번호를 받은 중간 구멍(확실한 유실)이고 step 은 직전에 받은 이벤트 기준 추정이다. `tail` 은 마지막으로 받은 번호 뒤라 유실인지 닫은 뒤 커밋인지 가를 수 없으니, 0 이 아니면 마지막 단계는 판정을 보류한다 |
+| `sse_arrival_gap{step}` · `sse_order_inversion{step}` | 도착 순서 기준 번호 건너뜀, 직전 이하 번호 도착. resync 와 무관한 원시 값. 순서가 한 번 바뀌면 둘 다 오르므로 건너뜀은 유실을 뜻하지 않는다 |
+| `sse_delivery_unverified` | 도중에 끊겨 대조하지 못한 구간. 0 이 아니면 `sse_reconnects` 와 서버 로그를 본다 |
+| `sse_probe_send_late_ms{step}` · `d8_action_ms{step}` | 예약 시각보다 늦게 보낸 정도(커지면 k6 가 밀린 것이라 지연 값을 믿지 않는다), 입퇴장 요청 응답 시간(수신 지연이 쓰기 때문인지 전파 때문인지 가른다) |
+
+- `CONNS` 가 1000 이상이거나 `STEP_SEC` 을 늘리면 토큰 30분 안에 seed·setup·시험·teardown 이 다 끝나지 않을 수 있다. 대상 서버에 `JWT_ACCESS_VALIDITY=2h` 를 넣는다.
+- 시작 전에 `ulimit -n` 과 `executor_queued_tasks`(앞 실행의 채팅 후처리 적체가 0 인지)를 확인한다. 짧게 돌리면 겹쳐 거절된 요청이 `http_req_failed` 에 들어가니 이 값은 보지 않는다.
+
+**폴링과 비교할 때**는 같은 `CONNS`·`EVENT_RATES` 로 `-e MODE=poll` 만 더해 돌린다. 대기 화면만 비교하며 목록·채팅 화면의 요청은 넣지 않는다. 폴링은 SSE 와 달리 입퇴장이 없어도 `CONNS`/`POLL_SEC` 건/s 의 방 상세 조회가 나간다.
+- `sse_event_latency_ms` 는 폴링 모드에서 예약 시각 → 조회로 변화를 발견한 시각이다. 합격선 p95 < 1초는 SSE 모드에만 건다. 폴링은 주기에서 나오는 지연이 있어 그대로 비교하려고 값만 남긴다
+- `d8_polls{step}`·`d8_poll_ms{step}`: 방 상세 조회 수와 응답 시간. `d8_poll_coalesced`: 폴링 사이에 지나가 화면에 나타나지 못한 변경 수(유실이 아니라 폴링의 특성). 미수신 지표는 쓰지 않는다
+- 함께 볼 값: 같은 단계의 `system_cpu_usage`, RDS CPU, `hikaricp_connections_active`·`pending`, `jvm_memory_used_bytes`
+
+결과는 `node d8-table.mjs results/d8-c300-r1.json results/d8-c1000-r1.json` 으로 단계별 표가 된다. 함께 볼 Grafana 값: `party_sse_connections`(`CONNS`+측정 구독자 수와 맞아야 한다), `jvm_threads_live_threads`, `jvm_threads_started_threads_total`, `system_cpu_usage`, `hikaricp_connections_pending`, `executor_queued_tasks`, RDS CPU, `after_commit_task_total{name="party.sse",result="fail"}`.
+
 ### 사용자 슬롯
 3명이 한 조다 (방장 `users[3g]`, 참여자 `users[3g+1]`, `users[3g+2]`). **D 시나리오끼리는 동시에 돌리지 말 것** — 같은 사용자를 쓴다.
 
@@ -174,6 +213,7 @@ SSE 배포 뒤: 폴링 D1 결과를 baseline 으로 두고 → D1-SSE → D2 `US
 | D4 | 0..`CONNS`-1 |
 | D1-SSE | 0..59 (`GROUPS`=20, 전부 꽉 찬 방) |
 | D7 | 0..`CONNS`-1 (holders·churn) + `CONNS`..`CONNS`+2x`PROBE_VUS`-1 (propagation: 방 p 의 watcher `CONNS+2p`, prober `CONNS+2p+1`) |
+| D8 | 0..(`CONNS`/2+`PROBE_ROOMS`)x3-1 |
 
 ### 주의
 - **외부 API 에 부하를 걸지 않는다.** 방 생성은 좌표를 고정해 경로 캐시(`routes:*`, TTL 10분)에 적중시키고 방 구분은 `destination` 이름으로만 한다. 캐시가 만료되는 10분마다 네이버 호출이 몇 건 나간다. 장소 검색(카카오)은 시나리오에 없다.

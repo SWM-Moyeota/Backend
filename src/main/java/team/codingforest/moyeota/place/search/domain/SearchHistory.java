@@ -4,7 +4,6 @@ import lombok.Getter;
 
 import java.time.Instant;
 
-@Getter
 public class SearchHistory {
     private final Long id;
     private final Long userId;
@@ -21,4 +20,20 @@ public class SearchHistory {
     public static SearchHistory from(Long id, Long userId, String searchQuery) {
         return new SearchHistory(id, userId, searchQuery);
     }
+
+	public Long getId() {
+		return id;
+	}
+
+	public Long getUserId() {
+		return userId;
+	}
+
+	public String getSearchQuery() {
+		return searchQuery;
+	}
+
+	public Instant getCreatedAt() {
+		return createdAt;
+	}
 }

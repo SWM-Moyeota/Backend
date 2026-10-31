@@ -13,7 +13,6 @@ import java.util.List;
  *  애그리거트 루트
   */
 // TODO - 예외처리 해야함
-@Getter
 public class Party {
     private final Long id;
     private final Location departureLocation;
@@ -266,4 +265,76 @@ public class Party {
     private void ensureRecruiting() {
         if(!status.isRecruiting()) throw new BusinessException(MatchingErrorCode.PARTY_NOT_RECRUITING);
     }
+
+	public Long getId() {
+		return id;
+	}
+
+	public Location getDepartureLocation() {
+		return departureLocation;
+	}
+
+	public Location getDestinationLocation() {
+		return destinationLocation;
+	}
+
+	public String getDeparture() {
+		return departure;
+	}
+
+	public String getDestination() {
+		return destination;
+	}
+
+	public Capacity getCapacity() {
+		return capacity;
+	}
+
+	public Radius getDepartureRadius() {
+		return departureRadius;
+	}
+
+	public Radius getDestinationRadius() {
+		return destinationRadius;
+	}
+
+	public List<PartyMember> getMembers() {
+		return members;
+	}
+
+	public Instant getCreatedAt() {
+		return createdAt;
+	}
+
+	public PartyStatus getStatus() {
+		return status;
+	}
+
+	public Integer getEstimatedFare() {
+		return estimatedFare;
+	}
+
+	public Integer getEstimatedTime() {
+		return estimatedTime;
+	}
+
+	public String getRoute() {
+		return route;
+	}
+
+	public Long getTaxiDriverId() {
+		return taxiDriverId;
+	}
+
+	public Instant getMatchingStartedAt() {
+		return matchingStartedAt;
+	}
+
+	public Instant getCompletedAt() {
+		return completedAt;
+	}
+
+	public long getVersion() {
+		return version;
+	}
 }
