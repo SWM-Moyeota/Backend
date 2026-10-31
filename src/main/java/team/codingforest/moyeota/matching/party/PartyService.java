@@ -69,32 +69,16 @@ public class PartyService {
     private final PartyChangeNotifier partyChangeNotifier;
     private final WalkRouteFinder walkRouteFinder;
     private final RideRecords rideRecords;
+	private final PartyOpener partyOpener;
 
-    @Transactional
     public PartyResult open(OpenPartyCommand command) {
         validateNotInOngoingParty(command.creatorId());
 
+		// 네이버 API를 사용하기에 트랜잭션을 사용하지 않음
         RouteEstimate estimate = routeService.estimate(command.departureLat(), command.departureLng(), command.destinationLat(), command.destinationLng());
 
-        Party party = Party.open(command.creatorId(),
-                new Location(command.departureLat(), command.departureLng()),
-                new Location(command.destinationLat(), command.destinationLng()),
-                command.departure(), command.destination(), new Capacity(command.capacity()),
-                Instant.now(), Radius.DEFAULT, Radius.DEFAULT,
-                estimate.estimateFare(), estimate.estimateTime(), estimate.path());
-
-        Party saved = parties.save(party);
-
-        if (saved.isFull()) {
-            partyCompletionPolicy.onCompleted(saved);
-            parties.save(saved);
-            return PartyResult.from(saved);
-        }
-
-        eventPublisher.publishEvent(new PartyMemberJoinedEvent(saved.getId(), command.creatorId()));
-        log.info("매칭방 활성화. partyId={}, creatorId={}, capacity={}, status={}", saved.getId(), command.creatorId(), saved.getCapacity().value(), saved.getStatus());
-
-        return PartyResult.from(saved);
+		// match 테이블 저장(트랜잭션)
+		return partyOpener.open(command, estimate);
     }
 
     @Transactional
