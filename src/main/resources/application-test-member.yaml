@@ -1,0 +1,10 @@
+spring:
+  config:
+    activate:
+      on-profile: "test-member & !dev & !prod"
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: false
