@@ -47,7 +47,11 @@ class SmsVerificationServiceTest {
     }
 
     private SmsVerificationService serviceWith(String provider, String fixedCode) {
-        return new SmsVerificationService(store, sender, userProfiles, userDeletions, fieldHasher, provider, fixedCode);
+        return new SmsVerificationService(store, sender, userProfiles, userDeletions, fieldHasher, provider, fixedCode, List.of(), "");
+    }
+
+    private SmsVerificationService reviewServiceWith(List<String> phones, String code) {
+        return new SmsVerificationService(store, sender, userProfiles, userDeletions, fieldHasher, "solapi", "", phones, code);
     }
 
     private static void assertError(Runnable call, UserErrorCode expected) {
@@ -58,6 +62,76 @@ class SmsVerificationServiceTest {
     }
 
     // ───────────────────────── 발송 ─────────────────────────
+
+    @Test
+    void 심사용_번호는_문자_없이_고정_코드로_인증된다() {
+        SmsVerificationService review = reviewServiceWith(List.of(PHONE), "111111");
+
+        review.send(PHONE);
+
+        assertThat(sender.sent).isEmpty();
+        assertThat(review.verify(PHONE, "111111")).isNotBlank();
+    }
+
+    @Test
+    void 심사용_번호도_틀린_코드는_거절한다() {
+        SmsVerificationService review = reviewServiceWith(List.of(PHONE), "111111");
+
+        review.send(PHONE);
+
+        assertError(() -> review.verify(PHONE, "222222"), UserErrorCode.SMS_CODE_MISMATCH);
+    }
+
+    @Test
+    void 심사용_번호도_재전송_제한을_받는다() {
+        SmsVerificationService review = reviewServiceWith(List.of(PHONE), "111111");
+
+        review.send(PHONE);
+
+        assertError(() -> review.send(PHONE), UserErrorCode.SMS_COOLDOWN);
+    }
+
+    @Test
+    void 심사용_번호도_이미_가입했으면_거절한다() {
+        userProfiles.registered.add("01012345678");
+
+        assertError(() -> reviewServiceWith(List.of(PHONE), "111111").send(PHONE), UserErrorCode.PHONE_NUMBER_DUPLICATED);
+    }
+
+    @Test
+    void 심사용_번호는_하이픈_없이_설정해도_인식한다() {
+        reviewServiceWith(List.of("01012345678"), "111111").send(PHONE);
+
+        assertThat(sender.sent).isEmpty();
+    }
+
+    @Test
+    void 심사용이_아닌_번호는_문자를_보낸다() {
+        reviewServiceWith(List.of("010-9999-9999"), "111111").send(PHONE);
+
+        assertThat(sender.sent).hasSize(1);
+    }
+
+    @Test
+    void 심사용_설정이_비어_있으면_문자를_보낸다() {
+        reviewServiceWith(List.of(""), "").send(PHONE);
+
+        assertThat(sender.sent).hasSize(1);
+    }
+
+    @Test
+    void 심사용_번호와_코드_중_하나만_설정하면_기동이_막힌다() {
+        assertThatThrownBy(() -> reviewServiceWith(List.of(PHONE), ""))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> reviewServiceWith(List.of(), "111111"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void 심사용_코드가_6자리_숫자가_아니면_기동이_막힌다() {
+        assertThatThrownBy(() -> reviewServiceWith(List.of(PHONE), "1234"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 
     @Test
     void 고정_코드가_없으면_랜덤_6자리를_하이픈_없는_번호로_보낸다() {
