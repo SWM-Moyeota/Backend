@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.matching.party;
 
 import org.junit.jupiter.api.BeforeEach;
+import team.codingforest.moyeota.matching.record.FakeRideRecords;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
@@ -30,10 +31,13 @@ class PartyControllerTest {
         RouteService routeService = new RouteService(
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),
                 new RouteCacheTest());
-        PartyService service = new PartyService(new PartyJpaTest(), events, routeService,
-                new PartyServiceTest.FakeDriverAccess(), new FakeUserAccess(), new DispatchCompletionPolicy(events),
+        PartyJpaTest parties = new PartyJpaTest();
+        DispatchCompletionPolicy policy = new DispatchCompletionPolicy(events);
+        PartyService service = new PartyService(parties, events, routeService,
+                new PartyServiceTest.FakeDriverAccess(), new FakeUserAccess(), policy,
                 (name, task) -> task.run(), new PartyServiceTest.RecordingPartyChangeNotifier(),
-                new PartyServiceTest.FakeWalkRouteFinder());
+                new PartyServiceTest.FakeWalkRouteFinder(), new FakeRideRecords(new PartyJpaTest()),
+                new PartyOpener(parties, events, policy));
 
         mvc = MockMvcBuilders.standaloneSetup(new PartyController(service))
                 .setCustomArgumentResolvers(new StubCurrentUserResolver())

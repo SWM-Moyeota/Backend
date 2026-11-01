@@ -1,12 +1,12 @@
 package team.codingforest.moyeota.chat.location.infrastructure;
 
-import team.codingforest.moyeota.chat.common.redis.ChatEventEnvelope;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
-import team.codingforest.moyeota.chat.common.config.RedisConfig;
+import team.codingforest.moyeota.chat.contract.ChatChannels;
+import team.codingforest.moyeota.chat.contract.ChatDestinations;
+import team.codingforest.moyeota.chat.contract.ChatEventEnvelope;
 import team.codingforest.moyeota.chat.location.domain.ChatLocation;
 import team.codingforest.moyeota.chat.location.domain.ChatLocationPublisher;
 import tools.jackson.core.JacksonException;
@@ -29,11 +29,12 @@ public class ChatLocationRedisPublisher implements ChatLocationPublisher {
                     chatRoomId, publicId,
                     location.latitude(), location.longitude(), location.measuredAt());
 
-            ChatEventEnvelope envelope = new ChatEventEnvelope(
-                    ChatEventEnvelope.TYPE_LOCATION, objectMapper.writeValueAsString(payload));
+            ChatEventEnvelope envelope = ChatEventEnvelope.of(
+                    ChatEventEnvelope.TYPE_LOCATION,
+                    ChatDestinations.location(chatRoomId),
+                    objectMapper.writeValueAsString(payload));
 
-            redisTemplate.convertAndSend(
-                    RedisConfig.CHAT_CHANNEL, objectMapper.writeValueAsString(envelope));
+            redisTemplate.convertAndSend(ChatChannels.CHAT, objectMapper.writeValueAsString(envelope));
         } catch (JacksonException e) {
             log.error("위치 직렬화 실패 chatRoomId={} publicId={}", chatRoomId, publicId, e);
         }

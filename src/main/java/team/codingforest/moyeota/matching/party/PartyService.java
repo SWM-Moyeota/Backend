@@ -38,6 +38,8 @@ import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.route.domain.WalkRouteFinder;
 import team.codingforest.moyeota.matching.route.domain.WalkingEstimate;
 import team.codingforest.moyeota.matching.party.dto.MatchCandidate;
+import team.codingforest.moyeota.matching.record.domain.RideRecord;
+import team.codingforest.moyeota.matching.record.domain.RideRecords;
 import team.codingforest.moyeota.user.api.MemberSummary;
 import team.codingforest.moyeota.user.api.UserAccess;
 
@@ -66,32 +68,17 @@ public class PartyService {
     private final AfterCommitExecutor afterCommitExecutor;
     private final PartyChangeNotifier partyChangeNotifier;
     private final WalkRouteFinder walkRouteFinder;
+    private final RideRecords rideRecords;
+	private final PartyOpener partyOpener;
 
-    @Transactional
     public PartyResult open(OpenPartyCommand command) {
         validateNotInOngoingParty(command.creatorId());
 
+		// 네이버 API를 사용하기에 트랜잭션을 사용하지 않음
         RouteEstimate estimate = routeService.estimate(command.departureLat(), command.departureLng(), command.destinationLat(), command.destinationLng());
 
-        Party party = Party.open(command.creatorId(),
-                new Location(command.departureLat(), command.departureLng()),
-                new Location(command.destinationLat(), command.destinationLng()),
-                command.departure(), command.destination(), new Capacity(command.capacity()),
-                Instant.now(), Radius.DEFAULT, Radius.DEFAULT,
-                estimate.estimateFare(), estimate.estimateTime(), estimate.path());
-
-        Party saved = parties.save(party);
-
-        if (saved.isFull()) {
-            partyCompletionPolicy.onCompleted(saved);
-            parties.save(saved);
-            return PartyResult.from(saved);
-        }
-
-        eventPublisher.publishEvent(new PartyMemberJoinedEvent(saved.getId(), command.creatorId()));
-        log.info("매칭방 활성화. partyId={}, creatorId={}, capacity={}, status={}", saved.getId(), command.creatorId(), saved.getCapacity().value(), saved.getStatus());
-
-        return PartyResult.from(saved);
+		// match 테이블 저장(트랜잭션)
+		return partyOpener.open(command, estimate);
     }
 
     @Transactional
@@ -138,7 +125,7 @@ public class PartyService {
 
         if (party.getStatus() == PartyStatus.CANCELED) {
             eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
-            PartyClosed closed = PartyClosed.from(partyId, party.getStatus().name(), party.getVersion());
+            PartyClosed closed = PartyClosed.from(party.getStatus().name());
             afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
         } else {
             Long hostId = party.hostId();   // leave 반영 후 = 승계 결과. 이 분기에선 멤버가 반드시 남아 있음
@@ -192,8 +179,9 @@ public class PartyService {
 
         party.finishWithoutDriver(memberId);
         parties.save(party);
+        rideRecords.save(RideRecord.withoutDriver(partyId, party.getDeparture(), party.getDestination()));
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
-        PartyClosed closed = PartyClosed.from(partyId, party.getStatus().name(), party.getVersion());
+        PartyClosed closed = PartyClosed.from(party.getStatus().name());
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
 
         log.info("기사 없이 합승 종료 partyId={}, memberId={}", partyId, memberId);
@@ -207,7 +195,7 @@ public class PartyService {
         party.expireCompleted();
         parties.save(party);
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
-        PartyClosed closed = PartyClosed.from(partyId, party.getStatus().name(), party.getVersion());
+        PartyClosed closed = PartyClosed.from(party.getStatus().name());
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
 
         log.warn("정원 충족 후 방치된 방 자동 종료 partyId={}", partyId);

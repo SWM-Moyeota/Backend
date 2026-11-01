@@ -76,4 +76,30 @@ class OpenApiDocsTest {
         assertThat(d.at("/paths/~1api~1v1~1config/get/security").isArray()).isTrue();
         assertThat(d.at("/paths/~1api~1v1~1config/get/security")).isEmpty();
     }
+
+    @Test
+    void 내_탑승_기록은_cursor_size_만_쿼리로_받는다() throws Exception {
+        JsonNode myRides = docs().at("/paths/~1api~1v1~1users~1me~1parties/get");
+        List<String> names = new ArrayList<>();
+        myRides.path("parameters").forEach(p -> names.add(p.path("name").asText()));
+
+        assertThat(names).containsExactly("cursor", "size");
+        assertThat(myRides.at("/parameters/0/required").asBoolean()).isFalse();
+        assertThat(myRides.at("/parameters/0/schema/type").asText()).isEqualTo("integer");
+        assertThat(myRides.at("/parameters/1/schema/type").asText()).isEqualTo("integer");
+        assertThat(myRides.at("/parameters/1/schema/default").asInt()).isEqualTo(20);
+        assertThat(myRides.at("/responses/401").isMissingNode()).isFalse();
+        assertThat(myRides.at("/responses/400/content/application~1json/schema/$ref").asText()).isEqualTo("#/components/schemas/ErrorResponse");
+    }
+
+    @Test
+    void 탑승_기록의_멤버_스키마는_방_상세의_멤버_스키마와_따로_잡히고_기사_식별자가_없다() throws Exception {
+        JsonNode schemas = docs().at("/components/schemas");
+
+        assertThat(schemas.at("/MemberInfo/properties/rideCount").isMissingNode()).isFalse();
+        assertThat(schemas.at("/RideRecordMember/properties/publicId").isMissingNode()).isFalse();
+        assertThat(schemas.at("/RideRecordMember/properties/rideCount").isMissingNode()).isTrue();
+        assertThat(schemas.at("/RideRecordItem/properties/farePerPerson").isMissingNode()).isFalse();
+        assertThat(schemas.at("/RideRecordItem/properties/taxiDriverId").isMissingNode()).isTrue();
+    }
 }

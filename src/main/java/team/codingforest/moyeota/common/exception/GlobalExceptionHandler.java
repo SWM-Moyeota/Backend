@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 
@@ -68,6 +69,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .badRequest()
                 .body(new ErrorResponse(INVALID_REQUEST, "요청 본문이 없거나 형식이 잘못되었습니다."));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        log.warn("요청 파라미터 형식 오류 name={}", e.getName());
+
+        return ResponseEntity
+                .badRequest()
+                .body(new ErrorResponse(INVALID_REQUEST, e.getName() + ": 형식이 올바르지 않습니다."));
     }
 
     private String toMessage(List<FieldError> fieldErrors) {

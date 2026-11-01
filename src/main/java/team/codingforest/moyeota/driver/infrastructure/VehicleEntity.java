@@ -3,6 +3,9 @@ package team.codingforest.moyeota.driver.infrastructure;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
@@ -17,6 +20,9 @@ import team.codingforest.moyeota.driver.domain.Vehicle;
 @Table(name = "taxi")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class VehicleEntity extends BaseTimeEntity {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "taxi_driver_id", nullable = false)

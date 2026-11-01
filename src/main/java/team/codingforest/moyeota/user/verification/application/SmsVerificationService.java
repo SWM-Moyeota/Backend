@@ -20,7 +20,10 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -39,22 +42,36 @@ public class SmsVerificationService {
     private final UserDeletions userDeletions;
     private final FieldHasher fieldHasher;
     private final String fixedCode;
+    private final Set<String> reviewPhones;
+    private final String reviewCode;
 
     public SmsVerificationService(SmsVerifications smsVerifications, SmsSender smsSender,
                                   UserProfiles userProfiles, UserDeletions userDeletions,
                                   FieldHasher fieldHasher,
                                   @Value("${moyeota.sms.provider:log}") String provider,
-                                  @Value("${moyeota.sms.fixed-code:}") String fixedCode) {
+                                  @Value("${moyeota.sms.fixed-code:}") String fixedCode,
+                                  @Value("${moyeota.sms.review.phones:}") List<String> reviewPhones,
+                                  @Value("${moyeota.sms.review.code:}") String reviewCode) {
+        Set<String> normalizedReviewPhones = reviewPhones.stream()
+                .filter(StringUtils::hasText)
+                .map(phone -> new PhoneNumber(phone).value())
+                .collect(Collectors.toUnmodifiableSet());
         Assert.isTrue(!StringUtils.hasText(fixedCode) || "log".equals(provider),
                 "moyeota.sms.fixed-code 는 provider=log 에서만 쓸 수 있습니다");
         Assert.isTrue(!StringUtils.hasText(fixedCode) || fixedCode.matches("^\\d{6}$"),
                 "moyeota.sms.fixed-code 는 숫자 6자리여야 합니다");
+        Assert.isTrue(normalizedReviewPhones.isEmpty() != StringUtils.hasText(reviewCode),
+                "moyeota.sms.review 의 phones 와 code 는 함께 설정해야 합니다");
+        Assert.isTrue(!StringUtils.hasText(reviewCode) || reviewCode.matches("^\\d{6}$"),
+                "moyeota.sms.review.code 는 숫자 6자리여야 합니다");
         this.smsVerifications = smsVerifications;
         this.smsSender = smsSender;
         this.userProfiles = userProfiles;
         this.userDeletions = userDeletions;
         this.fieldHasher = fieldHasher;
         this.fixedCode = fixedCode;
+        this.reviewPhones = normalizedReviewPhones;
+        this.reviewCode = reviewCode;
     }
 
     public void send(String rawPhoneNumber) {
@@ -67,7 +84,8 @@ public class SmsVerificationService {
         }
 
         String phoneHash = fieldHasher.hash(phone);
-        String code = newCode();
+        boolean reviewPhone = reviewPhones.contains(phone);
+        String code = reviewPhone ? reviewCode : newCode();
         try {
             if (!smsVerifications.tryStartCooldown(phoneHash, COOLDOWN)) {
                 throw new UserException(UserErrorCode.SMS_COOLDOWN);
@@ -78,6 +96,10 @@ public class SmsVerificationService {
             smsVerifications.saveCode(phoneHash, code, CODE_TTL);
         } catch (DataAccessException e) {
             throw unavailable(e);
+        }
+
+        if (reviewPhone) {
+            return;
         }
 
         try {

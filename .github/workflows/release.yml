@@ -61,7 +61,7 @@ jobs:
 
       - name: 애플리케이션 JAR 빌드
         run: |
-          ./gradlew bootJar --no-daemon -PappVersion=${{ needs.calculate-version.outputs.version }}
+          ./gradlew :bootJar --no-daemon -PappVersion=${{ needs.calculate-version.outputs.version }}
           test -f build/libs/app.jar
 
   release:

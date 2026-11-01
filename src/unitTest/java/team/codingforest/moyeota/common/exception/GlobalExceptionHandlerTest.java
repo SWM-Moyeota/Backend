@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
@@ -46,7 +47,7 @@ class GlobalExceptionHandlerTest {
             public java.util.Map<Long, team.codingforest.moyeota.user.api.MemberSummary> findMemberSummaries(java.util.List<Long> userIds) { return java.util.Map.of(); }
         });
 
-        mvc = MockMvcBuilders.standaloneSetup(new DriverController(service), new IllegalArgumentThrowingController())
+        mvc = MockMvcBuilders.standaloneSetup(new DriverController(service), new IllegalArgumentThrowingController(), new IntParamController())
                 .setCustomArgumentResolvers(new StubAuthResolver())   // 인증 없이 @CurrentUser=1, @CurrentDriver=1 주입
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -105,6 +106,14 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void 쿼리_파라미터_형식이_틀리면_400과_어느_파라미터인지_내려준다() throws Exception {
+        mvc.perform(get("/test/int-param").param("size", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.message").value("size: 형식이 올바르지 않습니다."));
+    }
+
+    @Test
     void 검증_전_기사를_다시_검증하면_409가_내려간다() throws Exception {
         String body = """
                 {"qualificationNumber": "서울-1234", "bankName": "국민은행", "accountNumber": "123-456", "vehicle": {"seats": 4, "plateNumber": "12가3456", "type": "중형"}}
@@ -138,6 +147,14 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/test/illegal-argument")
         void boom() {
             throw new IllegalArgumentException("잘못된 인자입니다.");
+        }
+    }
+
+    @RestController
+    static class IntParamController {
+        @GetMapping("/test/int-param")
+        int echo(@RequestParam int size) {
+            return size;
         }
     }
 

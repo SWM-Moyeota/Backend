@@ -33,6 +33,8 @@ public class AsyncConfig {
         executor.setQueueCapacity(200);
         executor.setThreadNamePrefix("chat-push-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(10);
         return executor;
     }
 }

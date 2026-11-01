@@ -4,7 +4,6 @@ import lombok.Getter;
 
 import java.time.Instant;
 
-@Getter
 public class PartyMember {
     private final Long memberId;
     private final Instant joinedAt;
@@ -17,4 +16,12 @@ public class PartyMember {
     public static PartyMember load(Long memberId, Instant joinedAt) {
         return new PartyMember(memberId, joinedAt);
     }
+
+	public Long getMemberId() {
+		return memberId;
+	}
+
+	public Instant getJoinedAt() {
+		return joinedAt;
+	}
 }

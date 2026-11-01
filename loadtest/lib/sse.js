@@ -1,6 +1,6 @@
 // 대기 화면(21)의 SSE 구독 - 서버 GET /matching/rooms/{id}/events 를 xk6-sse 로 붙잡는다.
 //   서버는 구독 직후 `connected`(방 상세 전체, 끝에 version), 멤버 변화에 `member-joined`·`member-left`(변경분 + version),
-//   방이 닫히면 `closed`({ partyId, status, version }, 옛 서버는 방 번호)를 보낸다. version 은 방이 바뀔 때마다 정확히 1 오른다(생성 시 0).
+//   방이 닫히면 `closed`({ status }, 옛 서버는 방 번호나 { partyId, status, version })를 보낸다. version 은 방이 바뀔 때마다 정확히 1 오른다(생성 시 0).
 //   30초마다 `:ping` 주석이 흐른다(연결 유지).
 //   앱은 version 이 하나씩 이어지는 변경분만 들고 있는 목록에 반영하고, 번호가 빠지는 등 화면을 믿을 수 없으면
 //   방 상세를 다시 읽는다(resync) - 스트림은 끊지 않는다.
