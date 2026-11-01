@@ -109,6 +109,9 @@ moyeota:
     hash-key: ${FIELD_HASH_KEY:local-only-field-hash-key}
   sms:
     provider: ${SMS_PROVIDER:log}   # log | solapi
+    review:
+      phones: ${SMS_REVIEW_PHONES:}
+      code: ${SMS_REVIEW_CODE:}
     solapi:
       api-key: ${SOLAPI_API_KEY:}
       api-secret: ${SOLAPI_API_SECRET:}
