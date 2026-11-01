@@ -10,7 +10,7 @@ import java.util.List;
 
 public interface SettlementLedgerJpaRepository extends JpaRepository<SettlementLedgerEntity, Long> {
 
-    boolean existsByMatchId(Long matchId);
+    boolean existsByPaymentGroupId(Long paymentGroupId);
 
     @Query("select l from SettlementLedgerEntity l where l.settlementId = :settlementId order by l.occurredAt, l.id")
     List<SettlementLedgerEntity> findBySettlementId(@Param("settlementId") Long settlementId);

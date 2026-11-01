@@ -12,11 +12,6 @@ import team.codingforest.moyeota.dispatch.ride.domain.PassengerNotifier;
 import team.codingforest.moyeota.dispatch.exception.DispatchErrorCode;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.dto.PartySummary;
-import team.codingforest.moyeota.settlement.api.SettlementAccess;
-import team.codingforest.moyeota.settlement.api.dto.RideSettlementCommand;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 
 @Service
 @Slf4j
@@ -25,7 +20,6 @@ public class RideService {
     private final PartyAccess partyAccess;
     private final PassengerNotifier passengerNotifier;
     private final DriverLocations driverLocations;
-    private final SettlementAccess settlementAccess;
 
     /**
      *      기사 도착 - 승객 알림
@@ -55,7 +49,6 @@ public class RideService {
     @Transactional
     public void complete(Long partyId, Long driverId, int fare) {
         partyAccess.completeRide(partyId, driverId, fare);
-        settlementAccess.record(new RideSettlementCommand(partyId, driverId, fare, 0, Instant.now().truncatedTo(ChronoUnit.MICROS)));
 
         log.info("운행 종료 partyId={}, driverId={}, fare={}", partyId, driverId, fare);
     }

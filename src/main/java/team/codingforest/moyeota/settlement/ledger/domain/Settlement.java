@@ -4,11 +4,10 @@ import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.settlement.exception.SettlementErrorCode;
 
 import java.time.Instant;
-import java.util.EnumSet;
 import java.util.Set;
 
 public class Settlement {
-    private static final Set<SettlementStatus> PAYOUT_STAGES = EnumSet.of(SettlementStatus.CONFIRMED, SettlementStatus.HOLD, SettlementStatus.FAILED);
+    public static final Set<SettlementStatus> UNPAID_STATUSES = Set.of(SettlementStatus.CONFIRMED, SettlementStatus.HOLD, SettlementStatus.FAILED);
 
     private final Long id;
     private final Long taxiDriverId;
@@ -48,17 +47,17 @@ public class Settlement {
     }
 
     public boolean isPayable() {
-        return isInPayoutStage() && amount > 0;
+        return isUnpaid() && amount > 0;
     }
 
     public void hold() {
-        if(!isInPayoutStage()) throw new BusinessException(SettlementErrorCode.INVALID_SETTLEMENT_STATUS);
+        if(!isUnpaid()) throw new BusinessException(SettlementErrorCode.INVALID_SETTLEMENT_STATUS);
 
         this.status = SettlementStatus.HOLD;
     }
 
     public void startPayout() {
-        if(!isInPayoutStage()) throw new BusinessException(SettlementErrorCode.INVALID_SETTLEMENT_STATUS);
+        if(!isUnpaid()) throw new BusinessException(SettlementErrorCode.INVALID_SETTLEMENT_STATUS);
 
         this.status = SettlementStatus.CONFIRMED;
     }
@@ -83,8 +82,8 @@ public class Settlement {
         return taxiDriverId != null && taxiDriverId.equals(this.taxiDriverId);
     }
 
-    boolean isInPayoutStage() {
-        return PAYOUT_STAGES.contains(status);
+    public boolean isUnpaid() {
+        return UNPAID_STATUSES.contains(status);
     }
 
     public Long getId() {
