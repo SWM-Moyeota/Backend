@@ -5,6 +5,9 @@ import com.google.api.core.ApiFutureCallback;
 import com.google.api.core.ApiFutures;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.firebase.messaging.AndroidConfig;
+import com.google.firebase.messaging.ApnsConfig;
+import com.google.firebase.messaging.Aps;
+import com.google.firebase.messaging.ApsAlert;
 import com.google.firebase.messaging.BatchResponse;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.MulticastMessage;
@@ -13,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import team.codingforest.moyeota.chat.notification.domain.ChatMessageNotification;
 import team.codingforest.moyeota.chat.notification.domain.ChatNotifier;
 import team.codingforest.moyeota.user.api.UserAccess;
@@ -26,6 +30,9 @@ import java.util.Map;
 @ConditionalOnExpression("!'${fcm.service-account-path:}'.isEmpty()")
 @RequiredArgsConstructor
 public class FcmChatNotifier implements ChatNotifier {
+
+    private static final String DEFAULT_TITLE = "동승자";
+    private static final String DEFAULT_BODY = "새 메시지가 도착했어요";
 
     private final FirebaseMessaging firebaseMessaging;
     private final UserAccess userAccess;
@@ -44,6 +51,7 @@ public class FcmChatNotifier implements ChatNotifier {
                 .setAndroidConfig(AndroidConfig.builder()
                         .setPriority(AndroidConfig.Priority.HIGH)
                         .build())
+                .setApnsConfig(apnsConfig(notification))
                 .putData("type", "CHAT_MESSAGE")
                 .putData("chatRoomId", String.valueOf(notification.chatRoomId()))
                 .putData("messageId", String.valueOf(notification.messageId()))
@@ -76,5 +84,22 @@ public class FcmChatNotifier implements ChatNotifier {
                 }
             }
         }, MoreExecutors.directExecutor());
+    }
+
+    /** iOS 는 백그라운드에서 앱 코드가 돌지 않아 시스템이 이 값을 그대로 표시한다. collapse-id 는 앱이 전면에서 만드는 알림 식별자와 같은 공식이다 */
+    private ApnsConfig apnsConfig(ChatMessageNotification notification) {
+        String title = StringUtils.hasText(notification.senderNickname()) ? notification.senderNickname() : DEFAULT_TITLE;
+        String body = StringUtils.hasText(notification.preview()) ? notification.preview() : DEFAULT_BODY;
+
+        return ApnsConfig.builder()
+                .putHeader("apns-push-type", "alert")
+                .putHeader("apns-priority", "10")
+                .putHeader("apns-collapse-id", String.valueOf(200000 + notification.chatRoomId() % 100000))
+                .setAps(Aps.builder()
+                        .setAlert(ApsAlert.builder().setTitle(title).setBody(body).build())
+                        .setSound("default")
+                        .setThreadId("chat-" + notification.chatRoomId())
+                        .build())
+                .build();
     }
 }
