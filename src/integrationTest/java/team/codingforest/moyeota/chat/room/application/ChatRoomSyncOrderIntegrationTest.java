@@ -44,7 +44,8 @@ class ChatRoomSyncOrderIntegrationTest {
         // 1. 참여 → 리스너가 방을 만들고 넣을 때까지 기다린다
         partyService.join(party.getId(), leaver);
         await().atMost(5, TimeUnit.SECONDS).untilAsserted(() -> {
-            Long id = chatRooms.findByPartyId(party.getId()).map(ChatRoom::getId).orElseThrow();
+            Long id = chatRooms.findByPartyId(party.getId()).map(ChatRoom::getId)
+                    .orElseThrow(() -> new AssertionError("채팅방이 아직 생성되지 않았다"));
             assertThat(chatRoomUsers.findActiveByUserIdAndChatRoomId(leaver, id)).isPresent();
         });
         Long roomId = chatRooms.findByPartyId(party.getId()).map(ChatRoom::getId).orElseThrow();
