@@ -11,7 +11,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.settlement.api.dto.RideSettlementCommand;
+import team.codingforest.moyeota.settlement.api.dto.PaymentGroupSettlementCommand;
 import team.codingforest.moyeota.settlement.exception.SettlementErrorCode;
 import team.codingforest.moyeota.settlement.ledger.domain.SettlementLedger;
 import team.codingforest.moyeota.settlement.ledger.domain.SettlementLedgers;
@@ -30,7 +30,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class SettlementLedgerServiceUnitTest {
-    private static final Long PARTY_ID = 1001L;
+    private static final Long PAYMENT_GROUP_ID = 1001L;
     private static final Long DRIVER_ID = 9L;
     private static final Instant OCCURRED_AT = Instant.parse("2026-10-21T01:00:00.123456Z");
 
@@ -47,12 +47,12 @@ class SettlementLedgerServiceUnitTest {
         /*
          * settings
          */
-        doReturn(false).when(ledgers).existsByMatchId(eq(PARTY_ID));
+        doReturn(false).when(ledgers).existsByPaymentGroupId(eq(PAYMENT_GROUP_ID));
 
         /*
          * test
          */
-        ledgerService.record(new RideSettlementCommand(PARTY_ID, DRIVER_ID, 15000, 1000, OCCURRED_AT));
+        ledgerService.record(new PaymentGroupSettlementCommand(DRIVER_ID, PAYMENT_GROUP_ID, 15000, 1000, OCCURRED_AT));
 
         /*
          * verify
@@ -60,7 +60,7 @@ class SettlementLedgerServiceUnitTest {
         SettlementLedger saved = captureSaved();
         assertThat(saved.getId()).isNull();
         assertThat(saved.getSettlementId()).isNull();
-        assertThat(saved.getMatchId()).isEqualTo(PARTY_ID);
+        assertThat(saved.getPaymentGroupId()).isEqualTo(PAYMENT_GROUP_ID);
         assertThat(saved.getTaxiDriverId()).isEqualTo(DRIVER_ID);
         assertThat(saved.getTotalFare()).isEqualTo(15000);
         assertThat(saved.getPlatformPromotion()).isEqualTo(1000);
@@ -75,12 +75,12 @@ class SettlementLedgerServiceUnitTest {
         /*
          * settings
          */
-        doReturn(false).when(ledgers).existsByMatchId(eq(PARTY_ID));
+        doReturn(false).when(ledgers).existsByPaymentGroupId(eq(PAYMENT_GROUP_ID));
 
         /*
          * test
          */
-        ledgerService.record(new RideSettlementCommand(PARTY_ID, DRIVER_ID, 15000, 0, Instant.parse("2026-10-21T01:00:00.123456789Z")));
+        ledgerService.record(new PaymentGroupSettlementCommand(DRIVER_ID, PAYMENT_GROUP_ID, 15000, 0, Instant.parse("2026-10-21T01:00:00.123456789Z")));
 
         /*
          * verify
@@ -101,12 +101,12 @@ class SettlementLedgerServiceUnitTest {
         /*
          * settings
          */
-        doReturn(false).when(ledgers).existsByMatchId(eq(PARTY_ID));
+        doReturn(false).when(ledgers).existsByPaymentGroupId(eq(PAYMENT_GROUP_ID));
 
         /*
          * test
          */
-        ledgerService.record(new RideSettlementCommand(PARTY_ID, DRIVER_ID, totalFare, platformPromotion, OCCURRED_AT));
+        ledgerService.record(new PaymentGroupSettlementCommand(DRIVER_ID, PAYMENT_GROUP_ID, totalFare, platformPromotion, OCCURRED_AT));
 
         /*
          * verify
@@ -124,7 +124,7 @@ class SettlementLedgerServiceUnitTest {
         /*
          * test
          */
-        assertThatThrownBy(() -> ledgerService.record(new RideSettlementCommand(PARTY_ID, DRIVER_ID, Integer.MAX_VALUE, 1, OCCURRED_AT)))
+        assertThatThrownBy(() -> ledgerService.record(new PaymentGroupSettlementCommand(DRIVER_ID, PAYMENT_GROUP_ID, Integer.MAX_VALUE, 1, OCCURRED_AT)))
 
         /*
          * verify
@@ -133,24 +133,24 @@ class SettlementLedgerServiceUnitTest {
         verifyNoInteractions(ledgers);
     }
 
-    @DisplayName("record - 이미 기록된 운행이면 저장하지 않는다")
+    @DisplayName("record - 이미 기록된 결제 그룹이면 저장하지 않는다")
     @Test
     void record_alreadyRecorded() {
 
         /*
          * settings
          */
-        doReturn(true).when(ledgers).existsByMatchId(eq(PARTY_ID));
+        doReturn(true).when(ledgers).existsByPaymentGroupId(eq(PAYMENT_GROUP_ID));
 
         /*
          * test
          */
-        ledgerService.record(new RideSettlementCommand(PARTY_ID, DRIVER_ID, 15000, 0, OCCURRED_AT));
+        ledgerService.record(new PaymentGroupSettlementCommand(DRIVER_ID, PAYMENT_GROUP_ID, 15000, 0, OCCURRED_AT));
 
         /*
          * verify
          */
-        verify(ledgers).existsByMatchId(eq(PARTY_ID));
+        verify(ledgers).existsByPaymentGroupId(eq(PAYMENT_GROUP_ID));
         verify(ledgers, never()).save(any());
     }
 
@@ -162,7 +162,7 @@ class SettlementLedgerServiceUnitTest {
         /*
          * test
          */
-        assertThatThrownBy(() -> ledgerService.record(new RideSettlementCommand(PARTY_ID, DRIVER_ID, totalFare, 0, OCCURRED_AT)))
+        assertThatThrownBy(() -> ledgerService.record(new PaymentGroupSettlementCommand(DRIVER_ID, PAYMENT_GROUP_ID, totalFare, 0, OCCURRED_AT)))
 
         /*
          * verify
@@ -180,7 +180,7 @@ class SettlementLedgerServiceUnitTest {
         /*
          * test
          */
-        assertThatThrownBy(() -> ledgerService.record(new RideSettlementCommand(PARTY_ID, DRIVER_ID, 15000, platformPromotion, OCCURRED_AT)))
+        assertThatThrownBy(() -> ledgerService.record(new PaymentGroupSettlementCommand(DRIVER_ID, PAYMENT_GROUP_ID, 15000, platformPromotion, OCCURRED_AT)))
 
         /*
          * verify
@@ -197,7 +197,7 @@ class SettlementLedgerServiceUnitTest {
         /*
          * test
          */
-        assertThatThrownBy(() -> ledgerService.record(new RideSettlementCommand(PARTY_ID, DRIVER_ID, 0, -1, OCCURRED_AT)))
+        assertThatThrownBy(() -> ledgerService.record(new PaymentGroupSettlementCommand(DRIVER_ID, PAYMENT_GROUP_ID, 0, -1, OCCURRED_AT)))
 
         /*
          * verify
@@ -206,14 +206,14 @@ class SettlementLedgerServiceUnitTest {
                         e -> assertThat(e.getErrorCode()).isEqualTo(SettlementErrorCode.INVALID_TOTAL_FARE));
     }
 
-    @DisplayName("record - 운행 ID 가 null 이면 INVALID_SETTLEMENT_COMMAND 로 실패한다")
+    @DisplayName("record - 결제 그룹 ID 가 null 이면 INVALID_SETTLEMENT_COMMAND 로 실패한다")
     @Test
-    void record_nullPartyId() {
+    void record_nullPaymentGroupId() {
 
         /*
          * test
          */
-        assertThatThrownBy(() -> ledgerService.record(new RideSettlementCommand(null, DRIVER_ID, 15000, 0, OCCURRED_AT)))
+        assertThatThrownBy(() -> ledgerService.record(new PaymentGroupSettlementCommand(DRIVER_ID, null, 15000, 0, OCCURRED_AT)))
 
         /*
          * verify
@@ -230,7 +230,7 @@ class SettlementLedgerServiceUnitTest {
         /*
          * test
          */
-        assertThatThrownBy(() -> ledgerService.record(new RideSettlementCommand(PARTY_ID, null, 15000, 0, OCCURRED_AT)))
+        assertThatThrownBy(() -> ledgerService.record(new PaymentGroupSettlementCommand(null, PAYMENT_GROUP_ID, 15000, 0, OCCURRED_AT)))
 
         /*
          * verify
@@ -247,7 +247,7 @@ class SettlementLedgerServiceUnitTest {
         /*
          * test
          */
-        assertThatThrownBy(() -> ledgerService.record(new RideSettlementCommand(PARTY_ID, DRIVER_ID, 15000, 0, null)))
+        assertThatThrownBy(() -> ledgerService.record(new PaymentGroupSettlementCommand(DRIVER_ID, PAYMENT_GROUP_ID, 15000, 0, null)))
 
         /*
          * verify
@@ -264,7 +264,7 @@ class SettlementLedgerServiceUnitTest {
         /*
          * test
          */
-        assertThatThrownBy(() -> ledgerService.record(new RideSettlementCommand(null, DRIVER_ID, 0, -1, OCCURRED_AT)))
+        assertThatThrownBy(() -> ledgerService.record(new PaymentGroupSettlementCommand(DRIVER_ID, null, 0, -1, OCCURRED_AT)))
 
         /*
          * verify
@@ -296,12 +296,12 @@ class SettlementLedgerServiceUnitTest {
         /*
          * settings
          */
-        doThrow(new IllegalStateException("DB 오류")).when(ledgers).existsByMatchId(eq(PARTY_ID));
+        doThrow(new IllegalStateException("DB 오류")).when(ledgers).existsByPaymentGroupId(eq(PAYMENT_GROUP_ID));
 
         /*
          * test
          */
-        assertThatThrownBy(() -> ledgerService.record(new RideSettlementCommand(PARTY_ID, DRIVER_ID, 15000, 0, OCCURRED_AT)))
+        assertThatThrownBy(() -> ledgerService.record(new PaymentGroupSettlementCommand(DRIVER_ID, PAYMENT_GROUP_ID, 15000, 0, OCCURRED_AT)))
 
         /*
          * verify
@@ -318,13 +318,13 @@ class SettlementLedgerServiceUnitTest {
         /*
          * settings
          */
-        doReturn(false).when(ledgers).existsByMatchId(eq(PARTY_ID));
+        doReturn(false).when(ledgers).existsByPaymentGroupId(eq(PAYMENT_GROUP_ID));
         doThrow(new IllegalStateException("유니크 위반")).when(ledgers).save(any(SettlementLedger.class));
 
         /*
          * test
          */
-        assertThatThrownBy(() -> ledgerService.record(new RideSettlementCommand(PARTY_ID, DRIVER_ID, 15000, 0, OCCURRED_AT)))
+        assertThatThrownBy(() -> ledgerService.record(new PaymentGroupSettlementCommand(DRIVER_ID, PAYMENT_GROUP_ID, 15000, 0, OCCURRED_AT)))
 
         /*
          * verify

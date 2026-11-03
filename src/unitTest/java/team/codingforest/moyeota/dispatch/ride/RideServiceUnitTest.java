@@ -3,8 +3,6 @@ package team.codingforest.moyeota.dispatch.ride;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -17,11 +15,7 @@ import team.codingforest.moyeota.dispatch.ride.dto.DriverLocationResponse;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.dto.PartySummary;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
-import team.codingforest.moyeota.settlement.api.SettlementAccess;
-import team.codingforest.moyeota.settlement.api.dto.RideSettlementCommand;
 
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,7 +24,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -50,8 +43,6 @@ class RideServiceUnitTest {
     private PassengerNotifier passengerNotifier;
     @Mock
     private DriverLocations driverLocations;
-    @Mock
-    private SettlementAccess settlementAccess;
 
     @DisplayName("arrive - 픽업 대기 중이면 승객에게 도착을 알린다")
     @Test
@@ -152,17 +143,11 @@ class RideServiceUnitTest {
                 .hasFieldOrPropertyWithValue("errorCode", MatchingErrorCode.NOT_ASSIGNED_DRIVER);
     }
 
-    @DisplayName("complete - 운행을 끝낸 뒤 프로모션 0 으로 정산을 기록한다")
+    @DisplayName("complete - 기사·요금을 그대로 넘겨 운행을 끝낸다")
     @Test
     void complete() {
 
         /*
-         * settings
-         */
-        Instant before = Instant.now().truncatedTo(ChronoUnit.MICROS);
-        ArgumentCaptor<RideSettlementCommand> captor = ArgumentCaptor.forClass(RideSettlementCommand.class);
-
-        /*
          * test
          */
         rideService.complete(PARTY_ID, DRIVER_ID, FARE);
@@ -170,40 +155,10 @@ class RideServiceUnitTest {
         /*
          * verify
          */
-        InOrder order = inOrder(partyAccess, settlementAccess);
-        order.verify(partyAccess).completeRide(eq(PARTY_ID), eq(DRIVER_ID), eq(FARE));
-        order.verify(settlementAccess).record(captor.capture());
-
-        RideSettlementCommand command = captor.getValue();
-        assertThat(command.partyId()).isEqualTo(PARTY_ID);
-        assertThat(command.taxiDriverId()).isEqualTo(DRIVER_ID);
-        assertThat(command.totalFare()).isEqualTo(FARE);
-        assertThat(command.platformPromotion()).isZero();
-        assertThat(command.occurredAt()).isBetween(before, Instant.now());
+        verify(partyAccess).completeRide(eq(PARTY_ID), eq(DRIVER_ID), eq(FARE));
     }
 
-    @DisplayName("complete - 정산 시각은 DB 정밀도에 맞춰 마이크로초로 자른다")
-    @Test
-    void complete_occurredAtTruncated() {
-
-        /*
-         * settings
-         */
-        ArgumentCaptor<RideSettlementCommand> captor = ArgumentCaptor.forClass(RideSettlementCommand.class);
-
-        /*
-         * test
-         */
-        rideService.complete(PARTY_ID, DRIVER_ID, FARE);
-
-        /*
-         * verify
-         */
-        verify(settlementAccess).record(captor.capture());
-        assertThat(captor.getValue().occurredAt().getNano() % 1_000).isZero();
-    }
-
-    @DisplayName("complete - 운행 종료가 실패하면 예외를 그대로 던지고 정산을 기록하지 않는다")
+    @DisplayName("complete - 운행 종료가 실패하면 예외를 그대로 던진다")
     @Test
     void complete_notRiding() {
 
@@ -222,27 +177,6 @@ class RideServiceUnitTest {
          */
         assertThat(thrown).isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", MatchingErrorCode.NOT_RIDING);
-        verifyNoInteractions(settlementAccess);
-    }
-
-    @DisplayName("complete - 정산 기록이 실패하면 예외를 그대로 던진다 (트랜잭션 롤백 대상)")
-    @Test
-    void complete_settlementFailed() {
-
-        /*
-         * settings
-         */
-        doThrow(new IllegalStateException("settlement down")).when(settlementAccess).record(any(RideSettlementCommand.class));
-
-        /*
-         * test
-         */
-        Throwable thrown = catchThrowable(() -> rideService.complete(PARTY_ID, DRIVER_ID, FARE));
-
-        /*
-         * verify
-         */
-        assertThat(thrown).isInstanceOf(IllegalStateException.class).hasMessage("settlement down");
     }
 
     @DisplayName("driverLocation - 위치의 경도·위도를 필드에 맞게 담아 돌려준다")
