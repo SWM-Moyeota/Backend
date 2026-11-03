@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 /**
  *  애그리거트 루트
@@ -22,6 +23,14 @@ public class Party {
     // 앱이 "지금"을 고르면 요청이 도착할 때는 이미 지난 시각이라, 그만큼은 지난 시각도 받는다
     private static final Duration CONFIRM_CLOCK_SKEW = Duration.ofMinutes(1);
     private static final int MIN_MEMBERS_TO_DEPART = 2;
+    // 약속 시각 알림은 이만큼 넘게 늦으면(서버가 멈췄다 다시 돈 경우) "약속 시간이에요"가 맞지 않아 보내지 않는다
+    static final Duration MEETING_NOTICE_STALE_AFTER = Duration.ofMinutes(30);
+    /**
+     *  출발 재촉 시각 - 약속 시각에서 이만큼 지난 때. n 번째 재촉(0부터)은 departureAt + DEPARTURE_REMINDER_OFFSETS[n] 이고 이 수만큼만 보낸다.
+     *  재촉 스케줄러의 대상 조회(PartyJpaRepository.findDepartureReminderTargetIds)가 차례마다 기준 시각을 하나씩 받으므로 개수를 바꾸면 쿼리도 함께 바꾼다
+     */
+    public static final List<Duration> DEPARTURE_REMINDER_OFFSETS = List.of(
+            Duration.ofMinutes(30), Duration.ofHours(1), Duration.ofHours(2), Duration.ofHours(4));
 
     private final Long id;
     private final Location departureLocation;
@@ -46,6 +55,10 @@ public class Party {
     // 예약 방은 만들 때 정한 출발 시각, 실시간 방은 방장이 확정한 약속 시간(확정 전에는 null). 바꾸는 길은 confirm 하나뿐이다
     private Instant departureAt;
     private Instant reminderSentAt;
+    // 약속 시각 알림을 처리한 시각(늦어서 보내지 않은 경우도 처리로 남긴다). 약속이 정해진 방에서만 채워진다
+    private Instant meetingNotifiedAt;
+    // 처리한 출발 재촉 차례 수(0..DEPARTURE_REMINDER_OFFSETS.size()). 방해 금지 시간·도착한 사람 없음으로 보내지 않은 차례도 센다
+    private int departureReminderCount;
 
     /**
      * 규칙 생성 -> 아무대서 Party 객체를 생성할 수 없게 하기
@@ -53,7 +66,7 @@ public class Party {
     private Party(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius
             ,String departure, String destination, Capacity capacity, List<PartyMember> members, Long hostId, Instant createdAt, PartyStatus status,
                   Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version,
-                  RoomType roomType, Instant departureAt, Instant reminderSentAt) {
+                  RoomType roomType, Instant departureAt, Instant reminderSentAt, Instant meetingNotifiedAt, int departureReminderCount) {
         this.id = id;
         this.departureLocation = departureLocation;
         this.destinationLocation = destinationLocation;
@@ -76,6 +89,8 @@ public class Party {
         this.roomType = roomType;
         this.departureAt = departureAt;
         this.reminderSentAt = reminderSentAt;
+        this.meetingNotifiedAt = meetingNotifiedAt;
+        this.departureReminderCount = departureReminderCount;
     }
 
     /**
@@ -92,7 +107,7 @@ public class Party {
         if(route == null) throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
 
         Party party = new Party(null, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, new ArrayList<>(), creatorId, createdAt, PartyStatus.ACTIVE,
-                estimatedFare, estimatedTime, route, null, null, null, 0L, RoomType.REALTIME, null, null);
+                estimatedFare, estimatedTime, route, null, null, null, 0L, RoomType.REALTIME, null, null, null, 0);
 
         party.members.add(new PartyMember(creatorId, Instant.now()));
 
@@ -111,7 +126,7 @@ public class Party {
         if(!departureAt.isAfter(createdAt) || departureAt.isAfter(createdAt.plus(MAX_RESERVATION_AHEAD))) throw new BusinessException(MatchingErrorCode.INVALID_DEPARTURE_TIME);
 
         Party party = new Party(null, departureLocation, destinationLocation, Radius.DEFAULT, Radius.DEFAULT, departure, destination, capacity, new ArrayList<>(), creatorId, createdAt, PartyStatus.ACTIVE,
-                null, null, null, null, null, null, 0L, RoomType.RESERVED, departureAt, null);
+                null, null, null, null, null, null, 0L, RoomType.RESERVED, departureAt, null, null, 0);
 
         party.members.add(new PartyMember(creatorId, Instant.now()));
 
@@ -336,6 +351,59 @@ public class Party {
         return member.voidNoShow(now);
     }
 
+    /**
+     *  약속 시각 알림 - 약속이 정해진 열린 방(ACTIVE·COMPLETED)에서 약속 시각이 지나면 한 번 처리한다. 받는 사람은 멤버 전원이다.
+     *  방해 금지 시간은 따르지 않는다(약속이 밤일 수 있다). 처리하면 알림을 보내지 않는 경우에도 처리한 시각을 남겨 다시 고르지 않는다
+     *   - 약속 시각에서 30분 넘게 지났으면(서버가 멈췄다 다시 돈 경우) 보내지 않는다 - 늦게 온 "약속 시간이에요"는 쓸모가 없다
+     *   - 함께 탈 사람이 들어오지 않은 방(멤버 1명 - 예약 방만 그럴 수 있다)은 모집 정리에서 취소될 방이라 보내지 않는다
+     *  알림 기록은 방 상세·SSE 에 보이지 않아 version 은 올리지 않는다
+     */
+    public PartyNotice markMeetingNotified(Instant now) {
+        if(!status.isRecruiting() || !isConfirmed()) return PartyNotice.notDue();
+
+        if(meetingNotifiedAt != null || now.isBefore(departureAt)) return PartyNotice.notDue();
+
+        meetingNotifiedAt = now;
+
+        if(now.isAfter(departureAt.plus(MEETING_NOTICE_STALE_AFTER))) return PartyNotice.silent();
+
+        if(members.size() < MIN_MEMBERS_TO_DEPART) return PartyNotice.silent();
+
+        return PartyNotice.send(members.stream().map(PartyMember::getMemberId).toList());
+    }
+
+    /**
+     *  다음 출발 재촉 시각 - departureAt + DEPARTURE_REMINDER_OFFSETS[처리한 차례 수].
+     *  열린 방(ACTIVE·COMPLETED)이 아니거나(출발·자동 정리로 닫히면 재촉도 끝난다) 약속이 없거나 차례를 다 썼으면 없다
+     */
+    public Optional<Instant> nextDepartureReminderDue() {
+        if(!status.isRecruiting() || !isConfirmed()) return Optional.empty();
+
+        if(departureReminderCount >= DEPARTURE_REMINDER_OFFSETS.size()) return Optional.empty();
+
+        return Optional.of(departureAt.plus(DEPARTURE_REMINDER_OFFSETS.get(departureReminderCount)));
+    }
+
+    /**
+     *  출발 재촉 차례를 처리한다. 출발 버튼은 도착한 멤버만 누를 수 있어 받는 사람은 도착한 멤버다.
+     *  서버가 멈춰 여러 차례가 한꺼번에 밀렸으면 지난 차례를 모두 넘기고 한 번만 보낸다.
+     *  도착한 멤버가 없거나 함께 탈 사람이 없는 방(멤버 1명)이면 보내지 않고 차례만 넘긴다. 방해 금지 시간은 서비스가 가른다(그때도 차례는 넘긴다)
+     */
+    public PartyNotice advanceDepartureReminder(Instant now) {
+        Optional<Instant> due = nextDepartureReminderDue();
+
+        if(due.isEmpty() || now.isBefore(due.get())) return PartyNotice.notDue();
+
+        do {
+            departureReminderCount++;
+        } while(departureReminderCount < DEPARTURE_REMINDER_OFFSETS.size()
+                && !now.isBefore(departureAt.plus(DEPARTURE_REMINDER_OFFSETS.get(departureReminderCount))));
+
+        if(members.size() < MIN_MEMBERS_TO_DEPART) return PartyNotice.silent();
+
+        return PartyNotice.send(members.stream().filter(PartyMember::isArrived).map(PartyMember::getMemberId).toList());
+    }
+
     private int arrivedCount() {
         return (int) members.stream().filter(PartyMember::isArrived).count();
     }
@@ -406,8 +474,19 @@ public class Party {
      */
     public static Party load(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Long hostId, Instant createdAt, PartyStatus status,
                              Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version,
+                             RoomType roomType, Instant departureAt, Instant reminderSentAt, Instant meetingNotifiedAt, int departureReminderCount) {
+        return new Party(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, restoreHostId(members, hostId), createdAt, status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, roomType, departureAt, reminderSentAt,
+                meetingNotifiedAt, departureReminderCount);
+    }
+
+    /**
+     *  약속 시각 알림 컬럼(meeting_notified_at, departure_reminder_count)이 생기기 전 모양. 알림은 처리한 적 없는 것으로 복원한다
+     */
+    public static Party load(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Long hostId, Instant createdAt, PartyStatus status,
+                             Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version,
                              RoomType roomType, Instant departureAt, Instant reminderSentAt) {
-        return new Party(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, restoreHostId(members, hostId), createdAt, status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, roomType, departureAt, reminderSentAt);
+        return load(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, hostId, createdAt, status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, roomType, departureAt, reminderSentAt,
+                null, 0);
     }
 
     /**
@@ -618,5 +697,13 @@ public class Party {
 
 	public Instant getReminderSentAt() {
 		return reminderSentAt;
+	}
+
+	public Instant getMeetingNotifiedAt() {
+		return meetingNotifiedAt;
+	}
+
+	public int getDepartureReminderCount() {
+		return departureReminderCount;
 	}
 }

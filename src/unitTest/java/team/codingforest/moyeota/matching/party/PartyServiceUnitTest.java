@@ -134,6 +134,8 @@ class PartyServiceUnitTest {
     private PartyOpener partyOpener;
     @Mock
     private NoShowPenalty noShowPenalty;
+    @Mock
+    private MeetingNotificationService meetingNotificationService;
 
     @InjectMocks
     private PartyService partyService;
@@ -2444,6 +2446,148 @@ class PartyServiceUnitTest {
          * verify
          */
         verifyNoInteractions(noShowPenalty);
+    }
+
+    // ───────────────────────── 노쇼 알림 ─────────────────────────
+
+    @DisplayName("depart - 노쇼로 찍힌 멤버를 찍은 시각과 함께 노쇼 알림에 넘긴다(방 저장·제재 뒤)")
+    @Test
+    void depart_notifiesNoShows() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 6L,
+                arrivedMember(HOST_ID, 0), waitingMember(THIRD_ID, 1), waitingMember(MEMBER_ID, 2));
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        partyService.depart(PARTY_ID, HOST_ID);
+
+        /*
+         * verify
+         */
+        Instant noShowAt = memberOf(party, MEMBER_ID).getNoShowAt();
+        InOrder order = inOrder(parties, noShowPenalty, meetingNotificationService);
+        order.verify(parties).save(eq(party));
+        order.verify(noShowPenalty).record(eq(MEMBER_ID), any(), eq(noShowAt));
+        order.verify(meetingNotificationService).notifyNoShows(eq(PARTY_ID), eq(List.of(THIRD_ID, MEMBER_ID)), eq(noShowAt));
+    }
+
+    @DisplayName("depart - 모두 도착했으면 빈 노쇼 목록을 넘긴다(알림 서비스가 보내지 않는다)")
+    @Test
+    void depart_everyoneArrived_emptyNoShowNotice() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 0L,
+                arrivedMember(HOST_ID, 0), arrivedMember(MEMBER_ID, 1));
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        partyService.depart(PARTY_ID, HOST_ID);
+
+        /*
+         * verify
+         */
+        verify(meetingNotificationService).notifyNoShows(eq(PARTY_ID), eq(List.of()), any(Instant.class));
+    }
+
+    @DisplayName("depart - 출발이 거절되면 노쇼 알림도 맡기지 않는다")
+    @Test
+    void depart_rejected_noNoShowNotice() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 0L,
+                arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1));
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> partyService.depart(PARTY_ID, MEMBER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.NOT_ARRIVED);
+        verifyNoInteractions(meetingNotificationService);
+    }
+
+    @DisplayName("autoClose - 노쇼로 찍힌 멤버를 찍은 시각과 함께 노쇼 알림에 넘긴다(전원 노쇼면 전원)")
+    @Test
+    void autoClose_notifiesNoShows() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedParty(Instant.now().minus(Duration.ofDays(1)), PartyStatus.COMPLETED, null, 6L,
+                waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1));
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        partyService.autoClose(PARTY_ID);
+
+        /*
+         * verify
+         */
+        Instant noShowAt = memberOf(party, HOST_ID).getNoShowAt();
+        InOrder order = inOrder(parties, meetingNotificationService);
+        order.verify(parties).save(eq(party));
+        order.verify(meetingNotificationService).notifyNoShows(eq(PARTY_ID), eq(List.of(HOST_ID, MEMBER_ID)), eq(noShowAt));
+    }
+
+    @DisplayName("autoClose - 약속을 정하지 않은 방은 빈 노쇼 목록을 넘긴다")
+    @Test
+    void autoClose_unconfirmed_emptyNoShowNotice() {
+
+        /*
+         * settings
+         */
+        Party party = party(PartyStatus.COMPLETED, 3, null, 0L, HOST_ID, MEMBER_ID);
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        partyService.autoClose(PARTY_ID);
+
+        /*
+         * verify
+         */
+        verify(meetingNotificationService).notifyNoShows(eq(PARTY_ID), eq(List.of()), any(Instant.class));
+    }
+
+    @DisplayName("autoClose - 조회 뒤 이미 닫힌 방은 거절되고 노쇼 알림도 맡기지 않는다")
+    @Test
+    void autoClose_rejected_noNoShowNotice() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedParty(Instant.now().minus(Duration.ofDays(1)), PartyStatus.FINISHED, null, 6L,
+                arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1));
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> partyService.autoClose(PARTY_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.PARTY_CLOSED);
+        verifyNoInteractions(meetingNotificationService);
     }
 
     // ───────────────────────── 공통 도우미 ─────────────────────────

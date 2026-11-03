@@ -35,7 +35,7 @@ public class PartyJpaTest implements Parties {
                 party.getDeparture(), party.getDestination(), party.getCapacity(),
                 party.getMembers(), party.hostId(), party.getCreatedAt(), party.getStatus(),
                 party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getTaxiDriverId(), party.getMatchingStartedAt(), party.getCompletedAt(), party.getVersion(),
-                party.getRoomType(), party.getDepartureAt(), party.getReminderSentAt());
+                party.getRoomType(), party.getDepartureAt(), party.getReminderSentAt(), party.getMeetingNotifiedAt(), party.getDepartureReminderCount());
 
         store.put(id, saved);
         return saved;
@@ -168,6 +168,25 @@ public class PartyJpaTest implements Parties {
                 .filter(Party::isReservation)
                 .filter(p -> p.getStatus().isRecruiting() && p.getReminderSentAt() == null)
                 .filter(p -> !p.getDepartureAt().isBefore(from) && !p.getDepartureAt().isAfter(to))
+                .map(Party::getId)
+                .toList();
+    }
+
+    @Override
+    public List<Long> findMeetingNoticeTargets(Instant now) {
+        // 실제 JPQL 과 같은 규칙 - 약속이 정해진 열린 방 중 약속 시각이 now 이전이고 알림을 처리하지 않은 방
+        return store.values().stream()
+                .filter(p -> p.getStatus().isRecruiting() && p.getDepartureAt() != null)
+                .filter(p -> !p.getDepartureAt().isAfter(now) && p.getMeetingNotifiedAt() == null)
+                .map(Party::getId)
+                .toList();
+    }
+
+    @Override
+    public List<Long> findDepartureReminderTargets(Instant now) {
+        // 실제 JPQL 과 같은 규칙 - departure_at + 재촉 간격[처리한 차례 수] 가 now 이전인 열린 방
+        return store.values().stream()
+                .filter(p -> p.nextDepartureReminderDue().filter(due -> !due.isAfter(now)).isPresent())
                 .map(Party::getId)
                 .toList();
     }

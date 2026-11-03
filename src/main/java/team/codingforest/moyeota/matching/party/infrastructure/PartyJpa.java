@@ -14,6 +14,7 @@ import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
 import team.codingforest.moyeota.matching.party.domain.RoomType;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -94,6 +95,20 @@ public class PartyJpa implements Parties {
     @Override
     public List<Long> findReservationsToRemind(Instant from, Instant to) {
         return partyJpaRepository.findIdsToRemind(List.of(PartyStatus.ACTIVE, PartyStatus.COMPLETED), from, to);
+    }
+
+    @Override
+    public List<Long> findMeetingNoticeTargets(Instant now) {
+        return partyJpaRepository.findMeetingNoticeTargetIds(now);
+    }
+
+    /** 차례 n 은 departure_at <= now - DEPARTURE_REMINDER_OFFSETS[n] 이면 지났다 - 차례마다 기준 시각을 하나씩 넘긴다 */
+    @Override
+    public List<Long> findDepartureReminderTargets(Instant now) {
+        List<Duration> offsets = Party.DEPARTURE_REMINDER_OFFSETS;
+
+        return partyJpaRepository.findDepartureReminderTargetIds(
+                now.minus(offsets.get(0)), now.minus(offsets.get(1)), now.minus(offsets.get(2)), now.minus(offsets.get(3)));
     }
 
     private List<PartyStatus> ongoingStatuses() {

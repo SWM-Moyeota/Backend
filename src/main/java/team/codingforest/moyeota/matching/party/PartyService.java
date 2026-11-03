@@ -81,6 +81,7 @@ public class PartyService {
     private final RideRecords rideRecords;
 	private final PartyOpener partyOpener;
     private final NoShowPenalty noShowPenalty;
+    private final MeetingNotificationService meetingNotificationService;
 
     public PartyResult open(OpenPartyCommand command) {
         Instant now = Instant.now();
@@ -267,7 +268,7 @@ public class PartyService {
 
     /**
      *  도착한 멤버가 출발을 누르면 방이 끝난다. 그 순간 도착하지 않은 멤버는 노쇼로 저장되고 탑승 기록·탑승 횟수에서 빠지며,
-     *  같은 트랜잭션에서 노쇼 제재(누적 횟수 +1, 약속 시간부터 누적 횟수 × 24시간 이용 제한)가 더해진다
+     *  같은 트랜잭션에서 노쇼 제재(누적 횟수 +1, 약속 시간부터 누적 횟수 × 24시간 이용 제한)가 더해지고, 커밋 후 노쇼 멤버에게 노쇼 알림이 나간다(방해 금지 시간 제외)
      */
     @Transactional
     public void depart(Long partyId, Long memberId) {
@@ -278,6 +279,7 @@ public class PartyService {
         List<Long> noShowMemberIds = party.depart(memberId, now);
         parties.save(party);
         penalizeNoShows(party, noShowMemberIds, now);
+        meetingNotificationService.notifyNoShows(partyId, noShowMemberIds, now);
         rideRecords.save(RideRecord.withoutDriver(partyId, party.getDeparture(), party.getDestination()));
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
         PartyClosed closed = PartyClosed.from(party.getStatus().name());
@@ -324,7 +326,7 @@ public class PartyService {
 
     /**
      *  정리 스케줄러가 생성(실시간)·출발(예약) 후 1일이 지나도 열려 있는 방을 닫는다. 노쇼 판정은 Party.autoClose 가 한다.
-     *  도착한 멤버가 있어 FINISHED 로 끝난 방만 기사 없는 하차 기록을 남긴다. 노쇼로 찍힌 멤버는 같은 트랜잭션에서 제재가 더해진다
+     *  도착한 멤버가 있어 FINISHED 로 끝난 방만 기사 없는 하차 기록을 남긴다. 노쇼로 찍힌 멤버는 같은 트랜잭션에서 제재가 더해지고 커밋 후 노쇼 알림을 받는다(방해 금지 시간 제외)
      *
      *  @return 이번에 노쇼로 찍힌 memberId (합류 순)
      */
@@ -337,6 +339,7 @@ public class PartyService {
         AutoCloseResult result = party.autoClose(now);
         parties.save(party);
         penalizeNoShows(party, result.noShowMemberIds(), now);
+        meetingNotificationService.notifyNoShows(partyId, result.noShowMemberIds(), now);
 
         if (result.hasRiders()) {
             rideRecords.save(RideRecord.withoutDriver(partyId, party.getDeparture(), party.getDestination()));
