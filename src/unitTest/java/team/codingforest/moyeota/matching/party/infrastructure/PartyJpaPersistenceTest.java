@@ -18,6 +18,7 @@ import team.codingforest.moyeota.matching.party.domain.RoomType;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,8 +51,9 @@ class PartyJpaPersistenceTest {
         return parties.save(Party.open(creatorId, 강남, 판교, "강남역", "판교역", new Capacity(3), Instant.now(), Radius.DEFAULT, Radius.DEFAULT, 12000, 25, "encoded-path"));
     }
 
+    // DB 컬럼은 마이크로초까지만 저장한다. Linux 의 Instant.now() 는 나노초까지 나와서 자르지 않으면 저장한 값과 경계 비교가 어긋난다
     private Instant 뒤(Duration duration) {
-        return Instant.now().plus(duration);
+        return Instant.now().truncatedTo(ChronoUnit.MICROS).plus(duration);
     }
 
     private void clearContext() {
