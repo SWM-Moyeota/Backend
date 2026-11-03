@@ -21,6 +21,7 @@ import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.RoomType;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -72,13 +73,13 @@ public class PartyEntity extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private PartyStatus status;
 
-    @Column(name = "estimated_fare", nullable = false)
+    @Column(name = "estimated_fare")
     private Integer estimatedFare;
 
-    @Column(name = "estimated_time", nullable = false)
+    @Column(name = "estimated_time")
     private Integer estimatedTime;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String route;
 
     @Column(name = "taxi_driver_id")
@@ -93,11 +94,22 @@ public class PartyEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private long version;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "room_type", nullable = false, length = 20)
+    private RoomType roomType;
+
+    @Column(name = "departure_at")
+    private Instant departureAt;
+
+    @Column(name = "reminder_sent_at")
+    private Instant reminderSentAt;
+
     protected PartyEntity() {}
 
     private PartyEntity(Double departureLat, Double departureLng, Double destinationLat, Double destinationLng, String departure,
                        String destination, Integer capacity, Integer departureRadius, Integer destinationRadius, PartyStatus status,
-                        Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version) {
+                        Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version,
+                        RoomType roomType, Instant departureAt, Instant reminderSentAt) {
         this.departureLat = departureLat;
         this.departureLng = departureLng;
         this.destinationLat = destinationLat;
@@ -115,6 +127,9 @@ public class PartyEntity extends BaseTimeEntity {
         this.matchingStartedAt = matchingStartedAt;
         this.completedAt = completedAt;
         this.version = version;
+        this.roomType = roomType;
+        this.departureAt = departureAt;
+        this.reminderSentAt = reminderSentAt;
     }
 
     public static PartyEntity from(Party party) {
@@ -135,7 +150,10 @@ public class PartyEntity extends BaseTimeEntity {
                 party.getTaxiDriverId(),
                 party.getMatchingStartedAt(),
                 party.getCompletedAt(),
-                party.getVersion()
+                party.getVersion(),
+                party.getRoomType(),
+                party.getDepartureAt(),
+                party.getReminderSentAt()
         );
 
         for(PartyMember member : party.getMembers()) {
@@ -148,7 +166,7 @@ public class PartyEntity extends BaseTimeEntity {
     public Party toDomain() {
         return Party.load(getId(), new Location(departureLat, departureLng), new Location(destinationLat, destinationLng),
                 new Radius(departureRadius), new Radius(destinationRadius), departure, destination, new Capacity(capacity),
-                members.stream().map(PartyMemberEntity::toDomain).toList(), getCreatedAt(), status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version);
+                members.stream().map(PartyMemberEntity::toDomain).toList(), getCreatedAt(), status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, roomType, departureAt, reminderSentAt);
     }
 
     public void update(Party party) {
@@ -157,6 +175,7 @@ public class PartyEntity extends BaseTimeEntity {
         this.matchingStartedAt = party.getMatchingStartedAt();
         this.completedAt = party.getCompletedAt();
         this.version = party.getVersion();
+        this.reminderSentAt = party.getReminderSentAt();
         syncMembers(party.getMembers());
     }
 

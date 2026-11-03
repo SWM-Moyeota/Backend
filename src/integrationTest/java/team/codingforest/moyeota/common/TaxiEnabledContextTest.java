@@ -8,6 +8,7 @@ import team.codingforest.moyeota.dispatch.call.DispatchListener;
 import team.codingforest.moyeota.dispatch.call.MatchingSweeper;
 import team.codingforest.moyeota.matching.party.completion.ChatOnlyCompletionPolicy;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
+import team.codingforest.moyeota.matching.party.PartyRecruitingSweeper;
 import team.codingforest.moyeota.matching.party.completion.DispatchCompletionPolicy;
 import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
 
@@ -33,5 +34,6 @@ class TaxiEnabledContextTest {
         assertThat(ctx.getBeanNamesForType(DispatchListener.class)).isNotEmpty();
         assertThat(ctx.getBeanNamesForType(MatchingSweeper.class)).isNotEmpty();
         assertThat(ctx.getBeanNamesForType(CompletedPartySweeper.class)).as("발표 모드에선 COMPLETED 가 순간이라 스윕할 게 없다").isEmpty();
+        assertThat(ctx.getBeanNamesForType(PartyRecruitingSweeper.class)).isEmpty();
     }
 }

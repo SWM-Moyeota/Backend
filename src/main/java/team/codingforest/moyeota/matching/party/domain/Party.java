@@ -4,6 +4,7 @@ import lombok.Getter;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -14,6 +15,10 @@ import java.util.List;
   */
 // TODO - 예외처리 해야함
 public class Party {
+    private static final Duration MAX_RESERVATION_AHEAD = Duration.ofDays(7);
+    private static final Duration FINISHABLE_BEFORE_DEPARTURE = Duration.ofMinutes(30);
+    private static final int MIN_MEMBERS_TO_DEPART = 2;
+
     private final Long id;
     private final Location departureLocation;
     private final Location destinationLocation;
@@ -32,13 +37,17 @@ public class Party {
     private Instant matchingStartedAt;
     private Instant completedAt;
     private long version;
+    private final RoomType roomType;
+    private final Instant departureAt;
+    private Instant reminderSentAt;
 
     /**
      * 규칙 생성 -> 아무대서 Party 객체를 생성할 수 없게 하기
      */
     private Party(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius
             ,String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status,
-                  Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version) {
+                  Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version,
+                  RoomType roomType, Instant departureAt, Instant reminderSentAt) {
         this.id = id;
         this.departureLocation = departureLocation;
         this.destinationLocation = destinationLocation;
@@ -57,6 +66,9 @@ public class Party {
         this.matchingStartedAt = matchingStartedAt;
         this.completedAt = completedAt;
         this.version = version;
+        this.roomType = roomType;
+        this.departureAt = departureAt;
+        this.reminderSentAt = reminderSentAt;
     }
 
     /**
@@ -73,7 +85,7 @@ public class Party {
         if(route == null) throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
 
         Party party = new Party(null, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, new ArrayList<>(), createdAt, PartyStatus.ACTIVE,
-                estimatedFare, estimatedTime, route, null, null, null, 0L);
+                estimatedFare, estimatedTime, route, null, null, null, 0L, RoomType.REALTIME, null, null);
 
         party.members.add(new PartyMember(creatorId, Instant.now()));
 
@@ -85,11 +97,26 @@ public class Party {
         return party;
     }
 
+    public static Party reserve(Long creatorId, Location departureLocation, Location destinationLocation, String departure, String destination, Capacity capacity,
+                                Instant createdAt, Instant departureAt) {
+        if(departureLocation.equals(destinationLocation)) throw new BusinessException(MatchingErrorCode.SAME_DEPARTURE_DESTINATION);
+
+        if(!departureAt.isAfter(createdAt) || departureAt.isAfter(createdAt.plus(MAX_RESERVATION_AHEAD))) throw new BusinessException(MatchingErrorCode.INVALID_DEPARTURE_TIME);
+
+        Party party = new Party(null, departureLocation, destinationLocation, Radius.DEFAULT, Radius.DEFAULT, departure, destination, capacity, new ArrayList<>(), createdAt, PartyStatus.ACTIVE,
+                null, null, null, null, null, null, 0L, RoomType.RESERVED, departureAt, null);
+
+        party.members.add(new PartyMember(creatorId, Instant.now()));
+
+        return party;
+    }
+
     /**
      *  매칭방 참여
      */
     public void join(Long memberId) {
         if(status != PartyStatus.ACTIVE) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+        if(isReservation() && !Instant.now().isBefore(departureAt)) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
         if(members.size() >= capacity.value()) throw new BusinessException(MatchingErrorCode.PARTY_FULL);
         if(hasMember(memberId)) throw new BusinessException(MatchingErrorCode.ALREADY_JOINED_PARTY);
 
@@ -132,6 +159,46 @@ public class Party {
         completedAt = null;
     }
 
+    public void closeRecruiting(Long memberId) {
+        if(!hasMember(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
+
+        if(!isHost(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_HOST);
+
+        if(isReservation()) throw new BusinessException(MatchingErrorCode.NOT_REALTIME_PARTY);
+
+        if(status != PartyStatus.ACTIVE) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+
+        if(members.size() < MIN_MEMBERS_TO_DEPART) throw new BusinessException(MatchingErrorCode.NOT_ENOUGH_MEMBERS);
+
+        completeRecruiting();
+        version++;
+    }
+
+    public void expireRecruiting() {
+        if(status != PartyStatus.ACTIVE) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+
+        if(members.size() < MIN_MEMBERS_TO_DEPART) {
+            status = PartyStatus.CANCELED;
+        } else {
+            completeRecruiting();
+        }
+
+        version++;
+    }
+
+    public void markReminderSent(Instant now) {
+        reminderSentAt = now;
+    }
+
+    public boolean isReservation() {
+        return roomType == RoomType.RESERVED;
+    }
+
+    private void completeRecruiting() {
+        status = PartyStatus.COMPLETED;
+        completedAt = Instant.now();
+    }
+
     /**
      *  유저가 해당 방에 있는지 유뮤 확인
      */
@@ -154,8 +221,14 @@ public class Party {
      *  영속 복원용
      */
     public static Party load(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status,
+                             Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version,
+                             RoomType roomType, Instant departureAt, Instant reminderSentAt) {
+        return new Party(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, createdAt, status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, roomType, departureAt, reminderSentAt);
+    }
+
+    public static Party load(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status,
                                     Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version) {
-        return new Party(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, createdAt, status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version);
+        return load(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, createdAt, status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, RoomType.REALTIME, null, null);
     }
 
     /**
@@ -241,6 +314,8 @@ public class Party {
         if(status != PartyStatus.COMPLETED) throw new BusinessException(MatchingErrorCode.PARTY_NOT_COMPLETED);
 
         if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
+
+        if(isReservation() && Instant.now().isBefore(departureAt.minus(FINISHABLE_BEFORE_DEPARTURE))) throw new BusinessException(MatchingErrorCode.RESERVATION_NOT_STARTED);
 
         status = PartyStatus.FINISHED;
         version++;
@@ -336,5 +411,17 @@ public class Party {
 
 	public long getVersion() {
 		return version;
+	}
+
+	public RoomType getRoomType() {
+		return roomType;
+	}
+
+	public Instant getDepartureAt() {
+		return departureAt;
+	}
+
+	public Instant getReminderSentAt() {
+		return reminderSentAt;
 	}
 }

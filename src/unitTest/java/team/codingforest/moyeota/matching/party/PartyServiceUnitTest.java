@@ -136,7 +136,7 @@ class PartyServiceUnitTest {
         OpenPartyCommand command = openCommand(3);
         PartyResult opened = PartyResult.from(party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID));
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
         doReturn(ESTIMATE).when(routeService).estimate(eq(DEPARTURE_LAT), eq(DEPARTURE_LNG), eq(DESTINATION_LAT), eq(DESTINATION_LNG));
         doReturn(opened).when(partyOpener).open(eq(command), eq(ESTIMATE));
 
@@ -150,7 +150,7 @@ class PartyServiceUnitTest {
          */
         assertThat(result).isSameAs(opened);
         InOrder order = inOrder(parties, routeService, partyOpener);
-        order.verify(parties).existsOngoingByMemberId(eq(HOST_ID));
+        order.verify(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
         order.verify(routeService).estimate(eq(DEPARTURE_LAT), eq(DEPARTURE_LNG), eq(DESTINATION_LAT), eq(DESTINATION_LNG));
         order.verify(partyOpener).open(eq(command), eq(ESTIMATE));
         verify(parties, never()).save(any());
@@ -164,7 +164,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        doReturn(true).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(true).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
 
         /*
          * test
@@ -185,7 +185,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
         doThrow(new BusinessException(MatchingErrorCode.ROUTE_SEARCH_FAILED))
                 .when(routeService).estimate(anyDouble(), anyDouble(), anyDouble(), anyDouble());
 
@@ -210,7 +210,7 @@ class PartyServiceUnitTest {
          */
         OpenPartyCommand command = openCommand(3);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
         doReturn(ESTIMATE).when(routeService).estimate(eq(DEPARTURE_LAT), eq(DEPARTURE_LNG), eq(DESTINATION_LAT), eq(DESTINATION_LNG));
         doThrow(new BusinessException(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY)).when(partyOpener).open(eq(command), eq(ESTIMATE));
 
@@ -255,7 +255,7 @@ class PartyServiceUnitTest {
         Party saved = party(PartyStatus.ACTIVE, 3, null, 4L, HOST_ID, MEMBER_ID);
         MemberSummary summary = new MemberSummary(MEMBER_PUBLIC_ID, "참가자", "image.png", null);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of(MEMBER_ID, summary)).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Map.of(MEMBER_ID, 5)).when(parties).countFinishedRides(eq(List.of(MEMBER_ID)));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -292,7 +292,7 @@ class PartyServiceUnitTest {
         Party party = party(PartyStatus.ACTIVE, 2, null, 0L, HOST_ID);
         Party saved = party(PartyStatus.MATCHING, 2, null, 1L, HOST_ID, MEMBER_ID);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Map.of()).when(parties).countFinishedRides(eq(List.of(MEMBER_ID)));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -328,7 +328,7 @@ class PartyServiceUnitTest {
         Party party = party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID);
         Party saved = party(PartyStatus.ACTIVE, 3, null, 1L, HOST_ID, MEMBER_ID);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Map.of()).when(parties).countFinishedRides(eq(List.of(MEMBER_ID)));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -357,7 +357,7 @@ class PartyServiceUnitTest {
         Party party = party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID);
         Party saved = party(PartyStatus.ACTIVE, 3, null, 1L, MEMBER_ID, HOST_ID);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Map.of()).when(parties).countFinishedRides(eq(List.of(MEMBER_ID)));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -383,7 +383,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        doReturn(true).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(true).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
 
         /*
          * test
@@ -399,6 +399,30 @@ class PartyServiceUnitTest {
         verify(parties, never()).save(any());
     }
 
+    @DisplayName("join - 사용자 잠금을 먼저 잡고 방을 잠근다")
+    @Test
+    void join_locksMemberBeforeParty() {
+
+        /*
+         * settings
+         */
+        doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
+        doReturn(Map.of()).when(parties).countFinishedRides(eq(List.of(MEMBER_ID)));
+        doReturn(Optional.empty()).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        catchThrowable(() -> partyService.join(PARTY_ID, MEMBER_ID));
+
+        /*
+         * verify
+         */
+        InOrder order = inOrder(parties);
+        order.verify(parties).lockMember(MEMBER_ID);
+        order.verify(parties).findByIdForUpdate(PARTY_ID);
+    }
+
     @DisplayName("join - 없는 방이면 PARTY_NOT_FOUND")
     @Test
     void join_partyNotFound() {
@@ -406,7 +430,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Map.of()).when(parties).countFinishedRides(eq(List.of(MEMBER_ID)));
         doReturn(Optional.empty()).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -434,7 +458,7 @@ class PartyServiceUnitTest {
          */
         Party party = party(status, 3, null, 0L, HOST_ID);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Map.of()).when(parties).countFinishedRides(eq(List.of(MEMBER_ID)));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -462,7 +486,7 @@ class PartyServiceUnitTest {
          */
         Party party = party(PartyStatus.ACTIVE, 2, null, 0L, HOST_ID, THIRD_ID);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Map.of()).when(parties).countFinishedRides(eq(List.of(MEMBER_ID)));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -489,7 +513,7 @@ class PartyServiceUnitTest {
          */
         Party party = party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID, MEMBER_ID);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Map.of()).when(parties).countFinishedRides(eq(List.of(MEMBER_ID)));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -846,7 +870,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID))).when(parties).findAllByStatus(eq(PartyStatus.ACTIVE));
+        doReturn(List.of(party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID))).when(parties).findRealtimeByStatus(eq(PartyStatus.ACTIVE));
 
         /*
          * test
@@ -868,7 +892,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of()).when(parties).findAllByStatus(eq(PartyStatus.ACTIVE));
+        doReturn(List.of()).when(parties).findRealtimeByStatus(eq(PartyStatus.ACTIVE));
 
         /*
          * test
@@ -1225,7 +1249,7 @@ class PartyServiceUnitTest {
         Coordinate departure = new Coordinate(DEPARTURE_LAT, DEPARTURE_LNG);
         Coordinate destination = new Coordinate(DESTINATION_LAT, DESTINATION_LNG);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(List.of(far, near)).when(parties).findMatchesWithinRadius(eq(DEPARTURE_LAT), eq(DEPARTURE_LNG), eq(DESTINATION_LAT), eq(DESTINATION_LNG), eq(300));
         doReturn(List.of(new WalkingEstimate(300), new WalkingEstimate(100)))
                 .when(walkRouteFinder).fromTo(eq(departure), eq(List.of(new Coordinate(37.50, 127.03), new Coordinate(37.51, 127.04))));
@@ -1253,7 +1277,7 @@ class PartyServiceUnitTest {
         NearbyPartySummary first = nearby(10L, 37.50, 127.03, 37.40, 127.12);
         NearbyPartySummary second = nearby(20L, 37.51, 127.04, 37.41, 127.13);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(List.of(first, second)).when(parties).findMatchesWithinRadius(anyDouble(), anyDouble(), anyDouble(), anyDouble(), eq(300));
         doReturn(List.of(new WalkingEstimate(100), new WalkingEstimate(200))).when(walkRouteFinder).fromTo(any(), any());
         doReturn(List.of(new WalkingEstimate(200), new WalkingEstimate(100))).when(walkRouteFinder).toFrom(any(), any());
@@ -1280,7 +1304,7 @@ class PartyServiceUnitTest {
         NearbyPartySummary noDropOff = nearby(20L, 37.51, 127.04, 37.41, 127.13);
         NearbyPartySummary reachable = nearby(30L, 37.52, 127.05, 37.42, 127.14);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(List.of(noPickup, noDropOff, reachable)).when(parties).findMatchesWithinRadius(anyDouble(), anyDouble(), anyDouble(), anyDouble(), eq(300));
         doReturn(Arrays.asList(null, new WalkingEstimate(100), new WalkingEstimate(10))).when(walkRouteFinder).fromTo(any(), any());
         doReturn(Arrays.asList(new WalkingEstimate(100), null, new WalkingEstimate(20))).when(walkRouteFinder).toFrom(any(), any());
@@ -1306,7 +1330,7 @@ class PartyServiceUnitTest {
         Coordinate departure = new Coordinate(DEPARTURE_LAT, DEPARTURE_LNG);
         Coordinate destination = new Coordinate(DESTINATION_LAT, DESTINATION_LNG);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(List.of()).when(parties).findMatchesWithinRadius(eq(DEPARTURE_LAT), eq(DEPARTURE_LNG), eq(DESTINATION_LAT), eq(DESTINATION_LNG), eq(300));
         doReturn(List.of()).when(walkRouteFinder).fromTo(eq(departure), eq(List.of()));
         doReturn(List.of()).when(walkRouteFinder).toFrom(eq(destination), eq(List.of()));
@@ -1329,7 +1353,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        doReturn(true).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(true).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
 
         /*
          * test
@@ -1363,7 +1387,7 @@ class PartyServiceUnitTest {
          * verify
          */
         assertBusinessException(thrown, MatchingErrorCode.OUT_OF_SERVICE_AREA);
-        verify(parties, never()).existsOngoingByMemberId(anyLong());
+        verify(parties, never()).existsOngoingRealtimeByMemberId(anyLong());
         verifyNoInteractions(walkRouteFinder);
     }
 
@@ -1378,7 +1402,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(List.of()).when(parties).findMatchesWithinRadius(eq(departureLat), eq(departureLng), eq(destLat), eq(destLng), eq(300));
         doReturn(List.of()).when(walkRouteFinder).fromTo(eq(new Coordinate(departureLat, departureLng)), eq(List.of()));
         doReturn(List.of()).when(walkRouteFinder).toFrom(eq(new Coordinate(destLat, destLng)), eq(List.of()));
@@ -1401,7 +1425,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(List.of(nearby(10L, 37.50, 127.03, 37.40, 127.12))).when(parties).findMatchesWithinRadius(anyDouble(), anyDouble(), anyDouble(), anyDouble(), eq(300));
         doThrow(new BusinessException(MatchingErrorCode.ROUTE_SEARCH_FAILED)).when(walkRouteFinder).fromTo(any(), any());
 
@@ -1424,7 +1448,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(MEMBER_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(List.of(nearby(10L, 37.50, 127.03, 37.40, 127.12))).when(parties).findMatchesWithinRadius(anyDouble(), anyDouble(), anyDouble(), anyDouble(), eq(300));
         doReturn(List.of(new WalkingEstimate(100))).when(walkRouteFinder).fromTo(any(), any());
         doThrow(new BusinessException(MatchingErrorCode.ROUTE_SEARCH_FAILED)).when(walkRouteFinder).toFrom(any(), any());

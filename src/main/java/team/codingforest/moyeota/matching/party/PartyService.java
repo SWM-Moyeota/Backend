@@ -18,6 +18,8 @@ import team.codingforest.moyeota.matching.party.dto.MemberJoined;
 import team.codingforest.moyeota.matching.party.dto.MemberLeft;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
+import team.codingforest.moyeota.matching.party.dto.OpenReservationCommand;
+import team.codingforest.moyeota.matching.party.dto.RecruitingClosed;
 import team.codingforest.moyeota.matching.party.dto.PartyClosed;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
@@ -26,7 +28,9 @@ import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
+import team.codingforest.moyeota.matching.party.domain.PartyConflictRule;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
+import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.dto.RealTimeMatchingCommand;
@@ -43,6 +47,7 @@ import team.codingforest.moyeota.matching.record.domain.RideRecords;
 import team.codingforest.moyeota.user.api.MemberSummary;
 import team.codingforest.moyeota.user.api.UserAccess;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -58,6 +63,7 @@ public class PartyService {
      */
     static final int MAP_LIST_LIMIT = 100;
     private static final int RADIUS = 300;
+    private static final Duration SOON_WINDOW = Duration.ofMinutes(30);
 
     private final Parties parties;
     private final ApplicationEventPublisher eventPublisher;
@@ -72,7 +78,7 @@ public class PartyService {
 	private final PartyOpener partyOpener;
 
     public PartyResult open(OpenPartyCommand command) {
-        validateNotInOngoingParty(command.creatorId());
+        PartyConflictRule.check(parties, command.creatorId(), Instant.now());
 
 		// 네이버 API를 사용하기에 트랜잭션을 사용하지 않음
         RouteEstimate estimate = routeService.estimate(command.departureLat(), command.departureLng(), command.destinationLat(), command.destinationLng());
@@ -81,15 +87,24 @@ public class PartyService {
 		return partyOpener.open(command, estimate);
     }
 
+    public PartyResult reserve(OpenReservationCommand command) {
+        return partyOpener.reserve(command);
+    }
+
     @Transactional
     public PartyStatusResponse join(Long partyId, Long memberId) {
-        validateNotInOngoingParty(memberId);
+        parties.lockMember(memberId);
+        PartyConflictRule.checkNotInRealtime(parties, memberId);
 
         MemberSummary summary = userAccess.findMemberSummaries(List.of(memberId)).get(memberId);
         int rideCount = parties.countFinishedRides(List.of(memberId)).getOrDefault(memberId, 0);
 
         Party party = parties.findByIdForUpdate(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+
+        if (!party.hasMember(memberId)) {
+            PartyConflictRule.checkTimeConflict(parties, memberId, party.isReservation() ? party.getDepartureAt() : Instant.now());
+        }
 
         party.join(memberId);
 
@@ -149,7 +164,7 @@ public class PartyService {
 
     @Transactional(readOnly = true)
     public List<PartyResult> findActiveParties() {
-        return parties.findAllByStatus(PartyStatus.ACTIVE).stream()
+        return parties.findRealtimeByStatus(PartyStatus.ACTIVE).stream()
                 .map(PartyResult::from)
                 .toList();
     }
@@ -170,6 +185,56 @@ public class PartyService {
         if (swLat >= neLat || swLng >= neLng) throw new BusinessException(MatchingErrorCode.INVALID_MAP_BOUNDS);
 
         return parties.findSummariesWithinBounds(PartyStatus.ACTIVE, swLat, neLat, swLng, neLng, MAP_LIST_LIMIT);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReservationSummary> findReservations(Instant from, Instant to) {
+        if (!from.isBefore(to)) throw new BusinessException(MatchingErrorCode.INVALID_TIME_RANGE);
+
+        return parties.findReservations(from, to, MAP_LIST_LIMIT);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReservationSummary> findSoonReservationsWithin(double swLat, double swLng, double neLat, double neLng) {
+        if (swLat >= neLat || swLng >= neLng) throw new BusinessException(MatchingErrorCode.INVALID_MAP_BOUNDS);
+
+        Instant now = Instant.now();
+
+        return parties.findReservationsWithinBounds(now, now.plus(SOON_WINDOW), swLat, neLat, swLng, neLng, MAP_LIST_LIMIT);
+    }
+
+    @Transactional
+    public void closeRecruiting(Long partyId, Long memberId) {
+        Party party = parties.findByIdForUpdate(partyId)
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+
+        party.closeRecruiting(memberId);
+        partyCompletionPolicy.onCompleted(party);
+        parties.save(party);
+        notifyRecruitingClosed(party);
+
+        log.info("방장이 모집 종료 partyId={}, memberId={}, members={}", partyId, memberId, party.getMembers().size());
+    }
+
+    @Transactional
+    public void expireRecruiting(Long partyId) {
+        Party party = parties.findByIdForUpdate(partyId)
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+
+        party.expireRecruiting();
+
+        if (party.getStatus() == PartyStatus.CANCELED) {
+            parties.save(party);
+            eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
+            PartyClosed closed = PartyClosed.from(party.getStatus().name());
+            afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
+        } else {
+            partyCompletionPolicy.onCompleted(party);
+            parties.save(party);
+            notifyRecruitingClosed(party);
+        }
+
+        log.info("모집 시간 만료 partyId={}, status={}, members={}", partyId, party.getStatus(), party.getMembers().size());
     }
 
     @Transactional
@@ -204,7 +269,7 @@ public class PartyService {
     public List<MatchCandidate> realtimeMatch(Long memberId, RealTimeMatchingCommand command) {
         Location departureLocation = new Location(command.departureLat(), command.departureLng());
         Location destinationLocation = new Location(command.destLat(), command.destLng());
-        validateNotInOngoingParty(memberId);
+        PartyConflictRule.check(parties, memberId, Instant.now());
 
         // 1. 입력으로 들어온 출발지 위경도와 목적지 위경도에서 300m 반경의 매칭방을 찾기
         List<NearbyPartySummary> summary = parties.findMatchesWithinRadius(departureLocation.latitude(), departureLocation.longitude(), destinationLocation.latitude(), destinationLocation.longitude(), RADIUS);
@@ -232,9 +297,9 @@ public class PartyService {
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
     }
 
-    private void validateNotInOngoingParty(Long memberId) {
-        if (parties.existsOngoingByMemberId(memberId)) {
-            throw new BusinessException(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
-        }
+    private void notifyRecruitingClosed(Party party) {
+        Long partyId = party.getId();
+        RecruitingClosed event = RecruitingClosed.from(party.getStatus().name(), party.getVersion());
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.recruitingClosed(partyId, event));
     }
 }

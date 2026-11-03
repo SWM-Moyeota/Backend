@@ -13,8 +13,10 @@ import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
+import team.codingforest.moyeota.matching.party.domain.PartyConflictRule;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
+import team.codingforest.moyeota.matching.party.dto.OpenReservationCommand;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
 
@@ -31,9 +33,8 @@ public class PartyOpener {
 
 	@Transactional
 	public PartyResult open(OpenPartyCommand command, RouteEstimate estimate) {
-		if (parties.existsOngoingByMemberId(command.creatorId())) {
-			throw new BusinessException(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
-		}
+		parties.lockMember(command.creatorId());
+		PartyConflictRule.check(parties, command.creatorId(), Instant.now());
 
 		Party party = Party.open(command.creatorId(),
 				new Location(command.departureLat(), command.departureLng()),
@@ -52,6 +53,29 @@ public class PartyOpener {
 
 		eventPublisher.publishEvent(new PartyMemberJoinedEvent(saved.getId(), command.creatorId()));
 		log.info("매칭방 활성화. partyId={}, creatorId={}, capacity={}, status={}", saved.getId(), command.creatorId(), saved.getCapacity().value(), saved.getStatus());
+
+		return PartyResult.from(saved);
+	}
+
+	@Transactional
+	public PartyResult reserve(OpenReservationCommand command) {
+		if (!partyCompletionPolicy.supportsReservation()) {
+			throw new BusinessException(MatchingErrorCode.RESERVATION_NOT_SUPPORTED);
+		}
+
+		parties.lockMember(command.creatorId());
+		PartyConflictRule.check(parties, command.creatorId(), command.departureAt());
+
+		Party party = Party.reserve(command.creatorId(),
+				new Location(command.departureLat(), command.departureLng()),
+				new Location(command.destinationLat(), command.destinationLng()),
+				command.departure(), command.destination(), new Capacity(command.capacity()),
+				Instant.now(), command.departureAt());
+
+		Party saved = parties.save(party);
+
+		eventPublisher.publishEvent(new PartyMemberJoinedEvent(saved.getId(), command.creatorId()));
+		log.info("예약 방 생성. partyId={}, creatorId={}, capacity={}, departureAt={}", saved.getId(), command.creatorId(), saved.getCapacity().value(), saved.getDepartureAt());
 
 		return PartyResult.from(saved);
 	}

@@ -17,7 +17,11 @@ import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.party.completion.ChatOnlyCompletionPolicy;
 import team.codingforest.moyeota.matching.party.completion.DispatchCompletionPolicy;
 import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
+import team.codingforest.moyeota.matching.party.dto.MatchCandidate;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
+import team.codingforest.moyeota.matching.party.dto.OpenReservationCommand;
+import team.codingforest.moyeota.matching.party.dto.RealTimeMatchingCommand;
+import team.codingforest.moyeota.matching.party.dto.RecruitingClosed;
 import team.codingforest.moyeota.matching.party.dto.MemberJoined;
 import team.codingforest.moyeota.matching.party.dto.MemberLeft;
 import team.codingforest.moyeota.matching.party.dto.PartyClosed;
@@ -29,6 +33,7 @@ import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
 import team.codingforest.moyeota.matching.party.domain.Radius;
+import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.Coordinate;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
@@ -89,6 +94,257 @@ class PartyServiceTest {
                 new RouteCacheTest());
         return new PartyService(parties, events, routeService, driverAccess, userAccess, policy, afterCommit, signals,
                 new FakeWalkRouteFinder(), rideRecords, new PartyOpener(parties, events, policy));
+    }
+
+    // ───────────────────────── 예약 방 ─────────────────────────
+
+    private PartyService chatOnlyService() {
+        return serviceWith(new ChatOnlyCompletionPolicy());
+    }
+
+    private OpenReservationCommand reservation(Long creatorId, Instant departureAt) {
+        return new OpenReservationCommand(creatorId, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, departureAt);
+    }
+
+    private Instant 뒤(Duration duration) {
+        return Instant.now().plus(duration);
+    }
+
+    private void assertFails(Runnable action, MatchingErrorCode code) {
+        assertThatThrownBy(action::run)
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(code);
+    }
+
+    @Test
+    void 예약_방을_만들면_출발_시각이_저장되고_경로는_비어_있다() {
+        Instant 출발 = 뒤(Duration.ofDays(1));
+
+        PartyResult result = chatOnlyService().reserve(reservation(host, 출발));
+
+        assertThat(result.roomType()).isEqualTo("RESERVED");
+        assertThat(result.departureAt()).isEqualTo(출발);
+        assertThat(result.route()).isNull();
+        assertThat(result.estimateFare()).isNull();
+        assertThat(result.currentMembers()).isEqualTo(1);
+    }
+
+    @Test
+    void 예약_방을_만들면_채팅방이_열리도록_참여_이벤트를_낸다() {
+        PartyResult result = chatOnlyService().reserve(reservation(host, 뒤(Duration.ofDays(1))));
+
+        assertThat(events.published).contains(new PartyMemberJoinedEvent(result.id(), host));
+    }
+
+    @Test
+    void 기사_호출_모드에서는_예약_방을_만들_수_없다() {
+        assertFails(() -> service.reserve(reservation(host, 뒤(Duration.ofDays(1)))), MatchingErrorCode.RESERVATION_NOT_SUPPORTED);
+    }
+
+    @Test
+    void 실시간_방에_있으면_예약_방을_만들_수_없다() {
+        PartyService chatOnly = chatOnlyService();
+        chatOnly.open(createParty(host, 3));
+
+        assertFails(() -> chatOnly.reserve(reservation(host, 뒤(Duration.ofDays(1)))), MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
+    }
+
+    @Test
+    void 실시간_방에_있으면_다른_예약_방에_참여할_수_없다() {
+        PartyService chatOnly = chatOnlyService();
+        chatOnly.open(createParty(participant, 3));
+        Long 예약방 = chatOnly.reserve(reservation(host, 뒤(Duration.ofDays(1)))).id();
+
+        assertFails(() -> chatOnly.join(예약방, participant), MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
+    }
+
+    @Test
+    void 예약_방이_있어도_세_시간_떨어진_예약_방은_만들_수_있다() {
+        PartyService chatOnly = chatOnlyService();
+        chatOnly.reserve(reservation(host, 뒤(Duration.ofHours(24))));
+
+        PartyResult result = chatOnly.reserve(reservation(host, 뒤(Duration.ofHours(27))));
+
+        assertThat(result.id()).isNotNull();
+    }
+
+    @Test
+    void 두_시간_안에_겹치는_예약_방은_만들_수_없다() {
+        PartyService chatOnly = chatOnlyService();
+        chatOnly.reserve(reservation(host, 뒤(Duration.ofHours(24))));
+
+        assertFails(() -> chatOnly.reserve(reservation(host, 뒤(Duration.ofHours(25)))), MatchingErrorCode.PARTY_TIME_CONFLICT);
+    }
+
+    @Test
+    void 정확히_두_시간_차이도_겹치는_것으로_본다() {
+        PartyService chatOnly = chatOnlyService();
+        Instant 출발 = 뒤(Duration.ofHours(24));
+        chatOnly.reserve(reservation(host, 출발));
+
+        assertFails(() -> chatOnly.reserve(reservation(host, 출발.plus(Duration.ofHours(2)))), MatchingErrorCode.PARTY_TIME_CONFLICT);
+    }
+
+    @Test
+    void 곧_출발할_예약_방이_있으면_실시간_방을_만들_수_없다() {
+        PartyService chatOnly = chatOnlyService();
+        chatOnly.reserve(reservation(host, 뒤(Duration.ofHours(1))));
+
+        assertFails(() -> chatOnly.open(createParty(host, 3)), MatchingErrorCode.PARTY_TIME_CONFLICT);
+    }
+
+    @Test
+    void 예약_방의_출발이_세_시간_뒤면_실시간_방을_만들_수_있다() {
+        PartyService chatOnly = chatOnlyService();
+        chatOnly.reserve(reservation(host, 뒤(Duration.ofHours(3))));
+
+        PartyResult result = chatOnly.open(createParty(host, 3));
+
+        assertThat(result.roomType()).isEqualTo("REALTIME");
+    }
+
+    @Test
+    void 곧_출발할_예약_방이_있으면_실시간_방에_참여할_수_없다() {
+        PartyService chatOnly = chatOnlyService();
+        Long 실시간방 = chatOnly.open(createParty(anotherHost, 3)).id();
+        chatOnly.reserve(reservation(host, 뒤(Duration.ofHours(1))));
+
+        assertFails(() -> chatOnly.join(실시간방, host), MatchingErrorCode.PARTY_TIME_CONFLICT);
+    }
+
+    @Test
+    void 나간_예약_방은_시간이_겹쳐도_문제가_되지_않는다() {
+        PartyService chatOnly = chatOnlyService();
+        Instant 출발 = 뒤(Duration.ofHours(24));
+        Long 예약방 = chatOnly.reserve(reservation(host, 출발)).id();
+        chatOnly.leave(예약방, host);
+
+        PartyResult result = chatOnly.reserve(reservation(host, 출발));
+
+        assertThat(result.id()).isNotNull();
+    }
+
+    @Test
+    void 이미_들어간_예약_방에_다시_참여하면_시간_충돌이_아니라_중복_참여로_거절한다() {
+        PartyService chatOnly = chatOnlyService();
+        Long 예약방 = chatOnly.reserve(reservation(host, 뒤(Duration.ofDays(1)))).id();
+
+        assertFails(() -> chatOnly.join(예약방, host), MatchingErrorCode.ALREADY_JOINED_PARTY);
+    }
+
+    @Test
+    void 예약_방이_있어도_시간이_겹치지_않으면_실시간_후보를_조회할_수_있다() {
+        PartyService chatOnly = chatOnlyService();
+        chatOnly.reserve(reservation(host, 뒤(Duration.ofDays(1))));
+
+        List<MatchCandidate> candidates = chatOnly.realtimeMatch(host, new RealTimeMatchingCommand(37.4979, 127.0276, 37.3948, 127.1112));
+
+        assertThat(candidates).isEmpty();
+    }
+
+    @Test
+    void 실시간_목록에는_예약_방이_나오지_않는다() {
+        PartyService chatOnly = chatOnlyService();
+        Long 실시간방 = chatOnly.open(createParty(anotherHost, 3)).id();
+        chatOnly.reserve(reservation(host, 뒤(Duration.ofDays(1))));
+
+        assertThat(chatOnly.findActiveParties()).extracting(PartyResult::id).containsExactly(실시간방);
+        assertThat(chatOnly.findActivePartiesWithin(37.0, 126.0, 38.0, 128.0)).extracting(PartySummary::id).containsExactly(실시간방);
+    }
+
+    @Test
+    void 예약_목록은_기간_안의_방을_출발_시각_순으로_돌려준다() {
+        PartyService chatOnly = chatOnlyService();
+        Long 늦은방 = chatOnly.reserve(reservation(host, 뒤(Duration.ofHours(30)))).id();
+        Long 이른방 = chatOnly.reserve(reservation(participant, 뒤(Duration.ofHours(20)))).id();
+        chatOnly.reserve(reservation(anotherHost, 뒤(Duration.ofDays(5))));
+
+        List<ReservationSummary> found = chatOnly.findReservations(뒤(Duration.ofHours(1)), 뒤(Duration.ofDays(2)));
+
+        assertThat(found).extracting(ReservationSummary::id).containsExactly(이른방, 늦은방);
+    }
+
+    @Test
+    void 예약_목록의_시작이_끝보다_늦으면_거절한다() {
+        assertFails(() -> service.findReservations(뒤(Duration.ofDays(2)), 뒤(Duration.ofDays(1))), MatchingErrorCode.INVALID_TIME_RANGE);
+    }
+
+    @Test
+    void 곧_출발_목록은_30분_안에_출발하는_예약_방만_돌려준다() {
+        PartyService chatOnly = chatOnlyService();
+        Long 곧출발 = chatOnly.reserve(reservation(host, 뒤(Duration.ofMinutes(20)))).id();
+        chatOnly.reserve(reservation(participant, 뒤(Duration.ofMinutes(40))));
+
+        List<ReservationSummary> found = chatOnly.findSoonReservationsWithin(37.0, 126.0, 38.0, 128.0);
+
+        assertThat(found).extracting(ReservationSummary::id).containsExactly(곧출발);
+    }
+
+    @Test
+    void 곧_출발_목록은_영역_밖의_방을_돌려주지_않는다() {
+        PartyService chatOnly = chatOnlyService();
+        chatOnly.reserve(reservation(host, 뒤(Duration.ofMinutes(20))));
+
+        assertThat(chatOnly.findSoonReservationsWithin(36.0, 126.0, 36.5, 128.0)).isEmpty();
+    }
+
+    @Test
+    void 곧_출발_목록의_영역이_뒤집히면_거절한다() {
+        assertFails(() -> service.findSoonReservationsWithin(38.0, 126.0, 37.0, 128.0), MatchingErrorCode.INVALID_MAP_BOUNDS);
+    }
+
+    // ───────────────────────── 모집 종료 ─────────────────────────
+
+    @Test
+    void 방장이_모집을_끝내면_확정되고_구독자에게_알린다() {
+        PartyService chatOnly = chatOnlyService();
+        Long 방 = chatOnly.open(createParty(host, 3)).id();
+        chatOnly.join(방, participant);
+
+        chatOnly.closeRecruiting(방, host);
+
+        assertThat(parties.findById(방).orElseThrow().getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(signals.recruitingClosed).containsExactly(방);
+    }
+
+    @Test
+    void 기사_호출_모드에서_방장이_모집을_끝내면_매칭을_시작한다() {
+        Long 방 = service.open(createParty(host, 3)).id();
+        service.join(방, participant);
+
+        service.closeRecruiting(방, host);
+
+        assertThat(parties.findById(방).orElseThrow().getStatus()).isEqualTo(PartyStatus.MATCHING);
+    }
+
+    @Test
+    void 없는_방의_모집은_끝낼_수_없다() {
+        assertFails(() -> service.closeRecruiting(999L, host), MatchingErrorCode.PARTY_NOT_FOUND);
+    }
+
+    @Test
+    void 모집_시간이_끝난_방에_두_명_이상이면_확정하고_알린다() {
+        PartyService chatOnly = chatOnlyService();
+        Long 방 = chatOnly.open(createParty(host, 3)).id();
+        chatOnly.join(방, participant);
+
+        chatOnly.expireRecruiting(방);
+
+        assertThat(parties.findById(방).orElseThrow().getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(signals.recruitingClosed).containsExactly(방);
+    }
+
+    @Test
+    void 모집_시간이_끝난_방에_혼자면_취소하고_닫혔다고_알린다() {
+        PartyService chatOnly = chatOnlyService();
+        Long 방 = chatOnly.open(createParty(host, 3)).id();
+
+        chatOnly.expireRecruiting(방);
+
+        assertThat(parties.findById(방).orElseThrow().getStatus()).isEqualTo(PartyStatus.CANCELED);
+        assertThat(events.published).contains(new PartyClosedEvent(방, "CANCELED"));
+        assertThat(signals.recruitingClosed).isEmpty();
     }
 
     @Test
@@ -975,6 +1231,13 @@ class PartyServiceTest {
         final List<MemberJoined> joined = new ArrayList<>();
         final List<MemberLeft> left = new ArrayList<>();
         final List<PartyClosed> closed = new ArrayList<>();
+        final List<Long> recruitingClosed = new ArrayList<>();
+
+        @Override
+        public void recruitingClosed(Long partyId, RecruitingClosed event) {
+            sent.add(partyId + ":recruiting-closed");
+            recruitingClosed.add(partyId);
+        }
 
         @Override
         public void memberJoined(Long partyId, MemberJoined event) {

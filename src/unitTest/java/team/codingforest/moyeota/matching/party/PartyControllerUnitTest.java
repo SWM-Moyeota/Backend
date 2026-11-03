@@ -13,9 +13,11 @@ import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
+import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
 import team.codingforest.moyeota.matching.party.dto.MatchCandidate;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
+import team.codingforest.moyeota.matching.party.dto.OpenReservationCommand;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
@@ -74,6 +76,119 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
 
     @MockitoBean
     private PartyService partyService;
+
+    // ───────────────────────── 예약 방 ─────────────────────────
+
+    private static final java.time.Instant DEPARTURE_AT = java.time.Instant.parse("2026-11-03T08:00:00Z");
+
+    private static String reservationBody(int capacity, String departureAtField) {
+        return """
+                {
+                  "departureLat": 37.4979,
+                  "departureLng": 127.0276,
+                  "destinationLat": 37.3948,
+                  "destinationLng": 127.1112,
+                  "departure": "강남역",
+                  "destination": "판교역",
+                  "capacity": %d%s
+                }
+                """.formatted(capacity, departureAtField);
+    }
+
+    @DisplayName("POST /api/v1/matching/reservations - 토큰의 사용자로 예약 방을 만들고 출발 시각을 돌려준다")
+    @Test
+    void reserve() throws Exception {
+        OpenReservationCommand command = new OpenReservationCommand(USER_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, DEPARTURE_AT);
+        PartyResult result = new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, 500, 500, "ACTIVE", CREATED_AT, null, null, null, null, "RESERVED", DEPARTURE_AT);
+        doReturn(result).when(partyService).reserve(eq(command));
+
+        mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(3, ", \"departureAt\": \"2026-11-03T08:00:00Z\"")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(PARTY_ID))
+                .andExpect(jsonPath("$.roomType").value("RESERVED"))
+                .andExpect(jsonPath("$.departureAt").value("2026-11-03T08:00:00Z"))
+                .andExpect(jsonPath("$.estimateFare").value(nullValue()))
+                .andExpect(jsonPath("$.route").value(nullValue()));
+    }
+
+    @DisplayName("POST /api/v1/matching/reservations - 출발 시각이 없으면 400")
+    @Test
+    void reserve_withoutDepartureAt() throws Exception {
+        mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(3, "")))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/reservations - 정원이 1명이면 400")
+    @Test
+    void reserve_soloCapacity() throws Exception {
+        mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(1, ", \"departureAt\": \"2026-11-03T08:00:00Z\"")))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/reservations - 시간이 겹치면 409 PARTY_TIME_CONFLICT")
+    @Test
+    void reserve_timeConflict() throws Exception {
+        doThrow(new BusinessException(MatchingErrorCode.PARTY_TIME_CONFLICT)).when(partyService).reserve(any());
+
+        mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(3, ", \"departureAt\": \"2026-11-03T08:00:00Z\"")))
+                .andExpect(status().isConflict());
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations - 기간 안의 예약 방을 돌려준다")
+    @Test
+    void listReservations() throws Exception {
+        java.time.Instant from = java.time.Instant.parse("2026-11-03T00:00:00Z");
+        java.time.Instant to = java.time.Instant.parse("2026-11-04T00:00:00Z");
+        doReturn(List.of(new ReservationSummary(PARTY_ID, "강남역", "판교역", 2L, 3, PartyStatus.ACTIVE, 37.4979, 127.0276, 37.3948, 127.1112, DEPARTURE_AT)))
+                .when(partyService).findReservations(eq(from), eq(to));
+
+        mockMvc.perform(get("/api/v1/matching/reservations").with(loginUser())
+                        .param("from", "2026-11-03T00:00:00Z").param("to", "2026-11-04T00:00:00Z"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.list", hasSize(1)))
+                .andExpect(jsonPath("$.list[0].partyId").value(PARTY_ID))
+                .andExpect(jsonPath("$.list[0].currentMembers").value(2))
+                .andExpect(jsonPath("$.list[0].destinationLat").value(37.3948))
+                .andExpect(jsonPath("$.list[0].departureAt").value("2026-11-03T08:00:00Z"));
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/soon - 영역 안의 곧 출발 방을 돌려준다")
+    @Test
+    void listSoonReservations() throws Exception {
+        doReturn(List.of(new ReservationSummary(PARTY_ID, "강남역", "판교역", 1L, 3, PartyStatus.ACTIVE, 37.4979, 127.0276, 37.3948, 127.1112, DEPARTURE_AT)))
+                .when(partyService).findSoonReservationsWithin(37.0, 126.0, 38.0, 128.0);
+
+        mockMvc.perform(get("/api/v1/matching/reservations/soon").with(loginUser())
+                        .param("swLat", "37.0").param("swLng", "126.0").param("neLat", "38.0").param("neLng", "128.0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.list[0].partyId").value(PARTY_ID));
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{id}/close - 방장이 모집을 끝내면 204")
+    @Test
+    void closeRecruiting() throws Exception {
+        mockMvc.perform(post("/api/v1/matching/rooms/" + PARTY_ID + "/close").with(loginUser()))
+                .andExpect(status().isNoContent());
+
+        verify(partyService).closeRecruiting(PARTY_ID, USER_ID);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{id}/close - 혼자면 409 NOT_ENOUGH_MEMBERS")
+    @Test
+    void closeRecruiting_notEnoughMembers() throws Exception {
+        doThrow(new BusinessException(MatchingErrorCode.NOT_ENOUGH_MEMBERS)).when(partyService).closeRecruiting(PARTY_ID, USER_ID);
+
+        mockMvc.perform(post("/api/v1/matching/rooms/" + PARTY_ID + "/close").with(loginUser()))
+                .andExpect(status().isConflict());
+    }
 
     // ───────────────────────── POST /matching/rooms ─────────────────────────
 
@@ -620,7 +735,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         PartyDetailResult detail = new PartyDetailResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 2, 500, 500, "ACTIVE", CREATED_AT,
                 List.of(new PartyDetailResult.MemberInfo(PUBLIC_ID, "방장", "host.png", null, 4, true),
                         new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", null, 0, false)),
-                12000, 25, "encoded-path", 9L, 7L);
+                12000, 25, "encoded-path", 9L, 7L, "REALTIME", null);
 
         doReturn(detail).when(partyService).getPartyDetail(eq(PARTY_ID));
 
@@ -1218,6 +1333,6 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
     }
 
     private static PartyResult partyResult(Long taxiDriverId) {
-        return new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, 500, 500, "ACTIVE", CREATED_AT, 12000, 25, "encoded-path", taxiDriverId);
+        return new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, 500, 500, "ACTIVE", CREATED_AT, 12000, 25, "encoded-path", taxiDriverId, "REALTIME", null);
     }
 }
