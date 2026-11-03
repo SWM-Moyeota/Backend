@@ -35,7 +35,6 @@ class UserAccessServiceUnitTest {
     private static final String IMAGE_KEY = "profile/presets/03.png";
     private static final String IMAGE_URL = "https://cdn.example.com/profile/presets/03.png";
     private static final String DEFAULT_IMAGE_URL = "https://cdn.example.com/profile/default.png";
-    private static final Long BADGE_ID = 7L;
 
     @Mock
     private Users users;
@@ -44,12 +43,12 @@ class UserAccessServiceUnitTest {
     @InjectMocks
     private UserAccessService service;
 
-    private static User user(Long id, UUID publicId, String nickname, String imageKey, Long badgeId) {
-        return User.restore(id, publicId, nickname, imageKey, LoginType.LOCAL, badgeId, null, Instant.EPOCH, null);
+    private static User user(Long id, UUID publicId, String nickname, String imageKey) {
+        return User.restore(id, publicId, nickname, imageKey, LoginType.LOCAL, null, Instant.EPOCH, null);
     }
 
     private static User deletedUser() {
-        User user = user(USER_ID, PUBLIC_ID, NICKNAME, IMAGE_KEY, BADGE_ID);
+        User user = user(USER_ID, PUBLIC_ID, NICKNAME, IMAGE_KEY);
         user.delete(Instant.EPOCH);
         return user;
     }
@@ -95,7 +94,7 @@ class UserAccessServiceUnitTest {
         assertThat(tokens).isEmpty();
     }
 
-    @DisplayName("findMemberSummaries - 사용자별로 공개 ID, 닉네임, 이미지 URL, 배지를 담아 반환")
+    @DisplayName("findMemberSummaries - 사용자별로 공개 ID, 닉네임, 이미지 URL 을 담아 반환")
     @Test
     void findMemberSummaries() {
 
@@ -104,8 +103,8 @@ class UserAccessServiceUnitTest {
          */
         final List<Long> userIds = List.of(USER_ID, OTHER_USER_ID);
         doReturn(List.of(
-                user(USER_ID, PUBLIC_ID, NICKNAME, IMAGE_KEY, BADGE_ID),
-                user(OTHER_USER_ID, OTHER_PUBLIC_ID, "동승자", null, null)
+                user(USER_ID, PUBLIC_ID, NICKNAME, IMAGE_KEY),
+                user(OTHER_USER_ID, OTHER_PUBLIC_ID, "동승자", null)
         )).when(users).findAllByIds(eq(userIds));
         doReturn(IMAGE_URL).when(profileImages).toUrl(eq(IMAGE_KEY));
         doReturn(DEFAULT_IMAGE_URL).when(profileImages).toUrl(eq(null));
@@ -119,12 +118,12 @@ class UserAccessServiceUnitTest {
          * verify
          */
         assertThat(summaries).containsOnly(
-                Map.entry(USER_ID, new MemberSummary(PUBLIC_ID, NICKNAME, IMAGE_URL, BADGE_ID)),
-                Map.entry(OTHER_USER_ID, new MemberSummary(OTHER_PUBLIC_ID, "동승자", DEFAULT_IMAGE_URL, null))
+                Map.entry(USER_ID, new MemberSummary(PUBLIC_ID, NICKNAME, IMAGE_URL)),
+                Map.entry(OTHER_USER_ID, new MemberSummary(OTHER_PUBLIC_ID, "동승자", DEFAULT_IMAGE_URL))
         );
     }
 
-    @DisplayName("findMemberSummaries - 탈퇴자는 표시 이름으로 바꾸고 배지를 숨긴다")
+    @DisplayName("findMemberSummaries - 탈퇴자는 표시 이름과 기본 이미지로 바꾼다")
     @Test
     void findMemberSummaries_deleted() {
 
@@ -143,7 +142,7 @@ class UserAccessServiceUnitTest {
          * verify
          */
         assertThat(summaries).containsOnly(
-                Map.entry(USER_ID, new MemberSummary(PUBLIC_ID, User.DELETED_DISPLAY_NAME, DEFAULT_IMAGE_URL, null))
+                Map.entry(USER_ID, new MemberSummary(PUBLIC_ID, User.DELETED_DISPLAY_NAME, DEFAULT_IMAGE_URL))
         );
     }
 
@@ -154,7 +153,7 @@ class UserAccessServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(user(USER_ID, PUBLIC_ID, null, null, null))).when(users).findAllByIds(eq(List.of(USER_ID)));
+        doReturn(List.of(user(USER_ID, PUBLIC_ID, null, null))).when(users).findAllByIds(eq(List.of(USER_ID)));
         doReturn(DEFAULT_IMAGE_URL).when(profileImages).toUrl(eq(null));
 
         /*
@@ -196,7 +195,7 @@ class UserAccessServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(user(USER_ID, PUBLIC_ID, NICKNAME, null, null))).when(users).findAllByIds(eq(List.of(USER_ID)));
+        doReturn(List.of(user(USER_ID, PUBLIC_ID, NICKNAME, null))).when(users).findAllByIds(eq(List.of(USER_ID)));
 
         /*
          * test
@@ -258,7 +257,7 @@ class UserAccessServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(user(USER_ID, PUBLIC_ID, null, null, null))).when(users).findAllByIds(eq(List.of(USER_ID)));
+        doReturn(List.of(user(USER_ID, PUBLIC_ID, null, null))).when(users).findAllByIds(eq(List.of(USER_ID)));
 
         /*
          * test

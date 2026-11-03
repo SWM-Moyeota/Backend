@@ -269,7 +269,7 @@ class PartyServiceUnitTest {
          */
         Party party = party(PartyStatus.ACTIVE, 3, null, 3L, HOST_ID);
         Party saved = party(PartyStatus.ACTIVE, 3, null, 4L, HOST_ID, MEMBER_ID);
-        MemberSummary summary = new MemberSummary(MEMBER_PUBLIC_ID, "참가자", "image.png", null);
+        MemberSummary summary = new MemberSummary(MEMBER_PUBLIC_ID, "참가자", "image.png");
 
         doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of(MEMBER_ID, summary)).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
@@ -866,8 +866,8 @@ class PartyServiceUnitTest {
         List<Long> memberIds = List.of(HOST_ID, MEMBER_ID);
 
         doReturn(Optional.of(party)).when(parties).findById(eq(PARTY_ID));
-        doReturn(Map.of(HOST_ID, new MemberSummary(HOST_PUBLIC_ID, "방장", "host.png", null),
-                MEMBER_ID, new MemberSummary(MEMBER_PUBLIC_ID, "참가자", "member.png", null)))
+        doReturn(Map.of(HOST_ID, new MemberSummary(HOST_PUBLIC_ID, "방장", "host.png"),
+                MEMBER_ID, new MemberSummary(MEMBER_PUBLIC_ID, "참가자", "member.png")))
                 .when(userAccess).findMemberSummaries(eq(memberIds));
         doReturn(Map.of(HOST_ID, 4)).when(parties).countFinishedRides(eq(memberIds));
 
@@ -2610,7 +2610,7 @@ class PartyServiceUnitTest {
     }
 
     private static MemberSummary summary(UUID publicId) {
-        return new MemberSummary(publicId, "닉네임", "image.png", null);
+        return new MemberSummary(publicId, "닉네임", "image.png");
     }
 
     /** memberIds 앞쪽일수록 먼저 합류한 멤버다 - 첫 번째가 방장 */

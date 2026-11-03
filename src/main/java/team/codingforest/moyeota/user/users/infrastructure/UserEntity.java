@@ -44,8 +44,6 @@ public class UserEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private LoginType loginType;
 
-    private Long badgeId;
-
     private String fcmToken;
 
     // null 이면 정상 회원. 탈퇴해도 행은 남긴다 (soft delete)
@@ -59,23 +57,21 @@ public class UserEntity extends BaseTimeEntity {
 
     private Instant restrictedUntil;
 
-    private UserEntity(UUID publicId, String nickname, String imageUrl, LoginType loginType, Long badgeId, String fcmToken) {
+    private UserEntity(UUID publicId, String nickname, String imageUrl, LoginType loginType, String fcmToken) {
         this.publicId = publicId;
         this.nickname = nickname;
         this.imageUrl = imageUrl;
         this.loginType = loginType;
-        this.badgeId = badgeId;
         this.fcmToken = fcmToken;
     }
 
     public static UserEntity from(User user) {
-        return new UserEntity(user.getPublicId(), user.getNickname(), user.getImageUrl(), user.getLoginType(), user.getBadgeId(), user.getFcmToken());
+        return new UserEntity(user.getPublicId(), user.getNickname(), user.getImageUrl(), user.getLoginType(), user.getFcmToken());
     }
 
     public void update(User user) {
         this.nickname = user.getNickname();
         this.imageUrl = user.getImageUrl();
-        this.badgeId = user.getBadgeId();
         this.fcmToken = user.getFcmToken();
         this.deletedAt = user.getDeletedAt();
     }
@@ -97,7 +93,6 @@ public class UserEntity extends BaseTimeEntity {
                 nickname,
                 imageUrl,
                 loginType,
-                badgeId,
                 fcmToken,
                 getUpdatedAt(),
                 deletedAt
