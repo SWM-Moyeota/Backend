@@ -6,9 +6,10 @@ ALTER TABLE match_room
     ALTER COLUMN estimated_fare DROP NOT NULL,
     ALTER COLUMN estimated_time DROP NOT NULL;
 
+-- 실시간 방의 departure_at 은 방장이 약속 시간을 확정하기 전까지 비어 있고 확정하면 채워진다
 ALTER TABLE match_room
     ADD CONSTRAINT chk_match_room_type_fields CHECK (
-        (room_type = 'REALTIME' AND departure_at IS NULL
+        (room_type = 'REALTIME'
             AND route IS NOT NULL AND estimated_fare IS NOT NULL AND estimated_time IS NOT NULL)
         OR (room_type = 'RESERVED' AND departure_at IS NOT NULL
             AND route IS NULL AND estimated_fare IS NULL AND estimated_time IS NULL)
