@@ -60,11 +60,13 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
             """)
     List<MemberRideCount> countByMemberIdsAndStatus(@Param("memberIds") Collection<Long> memberIds, @Param("status") PartyStatus status);
 
+    // 약속 시간이 있는 방(예약 방, 방장이 약속을 확정한 실시간 방)은 약속 시간으로, 없는 방(확정 전 실시간 방)은 정원 충족 시각으로 가른다.
+    // 확정한 실시간 방을 정원 충족 시각으로 가르면 약속 시간(최대 1시간 뒤)이 오기 전에 방이 닫힌다
     @Query("""
             select p.id from PartyEntity p
             where p.status = :status
-                and ((p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.REALTIME and p.completedAt < :before)
-                    or (p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.RESERVED and p.departureAt < :before))
+                and ((p.departureAt is null and p.completedAt < :before)
+                    or (p.departureAt is not null and p.departureAt < :before))
             """)
     List<Long> findIdsByStatusAndCompletedBefore(@Param("status") PartyStatus status, @Param("before") Instant before);
 

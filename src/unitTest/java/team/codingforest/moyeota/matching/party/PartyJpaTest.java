@@ -101,10 +101,10 @@ public class PartyJpaTest implements Parties {
 
     @Override
     public List<Long> findCompletedBefore(Instant before) {
-        // 실제 JPQL 과 같은 규칙 - status = COMPLETED 이고 completedAt < before. null 은 비교 대상이 아니다
+        // 실제 JPQL 과 같은 규칙 - status = COMPLETED 이고 약속 시간이 있으면 departureAt < before, 없으면 completedAt < before. null 은 비교 대상이 아니다
         return store.values().stream()
                 .filter(p -> p.getStatus() == PartyStatus.COMPLETED)
-                .filter(p -> p.isReservation()
+                .filter(p -> p.getDepartureAt() != null
                         ? p.getDepartureAt().isBefore(before)
                         : p.getCompletedAt() != null && p.getCompletedAt().isBefore(before))
                 .map(Party::getId)

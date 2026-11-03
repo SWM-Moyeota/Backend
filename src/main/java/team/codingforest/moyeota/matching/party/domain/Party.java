@@ -17,6 +17,9 @@ import java.util.List;
 public class Party {
     private static final Duration MAX_RESERVATION_AHEAD = Duration.ofDays(7);
     private static final Duration FINISHABLE_BEFORE_DEPARTURE = Duration.ofMinutes(30);
+    private static final Duration MAX_CONFIRM_AHEAD = Duration.ofHours(1);
+    // 앱이 "지금"을 고르면 요청이 도착할 때는 이미 지난 시각이라, 그만큼은 지난 시각도 받는다
+    private static final Duration CONFIRM_CLOCK_SKEW = Duration.ofMinutes(1);
     private static final int MIN_MEMBERS_TO_DEPART = 2;
 
     private final Long id;
@@ -39,7 +42,8 @@ public class Party {
     private Instant completedAt;
     private long version;
     private final RoomType roomType;
-    private final Instant departureAt;
+    // 예약 방은 만들 때 정한 출발 시각, 실시간 방은 방장이 확정한 약속 시간(확정 전에는 null). 바꾸는 길은 confirm 하나뿐이다
+    private Instant departureAt;
     private Instant reminderSentAt;
 
     /**
@@ -138,6 +142,9 @@ public class Party {
         if(!hasMember(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
         ensureRecruiting();
 
+        // 약속이 정해진 방(확정한 실시간 방, 모든 예약 방)은 방장도 나갈 수 없다 - 남은 사람이 약속 장소에서 기다리게 되기 때문
+        if(isConfirmed()) throw new BusinessException(MatchingErrorCode.CANNOT_LEAVE_CONFIRMED_PARTY);
+
         PartyMember tmp = null;
         version++;
 
@@ -167,19 +174,40 @@ public class Party {
         completedAt = null;
     }
 
-    public void closeRecruiting(Long memberId) {
+    /**
+     *  실시간 방의 약속 시간 확정 - 방장이 채팅으로 정한 시간을 박는다. 장소는 늘 방의 출발지라 따로 담지 않는다.
+     *  확정하면 모집도 끝난다: ACTIVE 면 COMPLETED 로 넘기고, 이미 정원이 차 COMPLETED 면 그대로 둔다.
+     *  약속 시간은 확정하는 순간(now)부터 1시간 안이어야 한다
+     */
+    public void confirm(Long memberId, Instant departureAt, Instant now) {
         if(!hasMember(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
 
         if(!isHost(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_HOST);
 
         if(isReservation()) throw new BusinessException(MatchingErrorCode.NOT_REALTIME_PARTY);
 
-        if(status != PartyStatus.ACTIVE) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+        // 상태 검사보다 먼저 - 기사 호출 모드에선 확정 직후 MATCHING 으로 넘어가 두 번 누르면 "모집 중 아님"이 아니라 "이미 확정"이어야 한다
+        if(isConfirmed()) throw new BusinessException(MatchingErrorCode.ALREADY_CONFIRMED);
+
+        ensureRecruiting();
 
         if(members.size() < MIN_MEMBERS_TO_DEPART) throw new BusinessException(MatchingErrorCode.NOT_ENOUGH_MEMBERS);
 
-        completeRecruiting();
+        if(departureAt == null || departureAt.isBefore(now.minus(CONFIRM_CLOCK_SKEW)) || departureAt.isAfter(now.plus(MAX_CONFIRM_AHEAD))) throw new BusinessException(MatchingErrorCode.INVALID_MEETING_TIME);
+
+        this.departureAt = departureAt;
+
+        if(status == PartyStatus.ACTIVE) completeRecruiting();
+
         version++;
+    }
+
+    /**
+     *  약속이 정해진 방인가 - 따로 저장하지 않고 계산한다. 예약 방은 만들 때 출발 시각을 정하므로 처음부터 확정,
+     *  실시간 방은 방장이 약속 시간을 확정해 departureAt 이 채워졌을 때
+     */
+    public boolean isConfirmed() {
+        return isReservation() || departureAt != null;
     }
 
     public void expireRecruiting() {

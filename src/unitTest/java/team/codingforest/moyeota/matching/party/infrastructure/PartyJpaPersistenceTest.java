@@ -221,6 +221,65 @@ class PartyJpaPersistenceTest {
                 .contains(대상).doesNotContain(보낸방.getId(), 먼방, 실시간);
     }
 
+    // ───────────────────────── 약속 시간 확정 ─────────────────────────
+
+    @Test
+    void 약속을_확정한_실시간_방의_약속_시간이_저장되고_복원된다() {
+        // 저장은 이미 있는 행을 고치는 update() 경로다 - 거기서 departure_at 을 옮기지 않으면 확정이 조용히 사라진다
+        Party party = realtime(1L);
+        party.join(2L);
+        parties.save(party);
+        Instant 약속 = 뒤(Duration.ofMinutes(30)).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        party.confirm(1L, 약속, Instant.now());
+        parties.save(party);
+        clearContext();
+
+        Party found = parties.findById(party.getId()).orElseThrow();
+
+        assertThat(repository.findById(party.getId()).orElseThrow().getDepartureAt()).isEqualTo(약속);
+        assertThat(found.getRoomType()).isEqualTo(RoomType.REALTIME);
+        assertThat(found.getDepartureAt()).isEqualTo(약속);
+        assertThat(found.isConfirmed()).isTrue();
+        assertThat(found.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(found.getRoute()).as("실시간 방의 경로·요금은 그대로").isEqualTo("encoded-path");
+    }
+
+    @Test
+    void 확정_전_실시간_방은_약속_시간이_비어_있다() {
+        Long id = realtime(1L).getId();
+        clearContext();
+
+        Party found = parties.findById(id).orElseThrow();
+
+        assertThat(found.getDepartureAt()).isNull();
+        assertThat(found.isConfirmed()).isFalse();
+    }
+
+    @Test
+    void 약속을_확정한_실시간_방은_정원_충족_시각이_아니라_약속_시간으로_자동_종료_대상을_가른다() {
+        // 확정 순간이 정원 충족 시각이 되지만 약속은 최대 1시간 뒤다 - 정원 충족 시각으로 가르면 만나기 전에 방이 닫힌다
+        Party party = realtime(1L);
+        party.join(2L);
+        Instant 약속 = 뒤(Duration.ofMinutes(50));
+        party.confirm(1L, 약속, Instant.now());
+        parties.save(party);
+        clearContext();
+
+        assertThat(parties.findCompletedBefore(뒤(Duration.ofMinutes(40)))).doesNotContain(party.getId());
+        assertThat(parties.findCompletedBefore(약속.plusSeconds(1))).contains(party.getId());
+    }
+
+    @Test
+    void 확정_전_실시간_방은_여전히_정원_충족_시각으로_자동_종료_대상을_가른다() {
+        Party party = parties.save(Party.open(1L, 강남, 판교, "강남역", "판교역", new Capacity(2), Instant.now(), Radius.DEFAULT, Radius.DEFAULT, 12000, 25, "encoded-path"));
+        party.join(2L);   // capacity 2 충족 → COMPLETED, 약속 시간은 없다
+        parties.save(party);
+        clearContext();
+
+        assertThat(parties.findCompletedBefore(Instant.now().minusSeconds(60))).doesNotContain(party.getId());
+        assertThat(parties.findCompletedBefore(뒤(Duration.ofSeconds(1)))).contains(party.getId());
+    }
+
     // ───────────────────────── 단건 조회 ─────────────────────────
 
     @Test

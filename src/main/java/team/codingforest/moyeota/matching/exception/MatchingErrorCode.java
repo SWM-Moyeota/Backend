@@ -21,6 +21,8 @@ public enum MatchingErrorCode implements ErrorCode {
     PARTY_TIME_CONFLICT(HttpStatus.CONFLICT, "출발 시각이 겹치는 예약 방이 있습니다."),
     NOT_ENOUGH_MEMBERS(HttpStatus.CONFLICT, "함께 탈 인원이 부족합니다."),
     NOT_REALTIME_PARTY(HttpStatus.CONFLICT, "실시간 방에서만 할 수 있습니다."),
+    ALREADY_CONFIRMED(HttpStatus.CONFLICT, "이미 약속 시간을 확정한 방입니다."),
+    CANNOT_LEAVE_CONFIRMED_PARTY(HttpStatus.CONFLICT, "약속이 확정된 방은 나갈 수 없습니다."),
     RESERVATION_NOT_STARTED(HttpStatus.CONFLICT, "아직 출발 시간이 되지 않은 예약 방입니다."),
     RESERVATION_NOT_SUPPORTED(HttpStatus.CONFLICT, "지금은 예약 방을 만들 수 없습니다."),
 
@@ -44,6 +46,7 @@ public enum MatchingErrorCode implements ErrorCode {
     INVALID_CAPACITY(HttpStatus.BAD_REQUEST, "방 정원은 1~3명이어야 합니다."),
     INVALID_RADIUS(HttpStatus.BAD_REQUEST, "허용 반경이 아닙니다."),
     INVALID_DEPARTURE_TIME(HttpStatus.BAD_REQUEST, "출발 시각은 지금부터 7일 이내여야 합니다."),
+    INVALID_MEETING_TIME(HttpStatus.BAD_REQUEST, "약속 시간은 지금부터 1시간 이내여야 합니다."),
     OUT_OF_SERVICE_AREA(HttpStatus.BAD_REQUEST, "서비스 지역을 벗어난 좌표입니다."),
 
     // 경로(네이버)

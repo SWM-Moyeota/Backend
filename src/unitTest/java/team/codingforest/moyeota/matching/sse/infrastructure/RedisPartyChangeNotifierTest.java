@@ -5,10 +5,12 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import team.codingforest.moyeota.matching.party.dto.MemberJoined;
 import team.codingforest.moyeota.matching.party.dto.MemberLeft;
 import team.codingforest.moyeota.matching.party.dto.PartyClosed;
+import team.codingforest.moyeota.matching.party.dto.PartyConfirmed;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.sse.dto.PartySseMessage;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -66,6 +68,20 @@ class RedisPartyChangeNotifierTest {
         assertThat(sent.event()).isEqualTo("closed");
         assertThat(sent.data()).isEqualTo("{\"status\":\"FINISHED\"}");
         assertThat(sent.leftMemberId()).isNull();
+    }
+
+    @Test
+    void 약속_확정은_상태와_약속_시간과_version_을_실어_채널에_낸다() {
+        PartyConfirmed event = PartyConfirmed.from("COMPLETED", Instant.parse("2026-11-03T08:30:00Z"), 4L);
+
+        notifier.confirmed(방, event);
+
+        PartySseMessage sent = onlySent();
+        assertThat(sent.partyId()).isEqualTo(방);
+        assertThat(sent.event()).isEqualTo("confirmed");
+        assertThat(sent.leftMemberId()).as("확정은 닫을 연결이 없다").isNull();
+        assertThat(sent.data()).contains("\"departureAt\":\"2026-11-03T08:30:00Z\"");
+        assertThat(objectMapper.readValue(sent.data(), PartyConfirmed.class)).isEqualTo(event);
     }
 
     @Test

@@ -107,60 +107,6 @@ class PartyReservationTest {
         assertThat(party.hasMember(참여자)).isTrue();
     }
 
-    // ───────────────────────── 방장의 조기 확정 ─────────────────────────
-
-    @Test
-    void 두_명_이상이면_방장이_모집을_끝낼_수_있다() {
-        Party party = realtime(3);
-        party.join(참여자);
-        long before = party.getVersion();
-
-        party.closeRecruiting(방장);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
-        assertThat(party.getCompletedAt()).isNotNull();
-        assertThat(party.getVersion()).isEqualTo(before + 1);
-    }
-
-    @Test
-    void 혼자서는_모집을_끝낼_수_없다() {
-        Party party = realtime(3);
-
-        assertFails(() -> party.closeRecruiting(방장), MatchingErrorCode.NOT_ENOUGH_MEMBERS);
-    }
-
-    @Test
-    void 방장이_아니면_모집을_끝낼_수_없다() {
-        Party party = realtime(3);
-        party.join(참여자);
-
-        assertFails(() -> party.closeRecruiting(참여자), MatchingErrorCode.NOT_PARTY_HOST);
-    }
-
-    @Test
-    void 멤버가_아니면_모집을_끝낼_수_없다() {
-        Party party = realtime(3);
-        party.join(참여자);
-
-        assertFails(() -> party.closeRecruiting(99L), MatchingErrorCode.NOT_PARTY_MEMBER);
-    }
-
-    @Test
-    void 이미_마감된_방은_다시_모집을_끝낼_수_없다() {
-        Party party = realtime(2);
-        party.join(참여자);
-
-        assertFails(() -> party.closeRecruiting(방장), MatchingErrorCode.PARTY_CLOSED);
-    }
-
-    @Test
-    void 예약_방은_방장이_모집을_일찍_끝낼_수_없다() {
-        Party party = reserveTomorrow();
-        party.join(참여자);
-
-        assertFails(() -> party.closeRecruiting(방장), MatchingErrorCode.NOT_REALTIME_PARTY);
-    }
-
     // ───────────────────────── 모집 시간 만료 ─────────────────────────
 
     @Test

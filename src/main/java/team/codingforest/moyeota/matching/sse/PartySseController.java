@@ -22,10 +22,12 @@ public class PartySseController {
 
     @Operation(summary = "방 변화 구독(SSE)", description = """
             연결하면 `connected` 에 방 상세 전체(GET /matching/rooms/{partyId} 와 같은 모양)가 온다. 재연결 때도 같다.
-            이후 변경분만 온다. closed 를 뺀 모든 이벤트와 방 상세에 `version` 이 있다 - 참여·나가기·합승 종료 때 1 오른다.
+            이후 변경분만 온다. closed 를 뺀 모든 이벤트와 방 상세에 `version` 이 있다 - 참여·나가기·모집 마감·약속 확정·합승 종료 때 1 오른다.
             연결 중에 방이 바뀌면 변경분이 connected 보다 먼저 올 수 있다.
             - `member-joined`: { member, status, version }. member 는 방 상세 members 원소와 같은 모양(host 는 항상 false - 새로 들어온 사람은 방장이 아니다)
             - `member-left`: { publicId, status, hostPublicId, version }. hostPublicId 는 이 이벤트를 반영한 뒤의 방장 - 받을 때마다 members 의 host 표시를 이 값으로 다시 지정한다. null 이거나 목록에 없는 publicId 면 방 상세를 다시 받는다
+            - `recruiting-closed`: { status, version }. 모집 시간이 끝나 지금 인원(2명 이상)으로 모집이 마감됨(status 는 COMPLETED)
+            - `confirmed`: { status, departureAt, version }. 방장이 약속 시간을 확정함. departureAt 은 ISO-8601 약속 시간이고 장소는 방의 출발지. 모집도 끝나 status 는 COMPLETED(기사 호출 모드면 MATCHING). 이후 참여·나가기가 막히고 방 상세의 confirmed 도 true
             - `closed`: { status }. 방이 닫힘(status 는 FINISHED 또는 CANCELED). 받으면 종료로 처리한다. 서버가 연결을 끊는다
             version 규칙: 받은 version 이 내 version+1 이면 반영, 같거나 작으면 버림, 그보다 크면 GET /matching/rooms/{partyId} 로 다시 받아 통째로 교체(스트림은 유지).
             connected 와 다시 받은 상세는 내 version 이 없거나 그 이상일 때만 통째로 교체하고, 낮으면 버린다. connected 전에 온 변경분은 틈으로 보고 상세를 다시 받는다.
