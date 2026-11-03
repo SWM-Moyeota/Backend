@@ -197,17 +197,6 @@ class PartyJpaPersistenceTest {
     }
 
     @Test
-    void 정원이_찬_예약_방은_완료_시각이_아니라_출발_시각으로_정리_대상을_가른다() {
-        Party 내일방 = parties.save(Party.reserve(1L, 강남, 판교, "강남역", "판교역", new Capacity(2), Instant.now(), 뒤(Duration.ofDays(1))));
-        내일방.join(2L);
-        parties.save(내일방);
-        clearContext();
-
-        assertThat(parties.findCompletedBefore(뒤(Duration.ofHours(1)))).doesNotContain(내일방.getId());
-        assertThat(parties.findCompletedBefore(뒤(Duration.ofDays(2)))).contains(내일방.getId());
-    }
-
-    @Test
     void 알림_대상은_보내지_않은_기간_안의_예약_방이다() {
         Instant 기준 = 뒤(Duration.ofMinutes(20));
         Long 대상 = reserve(1L, 기준).getId();
@@ -254,31 +243,6 @@ class PartyJpaPersistenceTest {
 
         assertThat(found.getDepartureAt()).isNull();
         assertThat(found.isConfirmed()).isFalse();
-    }
-
-    @Test
-    void 약속을_확정한_실시간_방은_정원_충족_시각이_아니라_약속_시간으로_자동_종료_대상을_가른다() {
-        // 확정 순간이 정원 충족 시각이 되지만 약속은 최대 1시간 뒤다 - 정원 충족 시각으로 가르면 만나기 전에 방이 닫힌다
-        Party party = realtime(1L);
-        party.join(2L);
-        Instant 약속 = 뒤(Duration.ofMinutes(50));
-        party.confirm(1L, 약속, Instant.now());
-        parties.save(party);
-        clearContext();
-
-        assertThat(parties.findCompletedBefore(뒤(Duration.ofMinutes(40)))).doesNotContain(party.getId());
-        assertThat(parties.findCompletedBefore(약속.plusSeconds(1))).contains(party.getId());
-    }
-
-    @Test
-    void 확정_전_실시간_방은_여전히_정원_충족_시각으로_자동_종료_대상을_가른다() {
-        Party party = parties.save(Party.open(1L, 강남, 판교, "강남역", "판교역", new Capacity(2), Instant.now(), Radius.DEFAULT, Radius.DEFAULT, 12000, 25, "encoded-path"));
-        party.join(2L);   // capacity 2 충족 → COMPLETED, 약속 시간은 없다
-        parties.save(party);
-        clearContext();
-
-        assertThat(parties.findCompletedBefore(Instant.now().minusSeconds(60))).doesNotContain(party.getId());
-        assertThat(parties.findCompletedBefore(뒤(Duration.ofSeconds(1)))).contains(party.getId());
     }
 
     // ───────────────────────── 출발지 도착·노쇼 ─────────────────────────
@@ -487,25 +451,6 @@ class PartyJpaPersistenceTest {
         parties.save(saved);
 
         assertThat(parties.findById(saved.getId()).orElseThrow().getCompletedAt()).isNull();
-    }
-
-    @Test
-    void 기준_시각_이전에_정원이_찬_방만_조회된다() {
-        Instant 하루전 = Instant.now().minus(Duration.ofDays(1));
-        Location 강남역 = new Location(37.4979, 127.0276);
-        Location 판교역 = new Location(37.3948, 127.1112);
-        Party seed = Party.open(1L, 강남역, 판교역, "강남역", "판교역", new Capacity(2), 하루전, new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
-        seed.join(2L);   // 멤버 목록만 빌려 쓴다
-        Party 오래된방 = parties.save(Party.load(null, 강남역, 판교역, new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
-                seed.getMembers(), 하루전, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", null, null, 하루전, 0L));
-        Party 방금찬방 = openAndSave();
-        방금찬방.join(2L);
-        방금찬방.join(3L);
-        parties.save(방금찬방);
-
-        List<Long> targets = parties.findCompletedBefore(Instant.now().minus(Duration.ofMinutes(1)));
-
-        assertThat(targets).contains(오래된방.getId()).doesNotContain(방금찬방.getId());
     }
 
     // ───────────────────────── 지도 목록(요약) 조회 ─────────────────────────

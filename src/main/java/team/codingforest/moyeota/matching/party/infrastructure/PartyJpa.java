@@ -102,6 +102,12 @@ public class PartyJpa implements Parties {
                 .toList();
     }
 
+    private List<PartyStatus> recruitingStatuses() {
+        return Arrays.stream(PartyStatus.values())
+                .filter(PartyStatus::isRecruiting)
+                .toList();
+    }
+
     @Override
     public Optional<Party> findByIdForUpdate(Long id) {
         return partyJpaRepository.findByForUpdate(id)
@@ -138,8 +144,8 @@ public class PartyJpa implements Parties {
     }
 
     @Override
-    public List<Long> findCompletedBefore(Instant before) {
-        return partyJpaRepository.findIdsByStatusAndCompletedBefore(PartyStatus.COMPLETED, before);
+    public List<Long> findAutoCloseTargets(Instant cutoff) {
+        return partyJpaRepository.findAutoCloseTargetIds(recruitingStatuses(), cutoff);
     }
 
     @Override

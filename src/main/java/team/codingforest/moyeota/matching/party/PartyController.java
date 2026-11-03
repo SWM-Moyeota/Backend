@@ -121,7 +121,7 @@ public class PartyController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "출발", description = "출발지에 도착(arrive)한 멤버가 약속 시간 뒤에 누르면 방이 바로 끝난다(FINISHED). 방장이 아니어도 된다. 본문 없음. 그 순간까지 도착하지 않은 멤버는 노쇼로 기록되어 탑승 기록·탑승 횟수에서 빠지고, 도착한 멤버만 탄 사람으로 남는다. 약속이 확정된 방(방장이 약속 시간을 확정한 실시간 방, 모든 예약 방)이고 닫히지 않은(ACTIVE/COMPLETED) 기사 없는 방, 멤버 2명 이상에서만 된다. 끝나면 탑승 기록이 남고 모든 구독자에게 SSE closed { status: FINISHED } 를 보낸다(서버가 연결을 끊는다). 약속이 확정된 방을 끝내는 길은 이것 하나다")
+    @Operation(summary = "출발", description = "출발지에 도착(arrive)한 멤버가 약속 시간 뒤에 누르면 방이 바로 끝난다(FINISHED). 방장이 아니어도 된다. 본문 없음. 그 순간까지 도착하지 않은 멤버는 노쇼로 기록되어 탑승 기록·탑승 횟수에서 빠지고, 도착한 멤버만 탄 사람으로 남는다. 약속이 확정된 방(방장이 약속 시간을 확정한 실시간 방, 모든 예약 방)이고 닫히지 않은(ACTIVE/COMPLETED) 기사 없는 방, 멤버 2명 이상에서만 된다. 끝나면 탑승 기록이 남고 모든 구독자에게 SSE closed { status: FINISHED } 를 보낸다(서버가 연결을 끊는다). 약속이 확정된 방을 사용자가 끝내는 길은 이것 하나다. 아무도 누르지 않으면 실시간 방은 만든 지 1일, 예약 방은 출발 시각에서 1일 뒤 서버가 정리한다 - 도착한 멤버가 있으면 FINISHED(나머지는 노쇼, 탑승 기록 남음), 아무도 도착하지 않았으면 전원 노쇼로 CANCELED")
     @ApiResponses({@ApiResponse(responseCode = "204", description = "방이 끝남"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_CLOSED - 이미 끝났거나(누가 먼저 출발함) 취소된 방 / PARTY_NOT_CONFIRMED - 약속 시간을 확정하지 않은 실시간 방 / DRIVER_ALREADY_ASSIGNED / NOT_ENOUGH_MEMBERS - 멤버가 1명뿐인 예약 방 / MEETING_NOT_STARTED - 약속 시간 전 / NOT_ARRIVED - 누른 사람이 아직 도착 전")})
     @PostMapping("/matching/rooms/{partyId}/depart")
     public ResponseEntity<Void> depart(@PathVariable Long partyId, @CurrentUser Long memberId) {

@@ -256,6 +256,54 @@ public class Party {
 
         if(!member.isArrived()) throw new BusinessException(MatchingErrorCode.NOT_ARRIVED);
 
+        List<Long> noShowMemberIds = markNoShowsExceptArrived(now);
+
+        status = PartyStatus.FINISHED;
+        version++;
+
+        return noShowMemberIds;
+    }
+
+    /**
+     *  자동 정리 - 실시간 방은 만든 지 1일, 예약 방은 출발 시각에서 1일이 지나도 열려 있으면(ACTIVE·COMPLETED) 정리 스케줄러가 닫는다.
+     *  언제 닫을지는 스케줄러 조회가 가르고, 여기서는 어떻게 닫을지를 정한다.
+     *  약속이 정해진 방은 출발(depart)과 같은 기준으로 노쇼를 가른다
+     *   - 도착한 멤버가 있으면 FINISHED, 도착하지 않은 멤버는 노쇼다. 도착한 멤버가 실제로 탄 사람이다
+     *   - 아무도 도착하지 않았으면 합승이 없었으니 CANCELED, 멤버 전원이 노쇼다. 도착 버튼을 누르지 않은 것도 본인 몫이고 이의는 운영자가 노쇼를 무효로 돌려 받는다
+     *   - 함께 탈 사람이 들어오지 않은 예약 방(멤버 1명)은 모집 정리와 같이 노쇼 없이 CANCELED - 출발도 할 수 없던 방이다
+     *  약속을 정하지 않은 실시간 방은 노쇼를 가릴 약속이 없다 - COMPLETED 는 이전 자동 종료처럼 FINISHED(구버전 앱), ACTIVE 는 CANCELED.
+     *  조회와 행 잠금 사이에 출발·나가기로 이미 닫혔거나 기사 호출 단계로 넘어간 방은 PARTY_CLOSED 로 거절한다(스케줄러는 건너뛴다)
+     */
+    public AutoCloseResult autoClose(Instant now) {
+        if(!status.isRecruiting()) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+
+        if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
+
+        // 만든 지 1일이 다 돼 확정한 실시간 방은 약속이 그 뒤일 수 있다 - 만나기도 전에 전원을 노쇼로 찍지 않게 약속 시간이 지난 다음 정리에서 닫는다
+        if(isConfirmed() && now.isBefore(departureAt)) throw new BusinessException(MatchingErrorCode.MEETING_NOT_STARTED);
+
+        List<Long> noShowMemberIds = List.of();
+
+        if(!isConfirmed()) {
+            status = status == PartyStatus.COMPLETED ? PartyStatus.FINISHED : PartyStatus.CANCELED;
+        } else if(members.size() < MIN_MEMBERS_TO_DEPART) {
+            status = PartyStatus.CANCELED;
+        } else {
+            noShowMemberIds = markNoShowsExceptArrived(now);
+            status = arrivedCount() > 0 ? PartyStatus.FINISHED : PartyStatus.CANCELED;
+        }
+
+        version++;
+
+        return new AutoCloseResult(status, arrivedCount(), noShowMemberIds);
+    }
+
+    /**
+     *  도착하지 않은 멤버를 모두 노쇼로 찍는다 - 출발(depart)과 자동 정리(autoClose)가 같은 기준을 쓴다
+     *
+     *  @return 이번에 노쇼로 찍힌 memberId (합류 순)
+     */
+    private List<Long> markNoShowsExceptArrived(Instant now) {
         List<Long> noShowMemberIds = new ArrayList<>();
         for(PartyMember m : members) {
             if(m.isArrived()) continue;
@@ -264,10 +312,11 @@ public class Party {
             noShowMemberIds.add(m.getMemberId());
         }
 
-        status = PartyStatus.FINISHED;
-        version++;
-
         return List.copyOf(noShowMemberIds);
+    }
+
+    private int arrivedCount() {
+        return (int) members.stream().filter(PartyMember::isArrived).count();
     }
 
     /**
@@ -456,18 +505,6 @@ public class Party {
 
         status = PartyStatus.FINISHED;
         version++;
-    }
-
-    public void expireCompleted() {
-        ensureFinishableWithoutDriver();
-        status = PartyStatus.FINISHED;
-        version++;
-    }
-
-    private void ensureFinishableWithoutDriver() {
-        if(status != PartyStatus.COMPLETED) throw new BusinessException(MatchingErrorCode.PARTY_NOT_COMPLETED);
-
-        if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
     }
 
     private void ensureAssignDriver(Long driverId) {

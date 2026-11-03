@@ -971,21 +971,21 @@ class PartyServiceTest {
         // ── 자동 종료 스윕 ──
 
         @Test
-        void 정원이_찬_뒤_오래_방치된_방만_자동_종료된다() {
-            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);   // anotherHost·guest 가 여기 묶여 있다
+        void 만든_지_1일이_지난_방만_자동_종료된다() {
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)), null);   // anotherHost·guest 가 여기 묶여 있다
             PartyResult 방금찬방 = service.open(createParty(host, 2));
             service.join(방금찬방.id(), participant);
 
             new CompletedPartySweeper(parties, service).sweep();
 
             assertThat(parties.findById(오래된방).orElseThrow().getStatus()).isEqualTo(PartyStatus.FINISHED);
-            assertThat(parties.findById(방금찬방.id()).orElseThrow().getStatus()).as("TTL 전이면 건드리지 않는다").isEqualTo(PartyStatus.COMPLETED);
+            assertThat(parties.findById(방금찬방.id()).orElseThrow().getStatus()).as("1일 전이면 건드리지 않는다").isEqualTo(PartyStatus.COMPLETED);
         }
 
         @Test
         void 한_방이_실패해도_나머지_방은_닫힌다() {
-            Long 기사있는방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), 기사);   // DRIVER_ALREADY_ASSIGNED 로 실패할 방
-            Long 정상방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);
+            Long 기사있는방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)), 기사);   // DRIVER_ALREADY_ASSIGNED 로 실패할 방
+            Long 정상방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)), null);
 
             new CompletedPartySweeper(parties, service).sweep();   // 예외가 새어 나오면 여기서 터진다
 
@@ -1005,18 +1005,18 @@ class PartyServiceTest {
 
         @Test
         void 자동_종료해도_FINISHED_닫힘_이벤트가_발행된다() {
-            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)), null);
 
-            service.expire(오래된방);
+            service.autoClose(오래된방);
 
             assertThat(events.closedFor(오래된방, "FINISHED")).isEqualTo(1);
         }
 
         @Test
         void 자동_종료된_방은_하차_기록이_남지_않는다() {
-            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)), null);
 
-            service.expire(오래된방);
+            service.autoClose(오래된방);
 
             assertThat(rideRecords.findById(오래된방)).isEmpty();
         }
@@ -1034,9 +1034,9 @@ class PartyServiceTest {
 
         @Test
         void 자동_종료해도_closed_신호를_보낸다() {
-            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)), null);
 
-            service.expire(오래된방);
+            service.autoClose(오래된방);
 
             assertThat(signals.sent)
                     .as("대기 화면에 남아 있는 사용자가 홈으로 돌아가야 한다")
@@ -1045,9 +1045,9 @@ class PartyServiceTest {
 
         @Test
         void 자동_종료하면_closed_에_FINISHED_가_실리고_version_은_오른다() {
-            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(1)), null);
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)), null);
 
-            service.expire(오래된방);
+            service.autoClose(오래된방);
 
             assertThat(signals.closed.getLast()).isEqualTo(PartyClosed.from("FINISHED"));
             assertThat(versionOf(오래된방)).isEqualTo(1);
@@ -1059,13 +1059,13 @@ class PartyServiceTest {
             service.join(party.id(), participant);
             service.finish(party.id(), host);
 
-            assertThatThrownBy(() -> service.expire(party.id()))
+            assertThatThrownBy(() -> service.autoClose(party.id()))
                     .isInstanceOf(BusinessException.class)
                     .extracting("errorCode")
-                    .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
+                    .isEqualTo(MatchingErrorCode.PARTY_CLOSED);
         }
 
-        /** 정원 2가 찬 방을 원하는 충족 시각으로 저장 - 도메인은 Instant.now() 만 찍으므로 과거 시각은 load 로만 만들 수 있다 */
+        /** 정원 2가 찬 확정 전 실시간 방을 원하는 생성·충족 시각으로 저장 - 도메인은 Instant.now() 만 찍으므로 과거 시각은 load 로만 만들 수 있다 */
         private Long saveCompleted(Instant completedAt, Long driverId) {
             Location 강남역 = new Location(37.4979, 127.0276);
             Location 판교역 = new Location(37.3948, 127.1112);
