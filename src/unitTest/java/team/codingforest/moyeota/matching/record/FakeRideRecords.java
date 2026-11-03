@@ -59,6 +59,7 @@ public class FakeRideRecords implements RideRecords {
             parties.findById(matchId)
                     .filter(p -> !p.getMembers().isEmpty())
                     .ifPresent(p -> result.put(matchId, p.getMembers().stream()
+                            .filter(m -> !m.isNoShow())
                             .sorted(Comparator.comparing(PartyMember::getJoinedAt).thenComparing(PartyMember::getMemberId))
                             .map(PartyMember::getMemberId)
                             .toList()));
@@ -70,9 +71,16 @@ public class FakeRideRecords implements RideRecords {
     private Stream<RideRecord> droppedOffOf(Long memberId) {
         return store.values().stream()
                 .filter(RideRecord::isDroppedOff)
-                .filter(h -> parties.hasMember(h.getMatchId(), memberId))
+                .filter(h -> rode(h.getMatchId(), memberId))
                 .sorted(Comparator.comparing(RideRecord::getDropoffTime).thenComparing(RideRecord::getMatchId).reversed())
                 .map(FakeRideRecords::copy);
+    }
+
+    /** 실제 쿼리처럼 노쇼(무효로 돌린 노쇼는 빼고)에게는 기록이 없다 */
+    private boolean rode(Long matchId, Long memberId) {
+        return parties.findById(matchId)
+                .map(p -> p.getMembers().stream().anyMatch(m -> m.getMemberId().equals(memberId) && !m.isNoShow()))
+                .orElse(false);
     }
 
     private static RideRecord copy(RideRecord h) {

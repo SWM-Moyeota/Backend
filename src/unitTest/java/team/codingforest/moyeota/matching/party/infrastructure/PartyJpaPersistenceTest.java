@@ -10,6 +10,7 @@ import team.codingforest.moyeota.common.JpaAuditingConfig;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
+import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
@@ -278,6 +279,139 @@ class PartyJpaPersistenceTest {
 
         assertThat(parties.findCompletedBefore(Instant.now().minusSeconds(60))).doesNotContain(party.getId());
         assertThat(parties.findCompletedBefore(뒤(Duration.ofSeconds(1)))).contains(party.getId());
+    }
+
+    // ───────────────────────── 출발지 도착·노쇼 ─────────────────────────
+
+    /** 도메인 복원이 아니라 컬럼에 실제로 들어갔는지 엔티티에서 직접 본다 */
+    private PartyMemberEntity storedMember(Long partyId, Long memberId) {
+        return repository.findWithMembersById(partyId).orElseThrow().getMembers().stream()
+                .filter(m -> m.getMemberId().equals(memberId))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private static Instant micros(Instant instant) {
+        return instant.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+    }
+
+    /** 1L 이 만들고 2L 이 들어온 실시간 방을 방금 지난 시각으로 확정해 저장한다 - 바로 도착을 누를 수 있다 */
+    private Party confirmedJustNow() {
+        Party party = realtime(1L);
+        party.join(2L);
+        parties.save(party);
+        party.confirm(1L, Instant.now().minusSeconds(30), Instant.now());
+        parties.save(party);
+
+        return party;
+    }
+
+    @Test
+    void 새로_들어온_멤버_행은_도착과_노쇼가_비어_있다() {
+        Party party = realtime(1L);
+        party.join(2L);
+        parties.save(party);
+        clearContext();
+
+        PartyMemberEntity stored = storedMember(party.getId(), 2L);
+
+        assertThat(stored.getArrivedAt()).isNull();
+        assertThat(stored.getNoShowAt()).isNull();
+        assertThat(stored.getNoShowVoidedAt()).isNull();
+        assertThat(parties.findById(party.getId()).orElseThrow().getMembers()).noneMatch(PartyMember::isArrived);
+    }
+
+    @Test
+    void 처음_저장하는_방도_멤버의_도착_노쇼_무효_시각을_함께_넣는다() {
+        Instant 도착 = micros(Instant.now().minusSeconds(120));
+        Instant 노쇼 = micros(Instant.now().minusSeconds(60));
+        Instant 무효 = micros(Instant.now());
+        Party party = Party.load(null, 강남, 판교, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
+                List.of(PartyMember.load(1L, Instant.now().minusSeconds(600), 도착, null, null),
+                        PartyMember.load(2L, Instant.now().minusSeconds(500), null, 노쇼, 무효)),
+                1L, Instant.now(), PartyStatus.FINISHED, 12000, 25, "encoded-path", null, null, null, 0L, RoomType.REALTIME, Instant.now().minusSeconds(300), null);
+        Long id = parties.save(party).getId();
+        clearContext();
+
+        assertThat(storedMember(id, 1L).getArrivedAt()).isEqualTo(도착);
+        assertThat(storedMember(id, 2L).getNoShowAt()).isEqualTo(노쇼);
+        assertThat(storedMember(id, 2L).getNoShowVoidedAt()).isEqualTo(무효);
+    }
+
+    @Test
+    void 이미_있는_멤버의_도착이_저장되고_복원된다() {
+        // 저장은 이미 있는 멤버 행을 고치는 update() 경로다 - 멤버 추가·삭제만 옮기면 도착이 조용히 사라진다
+        Party party = confirmedJustNow();
+        Instant 도착 = micros(Instant.now());
+        party.arrive(2L, 강남, 도착);
+        parties.save(party);
+        clearContext();
+
+        Party found = parties.findById(party.getId()).orElseThrow();
+        PartyMember 도착한멤버 = found.getMembers().stream().filter(m -> m.getMemberId().equals(2L)).findFirst().orElseThrow();
+
+        assertThat(storedMember(party.getId(), 2L).getArrivedAt()).isEqualTo(도착);
+        assertThat(storedMember(party.getId(), 1L).getArrivedAt()).isNull();
+        assertThat(도착한멤버.isArrived()).isTrue();
+        assertThat(도착한멤버.getArrivedAt()).isEqualTo(도착);
+        assertThat(found.getVersion()).as("참여·확정·도착").isEqualTo(3L);
+    }
+
+    @Test
+    void 출발하면_도착하지_않은_기존_멤버_행에_노쇼가_저장된다() {
+        Party party = confirmedJustNow();
+        party.arrive(2L, 강남, Instant.now());
+        parties.save(party);
+        Instant 출발 = micros(Instant.now());
+        party.depart(2L, 출발);
+        parties.save(party);
+        clearContext();
+
+        Party found = parties.findById(party.getId()).orElseThrow();
+
+        assertThat(found.getStatus()).isEqualTo(PartyStatus.FINISHED);
+        assertThat(storedMember(party.getId(), 1L).getNoShowAt()).isEqualTo(출발);
+        assertThat(storedMember(party.getId(), 2L).getNoShowAt()).isNull();
+        assertThat(storedMember(party.getId(), 2L).getArrivedAt()).isNotNull();
+        assertThat(found.getMembers()).filteredOn(PartyMember::isNoShow).extracting(PartyMember::getMemberId).containsExactly(1L);
+    }
+
+    @Test
+    void 운영자가_무효로_돌린_노쇼는_복원해도_노쇼가_아니다() {
+        Party party = confirmedJustNow();
+        party.arrive(2L, 강남, Instant.now());
+        party.depart(2L, Instant.now());
+        parties.save(party);
+        em.flush();
+        em.getEntityManager().createNativeQuery("UPDATE user_match_room SET no_show_voided_at = CURRENT_TIMESTAMP WHERE match_id = :id AND user_id = 1")
+                .setParameter("id", party.getId())
+                .executeUpdate();
+        em.clear();
+
+        PartyMember 노쇼였던멤버 = parties.findById(party.getId()).orElseThrow().getMembers().stream()
+                .filter(m -> m.getMemberId().equals(1L)).findFirst().orElseThrow();
+
+        assertThat(노쇼였던멤버.getNoShowAt()).isNotNull();
+        assertThat(노쇼였던멤버.getNoShowVoidedAt()).isNotNull();
+        assertThat(노쇼였던멤버.isNoShow()).isFalse();
+    }
+
+    @Test
+    void 탑승_횟수는_노쇼를_세지_않고_무효로_돌린_노쇼는_센다() {
+        Party party = confirmedJustNow();
+        party.arrive(2L, 강남, Instant.now());
+        party.depart(2L, Instant.now());   // 1L 노쇼
+        parties.save(party);
+        em.flush();
+
+        assertThat(parties.countFinishedRides(List.of(1L, 2L))).containsOnly(entry(2L, 1));
+
+        em.getEntityManager().createNativeQuery("UPDATE user_match_room SET no_show_voided_at = CURRENT_TIMESTAMP WHERE match_id = :id AND user_id = 1")
+                .setParameter("id", party.getId())
+                .executeUpdate();
+        em.clear();
+
+        assertThat(parties.countFinishedRides(List.of(1L, 2L))).containsOnly(entry(1L, 1), entry(2L, 1));
     }
 
     // ───────────────────────── 단건 조회 ─────────────────────────

@@ -36,6 +36,7 @@ import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.RoomType;
 import team.codingforest.moyeota.matching.party.dto.MatchCandidate;
+import team.codingforest.moyeota.matching.party.dto.MemberArrived;
 import team.codingforest.moyeota.matching.party.dto.MemberJoined;
 import team.codingforest.moyeota.matching.party.dto.MemberLeft;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
@@ -98,6 +99,9 @@ class PartyServiceUnitTest {
     private static final double DESTINATION_LNG = 127.1112;
     private static final Location DEPARTURE = new Location(DEPARTURE_LAT, DEPARTURE_LNG);
     private static final Location DESTINATION = new Location(DESTINATION_LAT, DESTINATION_LNG);
+    // 출발지에서 북쪽으로 약 50m / 약 111m
+    private static final double NEAR_LAT = DEPARTURE_LAT + 0.00045;
+    private static final double FAR_LAT = DEPARTURE_LAT + 0.001;
     private static final Instant BASE_TIME = Instant.parse("2026-10-01T00:00:00Z");
     private static final RouteEstimate ESTIMATE = new RouteEstimate(12000, 25, "encoded-path");
     private static final String SSE_TASK = "party.sse";
@@ -282,7 +286,7 @@ class PartyServiceUnitTest {
         verifyNoInteractions(partyChangeNotifier);
         task.run();
 
-        PartyDetailResult.MemberInfo info = new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "image.png", null, 5, false);
+        PartyDetailResult.MemberInfo info = new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "image.png", null, 5, false, false);
         verify(partyChangeNotifier).memberJoined(eq(PARTY_ID), eq(new MemberJoined(info, "ACTIVE", 4L)));
     }
 
@@ -347,7 +351,7 @@ class PartyServiceUnitTest {
          * verify
          */
         capturedAfterCommitTask().run();
-        PartyDetailResult.MemberInfo info = new PartyDetailResult.MemberInfo(null, null, null, null, 0, false);
+        PartyDetailResult.MemberInfo info = new PartyDetailResult.MemberInfo(null, null, null, null, 0, false, false);
         verify(partyChangeNotifier).memberJoined(eq(PARTY_ID), eq(new MemberJoined(info, "ACTIVE", 1L)));
     }
 
@@ -376,7 +380,7 @@ class PartyServiceUnitTest {
          * verify
          */
         capturedAfterCommitTask().run();
-        PartyDetailResult.MemberInfo info = new PartyDetailResult.MemberInfo(null, null, null, null, 0, true);
+        PartyDetailResult.MemberInfo info = new PartyDetailResult.MemberInfo(null, null, null, null, 0, true, false);
         verify(partyChangeNotifier).memberJoined(eq(PARTY_ID), eq(new MemberJoined(info, "ACTIVE", 1L)));
     }
 
@@ -877,8 +881,8 @@ class PartyServiceUnitTest {
         assertThat(result.departureAt()).isNull();
         assertThat(result.confirmed()).isFalse();
         assertThat(result.members()).containsExactly(
-                new PartyDetailResult.MemberInfo(HOST_PUBLIC_ID, "방장", "host.png", null, 4, true),
-                new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", null, 0, false));
+                new PartyDetailResult.MemberInfo(HOST_PUBLIC_ID, "방장", "host.png", null, 4, true, false),
+                new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", null, 0, false, false));
     }
 
     @DisplayName("getPartyDetail - 유저 요약이 없는 멤버는 표시 정보가 null 이어도 목록에 남는다")
@@ -902,7 +906,7 @@ class PartyServiceUnitTest {
         /*
          * verify
          */
-        assertThat(result.members()).containsExactly(new PartyDetailResult.MemberInfo(null, null, null, null, 0, true));
+        assertThat(result.members()).containsExactly(new PartyDetailResult.MemberInfo(null, null, null, null, 0, true, false));
     }
 
     @DisplayName("getPartyDetail - 없는 방이면 PARTY_NOT_FOUND 이고 유저 조회를 하지 않는다")
@@ -981,6 +985,34 @@ class PartyServiceUnitTest {
         assertThat(result.roomType()).isEqualTo("RESERVED");
         assertThat(result.departureAt()).isEqualTo(departureAt);
         assertThat(result.confirmed()).isTrue();
+    }
+
+    @DisplayName("getPartyDetail - 출발지에 도착한 멤버만 arrived=true 다")
+    @Test
+    void getPartyDetail_arrived() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedParty(Instant.parse("2026-11-03T12:00:00Z"), PartyStatus.COMPLETED, null, 3L,
+                waitingMember(HOST_ID, 0), arrivedMember(MEMBER_ID, 1));
+        List<Long> memberIds = List.of(HOST_ID, MEMBER_ID);
+
+        doReturn(Optional.of(party)).when(parties).findById(eq(PARTY_ID));
+        doReturn(Map.of(HOST_ID, summary(HOST_PUBLIC_ID), MEMBER_ID, summary(MEMBER_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(memberIds));
+        doReturn(Map.of()).when(parties).countFinishedRides(eq(memberIds));
+
+        /*
+         * test
+         */
+        PartyDetailResult result = partyService.getPartyDetail(PARTY_ID);
+
+        /*
+         * verify
+         */
+        assertThat(result.members()).extracting(PartyDetailResult.MemberInfo::publicId).containsExactly(HOST_PUBLIC_ID, MEMBER_PUBLIC_ID);
+        assertThat(result.members()).extracting(PartyDetailResult.MemberInfo::arrived).containsExactly(false, true);
+        assertThat(result.members()).extracting(PartyDetailResult.MemberInfo::host).containsExactly(true, false);
     }
 
     // ───────────────────────── findActiveParties ─────────────────────────
@@ -1322,6 +1354,316 @@ class PartyServiceUnitTest {
                 Arguments.of(MatchingErrorCode.INVALID_MEETING_TIME, party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID, MEMBER_ID), HOST_ID, "1시간 넘게 뒤", Duration.ofMinutes(61)));
     }
 
+    // ───────────────────────── arrive ─────────────────────────
+
+    @DisplayName("arrive - 잠금 조회한 방에 도착을 남기고 저장한 뒤 커밋 후 member-arrived 에 publicId 와 오른 version 을 싣는다")
+    @Test
+    void arrive() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 4L,
+                waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1));
+
+        doReturn(Map.of(MEMBER_ID, summary(MEMBER_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        partyService.arrive(PARTY_ID, MEMBER_ID, NEAR_LAT, DEPARTURE_LNG);
+
+        /*
+         * verify
+         */
+        assertThat(memberOf(party, MEMBER_ID).isArrived()).isTrue();
+        assertThat(memberOf(party, HOST_ID).isArrived()).isFalse();
+        assertThat(party.getVersion()).isEqualTo(5L);
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+
+        InOrder order = inOrder(userAccess, parties, afterCommitExecutor);
+        order.verify(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
+        order.verify(parties).findByIdForUpdate(eq(PARTY_ID));
+        order.verify(parties).save(eq(party));
+        order.verify(afterCommitExecutor).execute(eq(SSE_TASK), any());
+        verify(parties, never()).findById(any());
+        verifyNoInteractions(eventPublisher, rideRecords, partyCompletionPolicy);
+
+        Runnable task = capturedAfterCommitTask();
+        verifyNoInteractions(partyChangeNotifier);
+        task.run();
+
+        verify(partyChangeNotifier).memberArrived(eq(PARTY_ID), eq(new MemberArrived(MEMBER_PUBLIC_ID, 5L)));
+    }
+
+    @DisplayName("arrive - 이미 도착한 멤버가 다시 누르면 오류 없이 저장·신호를 하지 않는다")
+    @Test
+    void arrive_alreadyArrived() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 4L,
+                waitingMember(HOST_ID, 0), arrivedMember(MEMBER_ID, 1));
+        Instant firstArrivedAt = memberOf(party, MEMBER_ID).getArrivedAt();
+
+        doReturn(Map.of(MEMBER_ID, summary(MEMBER_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        // 멀리 있어도 다시 재지 않는다
+        partyService.arrive(PARTY_ID, MEMBER_ID, FAR_LAT, DEPARTURE_LNG);
+
+        /*
+         * verify
+         */
+        assertThat(memberOf(party, MEMBER_ID).getArrivedAt()).isEqualTo(firstArrivedAt);
+        assertThat(party.getVersion()).isEqualTo(4L);
+        verify(parties, never()).save(any());
+        verifyNoInteractions(afterCommitExecutor, partyChangeNotifier, eventPublisher);
+    }
+
+    @DisplayName("arrive - 유저 요약이 없어도 도착되고 신호의 publicId 는 null 이다")
+    @Test
+    void arrive_noMemberSummary() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 0L,
+                waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1));
+
+        doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(HOST_ID)));
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        partyService.arrive(PARTY_ID, HOST_ID, DEPARTURE_LAT, DEPARTURE_LNG);
+
+        /*
+         * verify
+         */
+        assertThat(memberOf(party, HOST_ID).isArrived()).isTrue();
+        capturedAfterCommitTask().run();
+        verify(partyChangeNotifier).memberArrived(eq(PARTY_ID), eq(new MemberArrived(null, 1L)));
+    }
+
+    @DisplayName("arrive - 서비스 지역 밖 좌표면 OUT_OF_SERVICE_AREA 이고 아무것도 조회하지 않는다")
+    @Test
+    void arrive_outOfServiceArea() {
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> partyService.arrive(PARTY_ID, MEMBER_ID, 35.6812, 139.7671));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.OUT_OF_SERVICE_AREA);
+        verifyNoInteractions(parties, userAccess, afterCommitExecutor, partyChangeNotifier);
+    }
+
+    @DisplayName("arrive - 없는 방이면 PARTY_NOT_FOUND")
+    @Test
+    void arrive_partyNotFound() {
+
+        /*
+         * settings
+         */
+        doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
+        doReturn(Optional.empty()).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> partyService.arrive(PARTY_ID, MEMBER_ID, NEAR_LAT, DEPARTURE_LNG));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.PARTY_NOT_FOUND);
+        verify(parties, never()).save(any());
+        verifyNoInteractions(afterCommitExecutor, partyChangeNotifier);
+    }
+
+    @DisplayName("arrive - 도메인이 거절하면 그 오류가 나가고 저장·신호가 없다")
+    @ParameterizedTest(name = "{0} - {4}")
+    @MethodSource("arriveRejections")
+    void arrive_rejected(MatchingErrorCode expected, Party party, Long memberId, double latitude, String reason) {
+
+        /*
+         * settings
+         */
+        doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(memberId)));
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> partyService.arrive(PARTY_ID, memberId, latitude, DEPARTURE_LNG));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, expected);
+        assertThat(party.getMembers()).noneMatch(PartyMember::isArrived);
+        verify(parties, never()).save(any());
+        verifyNoInteractions(afterCommitExecutor, partyChangeNotifier, eventPublisher);
+    }
+
+    static Stream<Arguments> arriveRejections() {
+        Instant started = Instant.now().minus(Duration.ofMinutes(5));
+        return Stream.of(
+                Arguments.of(MatchingErrorCode.NOT_PARTY_MEMBER, confirmedParty(started, PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), THIRD_ID, NEAR_LAT, "방에 없는 사람"),
+                Arguments.of(MatchingErrorCode.PARTY_NOT_CONFIRMED, party(PartyStatus.COMPLETED, 2, null, 0L, HOST_ID, MEMBER_ID), HOST_ID, NEAR_LAT, "약속 확정 전 실시간 방"),
+                Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.FINISHED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, NEAR_LAT, "이미 끝난 방"),
+                Arguments.of(MatchingErrorCode.MEETING_NOT_STARTED, confirmedParty(Instant.now().plus(Duration.ofMinutes(10)), PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, NEAR_LAT, "약속 시간 전"),
+                Arguments.of(MatchingErrorCode.TOO_FAR_FROM_DEPARTURE, confirmedParty(started, PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, FAR_LAT, "출발지에서 약 111m"));
+    }
+
+    // ───────────────────────── depart ─────────────────────────
+
+    @DisplayName("depart - 방을 FINISHED 로 끝내 노쇼를 남겨 저장하고, 기사 없는 하차 기록·닫힘 이벤트를 남긴 뒤 커밋 후 closed 를 보낸다")
+    @Test
+    void depart() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 6L,
+                arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1), arrivedMember(THIRD_ID, 2));
+
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        partyService.depart(PARTY_ID, THIRD_ID);
+
+        /*
+         * verify
+         */
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
+        assertThat(party.getVersion()).isEqualTo(7L);
+        assertThat(memberOf(party, MEMBER_ID).isNoShow()).isTrue();
+        assertThat(memberOf(party, HOST_ID).isNoShow()).isFalse();
+        assertThat(memberOf(party, THIRD_ID).isNoShow()).isFalse();
+
+        InOrder order = inOrder(parties, rideRecords, eventPublisher, afterCommitExecutor);
+        order.verify(parties).findByIdForUpdate(eq(PARTY_ID));
+        order.verify(parties).save(eq(party));
+        order.verify(rideRecords).save(any(RideRecord.class));
+        order.verify(eventPublisher).publishEvent(eq(new PartyClosedEvent(PARTY_ID, "FINISHED")));
+        order.verify(afterCommitExecutor).execute(eq(SSE_TASK), any());
+        verifyNoInteractions(userAccess, partyCompletionPolicy);
+
+        ArgumentCaptor<RideRecord> captor = ArgumentCaptor.forClass(RideRecord.class);
+        verify(rideRecords).save(captor.capture());
+        RideRecord record = captor.getValue();
+        assertThat(record.getMatchId()).isEqualTo(PARTY_ID);
+        assertThat(record.getDeparturePlace()).isEqualTo("강남역");
+        assertThat(record.getDestinationPlace()).isEqualTo("판교역");
+        assertThat(record.getTaxiDriverId()).isNull();
+        assertThat(record.getPickupTime()).isNull();
+        assertThat(record.getTotalFare()).isNull();
+        assertThat(record.isDroppedOff()).isTrue();
+
+        Runnable task = capturedAfterCommitTask();
+        verifyNoInteractions(partyChangeNotifier);
+        task.run();
+        verify(partyChangeNotifier).closed(eq(PARTY_ID), eq(new PartyClosed("FINISHED")));
+        verify(partyChangeNotifier, never()).memberArrived(any(), any());
+    }
+
+    @DisplayName("depart - 모두 도착했으면 노쇼 없이 끝난다")
+    @Test
+    void depart_everyoneArrived() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 0L,
+                arrivedMember(HOST_ID, 0), arrivedMember(MEMBER_ID, 1));
+
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        partyService.depart(PARTY_ID, HOST_ID);
+
+        /*
+         * verify
+         */
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
+        assertThat(party.getMembers()).noneMatch(PartyMember::isNoShow);
+        verify(parties).save(eq(party));
+        verify(rideRecords).save(any(RideRecord.class));
+    }
+
+    @DisplayName("depart - 없는 방이면 PARTY_NOT_FOUND")
+    @Test
+    void depart_partyNotFound() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.empty()).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> partyService.depart(PARTY_ID, HOST_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.PARTY_NOT_FOUND);
+        verify(parties, never()).save(any());
+        verifyNoInteractions(rideRecords, eventPublisher, afterCommitExecutor, partyChangeNotifier);
+    }
+
+    @DisplayName("depart - 도메인이 거절하면 그 오류가 나가고 저장·기록·이벤트·신호가 없다")
+    @ParameterizedTest(name = "{0} - {3}")
+    @MethodSource("departRejections")
+    void depart_rejected(MatchingErrorCode expected, Party party, Long memberId, String reason) {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> partyService.depart(PARTY_ID, memberId));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, expected);
+        assertThat(party.getMembers()).noneMatch(m -> m.getNoShowAt() != null);
+        verify(parties, never()).save(any());
+        verifyNoInteractions(rideRecords, eventPublisher, afterCommitExecutor, partyChangeNotifier);
+    }
+
+    static Stream<Arguments> departRejections() {
+        Instant started = Instant.now().minus(Duration.ofMinutes(5));
+        return Stream.of(
+                Arguments.of(MatchingErrorCode.NOT_PARTY_MEMBER, confirmedParty(started, PartyStatus.COMPLETED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), THIRD_ID, "방에 없는 사람"),
+                Arguments.of(MatchingErrorCode.PARTY_NOT_CONFIRMED, party(PartyStatus.COMPLETED, 2, null, 0L, HOST_ID, MEMBER_ID), HOST_ID, "약속 확정 전 실시간 방"),
+                Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.FINISHED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, "이미 끝난 방"),
+                Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.CANCELED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, "취소된 방"),
+                Arguments.of(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED, confirmedParty(started, PartyStatus.COMPLETED, DRIVER_ID, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, "기사가 배정된 방"),
+                Arguments.of(MatchingErrorCode.MEETING_NOT_STARTED, confirmedParty(Instant.now().plus(Duration.ofMinutes(10)), PartyStatus.COMPLETED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, "약속 시간 전"),
+                Arguments.of(MatchingErrorCode.NOT_ARRIVED, confirmedParty(started, PartyStatus.COMPLETED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), MEMBER_ID, "누른 사람이 도착 전"));
+    }
+
     // ───────────────────────── finish ─────────────────────────
 
     @DisplayName("finish - 방장이 COMPLETED 방을 끝내면 기사 없는 하차 기록을 남기고 커밋 후 closed 를 보낸다")
@@ -1415,7 +1757,9 @@ class PartyServiceUnitTest {
                 Arguments.of(MatchingErrorCode.NOT_PARTY_MEMBER, party(PartyStatus.COMPLETED, 2, null, 0L, HOST_ID, THIRD_ID), MEMBER_ID),
                 Arguments.of(MatchingErrorCode.NOT_PARTY_HOST, party(PartyStatus.COMPLETED, 2, null, 0L, HOST_ID, MEMBER_ID), MEMBER_ID),
                 Arguments.of(MatchingErrorCode.PARTY_NOT_COMPLETED, party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID, MEMBER_ID), HOST_ID),
-                Arguments.of(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED, party(PartyStatus.COMPLETED, 2, DRIVER_ID, 0L, HOST_ID, MEMBER_ID), HOST_ID));
+                Arguments.of(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED, party(PartyStatus.COMPLETED, 2, DRIVER_ID, 0L, HOST_ID, MEMBER_ID), HOST_ID),
+                Arguments.of(MatchingErrorCode.USE_DEPART_FOR_CONFIRMED_PARTY, party(RoomType.REALTIME, Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 2, 0L, HOST_ID, MEMBER_ID), HOST_ID),
+                Arguments.of(MatchingErrorCode.USE_DEPART_FOR_CONFIRMED_PARTY, party(RoomType.RESERVED, Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 2, 0L, HOST_ID, MEMBER_ID), HOST_ID));
     }
 
     // ───────────────────────── expire ─────────────────────────
@@ -1788,6 +2132,30 @@ class PartyServiceUnitTest {
         return Party.load(PARTY_ID, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(capacity), members,
                 memberIds[0], BASE_TIME, status, realtime ? 12000 : null, realtime ? 25 : null, realtime ? "encoded-path" : null,
                 null, null, null, version, roomType, departureAt, null);
+    }
+
+    /** 방장이 departureAt 으로 약속을 확정한 실시간 방. members 앞쪽이 먼저 합류했고 첫 번째가 방장 */
+    private static Party confirmedParty(Instant departureAt, PartyStatus status, Long taxiDriverId, long version, PartyMember... members) {
+        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
+                new ArrayList<>(List.of(members)), members[0].getMemberId(), BASE_TIME, status, 12000, 25, "encoded-path",
+                taxiDriverId, null, null, version, RoomType.REALTIME, departureAt, null);
+    }
+
+    /** 아직 도착하지 않은 멤버. order 가 작을수록 먼저 합류했다 */
+    private static PartyMember waitingMember(Long memberId, int order) {
+        return PartyMember.load(memberId, BASE_TIME.plusSeconds(order));
+    }
+
+    /** 출발지에 도착한 멤버 */
+    private static PartyMember arrivedMember(Long memberId, int order) {
+        return PartyMember.load(memberId, BASE_TIME.plusSeconds(order), BASE_TIME.plusSeconds(3600), null, null);
+    }
+
+    private static PartyMember memberOf(Party party, Long memberId) {
+        return party.getMembers().stream()
+                .filter(m -> m.getMemberId().equals(memberId))
+                .findFirst()
+                .orElseThrow();
     }
 
     /** 신호는 커밋 후 실행기에 맡긴 작업 안에서만 나가야 한다 */

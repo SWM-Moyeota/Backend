@@ -52,10 +52,12 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     List<PartySummary> findSummariesWithinBounds(@Param("status") PartyStatus status, @Param("swLat") double swLat, @Param("neLat") double neLat,
                                                  @Param("swLng") double swLng, @Param("neLng") double neLng, Limit limit);
 
+    // 노쇼(무효로 돌린 노쇼는 빼고)는 타지 않은 사람이라 세지 않는다
     @Query("""
                     select m.memberId as memberId, count(m) as count
                     from PartyMemberEntity m
                     where m.memberId in :memberIds and m.party.status = :status
+                        and (m.noShowAt is null or m.noShowVoidedAt is not null)
                     group by m.memberId
             """)
     List<MemberRideCount> countByMemberIdsAndStatus(@Param("memberIds") Collection<Long> memberIds, @Param("status") PartyStatus status);

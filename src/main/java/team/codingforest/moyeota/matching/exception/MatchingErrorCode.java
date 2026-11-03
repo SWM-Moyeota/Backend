@@ -23,8 +23,14 @@ public enum MatchingErrorCode implements ErrorCode {
     NOT_REALTIME_PARTY(HttpStatus.CONFLICT, "실시간 방에서만 할 수 있습니다."),
     ALREADY_CONFIRMED(HttpStatus.CONFLICT, "이미 약속 시간을 확정한 방입니다."),
     CANNOT_LEAVE_CONFIRMED_PARTY(HttpStatus.CONFLICT, "약속이 확정된 방은 나갈 수 없습니다."),
-    RESERVATION_NOT_STARTED(HttpStatus.CONFLICT, "아직 출발 시간이 되지 않은 예약 방입니다."),
     RESERVATION_NOT_SUPPORTED(HttpStatus.CONFLICT, "지금은 예약 방을 만들 수 없습니다."),
+
+    // 출발지 도착·출발
+    PARTY_NOT_CONFIRMED(HttpStatus.CONFLICT, "약속 시간이 확정되지 않은 방입니다."),
+    MEETING_NOT_STARTED(HttpStatus.CONFLICT, "아직 약속 시간이 되지 않았습니다."),
+    TOO_FAR_FROM_DEPARTURE(HttpStatus.BAD_REQUEST, "출발지에서 100m 안에 있어야 합니다."),
+    NOT_ARRIVED(HttpStatus.CONFLICT, "출발지에 도착한 사람만 출발할 수 있습니다."),
+    USE_DEPART_FOR_CONFIRMED_PARTY(HttpStatus.CONFLICT, "약속이 확정된 방은 출발 버튼으로 끝냅니다."),
 
     // 매칭·배정·운행 상태
     PARTY_NOT_COMPLETED(HttpStatus.CONFLICT, "정원이 다 차지 않은 방입니다."),

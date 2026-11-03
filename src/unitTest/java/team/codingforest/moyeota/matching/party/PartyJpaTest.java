@@ -78,7 +78,9 @@ public class PartyJpaTest implements Parties {
         for(Party p : store.values()) {
             if(p.getStatus() != PartyStatus.FINISHED) continue;
             for(Long id : memberIds) {
-                if(p.hasMember(id)) counts.merge(id, 1, Integer::sum);
+                // 실제 쿼리처럼 노쇼(무효로 돌린 노쇼는 빼고)는 세지 않는다
+                boolean rode = p.getMembers().stream().anyMatch(m -> m.getMemberId().equals(id) && !m.isNoShow());
+                if(rode) counts.merge(id, 1, Integer::sum);
             }
         }
         return counts;
