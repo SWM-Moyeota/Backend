@@ -188,19 +188,19 @@ class SettlementControllerTest {
         String body = mvc.perform(get("/api/v1/drivers/me/settlements/{settlementId}", 정산서.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.settlementId").value(정산서.getId()))
-                .andExpect(jsonPath("$.date").value("2026-10-26"))
+                .andExpect(jsonPath("$.weekStart").value("2026-10-26"))
                 .andExpect(jsonPath("$.periodStart").value("2026-10-25T15:00:00Z"))
                 .andExpect(jsonPath("$.periodEnd").value("2026-11-01T15:00:00Z"))
                 .andExpect(jsonPath("$.amount").value(28500))
                 .andExpect(jsonPath("$.status").value("CONFIRMED"))
                 .andExpect(jsonPath("$.taxiDriverId").doesNotExist())
                 .andExpect(jsonPath("$.rides", hasSize(2)))
-                .andExpect(jsonPath("$.rides[0].partyId").value(1001L))
+                .andExpect(jsonPath("$.rides[0].paymentGroupId").value(1001L))
                 .andExpect(jsonPath("$.rides[0].totalFare").value(12000))
                 .andExpect(jsonPath("$.rides[0].platformPromotion").value(500))
                 .andExpect(jsonPath("$.rides[0].settlementAmount").value(12500))
                 .andExpect(jsonPath("$.rides[0].occurredAt").value(아침운행.toString()))
-                .andExpect(jsonPath("$.rides[1].partyId").value(1002L))
+                .andExpect(jsonPath("$.rides[1].paymentGroupId").value(1002L))
                 .andExpect(jsonPath("$.rides[1].settlementAmount").value(16000))
                 .andExpect(jsonPath("$.rides[1].occurredAt").value(저녁운행.toString()))
                 .andExpect(jsonPath("$.payout.status").value("SUCCEED"))
@@ -256,8 +256,8 @@ class SettlementControllerTest {
                 .andExpect(jsonPath("$.message").value("settlementId: 형식이 올바르지 않습니다."));
     }
 
-    private void 운행(Long taxiDriverId, Long partyId, int totalFare, int platformPromotion, Instant occurredAt) {
-        ledgers.save(SettlementLedger.record(taxiDriverId, partyId, totalFare, platformPromotion, occurredAt));
+    private void 운행(Long taxiDriverId, Long paymentGroupId, int totalFare, int platformPromotion, Instant occurredAt) {
+        ledgers.save(SettlementLedger.record(taxiDriverId, paymentGroupId, totalFare, platformPromotion, occurredAt));
     }
 
     private Settlement 정산서_생성(Long taxiDriverId, LocalDate date) {

@@ -3,7 +3,6 @@ package team.codingforest.moyeota.settlement.ledger;
 import org.springframework.dao.DataIntegrityViolationException;
 import team.codingforest.moyeota.settlement.ledger.domain.Settlement;
 import team.codingforest.moyeota.settlement.ledger.domain.SettlementPeriod;
-import team.codingforest.moyeota.settlement.ledger.domain.SettlementStatus;
 import team.codingforest.moyeota.settlement.ledger.domain.Settlements;
 
 import java.time.Instant;
@@ -58,9 +57,7 @@ public class FakeSettlements implements Settlements {
     @Override
     public List<Long> findUnpaidIds() {
         return store.values().stream()
-                .filter(s -> s.getStatus() == SettlementStatus.CONFIRMED
-                        || s.getStatus() == SettlementStatus.HOLD
-                        || s.getStatus() == SettlementStatus.FAILED)
+                .filter(Settlement::isUnpaid)
                 .map(Settlement::getId)
                 .sorted()
                 .toList();

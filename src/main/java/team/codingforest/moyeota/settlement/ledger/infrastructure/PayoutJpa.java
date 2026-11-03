@@ -14,8 +14,6 @@ import java.util.Optional;
 @Repository
 @RequiredArgsConstructor
 public class PayoutJpa implements Payouts {
-    private static final List<PayoutStatus> ACTIVE_STATUSES = List.of(PayoutStatus.REQUESTED, PayoutStatus.UNKNOWN, PayoutStatus.SUCCEED);
-
     private final PayoutJpaRepository payoutJpaRepository;
 
     @Override
@@ -45,7 +43,7 @@ public class PayoutJpa implements Payouts {
 
     @Override
     public boolean existsActiveBySettlementId(Long settlementId) {
-        return payoutJpaRepository.existsBySettlementIdAndStatusIn(settlementId, ACTIVE_STATUSES);
+        return payoutJpaRepository.existsBySettlementIdAndStatusIn(settlementId, Payout.ACTIVE_STATUSES);
     }
 
     @Override
@@ -60,7 +58,7 @@ public class PayoutJpa implements Payouts {
     }
 
     @Override
-    public List<Long> findStaleIds(Instant requestedBefore) {
-        return payoutJpaRepository.findStaleIds(PayoutStatus.REQUESTED, requestedBefore, PayoutStatus.UNKNOWN);
+    public List<Long> findIdsToReconcile(Instant requestedBefore) {
+        return payoutJpaRepository.findIdsToReconcile(PayoutStatus.REQUESTED, requestedBefore, PayoutStatus.UNKNOWN);
     }
 }

@@ -14,22 +14,22 @@ import java.time.LocalDate;
 import java.util.List;
 
 public record SettlementDetailResponse(@Schema(description = "정산서 ID") Long settlementId,
-                                       @Schema(description = "정산 주의 첫날 - 월요일(KST)", example = "2026-10-26") LocalDate date,
-                                       @Schema(description = "정산 기간 시작 - date(월요일) 00:00(KST). UTC 로 내려간다", example = "2026-10-25T15:00:00Z") Instant periodStart,
+                                       @Schema(description = "정산 주의 첫날 - 월요일(KST)", example = "2026-10-26") LocalDate weekStart,
+                                       @Schema(description = "정산 기간 시작 - weekStart(월요일) 00:00(KST). UTC 로 내려간다", example = "2026-10-25T15:00:00Z") Instant periodStart,
                                        @Schema(description = "정산 기간 끝(이 시각은 포함하지 않음) - 다음 월요일 00:00(KST). UTC 로 내려간다", example = "2026-11-01T15:00:00Z") Instant periodEnd,
                                        @Schema(description = "정산 금액(원) - rides 의 settlementAmount 합. 정산서를 만든 뒤에는 금액과 rides 가 바뀌지 않는다") int amount,
                                        @Schema(description = "정산 상태. CONFIRMED - 지급 대기 또는 지급 중 / HOLD - 지급 계좌가 없어 지급 보류 / PAID - 지급 완료 / FAILED - 지급 실패") SettlementStatus status,
                                        @Schema(description = "이 정산서에 담긴 운행별 정산 원장. 운행 종료 시각(occurredAt) 오름차순, 같으면 기록 순") List<LedgerItem> rides,
                                        @Schema(description = "가장 최근 지급 시도 1건. 지급을 시도한 적이 없으면 null") PayoutItem payout) {
 
-    public record LedgerItem(@Schema(description = "운행(방) ID - 탑승 기록의 partyId 와 같다") Long partyId,
-                             @Schema(description = "운행 요금(원) - 기사가 운행을 마칠 때 입력한 미터기 요금") int totalFare,
+    public record LedgerItem(@Schema(description = "결제 그룹 ID") Long paymentGroupId,
+                             @Schema(description = "운행 요금(원) - 기사가 입력한 미터기 요금(결제 그룹 총금액). 승객 결제 결과와 상관없이 이 금액으로 정산한다") int totalFare,
                              @Schema(description = "플랫폼 프로모션 금액(원) - 모여타가 운행 요금에 더해 기사에게 주는 금액. 없으면 0") int platformPromotion,
                              @Schema(description = "이 운행으로 기사가 받을 금액(원) = totalFare + platformPromotion. 수수료는 떼지 않는다") int settlementAmount,
-                             @Schema(description = "운행 종료 시각 - 기사가 요금을 입력해 운행을 마친 시각") Instant occurredAt) {
+                             @Schema(description = "운행 종료 시각 - 기사가 요금을 입력해 결제 그룹이 만들어진 시각") Instant occurredAt) {
 
         static LedgerItem of(SettlementLedger ledger) {
-            return new LedgerItem(ledger.getMatchId(), ledger.getTotalFare(), ledger.getPlatformPromotion(),
+            return new LedgerItem(ledger.getPaymentGroupId(), ledger.getTotalFare(), ledger.getPlatformPromotion(),
                     ledger.getSettlementAmount(), ledger.getOccurredAt());
         }
     }

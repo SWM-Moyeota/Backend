@@ -28,8 +28,8 @@ public class FakeSettlementLedgers implements SettlementLedgers {
         if(ledger.getId() != null) {
             throw new IllegalStateException("정산 원장은 고칠 수 없습니다. ledgerId=" + ledger.getId());
         }
-        if(existsByMatchId(ledger.getMatchId())) {
-            throw new DataIntegrityViolationException("uk_settlement_ledger_match: matchId=" + ledger.getMatchId());
+        if(existsByPaymentGroupId(ledger.getPaymentGroupId())) {
+            throw new DataIntegrityViolationException("uk_settlement_ledger_payment_group: paymentGroupId=" + ledger.getPaymentGroupId());
         }
 
         Long id = ++sequence;
@@ -39,8 +39,8 @@ public class FakeSettlementLedgers implements SettlementLedgers {
     }
 
     @Override
-    public boolean existsByMatchId(Long matchId) {
-        return store.values().stream().anyMatch(l -> l.getMatchId().equals(matchId));
+    public boolean existsByPaymentGroupId(Long paymentGroupId) {
+        return store.values().stream().anyMatch(l -> l.getPaymentGroupId().equals(paymentGroupId));
     }
 
     @Override
@@ -97,9 +97,9 @@ public class FakeSettlementLedgers implements SettlementLedgers {
                 .toList();
     }
 
-    public Optional<SettlementLedger> findByMatchId(Long matchId) {
+    public Optional<SettlementLedger> findByPaymentGroupId(Long paymentGroupId) {
         return store.values().stream()
-                .filter(l -> l.getMatchId().equals(matchId))
+                .filter(l -> l.getPaymentGroupId().equals(paymentGroupId))
                 .findFirst();
     }
 
@@ -108,7 +108,7 @@ public class FakeSettlementLedgers implements SettlementLedgers {
     }
 
     private static SettlementLedger withSettlement(SettlementLedger l, Long id, Long settlementId, Instant createdAt) {
-        return SettlementLedger.load(id, l.getTaxiDriverId(), settlementId, l.getMatchId(), l.getSettlementAmount(), l.getTotalFare(),
-                l.getPlatformPromotion(), l.getOccurredAt(), createdAt);
+        return SettlementLedger.load(id, l.getTaxiDriverId(), settlementId, l.getPaymentGroupId(), l.getSettlementAmount(),
+                l.getTotalFare(), l.getPlatformPromotion(), l.getOccurredAt(), createdAt);
     }
 }

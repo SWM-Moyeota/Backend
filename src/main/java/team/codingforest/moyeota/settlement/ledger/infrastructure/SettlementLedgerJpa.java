@@ -26,8 +26,8 @@ public class SettlementLedgerJpa implements SettlementLedgers {
     }
 
     @Override
-    public boolean existsByMatchId(Long matchId) {
-        return settlementLedgerJpaRepository.existsByMatchId(matchId);
+    public boolean existsByPaymentGroupId(Long paymentGroupId) {
+        return settlementLedgerJpaRepository.existsByPaymentGroupId(paymentGroupId);
     }
 
     @Override

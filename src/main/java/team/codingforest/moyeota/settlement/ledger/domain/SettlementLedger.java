@@ -11,19 +11,19 @@ public class SettlementLedger {
     private final Long id;
     private final Long taxiDriverId;
     private final Long settlementId;
-    private final Long matchId;
+    private final Long paymentGroupId;
     private final Integer settlementAmount;
     private final Integer totalFare;
     private final Integer platformPromotion;
     private final Instant occurredAt;
     private final Instant createdAt;
 
-    private SettlementLedger(Long id, Long taxiDriverId, Long settlementId, Long matchId, Integer settlementAmount,
+    private SettlementLedger(Long id, Long taxiDriverId, Long settlementId, Long paymentGroupId, Integer settlementAmount,
             Integer totalFare, Integer platformPromotion, Instant occurredAt, Instant createdAt) {
         this.id = id;
         this.taxiDriverId = taxiDriverId;
         this.settlementId = settlementId;
-        this.matchId = matchId;
+        this.paymentGroupId = paymentGroupId;
         this.settlementAmount = settlementAmount;
         this.totalFare = totalFare;
         this.platformPromotion = platformPromotion;
@@ -31,21 +31,21 @@ public class SettlementLedger {
         this.createdAt = createdAt;
     }
 
-    public static SettlementLedger record(Long taxiDriverId, Long matchId, int totalFare, int platformPromotion, Instant occurredAt) {
-        if(taxiDriverId == null || matchId == null || occurredAt == null) {
+    public static SettlementLedger record(Long taxiDriverId, Long paymentGroupId, int totalFare, int platformPromotion, Instant occurredAt) {
+        if(taxiDriverId == null || paymentGroupId == null || occurredAt == null) {
             throw new BusinessException(SettlementErrorCode.INVALID_SETTLEMENT_COMMAND);
         }
         if(totalFare <= 0) throw new BusinessException(SettlementErrorCode.INVALID_TOTAL_FARE);
         if(platformPromotion < 0) throw new BusinessException(SettlementErrorCode.INVALID_PLATFORM_PROMOTION);
 
         int settlementAmount = Math.addExact(totalFare, platformPromotion);
-        return new SettlementLedger(null, taxiDriverId, null, matchId, settlementAmount, totalFare, platformPromotion,
+        return new SettlementLedger(null, taxiDriverId, null, paymentGroupId, settlementAmount, totalFare, platformPromotion,
                 occurredAt.truncatedTo(ChronoUnit.MICROS), null);
     }
 
-    public static SettlementLedger load(Long id, Long taxiDriverId, Long settlementId, Long matchId, Integer settlementAmount,
+    public static SettlementLedger load(Long id, Long taxiDriverId, Long settlementId, Long paymentGroupId, Integer settlementAmount,
             Integer totalFare, Integer platformPromotion, Instant occurredAt, Instant createdAt) {
-        return new SettlementLedger(id, taxiDriverId, settlementId, matchId, settlementAmount, totalFare, platformPromotion,
+        return new SettlementLedger(id, taxiDriverId, settlementId, paymentGroupId, settlementAmount, totalFare, platformPromotion,
                 occurredAt, createdAt);
     }
 
@@ -61,8 +61,8 @@ public class SettlementLedger {
         return settlementId;
     }
 
-    public Long getMatchId() {
-        return matchId;
+    public Long getPaymentGroupId() {
+        return paymentGroupId;
     }
 
     public Integer getSettlementAmount() {

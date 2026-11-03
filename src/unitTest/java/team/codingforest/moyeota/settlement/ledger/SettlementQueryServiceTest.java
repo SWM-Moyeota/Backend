@@ -211,12 +211,12 @@ class SettlementQueryServiceTest {
         SettlementDetailResponse detail = service.findDetail(기사, 정산서.getId());
 
         assertThat(detail.settlementId()).isEqualTo(정산서.getId());
-        assertThat(detail.date()).isEqualTo(시월_26일_월요일);
+        assertThat(detail.weekStart()).isEqualTo(시월_26일_월요일);
         assertThat(detail.periodStart()).isEqualTo(Instant.parse("2026-10-25T15:00:00Z"));
         assertThat(detail.periodEnd()).isEqualTo(Instant.parse("2026-11-01T15:00:00Z"));
         assertThat(detail.amount()).isEqualTo(37500);
         assertThat(detail.status()).isEqualTo(SettlementStatus.CONFIRMED);
-        assertThat(detail.rides()).extracting(LedgerItem::partyId).containsExactly(1001L, 1002L, 1003L);
+        assertThat(detail.rides()).extracting(LedgerItem::paymentGroupId).containsExactly(1001L, 1002L, 1003L);
 
         LedgerItem 마지막운행 = detail.rides().getLast();
         assertThat(마지막운행.totalFare()).isEqualTo(15000);
@@ -292,11 +292,11 @@ class SettlementQueryServiceTest {
         SettlementDetailResponse detail = service.findDetail(기사, 정산서.getId());
 
         assertThat(detail.payout()).isNull();
-        assertThat(detail.rides()).extracting(LedgerItem::partyId).containsExactly(1001L);
+        assertThat(detail.rides()).extracting(LedgerItem::paymentGroupId).containsExactly(1001L);
     }
 
-    private void 운행(Long taxiDriverId, Long partyId, int totalFare, int platformPromotion, Instant occurredAt) {
-        ledgers.save(SettlementLedger.record(taxiDriverId, partyId, totalFare, platformPromotion, occurredAt));
+    private void 운행(Long taxiDriverId, Long paymentGroupId, int totalFare, int platformPromotion, Instant occurredAt) {
+        ledgers.save(SettlementLedger.record(taxiDriverId, paymentGroupId, totalFare, platformPromotion, occurredAt));
     }
 
     private Settlement 정산서_생성(Long taxiDriverId, LocalDate date) {

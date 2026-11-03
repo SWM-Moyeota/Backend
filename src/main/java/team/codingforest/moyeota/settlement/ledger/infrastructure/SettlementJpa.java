@@ -7,7 +7,6 @@ import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.settlement.exception.SettlementErrorCode;
 import team.codingforest.moyeota.settlement.ledger.domain.Settlement;
 import team.codingforest.moyeota.settlement.ledger.domain.SettlementPeriod;
-import team.codingforest.moyeota.settlement.ledger.domain.SettlementStatus;
 import team.codingforest.moyeota.settlement.ledger.domain.Settlements;
 
 import java.util.List;
@@ -16,8 +15,6 @@ import java.util.Optional;
 @Repository
 @RequiredArgsConstructor
 public class SettlementJpa implements Settlements {
-    private static final List<SettlementStatus> UNPAID_STATUSES = List.of(SettlementStatus.CONFIRMED, SettlementStatus.HOLD, SettlementStatus.FAILED);
-
     private final SettlementJpaRepository settlementJpaRepository;
 
     @Override
@@ -53,6 +50,6 @@ public class SettlementJpa implements Settlements {
 
     @Override
     public List<Long> findUnpaidIds() {
-        return settlementJpaRepository.findIdsByStatusIn(UNPAID_STATUSES);
+        return settlementJpaRepository.findIdsByStatusIn(Settlement.UNPAID_STATUSES);
     }
 }

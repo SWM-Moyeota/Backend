@@ -3,9 +3,10 @@ package team.codingforest.moyeota.settlement.ledger;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.settlement.api.SettlementAccess;
-import team.codingforest.moyeota.settlement.api.dto.RideSettlementCommand;
+import team.codingforest.moyeota.settlement.api.dto.PaymentGroupSettlementCommand;
 import team.codingforest.moyeota.settlement.ledger.domain.SettlementLedger;
 import team.codingforest.moyeota.settlement.ledger.domain.SettlementLedgers;
 
@@ -16,18 +17,19 @@ public class SettlementLedgerService implements SettlementAccess {
     private final SettlementLedgers ledgers;
 
     @Override
-    @Transactional
-    public void record(RideSettlementCommand command) {
-        SettlementLedger ledger = SettlementLedger.record(command.taxiDriverId(), command.partyId(), command.totalFare(),
-                command.platformPromotion(), command.occurredAt());
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void record(PaymentGroupSettlementCommand command) {
+        SettlementLedger ledger = SettlementLedger.record(command.taxiDriverId(), command.paymentGroupId(), command.totalFare(),
+                command.platformPromotion(), command.paymentGroupCreatedAt());
 
-        if(ledgers.existsByMatchId(ledger.getMatchId())) {
-            log.info("이미 정산 원장에 기록된 운행이라 건너뜀 matchId={}", ledger.getMatchId());
+        if(ledgers.existsByPaymentGroupId(ledger.getPaymentGroupId())) {
+            log.warn("이미 정산 원장에 기록된 결제 그룹이 다시 와서 처음 기록을 그대로 둠 paymentGroupId={}, driverId={}, amount={}, occurredAt={}",
+                    ledger.getPaymentGroupId(), ledger.getTaxiDriverId(), ledger.getSettlementAmount(), ledger.getOccurredAt());
             return;
         }
 
         ledgers.save(ledger);
-        log.info("미정산 원장 기록 matchId={}, driverId={}, amount={}, occurredAt={}",
-                ledger.getMatchId(), ledger.getTaxiDriverId(), ledger.getSettlementAmount(), ledger.getOccurredAt());
+        log.info("미정산 원장 기록 paymentGroupId={}, driverId={}, amount={}, occurredAt={}",
+                ledger.getPaymentGroupId(), ledger.getTaxiDriverId(), ledger.getSettlementAmount(), ledger.getOccurredAt());
     }
 }

@@ -18,7 +18,7 @@ import java.time.Instant;
 @Entity
 @Getter
 @Table(name = "settlement_ledger",
-        uniqueConstraints = @UniqueConstraint(name = "uk_settlement_ledger_match", columnNames = "match_id"))
+        uniqueConstraints = @UniqueConstraint(name = "uk_settlement_ledger_payment_group", columnNames = "payment_group_id"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SettlementLedgerEntity extends BaseCreatedTimeEntity {
 
@@ -32,8 +32,8 @@ public class SettlementLedgerEntity extends BaseCreatedTimeEntity {
     @Column(name = "settlement_id")
     private Long settlementId;
 
-    @Column(name = "match_id", nullable = false, updatable = false)
-    private Long matchId;
+    @Column(name = "payment_group_id", nullable = false, updatable = false)
+    private Long paymentGroupId;
 
     @Column(name = "settlement_amount", nullable = false, updatable = false)
     private Integer settlementAmount;
@@ -47,11 +47,11 @@ public class SettlementLedgerEntity extends BaseCreatedTimeEntity {
     @Column(name = "occurred_at", nullable = false, updatable = false)
     private Instant occurredAt;
 
-    private SettlementLedgerEntity(Long taxiDriverId, Long settlementId, Long matchId, Integer settlementAmount, Integer totalFare,
+    private SettlementLedgerEntity(Long taxiDriverId, Long settlementId, Long paymentGroupId, Integer settlementAmount, Integer totalFare,
                                    Integer platformPromotion, Instant occurredAt) {
         this.taxiDriverId = taxiDriverId;
         this.settlementId = settlementId;
-        this.matchId = matchId;
+        this.paymentGroupId = paymentGroupId;
         this.settlementAmount = settlementAmount;
         this.totalFare = totalFare;
         this.platformPromotion = platformPromotion;
@@ -59,12 +59,12 @@ public class SettlementLedgerEntity extends BaseCreatedTimeEntity {
     }
 
     public static SettlementLedgerEntity from(SettlementLedger ledger) {
-        return new SettlementLedgerEntity(ledger.getTaxiDriverId(), ledger.getSettlementId(), ledger.getMatchId(),
+        return new SettlementLedgerEntity(ledger.getTaxiDriverId(), ledger.getSettlementId(), ledger.getPaymentGroupId(),
                 ledger.getSettlementAmount(), ledger.getTotalFare(), ledger.getPlatformPromotion(), ledger.getOccurredAt());
     }
 
     public SettlementLedger toDomain() {
-        return SettlementLedger.load(id, taxiDriverId, settlementId, matchId, settlementAmount, totalFare, platformPromotion,
+        return SettlementLedger.load(id, taxiDriverId, settlementId, paymentGroupId, settlementAmount, totalFare, platformPromotion,
                 occurredAt, getCreatedAt());
     }
 }

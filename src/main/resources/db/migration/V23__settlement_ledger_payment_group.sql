@@ -1,0 +1,2 @@
+ALTER TABLE settlement_ledger RENAME COLUMN match_id TO payment_group_id;
+ALTER TABLE settlement_ledger RENAME CONSTRAINT uk_settlement_ledger_match TO uk_settlement_ledger_payment_group;
