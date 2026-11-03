@@ -28,6 +28,7 @@ public class Party {
     private final Radius departureRadius;
     private final Radius destinationRadius;
     private final List<PartyMember> members;
+    private Long hostId;
     private final Instant createdAt;
     private PartyStatus status;
     private final Integer estimatedFare;
@@ -45,7 +46,7 @@ public class Party {
      * 규칙 생성 -> 아무대서 Party 객체를 생성할 수 없게 하기
      */
     private Party(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius
-            ,String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status,
+            ,String departure, String destination, Capacity capacity, List<PartyMember> members, Long hostId, Instant createdAt, PartyStatus status,
                   Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version,
                   RoomType roomType, Instant departureAt, Instant reminderSentAt) {
         this.id = id;
@@ -57,6 +58,7 @@ public class Party {
         this.departureRadius = departureRadius;
         this.destinationRadius = destinationRadius;
         this.members = new ArrayList<>(members);
+        this.hostId = hostId;
         this.createdAt = createdAt;
         this.status = status;
         this.estimatedFare = estimatedFare;
@@ -84,7 +86,7 @@ public class Party {
 
         if(route == null) throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
 
-        Party party = new Party(null, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, new ArrayList<>(), createdAt, PartyStatus.ACTIVE,
+        Party party = new Party(null, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, new ArrayList<>(), creatorId, createdAt, PartyStatus.ACTIVE,
                 estimatedFare, estimatedTime, route, null, null, null, 0L, RoomType.REALTIME, null, null);
 
         party.members.add(new PartyMember(creatorId, Instant.now()));
@@ -103,7 +105,7 @@ public class Party {
 
         if(!departureAt.isAfter(createdAt) || departureAt.isAfter(createdAt.plus(MAX_RESERVATION_AHEAD))) throw new BusinessException(MatchingErrorCode.INVALID_DEPARTURE_TIME);
 
-        Party party = new Party(null, departureLocation, destinationLocation, Radius.DEFAULT, Radius.DEFAULT, departure, destination, capacity, new ArrayList<>(), createdAt, PartyStatus.ACTIVE,
+        Party party = new Party(null, departureLocation, destinationLocation, Radius.DEFAULT, Radius.DEFAULT, departure, destination, capacity, new ArrayList<>(), creatorId, createdAt, PartyStatus.ACTIVE,
                 null, null, null, null, null, null, 0L, RoomType.RESERVED, departureAt, null);
 
         party.members.add(new PartyMember(creatorId, Instant.now()));
@@ -149,10 +151,16 @@ public class Party {
 
         members.remove(tmp);
 
-        // 마지막 사용자도 나간 경우 방 없애기
+        // 마지막 사용자도 나간 경우 방 없애기 - 남은 멤버가 없으니 방장도 없다
         if(members.isEmpty()) {
             cancel();
+            hostId = null;
             return;
+        }
+
+        // 방장이 나가면 남은 멤버 중 가장 먼저 합류한 사람이 승계한다
+        if(memberId.equals(hostId)) {
+            hostId = earliestJoinedMemberId(members);
         }
 
         status = PartyStatus.ACTIVE;
@@ -218,17 +226,38 @@ public class Party {
     }
 
     /**
-     *  영속 복원용
+     *  영속 복원용. 저장된 방장이 비었거나(구버전 서버가 만든 방) 현재 멤버가 아니면(구버전 서버가 처리한 퇴장) 승계 규칙으로 다시 정한다.
+     *  배포 중 구버전과 섞여 도는 동안에만 생길 수 있는 어긋남이고, 다음 저장 때 컬럼도 이 값으로 고쳐진다
      */
-    public static Party load(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status,
+    public static Party load(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Long hostId, Instant createdAt, PartyStatus status,
                              Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version,
                              RoomType roomType, Instant departureAt, Instant reminderSentAt) {
-        return new Party(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, createdAt, status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, roomType, departureAt, reminderSentAt);
+        return new Party(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, restoreHostId(members, hostId), createdAt, status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, roomType, departureAt, reminderSentAt);
     }
 
+    /**
+     *  host_id 컬럼이 생기기 전 모양(실시간 방). 방장은 승계 규칙(= V25 백필 규칙)으로 멤버 목록에서 정한다
+     */
     public static Party load(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status,
                                     Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version) {
-        return load(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, createdAt, status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, RoomType.REALTIME, null, null);
+        return load(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, null, createdAt, status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, RoomType.REALTIME, null, null);
+    }
+
+    private static Long restoreHostId(List<PartyMember> members, Long storedHostId) {
+        boolean stillMember = storedHostId != null && members.stream().anyMatch(m -> m.getMemberId().equals(storedHostId));
+
+        return stillMember ? storedHostId : earliestJoinedMemberId(members);
+    }
+
+    /**
+     *  승계 규칙 - 가장 먼저 합류한 멤버, 합류 시각이 같으면 memberId 가 작은 멤버. 멤버가 없으면 null
+     */
+    private static Long earliestJoinedMemberId(List<PartyMember> members) {
+        return members.stream()
+                .min(Comparator.comparing(PartyMember::getJoinedAt)
+                        .thenComparing(PartyMember::getMemberId))
+                .map(PartyMember::getMemberId)
+                .orElse(null);
     }
 
     /**
@@ -291,19 +320,16 @@ public class Party {
     }
 
     /**
-     *  방장 = 가장 먼저 합류한 현재 멤버. 방장이 나가면 다음으로 이른 멤버가 승계된다
+     *  방장 userId (match_room.host_id). 방을 만든 사람이 방장이고, 방장이 나가면 남은 멤버 중 가장 먼저 합류한 사람이 승계한다.
+     *  마지막 멤버까지 나가 멤버가 없는 방은 null
      */
     public Long hostId() {
-        return members.stream()
-                .min(Comparator.comparing(PartyMember::getJoinedAt)
-                        .thenComparing(PartyMember::getMemberId))
-                .map(PartyMember::getMemberId)
-                .orElseThrow(() -> new IllegalStateException("방에 멤버가 없습니다"));
+        return hostId;
     }
 
     /** 방장 판별은 이 메소드로만 한다 - 밖에서 hostId 를 꺼내 비교하지 않기 */
     public boolean isHost(Long memberId) {
-        return !members.isEmpty() && hostId().equals(memberId);
+        return hostId != null && hostId.equals(memberId);
     }
 
     public void finishWithoutDriver(Long memberId) {

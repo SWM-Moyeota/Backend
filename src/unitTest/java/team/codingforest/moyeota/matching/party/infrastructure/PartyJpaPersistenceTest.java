@@ -460,6 +460,79 @@ class PartyJpaPersistenceTest {
         assertThat(parties.existsOngoingByMemberId(1L)).isFalse();
     }
 
+    // ───────────────────────── 방장 ─────────────────────────
+
+    /** 도메인 복원은 비거나 어긋난 host_id 를 승계 규칙으로 메워 준다 - 컬럼에 실제로 저장됐는지는 엔티티에서 직접 본다 */
+    private Long storedHostId(Long partyId) {
+        return repository.findById(partyId).orElseThrow().getHostId();
+    }
+
+    @Test
+    void 방을_만든_사람이_방장으로_저장되고_복원된다() {
+        Long 실시간 = realtime(1L).getId();
+        Long 예약 = reserve(2L, 뒤(Duration.ofDays(1))).getId();
+        clearContext();
+
+        assertThat(storedHostId(실시간)).isEqualTo(1L);
+        assertThat(storedHostId(예약)).isEqualTo(2L);
+        assertThat(parties.findById(실시간).orElseThrow().hostId()).isEqualTo(1L);
+        assertThat(parties.findById(예약).orElseThrow().hostId()).isEqualTo(2L);
+    }
+
+    @Test
+    void 복원은_계산하지_않고_저장된_방장을_쓴다() {
+        // 승계 규칙(가장 먼저 합류한 1L)과 다른 값을 넣어 두어야 컬럼에서 읽었는지 구분된다
+        Party saved = openAndSave();
+        saved.join(2L);
+        parties.save(saved);
+        em.flush();
+        em.getEntityManager().createNativeQuery("UPDATE match_room SET host_id = 2 WHERE id = :id")
+                .setParameter("id", saved.getId())
+                .executeUpdate();
+        em.clear();
+
+        assertThat(parties.findById(saved.getId()).orElseThrow().hostId()).isEqualTo(2L);
+    }
+
+    @Test
+    void 방장이_나가면_승계된_방장이_저장된다() {
+        Party saved = openAndSave();   // 1L 이 방장
+        saved.join(2L);
+        saved.join(3L);
+        parties.save(saved);
+
+        saved.leave(1L);
+        parties.save(saved);
+        clearContext();
+
+        assertThat(storedHostId(saved.getId())).isEqualTo(2L);
+        assertThat(parties.findById(saved.getId()).orElseThrow().hostId()).isEqualTo(2L);
+    }
+
+    @Test
+    void 방장이_아닌_멤버가_나가면_저장된_방장은_그대로다() {
+        Party saved = openAndSave();
+        saved.join(2L);
+        parties.save(saved);
+
+        saved.leave(2L);
+        parties.save(saved);
+        clearContext();
+
+        assertThat(storedHostId(saved.getId())).isEqualTo(1L);
+    }
+
+    @Test
+    void 마지막_멤버가_나가면_저장된_방장이_비워진다() {
+        Party saved = openAndSave();
+
+        saved.leave(1L);
+        parties.save(saved);
+        clearContext();
+
+        assertThat(storedHostId(saved.getId())).isNull();
+    }
+
     // ───────────────────────── 탑승 횟수 집계 ─────────────────────────
 
     /** 1L·2L·3L 이 탄 방을 FINISHED 까지 진행해 저장한다 */
