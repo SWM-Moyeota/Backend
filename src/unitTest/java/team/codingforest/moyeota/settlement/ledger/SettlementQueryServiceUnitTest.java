@@ -311,7 +311,7 @@ class SettlementQueryServiceUnitTest {
          * verify
          */
         assertThat(response.settlementId()).isEqualTo(SETTLEMENT_ID);
-        assertThat(response.date()).isEqualTo(LocalDate.of(2026, 10, 19));
+        assertThat(response.weekStart()).isEqualTo(LocalDate.of(2026, 10, 19));
         assertThat(response.periodStart()).isEqualTo(Instant.parse("2026-10-18T15:00:00Z"));
         assertThat(response.periodEnd()).isEqualTo(Instant.parse("2026-10-25T15:00:00Z"));
         assertThat(response.amount()).isEqualTo(28500);
@@ -515,8 +515,8 @@ class SettlementQueryServiceUnitTest {
         return Settlement.load(SETTLEMENT_ID, driverId, WEEK.start(), WEEK.end(), amount, status, null, null);
     }
 
-    private static SettlementLedger ledger(Long matchId, int totalFare, int platformPromotion, Instant occurredAt) {
-        return SettlementLedger.load(matchId, DRIVER_ID, SETTLEMENT_ID, matchId, totalFare + platformPromotion, totalFare,
+    private static SettlementLedger ledger(Long paymentGroupId, int totalFare, int platformPromotion, Instant occurredAt) {
+        return SettlementLedger.load(paymentGroupId, DRIVER_ID, SETTLEMENT_ID, paymentGroupId, totalFare + platformPromotion, totalFare,
                 platformPromotion, occurredAt, null);
     }
 

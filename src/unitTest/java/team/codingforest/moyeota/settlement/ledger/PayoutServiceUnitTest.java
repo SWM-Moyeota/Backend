@@ -358,7 +358,7 @@ class PayoutServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of()).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of()).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
 
         /*
          * test
@@ -368,7 +368,7 @@ class PayoutServiceUnitTest {
         /*
          * verify
          */
-        verify(payouts).findStaleIds(eq(Instant.parse("2026-10-31T00:50:00Z")));
+        verify(payouts).findIdsToReconcile(eq(Instant.parse("2026-10-31T00:50:00Z")));
         verifyNoInteractions(gateway, recorder);
     }
 
@@ -395,7 +395,7 @@ class PayoutServiceUnitTest {
         /*
          * settings
          */
-        doThrow(new IllegalStateException("DB 오류")).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doThrow(new IllegalStateException("DB 오류")).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
 
         /*
          * test
@@ -417,7 +417,7 @@ class PayoutServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.empty()).when(payouts).findById(eq(PAYOUT_ID));
 
         /*
@@ -439,7 +439,7 @@ class PayoutServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, status, OLD))).when(payouts).findById(eq(PAYOUT_ID));
 
         /*
@@ -462,7 +462,7 @@ class PayoutServiceUnitTest {
          * settings
          */
         PayoutResult succeeded = new PayoutResult.Succeeded("pg-1");
-        doReturn(List.of(PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, status, OLD))).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.of(succeeded)).when(gateway).find(eq(PAYOUT_KEY));
 
@@ -486,7 +486,7 @@ class PayoutServiceUnitTest {
          * settings
          */
         PayoutResult failed = new PayoutResult.Failed("계좌 없음");
-        doReturn(List.of(PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, PayoutStatus.UNKNOWN, OLD))).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.of(failed)).when(gateway).find(eq(PAYOUT_KEY));
 
@@ -510,7 +510,7 @@ class PayoutServiceUnitTest {
          * settings
          */
         PayoutResult unknown = new PayoutResult.Unknown("처리 중");
-        doReturn(List.of(PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, PayoutStatus.REQUESTED, OLD))).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.of(unknown)).when(gateway).find(eq(PAYOUT_KEY));
 
@@ -535,7 +535,7 @@ class PayoutServiceUnitTest {
          * settings
          */
         PayoutResult succeeded = new PayoutResult.Succeeded("pg-1");
-        doReturn(List.of(PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, status, OLD))).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.empty()).when(gateway).find(eq(PAYOUT_KEY));
         doReturn(succeeded).when(gateway).request(eq(ORDER));
@@ -562,7 +562,7 @@ class PayoutServiceUnitTest {
          * settings
          */
         PayoutResult succeeded = new PayoutResult.Succeeded("pg-1");
-        doReturn(List.of(PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, PayoutStatus.UNKNOWN, STALE_BEFORE.minusNanos(1)))).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.empty()).when(gateway).find(eq(PAYOUT_KEY));
         doReturn(succeeded).when(gateway).request(eq(ORDER));
@@ -586,7 +586,7 @@ class PayoutServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, PayoutStatus.UNKNOWN, STALE_BEFORE))).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.empty()).when(gateway).find(eq(PAYOUT_KEY));
 
@@ -609,7 +609,7 @@ class PayoutServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, PayoutStatus.UNKNOWN, STALE_BEFORE.plusNanos(1)))).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.empty()).when(gateway).find(eq(PAYOUT_KEY));
 
@@ -633,7 +633,7 @@ class PayoutServiceUnitTest {
          * settings
          */
         PayoutResult failed = new PayoutResult.Failed("계좌 없음");
-        doReturn(List.of(PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, PayoutStatus.UNKNOWN, OLD))).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.empty()).when(gateway).find(eq(PAYOUT_KEY));
         doReturn(failed).when(gateway).request(eq(ORDER));
@@ -656,7 +656,7 @@ class PayoutServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, PayoutStatus.UNKNOWN, OLD))).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.empty()).when(gateway).find(eq(PAYOUT_KEY));
         doReturn(null).when(gateway).request(eq(ORDER));
@@ -679,7 +679,7 @@ class PayoutServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, PayoutStatus.UNKNOWN, OLD))).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.empty()).when(gateway).find(eq(PAYOUT_KEY));
         doThrow(new IllegalArgumentException("잘못된 요청")).when(gateway).request(eq(ORDER));
@@ -704,7 +704,7 @@ class PayoutServiceUnitTest {
          * settings
          */
         PayoutResult succeeded = new PayoutResult.Succeeded("pg-2");
-        doReturn(List.of(PAYOUT_ID, NEXT_PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID, NEXT_PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doThrow(new IllegalStateException("DB 오류")).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.of(payout(NEXT_PAYOUT_ID, PayoutStatus.UNKNOWN, OLD))).when(payouts).findById(eq(NEXT_PAYOUT_ID));
         doReturn(Optional.of(succeeded)).when(gateway).find(eq(NEXT_PAYOUT_KEY));
@@ -729,7 +729,7 @@ class PayoutServiceUnitTest {
          * settings
          */
         PayoutResult succeeded = new PayoutResult.Succeeded("pg-2");
-        doReturn(List.of(PAYOUT_ID, NEXT_PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID, NEXT_PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, PayoutStatus.UNKNOWN, OLD))).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.of(payout(NEXT_PAYOUT_ID, PayoutStatus.UNKNOWN, OLD))).when(payouts).findById(eq(NEXT_PAYOUT_ID));
         doThrow(new IllegalStateException("타임아웃")).when(gateway).find(eq(PAYOUT_KEY));
@@ -757,7 +757,7 @@ class PayoutServiceUnitTest {
          */
         PayoutResult first = new PayoutResult.Succeeded("pg-1");
         PayoutResult second = new PayoutResult.Succeeded("pg-2");
-        doReturn(List.of(PAYOUT_ID, NEXT_PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID, NEXT_PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, PayoutStatus.UNKNOWN, OLD))).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.of(payout(NEXT_PAYOUT_ID, PayoutStatus.UNKNOWN, OLD))).when(payouts).findById(eq(NEXT_PAYOUT_ID));
         doReturn(Optional.of(first)).when(gateway).find(eq(PAYOUT_KEY));
@@ -785,7 +785,7 @@ class PayoutServiceUnitTest {
          */
         PayoutResult first = new PayoutResult.Succeeded("pg-1");
         PayoutResult second = new PayoutResult.Succeeded("pg-2");
-        doReturn(List.of(PAYOUT_ID, NEXT_PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID, NEXT_PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, PayoutStatus.UNKNOWN, OLD))).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.of(payout(NEXT_PAYOUT_ID, PayoutStatus.UNKNOWN, OLD))).when(payouts).findById(eq(NEXT_PAYOUT_ID));
         doReturn(Optional.empty()).when(gateway).find(eq(PAYOUT_KEY));
@@ -813,7 +813,7 @@ class PayoutServiceUnitTest {
          * settings
          */
         PayoutResult succeeded = new PayoutResult.Succeeded("pg-2");
-        doReturn(List.of(PAYOUT_ID, NEXT_PAYOUT_ID)).when(payouts).findStaleIds(eq(STALE_BEFORE));
+        doReturn(List.of(PAYOUT_ID, NEXT_PAYOUT_ID)).when(payouts).findIdsToReconcile(eq(STALE_BEFORE));
         doReturn(Optional.of(payout(PAYOUT_ID, PayoutStatus.UNKNOWN, null))).when(payouts).findById(eq(PAYOUT_ID));
         doReturn(Optional.of(payout(NEXT_PAYOUT_ID, PayoutStatus.UNKNOWN, OLD))).when(payouts).findById(eq(NEXT_PAYOUT_ID));
         doReturn(Optional.empty()).when(gateway).find(eq(PAYOUT_KEY));
