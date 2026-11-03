@@ -37,7 +37,7 @@ class PartyControllerTest {
                 new PartyServiceTest.FakeDriverAccess(), new FakeUserAccess(), policy,
                 (name, task) -> task.run(), new PartyServiceTest.RecordingPartyChangeNotifier(),
                 new PartyServiceTest.FakeWalkRouteFinder(), new FakeRideRecords(new PartyJpaTest()),
-                new PartyOpener(parties, events, policy));
+                new PartyOpener(parties, events, policy), new FakeNoShowPenalty());
 
         mvc = MockMvcBuilders.standaloneSetup(new PartyController(service))
                 .setCustomArgumentResolvers(new StubCurrentUserResolver())

@@ -41,6 +41,7 @@ import team.codingforest.moyeota.matching.party.dto.MemberJoined;
 import team.codingforest.moyeota.matching.party.dto.MemberLeft;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
+import team.codingforest.moyeota.matching.party.dto.OpenReservationCommand;
 import team.codingforest.moyeota.matching.party.dto.PartyClosed;
 import team.codingforest.moyeota.matching.party.dto.PartyConfirmed;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
@@ -55,6 +56,7 @@ import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
 import team.codingforest.moyeota.matching.route.domain.WalkRouteFinder;
 import team.codingforest.moyeota.matching.route.domain.WalkingEstimate;
 import team.codingforest.moyeota.user.api.MemberSummary;
+import team.codingforest.moyeota.user.api.NoShowPenalty;
 import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.time.Duration;
@@ -130,6 +132,8 @@ class PartyServiceUnitTest {
     private RideRecords rideRecords;
     @Mock
     private PartyOpener partyOpener;
+    @Mock
+    private NoShowPenalty noShowPenalty;
 
     @InjectMocks
     private PartyService partyService;
@@ -2173,10 +2177,284 @@ class PartyServiceUnitTest {
         assertBusinessException(thrown, MatchingErrorCode.ROUTE_SEARCH_FAILED);
     }
 
+    // ───────────────────────── 노쇼 제재 ─────────────────────────
+
+    @DisplayName("open - 노쇼로 이용 제한 중이면 NO_SHOW_RESTRICTED 이고 진행 중 방 확인·경로 조회(네이버)·저장을 하지 않는다")
+    @Test
+    void open_noShowRestricted() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(Instant.now().plus(Duration.ofHours(3)))).when(noShowPenalty).findRestrictedUntil(eq(HOST_ID), any(Instant.class));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> partyService.open(openCommand(3)));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.NO_SHOW_RESTRICTED);
+        verifyNoInteractions(parties, routeService, partyOpener);
+    }
+
+    @DisplayName("open - 제한 확인을 진행 중 방 확인·경로 조회보다 먼저 한다")
+    @Test
+    void open_checksRestrictionFirst() {
+
+        /*
+         * settings
+         */
+        OpenPartyCommand command = openCommand(3);
+        PartyResult opened = PartyResult.from(party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID));
+        doReturn(ESTIMATE).when(routeService).estimate(eq(DEPARTURE_LAT), eq(DEPARTURE_LNG), eq(DESTINATION_LAT), eq(DESTINATION_LNG));
+        doReturn(opened).when(partyOpener).open(eq(command), eq(ESTIMATE));
+
+        /*
+         * test
+         */
+        partyService.open(command);
+
+        /*
+         * verify
+         */
+        InOrder order = inOrder(noShowPenalty, parties, routeService, partyOpener);
+        order.verify(noShowPenalty).findRestrictedUntil(eq(HOST_ID), any(Instant.class));
+        order.verify(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
+        order.verify(routeService).estimate(eq(DEPARTURE_LAT), eq(DEPARTURE_LNG), eq(DESTINATION_LAT), eq(DESTINATION_LNG));
+        order.verify(partyOpener).open(eq(command), eq(ESTIMATE));
+    }
+
+    @DisplayName("reserve - 노쇼로 이용 제한 중이면 NO_SHOW_RESTRICTED 이고 PartyOpener 에 맡기지 않는다")
+    @Test
+    void reserve_noShowRestricted() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(Instant.now().plus(Duration.ofHours(3)))).when(noShowPenalty).findRestrictedUntil(eq(HOST_ID), any(Instant.class));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> partyService.reserve(reservationCommand()));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.NO_SHOW_RESTRICTED);
+        verifyNoInteractions(partyOpener, parties);
+    }
+
+    @DisplayName("reserve - 제한이 없으면 제한을 확인한 뒤 PartyOpener 에 맡긴다")
+    @Test
+    void reserve() {
+
+        /*
+         * settings
+         */
+        OpenReservationCommand command = reservationCommand();
+        PartyResult reserved = PartyResult.from(party(RoomType.RESERVED, command.departureAt(), PartyStatus.ACTIVE, 3, 0L, HOST_ID));
+        doReturn(reserved).when(partyOpener).reserve(eq(command));
+
+        /*
+         * test
+         */
+        PartyResult result = partyService.reserve(command);
+
+        /*
+         * verify
+         */
+        assertThat(result).isSameAs(reserved);
+        InOrder order = inOrder(noShowPenalty, partyOpener);
+        order.verify(noShowPenalty).findRestrictedUntil(eq(HOST_ID), any(Instant.class));
+        order.verify(partyOpener).reserve(eq(command));
+    }
+
+    @DisplayName("join - 노쇼로 이용 제한 중이면 NO_SHOW_RESTRICTED 이고 사용자 잠금·방 조회 전에 끊는다")
+    @Test
+    void join_noShowRestricted() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(Instant.now().plus(Duration.ofHours(3)))).when(noShowPenalty).findRestrictedUntil(eq(MEMBER_ID), any(Instant.class));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> partyService.join(PARTY_ID, MEMBER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.NO_SHOW_RESTRICTED);
+        verifyNoInteractions(parties, userAccess, eventPublisher, afterCommitExecutor, partyChangeNotifier);
+    }
+
+    @DisplayName("depart - 노쇼로 찍힌 멤버마다 방의 약속 시간으로 제재를 더한다(방 저장 뒤, 같은 시각, userId 오름차순)")
+    @Test
+    void depart_penalizesNoShows() {
+
+        /*
+         * settings
+         */
+        Instant meetingAt = Instant.now().minus(Duration.ofMinutes(5));
+        // THIRD_ID 가 먼저 합류했지만 제재는 userId 오름차순(MEMBER_ID → THIRD_ID)으로 매겨 users 행 잠금 순서를 고정한다
+        Party party = confirmedParty(meetingAt, PartyStatus.COMPLETED, null, 6L,
+                arrivedMember(HOST_ID, 0), waitingMember(THIRD_ID, 1), waitingMember(MEMBER_ID, 2));
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        partyService.depart(PARTY_ID, HOST_ID);
+
+        /*
+         * verify
+         */
+        Instant noShowAt = memberOf(party, MEMBER_ID).getNoShowAt();
+        assertThat(memberOf(party, THIRD_ID).getNoShowAt()).isEqualTo(noShowAt);
+
+        InOrder order = inOrder(parties, noShowPenalty);
+        order.verify(parties).save(eq(party));
+        order.verify(noShowPenalty).record(eq(MEMBER_ID), eq(meetingAt), eq(noShowAt));
+        order.verify(noShowPenalty).record(eq(THIRD_ID), eq(meetingAt), eq(noShowAt));
+        verify(noShowPenalty, never()).record(eq(HOST_ID), any(), any());
+        verify(noShowPenalty, never()).cancel(any(), any());
+    }
+
+    @DisplayName("depart - 모두 도착했으면 제재가 없다")
+    @Test
+    void depart_everyoneArrived_noPenalty() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 0L,
+                arrivedMember(HOST_ID, 0), arrivedMember(MEMBER_ID, 1));
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        partyService.depart(PARTY_ID, HOST_ID);
+
+        /*
+         * verify
+         */
+        verifyNoInteractions(noShowPenalty);
+    }
+
+    @DisplayName("depart - 출발이 거절되면(누른 사람이 도착 전) 노쇼도 제재도 없다")
+    @Test
+    void depart_rejected_noPenalty() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 0L,
+                arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1));
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> partyService.depart(PARTY_ID, MEMBER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.NOT_ARRIVED);
+        verifyNoInteractions(noShowPenalty);
+    }
+
+    @DisplayName("autoClose - 노쇼로 찍힌 멤버마다 방의 약속 시간으로 제재를 더한다")
+    @Test
+    void autoClose_penalizesNoShows() {
+
+        /*
+         * settings
+         */
+        Instant meetingAt = Instant.now().minus(Duration.ofDays(1));
+        Party party = confirmedParty(meetingAt, PartyStatus.COMPLETED, null, 6L,
+                arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1), waitingMember(THIRD_ID, 2));
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        List<Long> noShowMemberIds = partyService.autoClose(PARTY_ID);
+
+        /*
+         * verify
+         */
+        assertThat(noShowMemberIds).containsExactly(MEMBER_ID, THIRD_ID);
+        Instant noShowAt = memberOf(party, MEMBER_ID).getNoShowAt();
+
+        InOrder order = inOrder(parties, noShowPenalty);
+        order.verify(parties).save(eq(party));
+        order.verify(noShowPenalty).record(eq(MEMBER_ID), eq(meetingAt), eq(noShowAt));
+        order.verify(noShowPenalty).record(eq(THIRD_ID), eq(meetingAt), eq(noShowAt));
+        verify(noShowPenalty, never()).record(eq(HOST_ID), any(), any());
+    }
+
+    @DisplayName("autoClose - 예약 방은 출발 시각을 약속 시간으로 제재한다(전원 노쇼면 전원)")
+    @Test
+    void autoClose_reservation_penalizesWithDepartureAt() {
+
+        /*
+         * settings
+         */
+        Instant departureAt = Instant.now().minus(Duration.ofDays(1));
+        Party party = party(RoomType.RESERVED, departureAt, PartyStatus.COMPLETED, 3, 2L, HOST_ID, MEMBER_ID);
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        partyService.autoClose(PARTY_ID);
+
+        /*
+         * verify
+         */
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.CANCELED);
+        verify(noShowPenalty).record(eq(HOST_ID), eq(departureAt), any(Instant.class));
+        verify(noShowPenalty).record(eq(MEMBER_ID), eq(departureAt), any(Instant.class));
+    }
+
+    @DisplayName("autoClose - 약속을 정하지 않은 방은 노쇼가 없어 제재도 없다")
+    @Test
+    void autoClose_unconfirmed_noPenalty() {
+
+        /*
+         * settings
+         */
+        Party party = party(PartyStatus.COMPLETED, 3, null, 0L, HOST_ID, MEMBER_ID);
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        partyService.autoClose(PARTY_ID);
+
+        /*
+         * verify
+         */
+        verifyNoInteractions(noShowPenalty);
+    }
+
     // ───────────────────────── 공통 도우미 ─────────────────────────
 
     private static OpenPartyCommand openCommand(int capacity) {
         return new OpenPartyCommand(HOST_ID, DEPARTURE_LAT, DEPARTURE_LNG, DESTINATION_LAT, DESTINATION_LNG, "강남역", "판교역", capacity);
+    }
+
+    private static OpenReservationCommand reservationCommand() {
+        return new OpenReservationCommand(HOST_ID, DEPARTURE_LAT, DEPARTURE_LNG, DESTINATION_LAT, DESTINATION_LNG, "강남역", "판교역", 3,
+                Instant.now().plus(Duration.ofDays(1)));
     }
 
     private static RealTimeMatchingCommand realtimeCommand() {

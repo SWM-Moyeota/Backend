@@ -86,3 +86,26 @@ Content-Type: application/json
 
 ### 9. 출발 - 도착한 멤버가 약속 시간 뒤에 누르면 방이 끝나고, 도착하지 않은 멤버는 노쇼로 남는다
 POST {{host}}/api/v1/matching/rooms/1/depart
+
+### 10. 내 노쇼 기록 - 노쇼 시각 최신순 최대 20개, 무효(voided)·이의 상태(objectionStatus) 포함
+GET {{host}}/api/v1/matching/no-shows
+
+### 11. 노쇼 이의 신청 - 이 방에서 노쇼인 멤버가 방마다 한 번. 201, 본문 없음
+POST {{host}}/api/v1/matching/rooms/1/no-show-objection
+Content-Type: application/json
+
+{
+  "reason": "약속 장소에 도착했는데 도착 버튼이 눌리지 않았습니다."
+}
+
+### 12. (운영자) 이의 신청 목록 - X-Operator-Token 은 서버 설정 OPERATOR_TOKEN. 값을 이 파일에 적어 커밋하지 않는다
+GET {{host}}/api/v1/operator/no-show-objections?status=PENDING
+X-Operator-Token: {{operatorToken}}
+
+### 13. (운영자) 이의 인정 - 노쇼 무효, 누적 횟수 -1, 지금 걸린 제한 해제
+POST {{host}}/api/v1/operator/no-show-objections/1/accept
+X-Operator-Token: {{operatorToken}}
+
+### 14. (운영자) 이의 거절
+POST {{host}}/api/v1/operator/no-show-objections/1/reject
+X-Operator-Token: {{operatorToken}}
