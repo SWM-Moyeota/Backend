@@ -1,8 +1,12 @@
-package team.codingforest.moyeota.settlement.common.toss;
+package team.codingforest.moyeota.settlement.ledger.infrastructure.toss;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
+import team.codingforest.moyeota.settlement.common.toss.TossPayoutClient;
+import team.codingforest.moyeota.settlement.common.toss.TossPayoutException;
 import team.codingforest.moyeota.settlement.ledger.domain.PayoutGateway;
 import team.codingforest.moyeota.settlement.ledger.domain.PayoutOrder;
 import team.codingforest.moyeota.settlement.ledger.domain.PayoutResult;
@@ -13,6 +17,8 @@ import java.util.Set;
 /**
  * 지급 포트를 토스 지급대행 지급 API 로 구현함. 지급 키를 refPayoutId 와 멱등키로 같이 써서 다시 보내도 지급이 하나만 생기게 함
  */
+@ConditionalOnProperty(prefix = "moyeota.settlement.toss", name = "enabled", havingValue = "true")
+@Component
 @RequiredArgsConstructor
 public class TossPayoutGateway implements PayoutGateway {
     private static final String PAYOUTS = "/v2/payouts";
