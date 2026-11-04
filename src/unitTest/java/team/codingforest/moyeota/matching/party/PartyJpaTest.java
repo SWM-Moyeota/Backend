@@ -33,7 +33,7 @@ public class PartyJpaTest implements Parties {
                 party.getDepartureLocation(), party.getDestinationLocation(),
                 party.getDepartureRadius(), party.getDestinationRadius(),
                 party.getDeparture(), party.getDestination(), party.getCapacity(),
-                party.getMembers(), party.getCreatedAt(), party.getStatus(),
+                party.getMembers(), party.hostId(), party.getCreatedAt(), party.getStatus(),
                 party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getTaxiDriverId(), party.getMatchingStartedAt(), party.getCompletedAt(), party.getVersion(),
                 party.getRoomType(), party.getDepartureAt(), party.getReminderSentAt());
 

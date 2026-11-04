@@ -70,6 +70,10 @@ public class PartyEntity extends BaseTimeEntity {
     @OrderBy("joinedAt ASC, memberId ASC")
     private List<PartyMemberEntity> members = new ArrayList<>();
 
+    // 멤버가 없는 방(마지막 멤버가 나가 취소된 방)은 방장도 없어 NULL
+    @Column(name = "host_id")
+    private Long hostId;
+
     @Enumerated(EnumType.STRING)
     private PartyStatus status;
 
@@ -107,7 +111,7 @@ public class PartyEntity extends BaseTimeEntity {
     protected PartyEntity() {}
 
     private PartyEntity(Double departureLat, Double departureLng, Double destinationLat, Double destinationLng, String departure,
-                       String destination, Integer capacity, Integer departureRadius, Integer destinationRadius, PartyStatus status,
+                       String destination, Integer capacity, Integer departureRadius, Integer destinationRadius, Long hostId, PartyStatus status,
                         Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version,
                         RoomType roomType, Instant departureAt, Instant reminderSentAt) {
         this.departureLat = departureLat;
@@ -119,6 +123,7 @@ public class PartyEntity extends BaseTimeEntity {
         this.capacity = capacity;
         this.departureRadius = departureRadius;
         this.destinationRadius = destinationRadius;
+        this.hostId = hostId;
         this.status = status;
         this.estimatedFare = estimatedFare;
         this.estimatedTime = estimatedTime;
@@ -143,6 +148,7 @@ public class PartyEntity extends BaseTimeEntity {
                 party.getCapacity().value(),
                 party.getDepartureRadius().meters(),
                 party.getDestinationRadius().meters(),
+                party.hostId(),
                 party.getStatus(),
                 party.getEstimatedFare(),
                 party.getEstimatedTime(),
@@ -166,10 +172,11 @@ public class PartyEntity extends BaseTimeEntity {
     public Party toDomain() {
         return Party.load(getId(), new Location(departureLat, departureLng), new Location(destinationLat, destinationLng),
                 new Radius(departureRadius), new Radius(destinationRadius), departure, destination, new Capacity(capacity),
-                members.stream().map(PartyMemberEntity::toDomain).toList(), getCreatedAt(), status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, roomType, departureAt, reminderSentAt);
+                members.stream().map(PartyMemberEntity::toDomain).toList(), hostId, getCreatedAt(), status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, roomType, departureAt, reminderSentAt);
     }
 
     public void update(Party party) {
+        this.hostId = party.hostId();   // 방장이 나가면 승계된다
         this.status = party.getStatus();
         this.taxiDriverId = party.getTaxiDriverId();
         this.matchingStartedAt = party.getMatchingStartedAt();

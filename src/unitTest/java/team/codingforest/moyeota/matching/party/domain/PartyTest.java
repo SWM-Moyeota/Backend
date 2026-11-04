@@ -517,7 +517,7 @@ class PartyTest {
                 .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
     }
 
-    // ───────────────────────── 파생 방장 ─────────────────────────
+    // ───────────────────────── 방장 ─────────────────────────
 
     /** 합류 시각을 조작해 복원한 정원 충족 방 - 도메인 경로로는 joinedAt 이 항상 Instant.now() 로 찍힌다 */
     private Party completedPartyWith(PartyMember... members) {
@@ -555,7 +555,8 @@ class PartyTest {
         Party party = openParty(2);
         party.leave(생성자);   // 마지막 멤버가 나가 명단이 빈다
 
-        assertThatThrownBy(party::hostId).isInstanceOf(IllegalStateException.class);
+        assertThat(party.hostId()).isNull();
+        assertThat(party.isHost(생성자)).isFalse();
     }
 
     @Test
