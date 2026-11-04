@@ -5,6 +5,8 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
+import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
+import team.codingforest.moyeota.matching.party.domain.RoomType;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
@@ -32,15 +34,16 @@ public class PartyJpaTest implements Parties {
                 party.getDepartureRadius(), party.getDestinationRadius(),
                 party.getDeparture(), party.getDestination(), party.getCapacity(),
                 party.getMembers(), party.getCreatedAt(), party.getStatus(),
-                party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getTaxiDriverId(), party.getMatchingStartedAt(), party.getCompletedAt(), party.getVersion());
+                party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getTaxiDriverId(), party.getMatchingStartedAt(), party.getCompletedAt(), party.getVersion(),
+                party.getRoomType(), party.getDepartureAt(), party.getReminderSentAt());
 
         store.put(id, saved);
         return saved;
     }
 
     @Override
-    public List<Party> findAllByStatus(PartyStatus status) {
-        return store.values().stream().filter(p -> p.getStatus() == status)
+    public List<Party> findRealtimeByStatus(PartyStatus status) {
+        return store.values().stream().filter(p -> p.getStatus() == status && p.getRoomType() == RoomType.REALTIME)
                 .toList();
     }
 
@@ -48,7 +51,7 @@ public class PartyJpaTest implements Parties {
     public List<PartySummary> findSummariesWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng, int limit) {
         // 실제 쿼리(between: 양끝 포함, 최신순, 상한)와 같은 규칙 - 출발지 좌표 기준. 메모리에서는 id 가 클수록 최신이다
         return store.values().stream()
-                .filter(p -> p.getStatus() == status)
+                .filter(p -> p.getStatus() == status && p.getRoomType() == RoomType.REALTIME)
                 .filter(p -> p.getDepartureLocation().latitude() >= swLat && p.getDepartureLocation().latitude() <= neLat)
                 .filter(p -> p.getDepartureLocation().longitude() >= swLng && p.getDepartureLocation().longitude() <= neLng)
                 .sorted(Comparator.comparing(Party::getId).reversed())
@@ -101,7 +104,70 @@ public class PartyJpaTest implements Parties {
         // 실제 JPQL 과 같은 규칙 - status = COMPLETED 이고 completedAt < before. null 은 비교 대상이 아니다
         return store.values().stream()
                 .filter(p -> p.getStatus() == PartyStatus.COMPLETED)
-                .filter(p -> p.getCompletedAt() != null && p.getCompletedAt().isBefore(before))
+                .filter(p -> p.isReservation()
+                        ? p.getDepartureAt().isBefore(before)
+                        : p.getCompletedAt() != null && p.getCompletedAt().isBefore(before))
+                .map(Party::getId)
+                .toList();
+    }
+
+    @Override
+    public void lockMember(Long memberId) {
+    }
+
+    @Override
+    public boolean existsOngoingRealtimeByMemberId(Long memberId) {
+        return store.values().stream()
+                .anyMatch(p -> p.getRoomType() == RoomType.REALTIME && p.getStatus().isOngoing() && p.hasMember(memberId));
+    }
+
+    @Override
+    public boolean existsOngoingReservationBetween(Long memberId, Instant from, Instant to) {
+        return store.values().stream()
+                .filter(Party::isReservation)
+                .filter(p -> p.getStatus().isOngoing() && p.hasMember(memberId))
+                .anyMatch(p -> !p.getDepartureAt().isBefore(from) && !p.getDepartureAt().isAfter(to));
+    }
+
+    @Override
+    public List<ReservationSummary> findReservations(Instant from, Instant to, int limit) {
+        return activeReservations(from, to).limit(limit).toList();
+    }
+
+    @Override
+    public List<ReservationSummary> findReservationsWithinBounds(Instant from, Instant to, double swLat, double neLat, double swLng, double neLng, int limit) {
+        return activeReservations(from, to)
+                .filter(s -> s.departureLat() >= swLat && s.departureLat() <= neLat)
+                .filter(s -> s.departureLng() >= swLng && s.departureLng() <= neLng)
+                .limit(limit)
+                .toList();
+    }
+
+    private java.util.stream.Stream<ReservationSummary> activeReservations(Instant from, Instant to) {
+        return store.values().stream()
+                .filter(Party::isReservation)
+                .filter(p -> p.getStatus() == PartyStatus.ACTIVE)
+                .filter(p -> !p.getDepartureAt().isBefore(from) && !p.getDepartureAt().isAfter(to))
+                .sorted(Comparator.comparing(Party::getDepartureAt).thenComparing(Party::getId))
+                .map(p -> new ReservationSummary(p.getId(), p.getDeparture(), p.getDestination(), (long) p.getMembers().size(), p.getCapacity().value(), p.getStatus(),
+                        p.getDepartureLocation().latitude(), p.getDepartureLocation().longitude(), p.getDestinationLocation().latitude(), p.getDestinationLocation().longitude(), p.getDepartureAt()));
+    }
+
+    @Override
+    public List<Long> findRecruitingExpired(Instant realtimeCreatedBefore, Instant now) {
+        return store.values().stream()
+                .filter(p -> p.getStatus() == PartyStatus.ACTIVE)
+                .filter(p -> p.isReservation() ? !p.getDepartureAt().isAfter(now) : p.getCreatedAt().isBefore(realtimeCreatedBefore))
+                .map(Party::getId)
+                .toList();
+    }
+
+    @Override
+    public List<Long> findReservationsToRemind(Instant from, Instant to) {
+        return store.values().stream()
+                .filter(Party::isReservation)
+                .filter(p -> p.getStatus().isRecruiting() && p.getReminderSentAt() == null)
+                .filter(p -> !p.getDepartureAt().isBefore(from) && !p.getDepartureAt().isAfter(to))
                 .map(Party::getId)
                 .toList();
     }

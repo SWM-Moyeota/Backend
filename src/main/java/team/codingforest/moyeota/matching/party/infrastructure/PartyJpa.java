@@ -10,6 +10,8 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
+import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
+import team.codingforest.moyeota.matching.party.domain.RoomType;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
@@ -49,18 +51,55 @@ public class PartyJpa implements Parties {
     }
 
     @Override
-    public List<Party> findAllByStatus(PartyStatus status) {
-        return partyJpaRepository.findAllByStatus(status).stream()
+    public List<Party> findRealtimeByStatus(PartyStatus status) {
+        return partyJpaRepository.findAllByStatusAndRoomType(status, RoomType.REALTIME).stream()
                 .map(PartyEntity::toDomain).toList();
     }
 
     @Override
     public boolean existsOngoingByMemberId(Long memberId) {
-        List<PartyStatus> ongoing = Arrays.stream(PartyStatus.values())
+        return partyJpaRepository.existsByMemberIdAndStatusIn(memberId, ongoingStatuses());
+    }
+
+    @Override
+    public boolean existsOngoingRealtimeByMemberId(Long memberId) {
+        return partyJpaRepository.existsByMemberIdAndRoomTypeAndStatusIn(memberId, RoomType.REALTIME, ongoingStatuses());
+    }
+
+    @Override
+    public boolean existsOngoingReservationBetween(Long memberId, Instant from, Instant to) {
+        return partyJpaRepository.existsReservationBetween(memberId, ongoingStatuses(), from, to);
+    }
+
+    @Override
+    public void lockMember(Long memberId) {
+        partyJpaRepository.lockMember(memberId);
+    }
+
+    @Override
+    public List<ReservationSummary> findReservations(Instant from, Instant to, int limit) {
+        return partyJpaRepository.findReservations(PartyStatus.ACTIVE, from, to, Limit.of(limit));
+    }
+
+    @Override
+    public List<ReservationSummary> findReservationsWithinBounds(Instant from, Instant to, double swLat, double neLat, double swLng, double neLng, int limit) {
+        return partyJpaRepository.findReservationsWithinBounds(PartyStatus.ACTIVE, from, to, swLat, neLat, swLng, neLng, Limit.of(limit));
+    }
+
+    @Override
+    public List<Long> findRecruitingExpired(Instant realtimeCreatedBefore, Instant now) {
+        return partyJpaRepository.findRecruitingExpiredIds(PartyStatus.ACTIVE, realtimeCreatedBefore, now);
+    }
+
+    @Override
+    public List<Long> findReservationsToRemind(Instant from, Instant to) {
+        return partyJpaRepository.findIdsToRemind(List.of(PartyStatus.ACTIVE, PartyStatus.COMPLETED), from, to);
+    }
+
+    private List<PartyStatus> ongoingStatuses() {
+        return Arrays.stream(PartyStatus.values())
                 .filter(PartyStatus::isOngoing)
                 .toList();
-
-        return partyJpaRepository.existsByMemberIdAndStatusIn(memberId, ongoing);
     }
 
     @Override

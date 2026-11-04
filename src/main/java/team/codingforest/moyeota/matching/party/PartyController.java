@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyRequest;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyResponse;
+import team.codingforest.moyeota.matching.party.dto.OpenReservationRequest;
+import team.codingforest.moyeota.matching.party.dto.ReservationListResponse;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyListResponse;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
@@ -26,6 +28,7 @@ import team.codingforest.moyeota.matching.party.dto.MatchCandidate;
 import team.codingforest.moyeota.matching.party.dto.RealTimeMatchingRequest;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
+import java.time.Instant;
 import java.util.List;
 
 @Tag(name = "매칭방", description = "동승 매칭방 생성·참여·조회. 정원이 차면 자동으로 매칭(기사 콜) 시작")
@@ -98,6 +101,38 @@ public class PartyController {
     public ResponseEntity<Void> finish(@PathVariable Long partyId, @CurrentUser Long memberId) {
         partyService.finish(partyId, memberId);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "모집 종료", description = "실시간 방의 방장이 2명 이상일 때 정원을 채우지 않고 지금 인원으로 모집을 끝낸다. 다른 구성원에게는 SSE recruiting-closed 로 알린다")
+    @ApiResponses({@ApiResponse(responseCode = "204", description = "종료됨"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER / NOT_PARTY_HOST"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_CLOSED / NOT_ENOUGH_MEMBERS / NOT_REALTIME_PARTY")})
+    @PostMapping("/matching/rooms/{partyId}/close")
+    public ResponseEntity<Void> closeRecruiting(@PathVariable Long partyId, @CurrentUser Long memberId) {
+        partyService.closeRecruiting(partyId, memberId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "예약 방 생성", description = "출발 시각을 정해 방을 만든다. 경로·예상 요금·예상 시간은 비어 있다. 참여·나가기·상세·SSE 는 기존 방 API 를 쓴다. 실시간 방에 있거나 출발 시각 2시간 안에 다른 예약 방이 있으면 409")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "생성된 방"), @ApiResponse(responseCode = "400", description = "SAME_DEPARTURE_DESTINATION / INVALID_CAPACITY / OUT_OF_SERVICE_AREA / INVALID_DEPARTURE_TIME"), @ApiResponse(responseCode = "409", description = "ALREADY_JOINED_OTHER_PARTY / PARTY_TIME_CONFLICT / RESERVATION_NOT_SUPPORTED")})
+    @PostMapping("/matching/reservations")
+    public ResponseEntity<OpenPartyResponse> reserve(@CurrentUser Long memberId, @Valid @RequestBody OpenReservationRequest request) {
+        return ResponseEntity.ok(OpenPartyResponse.from(partyService.reserve(request.toCommand(memberId))));
+    }
+
+    @Operation(summary = "예약 방 목록", description = "출발 시각이 기간 안인 ACTIVE 예약 방을 출발 시각 순으로 조회")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "방 목록"), @ApiResponse(responseCode = "400", description = "INVALID_TIME_RANGE - from 이 to 보다 늦거나 같음")})
+    @GetMapping("/matching/reservations")
+    public ResponseEntity<ReservationListResponse> listReservations(@RequestParam Instant from, @RequestParam Instant to) {
+        return ResponseEntity.ok(ReservationListResponse.from(partyService.findReservations(from, to)));
+    }
+
+    @Operation(summary = "곧 출발 예약 방 목록", description = "화면 뷰포트의 남서(sw)·북동(ne) 좌표 안에서 30분 안에 출발하는 ACTIVE 예약 방을 출발 시각 순으로 조회")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "방 목록"), @ApiResponse(responseCode = "400", description = "INVALID_MAP_BOUNDS - sw 가 ne 보다 큼")})
+    @GetMapping("/matching/reservations/soon")
+    public ResponseEntity<ReservationListResponse> listSoonReservations(@RequestParam Double swLat,
+                                                                        @RequestParam Double swLng,
+                                                                        @RequestParam Double neLat,
+                                                                        @RequestParam Double neLng) {
+        return ResponseEntity.ok(ReservationListResponse.from(partyService.findSoonReservationsWithin(swLat, swLng, neLat, neLng)));
     }
 
     @Operation(summary = "실시간 매칭 후보", description = "출발지·도착지 반경 300m 안의 ACTIVE 방을 도보 시간 합(탑승지까지 + 하차지에서 목적지까지) 오름차순으로 반환")

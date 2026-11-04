@@ -14,6 +14,7 @@ import team.codingforest.moyeota.driver.DriverService;
 import team.codingforest.moyeota.driver.DriverController;
 import team.codingforest.moyeota.matching.party.completion.ChatOnlyCompletionPolicy;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
+import team.codingforest.moyeota.matching.party.PartyRecruitingSweeper;
 import team.codingforest.moyeota.matching.party.completion.DispatchCompletionPolicy;
 import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
 import team.codingforest.moyeota.settlement.api.SettlementAccess;
@@ -53,6 +54,7 @@ class TaxiDisabledContextTest {
     @Test
     void 방치된_방_자동_종료_스윕이_돈다() {
         assertThat(ctx.getBeanNamesForType(CompletedPartySweeper.class)).as("없으면 아무도 닫지 않은 방의 멤버가 영영 새 방에 못 들어간다").isNotEmpty();
+        assertThat(ctx.getBeanNamesForType(PartyRecruitingSweeper.class)).isNotEmpty();
     }
 
     @Test

@@ -6,12 +6,13 @@ public record OpenPartyResponse(Long id, Double departureLat, Double departureLn
                                 Double destinationLat, Double destinationLng, String departure, String destination,
                                 Integer capacity, Integer currentMembers, Integer departureRadius, Integer destinationRadius,
                                 String status, Instant createdAt, Integer estimateFare, Integer estimateTime, String route,
-                                Long taxiDriverId) {
+                                Long taxiDriverId, String roomType, Instant departureAt) {
 
     public static OpenPartyResponse from(PartyResult party) {
         return new OpenPartyResponse(party.id(), party.departureLat(), party.departureLng(),
                                     party.destinationLat(), party.destinationLng(), party.departure(), party.destination(),
                                     party.capacity(), party.currentMembers(), party.departureRadius(), party.destinationRadius(),
-                                    party.status(), party.createdAt(), party.estimateFare(), party.estimateTime(), party.route(), party.taxiDriverId());
+                                    party.status(), party.createdAt(), party.estimateFare(), party.estimateTime(), party.route(), party.taxiDriverId(),
+                                    party.roomType(), party.departureAt());
     }
 }

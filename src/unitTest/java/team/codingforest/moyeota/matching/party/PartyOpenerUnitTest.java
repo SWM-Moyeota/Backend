@@ -76,7 +76,7 @@ class PartyOpenerUnitTest {
          */
         Party saved = party(PartyStatus.ACTIVE, 3);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
         doReturn(saved).when(parties).save(any(Party.class));
 
         /*
@@ -122,7 +122,7 @@ class PartyOpenerUnitTest {
          */
         Party saved = party(PartyStatus.COMPLETED, 1);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
         doReturn(saved).when(parties).save(any(Party.class));
         doAnswer(invocation -> {
             saved.startMatching(BASE_TIME);
@@ -152,7 +152,7 @@ class PartyOpenerUnitTest {
         /*
          * settings
          */
-        doReturn(true).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(true).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
 
         /*
          * test
@@ -176,7 +176,7 @@ class PartyOpenerUnitTest {
          */
         OpenPartyCommand command = new OpenPartyCommand(HOST_ID, DEPARTURE_LAT, DEPARTURE_LNG, DEPARTURE_LAT, DEPARTURE_LNG, "강남역", "강남역", 3);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
 
         /*
          * test
@@ -214,7 +214,7 @@ class PartyOpenerUnitTest {
          */
         OpenPartyCommand command = new OpenPartyCommand(HOST_ID, departureLat, departureLng, destinationLat, destinationLng, "출발", "도착", 3);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
 
         /*
          * test
@@ -236,7 +236,7 @@ class PartyOpenerUnitTest {
         /*
          * settings
          */
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
 
         /*
          * test
@@ -258,7 +258,7 @@ class PartyOpenerUnitTest {
         /*
          * settings
          */
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
 
         /*
          * test
@@ -288,7 +288,7 @@ class PartyOpenerUnitTest {
         /*
          * settings
          */
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
         doReturn(party(PartyStatus.ACTIVE, 3)).when(parties).save(any(Party.class));
 
         /*

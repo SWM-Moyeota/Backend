@@ -40,6 +40,32 @@ class PartyLockQueryPostgresTest {
     }
 
     @Test
+    void 같은_사용자의_잠금은_먼저_잡은_트랜잭션이_끝날_때까지_기다린다() throws Exception {
+        java.util.concurrent.CountDownLatch locked = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        Long memberId = 987_654_321L;
+
+        Future<?> first = pool.submit(() -> tx.executeWithoutResult(status -> {
+            parties.lockMember(memberId);
+            locked.countDown();
+            try {
+                release.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }));
+        assertThat(locked.await(5, TimeUnit.SECONDS)).isTrue();
+
+        Future<?> second = pool.submit(() -> tx.executeWithoutResult(status -> parties.lockMember(memberId)));
+        Thread.sleep(300);
+        assertThat(second.isDone()).as("앞선 트랜잭션이 끝나기 전에는 잠금을 얻지 못한다").isFalse();
+
+        release.countDown();
+        first.get(5, TimeUnit.SECONDS);
+        second.get(5, TimeUnit.SECONDS);
+    }
+
+    @Test
     void 잠금_조회가_멤버를_읽는다() {
         Party party = open(3);
         party.join(2L);

@@ -13,9 +13,12 @@ import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
+import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
+import team.codingforest.moyeota.matching.party.domain.RoomType;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,6 +36,189 @@ class PartyJpaPersistenceTest {
         this.parties = parties;
         this.repository = repository;
         this.em = em;
+    }
+
+    // ───────────────────────── 예약 방 ─────────────────────────
+
+    private static final Location 강남 = new Location(37.4979, 127.0276);
+    private static final Location 판교 = new Location(37.3948, 127.1112);
+
+    private Party reserve(Long creatorId, Instant departureAt) {
+        return parties.save(Party.reserve(creatorId, 강남, 판교, "강남역", "판교역", new Capacity(3), Instant.now(), departureAt));
+    }
+
+    private Party realtime(Long creatorId) {
+        return parties.save(Party.open(creatorId, 강남, 판교, "강남역", "판교역", new Capacity(3), Instant.now(), Radius.DEFAULT, Radius.DEFAULT, 12000, 25, "encoded-path"));
+    }
+
+    // DB 컬럼은 마이크로초까지만 저장한다. Linux 의 Instant.now() 는 나노초까지 나와서 자르지 않으면 저장한 값과 경계 비교가 어긋난다
+    private Instant 뒤(Duration duration) {
+        return Instant.now().truncatedTo(ChronoUnit.MICROS).plus(duration);
+    }
+
+    private void clearContext() {
+        em.flush();
+        em.clear();
+    }
+
+    @Test
+    void 예약_방을_저장하고_복원한다() {
+        Instant 출발 = 뒤(Duration.ofDays(1)).truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+        Long id = reserve(1L, 출발).getId();
+        clearContext();
+
+        Party found = parties.findById(id).orElseThrow();
+
+        assertThat(found.getRoomType()).isEqualTo(RoomType.RESERVED);
+        assertThat(found.getDepartureAt()).isEqualTo(출발);
+        assertThat(found.getRoute()).isNull();
+        assertThat(found.getEstimatedFare()).isNull();
+        assertThat(found.getEstimatedTime()).isNull();
+    }
+
+    @Test
+    void 알림_시각이_저장된다() {
+        Party party = reserve(1L, 뒤(Duration.ofDays(1)));
+        Instant 보낸시각 = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+        party.markReminderSent(보낸시각);
+        parties.save(party);
+        clearContext();
+
+        assertThat(parties.findById(party.getId()).orElseThrow().getReminderSentAt()).isEqualTo(보낸시각);
+    }
+
+    @Test
+    void 실시간_목록은_예약_방을_빼고_돌려준다() {
+        Long 실시간 = realtime(1L).getId();
+        Long 예약 = reserve(2L, 뒤(Duration.ofDays(1))).getId();
+        clearContext();
+
+        assertThat(parties.findRealtimeByStatus(PartyStatus.ACTIVE)).extracting(Party::getId).contains(실시간).doesNotContain(예약);
+        assertThat(parties.findSummariesWithinBounds(PartyStatus.ACTIVE, 37.0, 38.0, 126.0, 128.0, 100))
+                .extracting(PartySummary::id).contains(실시간).doesNotContain(예약);
+    }
+
+    @Test
+    void 진행_중인_실시간_방이_있는지_종류를_구분해_확인한다() {
+        realtime(1L);
+        reserve(2L, 뒤(Duration.ofDays(1)));
+        clearContext();
+
+        assertThat(parties.existsOngoingRealtimeByMemberId(1L)).isTrue();
+        assertThat(parties.existsOngoingRealtimeByMemberId(2L)).isFalse();
+    }
+
+    @Test
+    void 끝난_실시간_방은_진행_중으로_치지_않는다() {
+        Party party = realtime(1L);
+        party.leave(1L);
+        parties.save(party);
+        clearContext();
+
+        assertThat(parties.existsOngoingRealtimeByMemberId(1L)).isFalse();
+    }
+
+    @Test
+    void 기간_안의_진행_중인_예약_방만_겹치는_것으로_본다() {
+        Instant 출발 = 뒤(Duration.ofDays(1));
+        reserve(1L, 출발);
+        clearContext();
+
+        assertThat(parties.existsOngoingReservationBetween(1L, 출발.minusSeconds(1), 출발.plusSeconds(1))).isTrue();
+        assertThat(parties.existsOngoingReservationBetween(1L, 출발, 출발)).isTrue();
+        assertThat(parties.existsOngoingReservationBetween(1L, 출발.plusSeconds(1), 출발.plusSeconds(2))).isFalse();
+        assertThat(parties.existsOngoingReservationBetween(2L, 출발.minusSeconds(1), 출발.plusSeconds(1))).isFalse();
+    }
+
+    @Test
+    void 취소된_예약_방은_겹치는_것으로_보지_않는다() {
+        Instant 출발 = 뒤(Duration.ofDays(1));
+        Party party = reserve(1L, 출발);
+        party.expireRecruiting();
+        parties.save(party);
+        clearContext();
+
+        assertThat(parties.existsOngoingReservationBetween(1L, 출발.minusSeconds(1), 출발.plusSeconds(1))).isFalse();
+    }
+
+    @Test
+    void 예약_목록은_기간_안의_ACTIVE_방을_출발_순으로_인원과_함께_돌려준다() {
+        Instant 기준 = 뒤(Duration.ofDays(3));
+        Party 늦은방 = reserve(1L, 기준.plusSeconds(600));
+        늦은방.join(5L);
+        parties.save(늦은방);
+        Long 이른방 = reserve(2L, 기준).getId();
+        reserve(3L, 기준.plus(Duration.ofDays(2)));
+        Party 취소방 = reserve(4L, 기준.plusSeconds(60));
+        취소방.expireRecruiting();
+        parties.save(취소방);
+        clearContext();
+
+        List<ReservationSummary> found = parties.findReservations(기준.minusSeconds(1), 기준.plus(Duration.ofDays(1)), 100);
+
+        assertThat(found).extracting(ReservationSummary::id).containsExactly(이른방, 늦은방.getId());
+        assertThat(found.get(1).currentMembers()).isEqualTo(2L);
+    }
+
+    @Test
+    void 예약_목록은_상한만큼만_돌려준다() {
+        Instant 기준 = 뒤(Duration.ofDays(3));
+        Long 이른방 = reserve(1L, 기준).getId();
+        reserve(2L, 기준.plusSeconds(60));
+        clearContext();
+
+        assertThat(parties.findReservations(기준.minusSeconds(1), 기준.plus(Duration.ofDays(1)), 1))
+                .extracting(ReservationSummary::id).containsExactly(이른방);
+    }
+
+    @Test
+    void 영역_예약_목록은_출발지가_영역_안인_방만_돌려준다() {
+        Instant 기준 = 뒤(Duration.ofDays(3));
+        Long 강남방 = reserve(1L, 기준).getId();
+        clearContext();
+
+        assertThat(parties.findReservationsWithinBounds(기준.minusSeconds(1), 기준.plusSeconds(1), 37.0, 38.0, 126.0, 128.0, 100))
+                .extracting(ReservationSummary::id).contains(강남방);
+        assertThat(parties.findReservationsWithinBounds(기준.minusSeconds(1), 기준.plusSeconds(1), 36.0, 36.5, 126.0, 128.0, 100)).isEmpty();
+    }
+
+    @Test
+    void 오래된_실시간_방과_출발_시각이_지난_예약_방이_모집_만료_대상이다() {
+        Long 새실시간 = realtime(1L).getId();
+        Long 미래예약 = reserve(2L, 뒤(Duration.ofHours(1))).getId();
+        Instant 나중 = 뒤(Duration.ofMinutes(30));
+        clearContext();
+
+        assertThat(parties.findRecruitingExpired(Instant.now().minus(Duration.ofMinutes(15)), Instant.now()))
+                .doesNotContain(새실시간, 미래예약);
+        assertThat(parties.findRecruitingExpired(뒤(Duration.ofSeconds(1)), 나중)).contains(새실시간).doesNotContain(미래예약);
+        assertThat(parties.findRecruitingExpired(Instant.now().minus(Duration.ofMinutes(15)), 뒤(Duration.ofHours(2)))).contains(미래예약).doesNotContain(새실시간);
+    }
+
+    @Test
+    void 정원이_찬_예약_방은_완료_시각이_아니라_출발_시각으로_정리_대상을_가른다() {
+        Party 내일방 = parties.save(Party.reserve(1L, 강남, 판교, "강남역", "판교역", new Capacity(2), Instant.now(), 뒤(Duration.ofDays(1))));
+        내일방.join(2L);
+        parties.save(내일방);
+        clearContext();
+
+        assertThat(parties.findCompletedBefore(뒤(Duration.ofHours(1)))).doesNotContain(내일방.getId());
+        assertThat(parties.findCompletedBefore(뒤(Duration.ofDays(2)))).contains(내일방.getId());
+    }
+
+    @Test
+    void 알림_대상은_보내지_않은_기간_안의_예약_방이다() {
+        Instant 기준 = 뒤(Duration.ofMinutes(20));
+        Long 대상 = reserve(1L, 기준).getId();
+        Party 보낸방 = reserve(2L, 기준);
+        보낸방.markReminderSent(Instant.now());
+        parties.save(보낸방);
+        Long 먼방 = reserve(3L, 뒤(Duration.ofDays(1))).getId();
+        Long 실시간 = realtime(4L).getId();
+        clearContext();
+
+        assertThat(parties.findReservationsToRemind(Instant.now(), 뒤(Duration.ofMinutes(30))))
+                .contains(대상).doesNotContain(보낸방.getId(), 먼방, 실시간);
     }
 
     // ───────────────────────── 단건 조회 ─────────────────────────

@@ -16,7 +16,7 @@ public record PartyDetailResult(Long id,
                                 Integer departureRadius, Integer destinationRadius,
                                 String status, Instant createdAt,
                                 List<MemberInfo> members, Integer estimateFare, Integer estimateTime, String route, Long taxiDriverId,
-                                long version) {
+                                long version, String roomType, Instant departureAt) {
 
     public record MemberInfo(UUID publicId, String nickname, String imageUrl, String badgeId, Integer rideCount, boolean host) {
 
@@ -45,7 +45,9 @@ public record PartyDetailResult(Long id,
                 party.getEstimatedTime(),
                 party.getRoute(),
                 party.getTaxiDriverId(),
-                party.getVersion()
+                party.getVersion(),
+                party.getRoomType().name(),
+                party.getDepartureAt()
         );
     }
 }

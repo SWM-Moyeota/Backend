@@ -7,6 +7,7 @@ import team.codingforest.moyeota.common.event.EventResubmitter;
 import team.codingforest.moyeota.dispatch.call.MatchingSweeper;
 import team.codingforest.moyeota.driver.DriverRetentionSweeper;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
+import team.codingforest.moyeota.matching.party.PartyRecruitingSweeper;
 import team.codingforest.moyeota.matching.sse.infrastructure.PartySseRegistry;
 import team.codingforest.moyeota.settlement.ledger.PayoutScheduler;
 import team.codingforest.moyeota.settlement.ledger.SettlementCloseScheduler;
@@ -29,6 +30,8 @@ class SchedulerLockAnnotationTest {
     void DB를_고치는_스케줄러는_전부_잠근다() {
         assertLocked(EventResubmitter.class, "run", "event-resubmit");
         assertLocked(CompletedPartySweeper.class, "sweep", "completed-party-sweep");
+        assertLocked(PartyRecruitingSweeper.class, "sweep", "party-recruiting-sweep");
+        assertLocked(PartyRecruitingSweeper.class, "remind", "reservation-reminder");
         assertLocked(MatchingSweeper.class, "sweep", "matching-sweep");
         assertLocked(DriverRetentionSweeper.class, "sweep", "driver-retention-sweep");
         assertLocked(SettlementCloseScheduler.class, "close", "settlement-close");
@@ -50,6 +53,7 @@ class SchedulerLockAnnotationTest {
         // lockAtLeastFor 는 주기보다 짧아야 한다 - 길면 매 주기 잠금이 안 풀려 건너뛴다
         for (Method m : List.of(scheduled(EventResubmitter.class, "run"),
                 scheduled(CompletedPartySweeper.class, "sweep"), scheduled(MatchingSweeper.class, "sweep"),
+                scheduled(PartyRecruitingSweeper.class, "sweep"), scheduled(PartyRecruitingSweeper.class, "remind"),
                 scheduled(PayoutScheduler.class, "reconcile"))) {
             Duration period = Duration.ofMillis(m.getAnnotation(Scheduled.class).fixedDelay());
             SchedulerLock lock = m.getAnnotation(SchedulerLock.class);
@@ -63,6 +67,7 @@ class SchedulerLockAnnotationTest {
     void 잠금_이름은_서로_다르다() {
         List<String> names = List.of(lockName(EventResubmitter.class, "run"),
                 lockName(CompletedPartySweeper.class, "sweep"), lockName(MatchingSweeper.class, "sweep"),
+                lockName(PartyRecruitingSweeper.class, "sweep"), lockName(PartyRecruitingSweeper.class, "remind"),
                 lockName(UserDeletionSweeper.class, "sweep"), lockName(DriverRetentionSweeper.class, "sweep"),
                 lockName(SettlementCloseScheduler.class, "close"), lockName(PayoutScheduler.class, "pay"),
                 lockName(PayoutScheduler.class, "reconcile"));
