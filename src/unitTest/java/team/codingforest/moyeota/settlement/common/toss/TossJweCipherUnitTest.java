@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.settlement.ledger.infrastructure.toss;
+package team.codingforest.moyeota.settlement.common.toss;
 
 import io.jsonwebtoken.JwtException;
 import org.junit.jupiter.api.DisplayName;
