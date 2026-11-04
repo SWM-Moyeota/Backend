@@ -22,11 +22,13 @@ import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
 import team.codingforest.moyeota.matching.party.dto.RealTimeMatchingCommand;
+import team.codingforest.moyeota.user.api.MemberSummary;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
@@ -787,6 +789,37 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.members[0].badgeId").value(nullValue()))
                 .andExpect(jsonPath("$.members[0].arrived").value(false))
                 .andExpect(jsonPath("$.members[1].arrived").value(true));
+    }
+
+    @DisplayName("GET /api/v1/matching/rooms/{partyId} - 뱃지는 없앴지만 출시된 앱이 읽는 members[].badgeId 키는 null 로 남는다")
+    @Test
+    void detail_badgeIdKeyKeptAsNull() throws Exception {
+
+        /*
+         * settings
+         */
+        // 서비스가 만드는 그대로 MemberInfo.of 로 멤버를 채운다 - 사용자 요약에는 뱃지가 없다
+        PartyDetailResult detail = new PartyDetailResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 2, 500, 500, "ACTIVE", CREATED_AT,
+                List.of(PartyDetailResult.MemberInfo.of(new MemberSummary(PUBLIC_ID, "방장", "host.png"), 4, true, false),
+                        PartyDetailResult.MemberInfo.of(null, 0, false, false)),
+                12000, 25, "encoded-path", null, 7L, "REALTIME", null, false);
+
+        doReturn(detail).when(partyService).getPartyDetail(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        mockMvc.perform(get("/api/v1/matching/rooms/{partyId}", PARTY_ID).with(loginUser()))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.members", hasSize(2)))
+                .andExpect(jsonPath("$.members[0]", hasKey("badgeId")))
+                .andExpect(jsonPath("$.members[0].badgeId").value(nullValue()))
+                .andExpect(jsonPath("$.members[1]", hasKey("badgeId")))
+                .andExpect(jsonPath("$.members[1].badgeId").value(nullValue()));
     }
 
     @DisplayName("GET /api/v1/matching/rooms/{partyId} - 토큰이 없으면 401")

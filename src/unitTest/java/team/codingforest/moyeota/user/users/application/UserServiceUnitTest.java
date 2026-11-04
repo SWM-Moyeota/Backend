@@ -44,7 +44,7 @@ class UserServiceUnitTest {
     private UserService service;
 
     private static User user(String nickname, String imageKey) {
-        return User.restore(USER_ID, PUBLIC_ID, nickname, imageKey, LoginType.LOCAL, null, null, Instant.EPOCH, null);
+        return User.restore(USER_ID, PUBLIC_ID, nickname, imageKey, LoginType.LOCAL, null, Instant.EPOCH, null);
     }
 
     @DisplayName("update - 닉네임과 이미지를 모두 바꾸고 저장")

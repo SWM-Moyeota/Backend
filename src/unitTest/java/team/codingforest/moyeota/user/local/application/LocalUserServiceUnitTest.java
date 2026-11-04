@@ -58,7 +58,7 @@ class LocalUserServiceUnitTest {
     private LocalUserService service;
 
     private void givenUser() {
-        doReturn(User.restore(USER_ID, PUBLIC_ID, "길동이", null, LoginType.LOCAL, null, null, Instant.EPOCH, null)).when(users).findById(eq(USER_ID));
+        doReturn(User.restore(USER_ID, PUBLIC_ID, "길동이", null, LoginType.LOCAL, null, Instant.EPOCH, null)).when(users).findById(eq(USER_ID));
         doReturn(IMAGE_URL).when(profileImages).toUrl(eq(null));
     }
 

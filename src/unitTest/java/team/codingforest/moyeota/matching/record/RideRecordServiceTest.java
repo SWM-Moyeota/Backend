@@ -361,13 +361,13 @@ class RideRecordServiceTest {
         List<Long> lastRequested = List.of();
 
         MemberSummary 등록(Long userId, String nickname) {
-            MemberSummary summary = new MemberSummary(UUID.randomUUID(), nickname, "https://cdn.example.com/profile/" + userId + ".png", null);
+            MemberSummary summary = new MemberSummary(UUID.randomUUID(), nickname, "https://cdn.example.com/profile/" + userId + ".png");
             summaries.put(userId, summary);
             return summary;
         }
 
         void 탈퇴(Long userId) {
-            summaries.put(userId, new MemberSummary(summaries.get(userId).publicId(), 탈퇴자_닉네임, 기본_이미지_URL, null));
+            summaries.put(userId, new MemberSummary(summaries.get(userId).publicId(), 탈퇴자_닉네임, 기본_이미지_URL));
         }
 
         @Override

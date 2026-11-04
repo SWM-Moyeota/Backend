@@ -62,8 +62,8 @@ class RideRecordServiceUnitTest {
 
         doReturn(List.of(record)).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
         doReturn(Map.of(10L, List.of(MEMBER_ID, OTHER_MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(10L)));
-        doReturn(Map.of(MEMBER_ID, new MemberSummary(MEMBER_PUBLIC_ID, "나", "me.png", null),
-                OTHER_MEMBER_ID, new MemberSummary(OTHER_PUBLIC_ID, "동승자", "other.png", null)))
+        doReturn(Map.of(MEMBER_ID, new MemberSummary(MEMBER_PUBLIC_ID, "나", "me.png"),
+                OTHER_MEMBER_ID, new MemberSummary(OTHER_PUBLIC_ID, "동승자", "other.png")))
                 .when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID, OTHER_MEMBER_ID)));
 
         /*

@@ -19,9 +19,9 @@ public record PartyDetailResult(Long id,
                                 long version, String roomType, Instant departureAt, boolean confirmed) {
 
     // arrived 는 출발지에 도착했어요를 누른 멤버인지(약속이 정해지기 전에는 늘 false)
+    // badgeId 는 뱃지 기능을 없애 늘 null 이다. 이미 출시된 앱(강제 업데이트 없음)이 이 키를 읽으므로 응답에 남겨 둔다 - 옛 버전 앱이 사라지면 지운다
     public record MemberInfo(UUID publicId, String nickname, String imageUrl, String badgeId, Integer rideCount, boolean host, boolean arrived) {
 
-        // TODO badgeId 값 설정
         public static MemberInfo of(MemberSummary summary, int rideCount, boolean host, boolean arrived) {
             if(summary == null) return new MemberInfo(null, null, null, null, rideCount, host, arrived);
 
