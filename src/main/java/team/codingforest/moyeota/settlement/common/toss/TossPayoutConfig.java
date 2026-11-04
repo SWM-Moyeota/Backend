@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import team.codingforest.moyeota.settlement.account.domain.SellerGateway;
+import team.codingforest.moyeota.settlement.ledger.domain.PayoutGateway;
 import tools.jackson.databind.ObjectMapper;
 
 @ConditionalOnProperty(prefix = "moyeota.settlement.toss", name = "enabled", havingValue = "true")
@@ -15,6 +16,11 @@ public class TossPayoutConfig {
     @Bean
     public SellerGateway sellerGateway(TossPayoutClient tossPayoutClient) {
         return new TossSellerGateway(tossPayoutClient);
+    }
+
+    @Bean
+    public PayoutGateway payoutGateway(TossPayoutClient tossPayoutClient) {
+        return new TossPayoutGateway(tossPayoutClient);
     }
 
     @Bean
