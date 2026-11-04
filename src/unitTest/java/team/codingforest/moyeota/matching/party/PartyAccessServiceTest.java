@@ -326,7 +326,7 @@ class PartyAccessServiceTest {
         @Test
         void 자동_만료된_방은_기록이_없고_운행_완료도_거절된다() {
             Party party = completedParty();
-            party.expireCompleted();
+            party.autoClose(Instant.now());
             Long partyId = save(party);
 
             assertThatThrownBy(() -> access.completeRide(partyId, 기사, 15000)).isInstanceOf(BusinessException.class);

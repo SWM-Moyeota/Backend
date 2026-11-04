@@ -26,6 +26,7 @@ import team.codingforest.moyeota.matching.party.dto.PartyConfirmed;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
+import team.codingforest.moyeota.matching.party.domain.AutoCloseResult;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
@@ -310,18 +311,32 @@ public class PartyService {
         log.info("기사 없이 합승 종료 partyId={}, memberId={}", partyId, memberId);
     }
 
+    /**
+     *  정리 스케줄러가 생성(실시간)·출발(예약) 후 1일이 지나도 열려 있는 방을 닫는다. 노쇼 판정은 Party.autoClose 가 한다.
+     *  도착한 멤버가 있어 FINISHED 로 끝난 방만 기사 없는 하차 기록을 남긴다
+     *
+     *  @return 이번에 노쇼로 찍힌 memberId (합류 순)
+     */
     @Transactional
-    public void expire(Long partyId) {
+    public List<Long> autoClose(Long partyId) {
         Party party = parties.findByIdForUpdate(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
-        party.expireCompleted();
+        AutoCloseResult result = party.autoClose(Instant.now());
         parties.save(party);
+
+        if (result.hasRiders()) {
+            rideRecords.save(RideRecord.withoutDriver(partyId, party.getDeparture(), party.getDestination()));
+        }
+
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
         PartyClosed closed = PartyClosed.from(party.getStatus().name());
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
 
-        log.warn("정원 충족 후 방치된 방 자동 종료 partyId={}", partyId);
+        log.info("방 자동 정리 partyId={}, status={}, members={}, arrived={}, noShows={}, noShowMemberIds={}", partyId, result.status(),
+                party.getMembers().size(), result.arrivedCount(), result.noShowMemberIds().size(), result.noShowMemberIds());
+
+        return result.noShowMemberIds();
     }
 
     public List<MatchCandidate> realtimeMatch(Long memberId, RealTimeMatchingCommand command) {

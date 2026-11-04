@@ -1770,32 +1770,51 @@ class PartyServiceUnitTest {
                 Arguments.of(MatchingErrorCode.USE_DEPART_FOR_CONFIRMED_PARTY, party(RoomType.RESERVED, Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 2, 0L, HOST_ID, MEMBER_ID), HOST_ID));
     }
 
-    // ───────────────────────── expire ─────────────────────────
+    // ───────────────────────── autoClose ─────────────────────────
 
-    @DisplayName("expire - COMPLETED 방을 FINISHED 로 닫고 하차 기록 없이 커밋 후 closed 를 보낸다")
+    @DisplayName("autoClose - 도착한 멤버가 있는 확정 방은 FINISHED 로 닫고 노쇼를 남겨 저장한 뒤 기사 없는 하차 기록·닫힘 이벤트를 남기고 커밋 후 closed 를 보낸다")
     @Test
-    void expire() {
+    void autoClose_someArrived() {
 
         /*
          * settings
          */
-        Party party = party(PartyStatus.COMPLETED, 2, null, 5L, HOST_ID, MEMBER_ID);
+        Party party = confirmedParty(Instant.now().minus(Duration.ofDays(1)), PartyStatus.COMPLETED, null, 6L,
+                arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1), arrivedMember(THIRD_ID, 2));
 
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
         /*
          * test
          */
-        partyService.expire(PARTY_ID);
+        List<Long> noShowMemberIds = partyService.autoClose(PARTY_ID);
 
         /*
          * verify
          */
+        assertThat(noShowMemberIds).containsExactly(MEMBER_ID);
         assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
-        assertThat(party.getVersion()).isEqualTo(6L);
-        verify(parties).save(eq(party));
-        verifyNoInteractions(rideRecords);
-        verify(eventPublisher).publishEvent(eq(new PartyClosedEvent(PARTY_ID, "FINISHED")));
+        assertThat(party.getVersion()).isEqualTo(7L);
+        assertThat(memberOf(party, MEMBER_ID).isNoShow()).isTrue();
+        assertThat(memberOf(party, HOST_ID).isNoShow()).isFalse();
+        assertThat(memberOf(party, THIRD_ID).isNoShow()).isFalse();
+
+        InOrder order = inOrder(parties, rideRecords, eventPublisher, afterCommitExecutor);
+        order.verify(parties).findByIdForUpdate(eq(PARTY_ID));
+        order.verify(parties).save(eq(party));
+        order.verify(rideRecords).save(any(RideRecord.class));
+        order.verify(eventPublisher).publishEvent(eq(new PartyClosedEvent(PARTY_ID, "FINISHED")));
+        order.verify(afterCommitExecutor).execute(eq(SSE_TASK), any());
+        verifyNoInteractions(userAccess, partyCompletionPolicy);
+
+        ArgumentCaptor<RideRecord> captor = ArgumentCaptor.forClass(RideRecord.class);
+        verify(rideRecords).save(captor.capture());
+        RideRecord record = captor.getValue();
+        assertThat(record.getMatchId()).isEqualTo(PARTY_ID);
+        assertThat(record.getDeparturePlace()).isEqualTo("강남역");
+        assertThat(record.getDestinationPlace()).isEqualTo("판교역");
+        assertThat(record.getTaxiDriverId()).isNull();
+        assertThat(record.isDroppedOff()).isTrue();
 
         Runnable task = capturedAfterCommitTask();
         verifyNoInteractions(partyChangeNotifier);
@@ -1803,9 +1822,75 @@ class PartyServiceUnitTest {
         verify(partyChangeNotifier).closed(eq(PARTY_ID), eq(new PartyClosed("FINISHED")));
     }
 
-    @DisplayName("expire - 없는 방이면 PARTY_NOT_FOUND")
+    @DisplayName("autoClose - 아무도 도착하지 않은 확정 방은 전원 노쇼로 CANCELED 이고 하차 기록 없이 닫힘 이벤트와 커밋 후 closed 를 보낸다")
     @Test
-    void expire_partyNotFound() {
+    void autoClose_nobodyArrived() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedParty(Instant.now().minus(Duration.ofDays(1)), PartyStatus.COMPLETED, null, 6L,
+                waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1));
+
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        List<Long> noShowMemberIds = partyService.autoClose(PARTY_ID);
+
+        /*
+         * verify
+         */
+        assertThat(noShowMemberIds).containsExactly(HOST_ID, MEMBER_ID);
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.CANCELED);
+        assertThat(party.getMembers()).allMatch(PartyMember::isNoShow);
+        verify(parties).save(eq(party));
+        verifyNoInteractions(rideRecords);
+        verify(eventPublisher).publishEvent(eq(new PartyClosedEvent(PARTY_ID, "CANCELED")));
+
+        Runnable task = capturedAfterCommitTask();
+        verifyNoInteractions(partyChangeNotifier);
+        task.run();
+        verify(partyChangeNotifier).closed(eq(PARTY_ID), eq(new PartyClosed("CANCELED")));
+    }
+
+    @DisplayName("autoClose - 약속을 정하지 않은 방은 노쇼 없이 COMPLETED 는 FINISHED, ACTIVE 는 CANCELED 로 닫고 하차 기록을 남기지 않는다")
+    @ParameterizedTest(name = "{0} → {1}")
+    @CsvSource({"COMPLETED, FINISHED", "ACTIVE, CANCELED"})
+    void autoClose_unconfirmed(PartyStatus before, PartyStatus after) {
+
+        /*
+         * settings
+         */
+        Party party = party(before, 3, null, 5L, HOST_ID, MEMBER_ID);
+
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        List<Long> noShowMemberIds = partyService.autoClose(PARTY_ID);
+
+        /*
+         * verify
+         */
+        assertThat(noShowMemberIds).isEmpty();
+        assertThat(party.getStatus()).isEqualTo(after);
+        assertThat(party.getVersion()).isEqualTo(6L);
+        assertThat(party.getMembers()).noneMatch(m -> m.getNoShowAt() != null);
+        verify(parties).save(eq(party));
+        verifyNoInteractions(rideRecords);
+        verify(eventPublisher).publishEvent(eq(new PartyClosedEvent(PARTY_ID, after.name())));
+
+        Runnable task = capturedAfterCommitTask();
+        task.run();
+        verify(partyChangeNotifier).closed(eq(PARTY_ID), eq(new PartyClosed(after.name())));
+    }
+
+    @DisplayName("autoClose - 없는 방이면 PARTY_NOT_FOUND")
+    @Test
+    void autoClose_partyNotFound() {
 
         /*
          * settings
@@ -1815,59 +1900,48 @@ class PartyServiceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyService.expire(PARTY_ID));
+        Throwable thrown = catchThrowable(() -> partyService.autoClose(PARTY_ID));
 
         /*
          * verify
          */
         assertBusinessException(thrown, MatchingErrorCode.PARTY_NOT_FOUND);
         verify(parties, never()).save(any());
-        verifyNoInteractions(eventPublisher, afterCommitExecutor);
+        verifyNoInteractions(rideRecords, eventPublisher, afterCommitExecutor, partyChangeNotifier);
     }
 
-    @DisplayName("expire - COMPLETED 가 아니면 PARTY_NOT_COMPLETED 이고 저장·신호가 없다")
-    @ParameterizedTest(name = "status={0}")
-    @EnumSource(value = PartyStatus.class, names = "COMPLETED", mode = EnumSource.Mode.EXCLUDE)
-    void expire_notCompleted(PartyStatus status) {
+    @DisplayName("autoClose - 도메인이 거절하면 그 오류가 나가고 저장·기록·이벤트·신호가 없다")
+    @ParameterizedTest(name = "{0} - {2}")
+    @MethodSource("autoCloseRejections")
+    void autoClose_rejected(MatchingErrorCode expected, Party party, String reason) {
 
         /*
          * settings
          */
-        doReturn(Optional.of(party(status, 2, null, 0L, HOST_ID, MEMBER_ID))).when(parties).findByIdForUpdate(eq(PARTY_ID));
+        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyService.expire(PARTY_ID));
+        Throwable thrown = catchThrowable(() -> partyService.autoClose(PARTY_ID));
 
         /*
          * verify
          */
-        assertBusinessException(thrown, MatchingErrorCode.PARTY_NOT_COMPLETED);
+        assertBusinessException(thrown, expected);
+        assertThat(party.getMembers()).noneMatch(m -> m.getNoShowAt() != null);
         verify(parties, never()).save(any());
-        verifyNoInteractions(eventPublisher, afterCommitExecutor);
+        verifyNoInteractions(rideRecords, eventPublisher, afterCommitExecutor, partyChangeNotifier);
     }
 
-    @DisplayName("expire - 기사가 배정된 COMPLETED 방이면 DRIVER_ALREADY_ASSIGNED")
-    @Test
-    void expire_driverAssigned() {
-
-        /*
-         * settings
-         */
-        doReturn(Optional.of(party(PartyStatus.COMPLETED, 2, DRIVER_ID, 0L, HOST_ID, MEMBER_ID))).when(parties).findByIdForUpdate(eq(PARTY_ID));
-
-        /*
-         * test
-         */
-        Throwable thrown = catchThrowable(() -> partyService.expire(PARTY_ID));
-
-        /*
-         * verify
-         */
-        assertBusinessException(thrown, MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
-        verify(parties, never()).save(any());
-        verifyNoInteractions(eventPublisher, afterCommitExecutor);
+    static Stream<Arguments> autoCloseRejections() {
+        Instant started = Instant.now().minus(Duration.ofDays(1));
+        return Stream.of(
+                Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.FINISHED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), "출발로 이미 끝난 방"),
+                Arguments.of(MatchingErrorCode.PARTY_CLOSED, party(PartyStatus.CANCELED, 2, null, 0L, HOST_ID), "이미 취소된 방"),
+                Arguments.of(MatchingErrorCode.PARTY_CLOSED, party(PartyStatus.MATCHING, 2, null, 0L, HOST_ID, MEMBER_ID), "기사 호출 중인 방"),
+                Arguments.of(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED, party(PartyStatus.COMPLETED, 2, DRIVER_ID, 0L, HOST_ID, MEMBER_ID), "기사가 배정된 COMPLETED 방"),
+                Arguments.of(MatchingErrorCode.MEETING_NOT_STARTED, confirmedParty(Instant.now().plus(Duration.ofMinutes(30)), PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), "약속 시간 전"));
     }
 
     // ───────────────────────── realtimeMatch ─────────────────────────

@@ -62,15 +62,15 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
             """)
     List<MemberRideCount> countByMemberIdsAndStatus(@Param("memberIds") Collection<Long> memberIds, @Param("status") PartyStatus status);
 
-    // 약속 시간이 있는 방(예약 방, 방장이 약속을 확정한 실시간 방)은 약속 시간으로, 없는 방(확정 전 실시간 방)은 정원 충족 시각으로 가른다.
-    // 확정한 실시간 방을 정원 충족 시각으로 가르면 약속 시간(최대 1시간 뒤)이 오기 전에 방이 닫힌다
+    // 자동 정리 대상 - 실시간 방은 만든 시각(created_at), 예약 방은 출발 시각(departure_at)이 cutoff 보다 이른 열린 방.
+    // 실시간 방은 약속을 확정해 departure_at 이 있어도 만든 시각으로 가른다
     @Query("""
             select p.id from PartyEntity p
-            where p.status = :status
-                and ((p.departureAt is null and p.completedAt < :before)
-                    or (p.departureAt is not null and p.departureAt < :before))
+            where p.status in :statuses
+                and ((p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.REALTIME and p.createdAt < :cutoff)
+                    or (p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.RESERVED and p.departureAt < :cutoff))
             """)
-    List<Long> findIdsByStatusAndCompletedBefore(@Param("status") PartyStatus status, @Param("before") Instant before);
+    List<Long> findAutoCloseTargetIds(@Param("statuses") Collection<PartyStatus> statuses, @Param("cutoff") Instant cutoff);
 
     @Query(value = "SELECT CAST(pg_advisory_xact_lock(:memberId) AS text)", nativeQuery = true)
     String lockMember(@Param("memberId") Long memberId);

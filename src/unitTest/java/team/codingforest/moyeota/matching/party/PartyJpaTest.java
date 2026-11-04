@@ -102,13 +102,11 @@ public class PartyJpaTest implements Parties {
     }
 
     @Override
-    public List<Long> findCompletedBefore(Instant before) {
-        // 실제 JPQL 과 같은 규칙 - status = COMPLETED 이고 약속 시간이 있으면 departureAt < before, 없으면 completedAt < before. null 은 비교 대상이 아니다
+    public List<Long> findAutoCloseTargets(Instant cutoff) {
+        // 실제 JPQL 과 같은 규칙 - 열린 방(ACTIVE·COMPLETED) 중 실시간 방은 createdAt < cutoff, 예약 방은 departureAt < cutoff
         return store.values().stream()
-                .filter(p -> p.getStatus() == PartyStatus.COMPLETED)
-                .filter(p -> p.getDepartureAt() != null
-                        ? p.getDepartureAt().isBefore(before)
-                        : p.getCompletedAt() != null && p.getCompletedAt().isBefore(before))
+                .filter(p -> p.getStatus().isRecruiting())
+                .filter(p -> p.isReservation() ? p.getDepartureAt().isBefore(cutoff) : p.getCreatedAt().isBefore(cutoff))
                 .map(Party::getId)
                 .toList();
     }

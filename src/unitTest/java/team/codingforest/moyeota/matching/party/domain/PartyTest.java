@@ -500,7 +500,7 @@ class PartyTest {
         Party party = openParty(2);
         party.join(참여자);
 
-        party.expireCompleted();
+        party.autoClose(Instant.now());
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
     }
@@ -511,10 +511,10 @@ class PartyTest {
         party.join(참여자);
         party.finishWithoutDriver(생성자);
 
-        assertThatThrownBy(party::expireCompleted)
+        assertThatThrownBy(() -> party.autoClose(Instant.now()))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
+                .isEqualTo(MatchingErrorCode.PARTY_CLOSED);
     }
 
     // ───────────────────────── 방장 ─────────────────────────
@@ -632,7 +632,7 @@ class PartyTest {
         Party party = openParty(2);
         party.join(참여자);
 
-        party.expireCompleted();
+        party.autoClose(Instant.now());
 
         assertThat(party.getVersion()).isEqualTo(2);
     }
