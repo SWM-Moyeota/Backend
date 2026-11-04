@@ -10,13 +10,17 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 import team.codingforest.moyeota.common.BaseTimeEntity;
+import team.codingforest.moyeota.user.sanction.domain.NoShowSanction;
 import team.codingforest.moyeota.user.users.domain.User;
 import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 
 import java.time.Instant;
 import java.util.UUID;
 
+// 바뀐 컬럼만 UPDATE 한다 - 프로필 편집과 노쇼 제재가 같은 행을 따로 고쳐도, 한쪽이 읽어 둔 옛 값으로 다른 쪽 컬럼을 덮어쓰지 않게
+@DynamicUpdate
 @Entity
 @Getter
 @NoArgsConstructor
@@ -47,6 +51,14 @@ public class UserEntity extends BaseTimeEntity {
     // null 이면 정상 회원. 탈퇴해도 행은 남긴다 (soft delete)
     private Instant deletedAt;
 
+    // 노쇼 제재(V27). 바꾸는 길은 NoShowSanctionJpa 하나뿐이고 update(User) 는 건드리지 않는다
+    @Column(nullable = false)
+    private int noShowCount;
+
+    private Instant noShowCountUpdatedAt;
+
+    private Instant restrictedUntil;
+
     private UserEntity(UUID publicId, String nickname, String imageUrl, LoginType loginType, Long badgeId, String fcmToken) {
         this.publicId = publicId;
         this.nickname = nickname;
@@ -66,6 +78,16 @@ public class UserEntity extends BaseTimeEntity {
         this.badgeId = user.getBadgeId();
         this.fcmToken = user.getFcmToken();
         this.deletedAt = user.getDeletedAt();
+    }
+
+    public NoShowSanction noShowSanction() {
+        return new NoShowSanction(noShowCount, noShowCountUpdatedAt, restrictedUntil);
+    }
+
+    public void applyNoShowSanction(NoShowSanction sanction) {
+        this.noShowCount = sanction.count();
+        this.noShowCountUpdatedAt = sanction.countUpdatedAt();
+        this.restrictedUntil = sanction.restrictedUntil();
     }
 
     public User toDomain() {

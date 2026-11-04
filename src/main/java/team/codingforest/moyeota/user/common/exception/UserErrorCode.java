@@ -9,6 +9,7 @@ public enum UserErrorCode implements ErrorCode {
     TOKEN_TYPE_MISMATCH(HttpStatus.UNAUTHORIZED, "USER003", "토큰 용도가 올바르지 않습니다."),
     TOKEN_REUSED(HttpStatus.UNAUTHORIZED, "USER004", "다시 로그인해 주세요."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "USER005", "로그인이 필요합니다."),
+    OPERATOR_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "USER006", "운영자 인증이 필요합니다."),
 
     LOGIN_ID_DUPLICATED(HttpStatus.CONFLICT, "USER101", "이미 존재하는 아이디입니다."),
     LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "USER102", "아이디나 비밀번호가 다릅니다."),

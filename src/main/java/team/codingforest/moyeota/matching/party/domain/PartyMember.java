@@ -12,7 +12,7 @@ public class PartyMember {
     private Instant arrivedAt;
     // 누군가 "출발했어요"를 누른 순간 도착하지 않았던 멤버에게 찍히는 시각
     private Instant noShowAt;
-    // 운영자가 노쇼를 무효로 돌린 시각(다른 PR). 무효가 된 노쇼는 노쇼가 아니다
+    // 운영자가 이의를 받아들여 노쇼를 무효로 돌린 시각. 무효가 된 노쇼는 노쇼가 아니다
     private Instant noShowVoidedAt;
 
     PartyMember(Long memberId, Instant joinedAt) {
@@ -42,6 +42,18 @@ public class PartyMember {
 
     void markNoShow(Instant now) {
         noShowAt = now;
+    }
+
+    /**
+     *  노쇼를 무효로 돌린다. 이미 무효였으면 처음 시각을 그대로 둔다
+     *
+     *  @return 이번에 무효로 돌렸으면 true
+     */
+    boolean voidNoShow(Instant now) {
+        if(noShowVoidedAt != null) return false;
+
+        noShowVoidedAt = now;
+        return true;
     }
 
     public boolean isArrived() {

@@ -40,8 +40,8 @@ import java.util.List;
 public class PartyController {
     private final PartyService partyService;
 
-    @Operation(summary = "방 생성", description = "경로·예상 요금을 네이버로 계산해 저장. 생성자는 자동 참여. 반경은 서버 고정값(500m). 진행 중인 방이 이미 있으면 409. body 의 creatorId 는 무시(토큰 사용)")
-    @ApiResponses({@ApiResponse(responseCode = "200", description = "생성된 방"), @ApiResponse(responseCode = "400", description = "SAME_DEPARTURE_DESTINATION / INVALID_CAPACITY / OUT_OF_SERVICE_AREA"), @ApiResponse(responseCode = "409", description = "ALREADY_JOINED_OTHER_PARTY"), @ApiResponse(responseCode = "502", description = "ROUTE_SEARCH_FAILED - 네이버 경로 API 장애")})
+    @Operation(summary = "방 생성", description = "경로·예상 요금을 네이버로 계산해 저장. 생성자는 자동 참여. 반경은 서버 고정값(500m). 진행 중인 방이 이미 있으면 409. 노쇼로 이용이 제한된 동안은 403(제한 끝 시각은 내 프로필의 restrictedUntil). body 의 creatorId 는 무시(토큰 사용)")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "생성된 방"), @ApiResponse(responseCode = "400", description = "SAME_DEPARTURE_DESTINATION / INVALID_CAPACITY / OUT_OF_SERVICE_AREA"), @ApiResponse(responseCode = "403", description = "NO_SHOW_RESTRICTED - 노쇼로 이용 제한 중"), @ApiResponse(responseCode = "409", description = "ALREADY_JOINED_OTHER_PARTY"), @ApiResponse(responseCode = "502", description = "ROUTE_SEARCH_FAILED - 네이버 경로 API 장애")})
     @PostMapping("/matching/rooms")
     public ResponseEntity<OpenPartyResponse> open(@CurrentUser Long memberId, @Valid @RequestBody OpenPartyRequest request) {
         PartyResult party = partyService.open(request.toCommand(memberId));
@@ -49,8 +49,8 @@ public class PartyController {
         return ResponseEntity.ok(OpenPartyResponse.from(party));
     }
 
-    @Operation(summary = "방 참여", description = "정원이 차면 COMPLETED → MATCHING 으로 넘어가며 기사 콜이 시작되고 채팅방이 열린다")
-    @ApiResponses({@ApiResponse(responseCode = "200", description = "참여 후 상태·인원. 동승자 목록은 SSE 구독(/events)의 connected 로 받는다"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_FULL / PARTY_CLOSED / ALREADY_JOINED_PARTY / ALREADY_JOINED_OTHER_PARTY")})
+    @Operation(summary = "방 참여", description = "정원이 차면 COMPLETED → MATCHING 으로 넘어가며 기사 콜이 시작되고 채팅방이 열린다. 노쇼로 이용이 제한된 동안은 403(제한 끝 시각은 내 프로필의 restrictedUntil)")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "참여 후 상태·인원. 동승자 목록은 SSE 구독(/events)의 connected 로 받는다"), @ApiResponse(responseCode = "403", description = "NO_SHOW_RESTRICTED - 노쇼로 이용 제한 중"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_FULL / PARTY_CLOSED / ALREADY_JOINED_PARTY / ALREADY_JOINED_OTHER_PARTY")})
     @PostMapping("/matching/rooms/{partyId}/join")
     public ResponseEntity<PartyStatusResponse> join(@PathVariable Long partyId, @CurrentUser Long memberId) {
         return ResponseEntity.ok(partyService.join(partyId, memberId));
@@ -121,7 +121,7 @@ public class PartyController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "출발", description = "출발지에 도착(arrive)한 멤버가 약속 시간 뒤에 누르면 방이 바로 끝난다(FINISHED). 방장이 아니어도 된다. 본문 없음. 그 순간까지 도착하지 않은 멤버는 노쇼로 기록되어 탑승 기록·탑승 횟수에서 빠지고, 도착한 멤버만 탄 사람으로 남는다. 약속이 확정된 방(방장이 약속 시간을 확정한 실시간 방, 모든 예약 방)이고 닫히지 않은(ACTIVE/COMPLETED) 기사 없는 방, 멤버 2명 이상에서만 된다. 끝나면 탑승 기록이 남고 모든 구독자에게 SSE closed { status: FINISHED } 를 보낸다(서버가 연결을 끊는다). 약속이 확정된 방을 사용자가 끝내는 길은 이것 하나다. 아무도 누르지 않으면 실시간 방은 만든 지 1일, 예약 방은 출발 시각에서 1일 뒤 서버가 정리한다 - 도착한 멤버가 있으면 FINISHED(나머지는 노쇼, 탑승 기록 남음), 아무도 도착하지 않았으면 전원 노쇼로 CANCELED")
+    @Operation(summary = "출발", description = "출발지에 도착(arrive)한 멤버가 약속 시간 뒤에 누르면 방이 바로 끝난다(FINISHED). 방장이 아니어도 된다. 본문 없음. 그 순간까지 도착하지 않은 멤버는 노쇼로 기록되어 탑승 기록·탑승 횟수에서 빠지고(노쇼 누적 횟수 +1, 약속 시간부터 누적 횟수 × 24시간 방 만들기·참여 제한 - 노쇼 API 참고), 도착한 멤버만 탄 사람으로 남는다. 약속이 확정된 방(방장이 약속 시간을 확정한 실시간 방, 모든 예약 방)이고 닫히지 않은(ACTIVE/COMPLETED) 기사 없는 방, 멤버 2명 이상에서만 된다. 끝나면 탑승 기록이 남고 모든 구독자에게 SSE closed { status: FINISHED } 를 보낸다(서버가 연결을 끊는다). 약속이 확정된 방을 사용자가 끝내는 길은 이것 하나다. 아무도 누르지 않으면 실시간 방은 만든 지 1일, 예약 방은 출발 시각에서 1일 뒤 서버가 정리한다 - 도착한 멤버가 있으면 FINISHED(나머지는 노쇼, 탑승 기록 남음), 아무도 도착하지 않았으면 전원 노쇼로 CANCELED")
     @ApiResponses({@ApiResponse(responseCode = "204", description = "방이 끝남"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_CLOSED - 이미 끝났거나(누가 먼저 출발함) 취소된 방 / PARTY_NOT_CONFIRMED - 약속 시간을 확정하지 않은 실시간 방 / DRIVER_ALREADY_ASSIGNED / NOT_ENOUGH_MEMBERS - 멤버가 1명뿐인 예약 방 / MEETING_NOT_STARTED - 약속 시간 전 / NOT_ARRIVED - 누른 사람이 아직 도착 전")})
     @PostMapping("/matching/rooms/{partyId}/depart")
     public ResponseEntity<Void> depart(@PathVariable Long partyId, @CurrentUser Long memberId) {
@@ -129,8 +129,8 @@ public class PartyController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "예약 방 생성", description = "출발 시각을 정해 방을 만든다. 경로·예상 요금·예상 시간은 비어 있다. 참여·나가기·상세·SSE 는 기존 방 API 를 쓴다. 실시간 방에 있거나 출발 시각 2시간 안에 다른 예약 방이 있으면 409")
-    @ApiResponses({@ApiResponse(responseCode = "200", description = "생성된 방"), @ApiResponse(responseCode = "400", description = "SAME_DEPARTURE_DESTINATION / INVALID_CAPACITY / OUT_OF_SERVICE_AREA / INVALID_DEPARTURE_TIME"), @ApiResponse(responseCode = "409", description = "ALREADY_JOINED_OTHER_PARTY / PARTY_TIME_CONFLICT / RESERVATION_NOT_SUPPORTED")})
+    @Operation(summary = "예약 방 생성", description = "출발 시각을 정해 방을 만든다. 경로·예상 요금·예상 시간은 비어 있다. 참여·나가기·상세·SSE 는 기존 방 API 를 쓴다. 실시간 방에 있거나 출발 시각 2시간 안에 다른 예약 방이 있으면 409. 노쇼로 이용이 제한된 동안은 403(제한 끝 시각은 내 프로필의 restrictedUntil)")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "생성된 방"), @ApiResponse(responseCode = "400", description = "SAME_DEPARTURE_DESTINATION / INVALID_CAPACITY / OUT_OF_SERVICE_AREA / INVALID_DEPARTURE_TIME"), @ApiResponse(responseCode = "403", description = "NO_SHOW_RESTRICTED - 노쇼로 이용 제한 중"), @ApiResponse(responseCode = "409", description = "ALREADY_JOINED_OTHER_PARTY / PARTY_TIME_CONFLICT / RESERVATION_NOT_SUPPORTED")})
     @PostMapping("/matching/reservations")
     public ResponseEntity<OpenPartyResponse> reserve(@CurrentUser Long memberId, @Valid @RequestBody OpenReservationRequest request) {
         return ResponseEntity.ok(OpenPartyResponse.from(partyService.reserve(request.toCommand(memberId))));

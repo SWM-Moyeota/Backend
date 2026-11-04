@@ -315,6 +315,27 @@ public class Party {
         return List.copyOf(noShowMemberIds);
     }
 
+    /**
+     *  노쇼 이의를 낼 수 있는 멤버인지 - 이 방의 멤버이고 지금 노쇼(찍혔고 무효로 돌리지 않은)여야 한다
+     */
+    public void ensureNoShow(Long memberId) {
+        if(!findMember(memberId).isNoShow()) throw new BusinessException(MatchingErrorCode.NOT_NO_SHOW);
+    }
+
+    /**
+     *  운영자가 이의를 받아들여 멤버의 노쇼를 무효로 돌린다. 무효가 된 노쇼는 탑승 기록·탑승 횟수에 다시 잡힌다.
+     *  방이 끝난 뒤의 일이고 방 상세·SSE 에 보이는 값이 바뀌지 않아 version 은 올리지 않는다
+     *
+     *  @return 이번에 무효로 돌렸으면 true, 이미 무효였으면 false
+     */
+    public boolean voidNoShow(Long memberId, Instant now) {
+        PartyMember member = findMember(memberId);
+
+        if(member.getNoShowAt() == null) throw new BusinessException(MatchingErrorCode.NOT_NO_SHOW);
+
+        return member.voidNoShow(now);
+    }
+
     private int arrivedCount() {
         return (int) members.stream().filter(PartyMember::isArrived).count();
     }

@@ -3,8 +3,10 @@ package team.codingforest.moyeota.user.auth.presentation.security;
 import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.utils.SpringDocUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -20,6 +22,7 @@ import java.util.List;
 /**
  * JWT 전용 Security. 세션 없음, CSRF/폼로그인/basic 끔.
  * /api/v1/auth/** 와 WebSocket 핸드셰이크만 열고 나머지는 토큰 필수. @CurrentUser 리졸버도 여기서 등록.
+ * 운영자 API(/api/v1/operator/**)만 JWT 대신 X-Operator-Token 헤더를 보는 별도 체인으로 막는다.
  */
 @Configuration
 @RequiredArgsConstructor
@@ -30,8 +33,30 @@ public class SecurityConfig implements WebMvcConfigurer {
     }
 
 
+    static final String OPERATOR_PATH = "/api/v1/operator/**";
+
     private final AuthService authService;
     private final JsonAuthenticationEntryPoint entryPoint;
+
+    /**
+     * 운영자 API 전용 체인 - 사용자 JWT 필터가 없어 Bearer 토큰으로는 들어올 수 없고, OperatorTokenFilter 를 통과해야 OPERATOR 권한이 붙는다.
+     * 아래 사용자 체인은 모든 요청에 걸리는 체인이라 이 체인이 먼저 골라지도록 순서를 앞에 둔다.
+     * 컨트롤러 인터셉터가 아니라 필터 체인에 두는 까닭: 매처에 걸린 경로는 무조건 권한을 요구해(기본 거부) 새 운영자 API 를 추가해도 빠뜨릴 수 없다
+     */
+    @Bean
+    @Order(1)
+    public SecurityFilterChain operatorSecurityFilterChain(HttpSecurity http, @Value("${moyeota.operator.token:}") String operatorToken) throws Exception {
+        return http
+                .securityMatcher(OPERATOR_PATH)
+                .csrf(csrf -> csrf.disable())
+                .formLogin(form -> form.disable())
+                .httpBasic(basic -> basic.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(entryPoint))
+                .authorizeHttpRequests(auth -> auth.anyRequest().hasRole(OperatorTokenFilter.ROLE))
+                .addFilterBefore(new OperatorTokenFilter(operatorToken, entryPoint), AuthorizationFilter.class)
+                .build();
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

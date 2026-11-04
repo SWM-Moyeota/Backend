@@ -48,6 +48,7 @@ import team.codingforest.moyeota.matching.party.dto.MatchCandidate;
 import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.matching.record.domain.RideRecords;
 import team.codingforest.moyeota.user.api.MemberSummary;
+import team.codingforest.moyeota.user.api.NoShowPenalty;
 import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.time.Duration;
@@ -79,9 +80,13 @@ public class PartyService {
     private final WalkRouteFinder walkRouteFinder;
     private final RideRecords rideRecords;
 	private final PartyOpener partyOpener;
+    private final NoShowPenalty noShowPenalty;
 
     public PartyResult open(OpenPartyCommand command) {
-        PartyConflictRule.check(parties, command.creatorId(), Instant.now());
+        Instant now = Instant.now();
+        // 제한된 사용자 때문에 네이버 경로 API 를 부르지 않게 맨 먼저 본다
+        ensureNotRestricted(command.creatorId(), now);
+        PartyConflictRule.check(parties, command.creatorId(), now);
 
 		// 네이버 API를 사용하기에 트랜잭션을 사용하지 않음
         RouteEstimate estimate = routeService.estimate(command.departureLat(), command.departureLng(), command.destinationLat(), command.destinationLng());
@@ -91,11 +96,14 @@ public class PartyService {
     }
 
     public PartyResult reserve(OpenReservationCommand command) {
+        ensureNotRestricted(command.creatorId(), Instant.now());
+
         return partyOpener.reserve(command);
     }
 
     @Transactional
     public PartyStatusResponse join(Long partyId, Long memberId) {
+        ensureNotRestricted(memberId, Instant.now());
         parties.lockMember(memberId);
         PartyConflictRule.checkNotInRealtime(parties, memberId);
 
@@ -258,15 +266,18 @@ public class PartyService {
     }
 
     /**
-     *  도착한 멤버가 출발을 누르면 방이 끝난다. 그 순간 도착하지 않은 멤버는 노쇼로 저장되고 탑승 기록·탑승 횟수에서 빠진다
+     *  도착한 멤버가 출발을 누르면 방이 끝난다. 그 순간 도착하지 않은 멤버는 노쇼로 저장되고 탑승 기록·탑승 횟수에서 빠지며,
+     *  같은 트랜잭션에서 노쇼 제재(누적 횟수 +1, 약속 시간부터 누적 횟수 × 24시간 이용 제한)가 더해진다
      */
     @Transactional
     public void depart(Long partyId, Long memberId) {
         Party party = parties.findByIdForUpdate(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
-        List<Long> noShowMemberIds = party.depart(memberId, Instant.now());
+        Instant now = Instant.now();
+        List<Long> noShowMemberIds = party.depart(memberId, now);
         parties.save(party);
+        penalizeNoShows(party, noShowMemberIds, now);
         rideRecords.save(RideRecord.withoutDriver(partyId, party.getDeparture(), party.getDestination()));
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
         PartyClosed closed = PartyClosed.from(party.getStatus().name());
@@ -313,7 +324,7 @@ public class PartyService {
 
     /**
      *  정리 스케줄러가 생성(실시간)·출발(예약) 후 1일이 지나도 열려 있는 방을 닫는다. 노쇼 판정은 Party.autoClose 가 한다.
-     *  도착한 멤버가 있어 FINISHED 로 끝난 방만 기사 없는 하차 기록을 남긴다
+     *  도착한 멤버가 있어 FINISHED 로 끝난 방만 기사 없는 하차 기록을 남긴다. 노쇼로 찍힌 멤버는 같은 트랜잭션에서 제재가 더해진다
      *
      *  @return 이번에 노쇼로 찍힌 memberId (합류 순)
      */
@@ -322,8 +333,10 @@ public class PartyService {
         Party party = parties.findByIdForUpdate(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
-        AutoCloseResult result = party.autoClose(Instant.now());
+        Instant now = Instant.now();
+        AutoCloseResult result = party.autoClose(now);
         parties.save(party);
+        penalizeNoShows(party, result.noShowMemberIds(), now);
 
         if (result.hasRiders()) {
             rideRecords.save(RideRecord.withoutDriver(partyId, party.getDeparture(), party.getDestination()));
@@ -363,6 +376,26 @@ public class PartyService {
                 .mapToObj(i -> new MatchCandidate(summary.get(i), toPickup.get(i).durationSeconds() + dropOff.get(i).durationSeconds()))
                 .sorted(Comparator.comparingInt(MatchCandidate::totalSeconds))
                 .toList();
+    }
+
+    /**
+     *  노쇼 제재 중이면 방 만들기(실시간·예약)·참여를 막는다. 채팅·탑승 기록 등은 막지 않는다
+     */
+    private void ensureNotRestricted(Long memberId, Instant now) {
+        noShowPenalty.findRestrictedUntil(memberId, now).ifPresent(until -> {
+            log.info("노쇼 제재 중이라 거절 memberId={}, restrictedUntil={}", memberId, until);
+            throw new BusinessException(MatchingErrorCode.NO_SHOW_RESTRICTED);
+        });
+    }
+
+    /**
+     *  노쇼로 찍힌 멤버마다 제재를 더한다. 제한은 기록한 시각이 아니라 방의 약속 시간(departureAt)부터 센다 - 노쇼는 약속이 정해진 방에서만 나와 비어 있지 않다.
+     *  users 행을 잠그므로 다른 트랜잭션과 잠금 순서가 엇갈려 교착되지 않게 userId 오름차순으로 부른다
+     */
+    private void penalizeNoShows(Party party, List<Long> noShowMemberIds, Instant now) {
+        noShowMemberIds.stream()
+                .sorted()
+                .forEach(userId -> noShowPenalty.record(userId, party.getDepartureAt(), now));
     }
 
     private Party getParty(Long partyId) {

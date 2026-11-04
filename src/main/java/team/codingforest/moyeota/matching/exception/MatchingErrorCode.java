@@ -32,6 +32,13 @@ public enum MatchingErrorCode implements ErrorCode {
     NOT_ARRIVED(HttpStatus.CONFLICT, "출발지에 도착한 사람만 출발할 수 있습니다."),
     USE_DEPART_FOR_CONFIRMED_PARTY(HttpStatus.CONFLICT, "약속이 확정된 방은 출발 버튼으로 끝냅니다."),
 
+    // 노쇼 제재·이의 신청
+    NO_SHOW_RESTRICTED(HttpStatus.FORBIDDEN, "노쇼로 이용이 제한된 상태입니다."),
+    NOT_NO_SHOW(HttpStatus.CONFLICT, "이 방에서 노쇼로 기록되지 않았습니다."),
+    ALREADY_OBJECTED(HttpStatus.CONFLICT, "이미 이의를 신청한 방입니다."),
+    OBJECTION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 이의 신청입니다."),
+    OBJECTION_ALREADY_RESOLVED(HttpStatus.CONFLICT, "이미 처리된 이의 신청입니다."),
+
     // 매칭·배정·운행 상태
     PARTY_NOT_COMPLETED(HttpStatus.CONFLICT, "정원이 다 차지 않은 방입니다."),
     PARTY_NOT_MATCHING(HttpStatus.CONFLICT, "매칭 중인 방이 아닙니다."),

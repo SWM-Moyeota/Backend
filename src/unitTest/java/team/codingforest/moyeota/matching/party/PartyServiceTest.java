@@ -69,6 +69,7 @@ class PartyServiceTest {
     private FakeUserAccess userAccess;
     private RecordingPartyChangeNotifier signals;
     private FakeRideRecords rideRecords;
+    private FakeNoShowPenalty noShowPenalty;
     private PartyService service;
 
     @BeforeEach
@@ -79,6 +80,7 @@ class PartyServiceTest {
         userAccess = new FakeUserAccess();
         signals = new RecordingPartyChangeNotifier();
         rideRecords = new FakeRideRecords(parties);
+        noShowPenalty = new FakeNoShowPenalty();
         userAccess.등록(host, "방장");
         userAccess.등록(participant, "동승자");
         service = serviceWith(new DispatchCompletionPolicy(events));   // 기본은 발표 모드 - 정원이 차면 배차 시작
@@ -95,7 +97,7 @@ class PartyServiceTest {
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
                 new RouteCacheTest());
         return new PartyService(parties, events, routeService, driverAccess, userAccess, policy, afterCommit, signals,
-                new FakeWalkRouteFinder(), rideRecords, new PartyOpener(parties, events, policy));
+                new FakeWalkRouteFinder(), rideRecords, new PartyOpener(parties, events, policy), noShowPenalty);
     }
 
     // ───────────────────────── 예약 방 ─────────────────────────

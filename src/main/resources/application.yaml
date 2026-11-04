@@ -118,6 +118,10 @@ moyeota:
       from: ${SOLAPI_FROM:}
   profile-image:
     base-url: ${PROFILE_IMAGE_BASE_URL:https://cdn.moyeota.co.kr/}   # 목록은 profile-images.yaml
+  operator:
+    # 운영자 API(/api/v1/operator/**)가 X-Operator-Token 헤더와 비교하는 공유 비밀. 비어 있으면 운영자 API 는 모두 401(꺼짐)
+    # 서버는 파라미터 스토어 /moyeota/{dev|prod}/OPERATOR_TOKEN(SecureString)으로 넣는다. 값을 저장소·로그에 남기지 않는다
+    token: ${OPERATOR_TOKEN:}
   settlement:
     payout:
       enabled: ${SETTLEMENT_PAYOUT_ENABLED:false}
