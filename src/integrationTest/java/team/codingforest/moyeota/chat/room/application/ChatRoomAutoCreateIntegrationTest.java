@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 /**
- *  정원이 차서 MatchingStartedEvent 가 커밋 뒤 발행되면 채팅방이 "실제 DB 에" 남아야 한다.
+ *  파티원이 들어와 PartyMemberJoinedEvent 가 커밋 뒤 발행되면 채팅방과 참여가 "실제 DB 에" 남아야 한다.
  *  AFTER_COMMIT 리스너 안에서 @Transactional(REQUIRED) 를 부르면 이미 끝난 트랜잭션에 참여해 커밋이 안 되는 함정을 잡는 테스트.
  *  실제 DB(로컬 Postgres)로 돌아야 의미가 있어 @Transactional 을 붙이지 않는다.
  *  리스너가 @ApplicationModuleListener(@Async) 라 커밋 직후엔 아직 안 돌았을 수 있어 await 로 기다린다.

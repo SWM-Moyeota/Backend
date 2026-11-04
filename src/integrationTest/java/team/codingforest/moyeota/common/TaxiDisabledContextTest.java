@@ -15,7 +15,6 @@ import team.codingforest.moyeota.driver.DriverController;
 import team.codingforest.moyeota.matching.party.completion.ChatOnlyCompletionPolicy;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
 import team.codingforest.moyeota.matching.party.PartyRecruitingSweeper;
-import team.codingforest.moyeota.matching.party.completion.DispatchCompletionPolicy;
 import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
 import team.codingforest.moyeota.settlement.api.SettlementAccess;
 import team.codingforest.moyeota.settlement.ledger.SettlementCloseScheduler;
@@ -43,10 +42,9 @@ class TaxiDisabledContextTest {
         assertThat(ctx.getBeanNamesForType(SettlementCloseScheduler.class)).as("택시 운행이 없으니 마감할 정산서도 없다").isEmpty();
     }
 
-    /** 단위 테스트는 정책을 new 로 꽂으므로 @ConditionalOnProperty 가 뒤바뀐 실수는 여기서만 잡힌다 */
+    /** 단위 테스트는 정책을 new 로 꽂으므로 정책 빈이 하나만 뜨는지는 여기서만 잡힌다 */
     @Test
     void 정원_충족_정책은_채팅만_정책_하나가_뜬다() {
-        assertThat(ctx.getBeanNamesForType(DispatchCompletionPolicy.class)).as("배차 정책이 뜨면 정원 찬 방이 MATCHING 에 갇힌다").isEmpty();
         assertThat(ctx.getBeanNamesForType(ChatOnlyCompletionPolicy.class)).isNotEmpty();
         assertThat(ctx.getBeanNamesForType(PartyCompletionPolicy.class)).hasSize(1);
     }
