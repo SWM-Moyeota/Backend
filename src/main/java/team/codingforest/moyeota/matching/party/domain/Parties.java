@@ -20,6 +20,8 @@ public interface Parties {
     Map<Long, Integer> countFinishedRides(List<Long> memberIds);
     List<Long> findCompletedBefore(Instant before);
     List<NearbyPartySummary> findMatchesWithinRadius(double departLat, double departLng, double destLat, double destLng, int radius);
+    // 이 방의 출발지에서 radiusMeters 안(경계 포함)인지 - 거리는 DB(PostGIS)가 잰다. 없는 방이면 false
+    boolean isNearDeparture(Long partyId, double latitude, double longitude, double radiusMeters);
     boolean existsById(Long id);
     boolean hasMember(Long partyId, Long memberId);
     void lockMember(Long memberId);

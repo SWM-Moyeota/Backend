@@ -17,11 +17,11 @@ public record RideRecordResponse(@Schema(description = "탑승 기록. 하차 �
                                   @Schema(description = "출발지 이름(운행 당시 방의 출발지)") String departure,
                                   @Schema(description = "도착지 이름(운행 당시 방의 도착지)") String destination,
                                   @Schema(description = "탑승 시각 - 기사가 탑승 처리한 시각. 1차 모드(기사 없음)와 탑승 기록 기능 배포 전부터 운행 중이던 방은 null") Instant pickupTime,
-                                  @Schema(description = "하차 시각 - 기사가 요금을 입력해 운행을 마친 시각. 1차 모드는 방장이 합승 종료한 시각") Instant dropoffTime,
+                                  @Schema(description = "하차 시각 - 기사가 요금을 입력해 운행을 마친 시각. 1차 모드는 출발을 누르거나 방장이 합승 종료한 시각") Instant dropoffTime,
                                   @Schema(description = "실제 운행 요금(원) - 기사가 입력한 미터기 요금. 1차 모드는 null") Integer totalFare,
                                   @Schema(description = "1인 부담 요금(원) - totalFare / currentMembers 정수 나눗셈(나머지 버림). 1/N 균등 분할 기준. totalFare 가 null 이면 null") Integer farePerPerson,
-                                  @Schema(description = "함께 탄 인원(나 포함)") int currentMembers,
-                                  @Schema(description = "함께 탄 멤버(나 포함, 합류 순). 본인 판별은 publicId 와 토큰 sub 비교") List<RideRecordMember> members) {
+                                  @Schema(description = "함께 탄 인원(나 포함). 노쇼는 빠진다") int currentMembers,
+                                  @Schema(description = "함께 탄 멤버(나 포함, 합류 순). 노쇼는 빠진다. 본인 판별은 publicId 와 토큰 sub 비교") List<RideRecordMember> members) {
 
         static RideRecordItem of(RideRecord rideRecord, List<Long> memberIds, Map<Long, MemberSummary> summaries) {
             List<RideRecordMember> members = memberIds.stream()

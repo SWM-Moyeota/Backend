@@ -18,20 +18,21 @@ public record PartyDetailResult(Long id,
                                 List<MemberInfo> members, Integer estimateFare, Integer estimateTime, String route, Long taxiDriverId,
                                 long version, String roomType, Instant departureAt, boolean confirmed) {
 
-    public record MemberInfo(UUID publicId, String nickname, String imageUrl, String badgeId, Integer rideCount, boolean host) {
+    // arrived 는 출발지에 도착했어요를 누른 멤버인지(약속이 정해지기 전에는 늘 false)
+    public record MemberInfo(UUID publicId, String nickname, String imageUrl, String badgeId, Integer rideCount, boolean host, boolean arrived) {
 
         // TODO badgeId 값 설정
-        public static MemberInfo of(MemberSummary summary, int rideCount, boolean host) {
-            if(summary == null) return new MemberInfo(null, null, null, null, rideCount, host);
+        public static MemberInfo of(MemberSummary summary, int rideCount, boolean host, boolean arrived) {
+            if(summary == null) return new MemberInfo(null, null, null, null, rideCount, host, arrived);
 
-            return new MemberInfo(summary.publicId(), summary.nickname(), summary.imageUrl(), null, rideCount, host);
+            return new MemberInfo(summary.publicId(), summary.nickname(), summary.imageUrl(), null, rideCount, host, arrived);
         }
     }
 
     public static PartyDetailResult from(Party party, Map<Long, MemberSummary> summaries, Map<Long, Integer> rideCounts) {
         List<MemberInfo> members = party.getMembers().stream()
                 .map(m -> MemberInfo.of(summaries.get(m.getMemberId()), rideCounts.getOrDefault(m.getMemberId(), 0),
-                        party.isHost(m.getMemberId())))
+                        party.isHost(m.getMemberId()), m.isArrived()))
                 .toList();
 
         return new PartyDetailResult(

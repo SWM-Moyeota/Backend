@@ -16,8 +16,9 @@ import java.util.List;
 // TODO - 예외처리 해야함
 public class Party {
     private static final Duration MAX_RESERVATION_AHEAD = Duration.ofDays(7);
-    private static final Duration FINISHABLE_BEFORE_DEPARTURE = Duration.ofMinutes(30);
     private static final Duration MAX_CONFIRM_AHEAD = Duration.ofHours(1);
+    // "도착했어요"를 받는 출발지 반경. 거리는 서비스가 이 값으로 DB(PostGIS)에 물어 잰다
+    public static final double ARRIVAL_RADIUS_METERS = 100;
     // 앱이 "지금"을 고르면 요청이 도착할 때는 이미 지난 시각이라, 그만큼은 지난 시각도 받는다
     private static final Duration CONFIRM_CLOCK_SKEW = Duration.ofMinutes(1);
     private static final int MIN_MEMBERS_TO_DEPART = 2;
@@ -210,6 +211,82 @@ public class Party {
         return isReservation() || departureAt != null;
     }
 
+    /**
+     *  출발지 도착 - 약속 시간(departureAt)부터 출발지 100m(ARRIVAL_RADIUS_METERS) 안에 있는 멤버가 누른다. 장소는 늘 방의 출발지다.
+     *  거리는 도메인이 재지 않는다 - 서비스가 지금 위치가 반경 안인지 DB(PostGIS ST_DWithin)에 물어본 답을 nearDeparture 로 넘긴다.
+     *  예약 방은 모집 정리 스케줄러가 돌기 전이면 출발 시각에도 ACTIVE 일 수 있어 COMPLETED 와 함께 받는다.
+     *  이미 도착했으면 처음 시각을 그대로 두고 아무것도 바꾸지 않는다(위치·시간도 다시 보지 않는다)
+     *
+     *  @return 이번에 처음 도착했으면 true, 이미 도착해 있었으면 false
+     */
+    public boolean arrive(Long memberId, boolean nearDeparture, Instant now) {
+        PartyMember member = findMember(memberId);
+
+        ensureAttendanceOpen();
+
+        if(member.isArrived()) return false;
+
+        if(now.isBefore(departureAt)) throw new BusinessException(MatchingErrorCode.MEETING_NOT_STARTED);
+
+        if(!nearDeparture) throw new BusinessException(MatchingErrorCode.TOO_FAR_FROM_DEPARTURE);
+
+        member.arrive(now);
+        version++;
+
+        return true;
+    }
+
+    /**
+     *  출발 - 도착한 멤버가 약속 시간 뒤에 누르면 방이 바로 끝난다(FINISHED). 방장이 아니어도 된다.
+     *  그 순간 도착하지 않은 멤버는 모두 노쇼로 찍히고, 도착한 멤버가 실제로 탄 사람이다.
+     *  예약 방은 아무도 들어오지 않았으면 모집 정리 때 취소되는 방이라 혼자 남은 방은 출발할 수 없다
+     *
+     *  @return 이번에 노쇼로 찍힌 memberId (합류 순)
+     */
+    public List<Long> depart(Long memberId, Instant now) {
+        PartyMember member = findMember(memberId);
+
+        ensureAttendanceOpen();
+
+        if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
+
+        if(members.size() < MIN_MEMBERS_TO_DEPART) throw new BusinessException(MatchingErrorCode.NOT_ENOUGH_MEMBERS);
+
+        if(now.isBefore(departureAt)) throw new BusinessException(MatchingErrorCode.MEETING_NOT_STARTED);
+
+        if(!member.isArrived()) throw new BusinessException(MatchingErrorCode.NOT_ARRIVED);
+
+        List<Long> noShowMemberIds = new ArrayList<>();
+        for(PartyMember m : members) {
+            if(m.isArrived()) continue;
+
+            m.markNoShow(now);
+            noShowMemberIds.add(m.getMemberId());
+        }
+
+        status = PartyStatus.FINISHED;
+        version++;
+
+        return List.copyOf(noShowMemberIds);
+    }
+
+    /**
+     *  도착·출발을 받을 수 있는 방인가 - 닫히지 않았고(ACTIVE/COMPLETED) 약속이 정해져 있어야 한다
+     */
+    private void ensureAttendanceOpen() {
+        if(!status.isRecruiting()) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+
+        if(!isConfirmed()) throw new BusinessException(MatchingErrorCode.PARTY_NOT_CONFIRMED);
+    }
+
+    private PartyMember findMember(Long memberId) {
+        for(PartyMember m : members) {
+            if(m.getMemberId().equals(memberId)) return m;
+        }
+
+        throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
+    }
+
     public void expireRecruiting() {
         if(status != PartyStatus.ACTIVE) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
 
@@ -360,16 +437,22 @@ public class Party {
         return hostId != null && hostId.equals(memberId);
     }
 
+    /**
+     *  약속을 확정하지 않은 방을 방장이 끝내는 이전 경로(구버전 앱). 노쇼 없이 멤버 전원이 탄 것으로 남는다.
+     *  약속이 정해진 방(확정한 실시간 방, 모든 예약 방)은 출발(depart)로만 끝낸다 - 끝내는 길이 둘이면 노쇼 기록을 건너뛸 수 있다.
+     *  예약 방은 늘 확정이라 여기까지 오지 않는다
+     */
     public void finishWithoutDriver(Long memberId) {
         if(!hasMember(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
+
+        // 방장 검사보다 먼저 - 확정된 방에선 방장이 아니어도 출발 버튼으로 끝낼 수 있으니 그 길을 알려 준다
+        if(isConfirmed()) throw new BusinessException(MatchingErrorCode.USE_DEPART_FOR_CONFIRMED_PARTY);
 
         if(!isHost(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_HOST);
 
         if(status != PartyStatus.COMPLETED) throw new BusinessException(MatchingErrorCode.PARTY_NOT_COMPLETED);
 
         if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
-
-        if(isReservation() && Instant.now().isBefore(departureAt.minus(FINISHABLE_BEFORE_DEPARTURE))) throw new BusinessException(MatchingErrorCode.RESERVATION_NOT_STARTED);
 
         status = PartyStatus.FINISHED;
         version++;

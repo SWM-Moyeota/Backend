@@ -22,6 +22,7 @@ import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.party.dto.OpenReservationCommand;
 import team.codingforest.moyeota.matching.party.dto.RealTimeMatchingCommand;
 import team.codingforest.moyeota.matching.party.dto.RecruitingClosed;
+import team.codingforest.moyeota.matching.party.dto.MemberArrived;
 import team.codingforest.moyeota.matching.party.dto.MemberJoined;
 import team.codingforest.moyeota.matching.party.dto.MemberLeft;
 import team.codingforest.moyeota.matching.party.dto.PartyClosed;
@@ -1263,11 +1264,18 @@ class PartyServiceTest {
         final List<PartyClosed> closed = new ArrayList<>();
         final List<Long> recruitingClosed = new ArrayList<>();
         final List<PartyConfirmed> confirmed = new ArrayList<>();
+        final List<MemberArrived> arrived = new ArrayList<>();
 
         @Override
         public void confirmed(Long partyId, PartyConfirmed event) {
             sent.add(partyId + ":confirmed");
             confirmed.add(event);
+        }
+
+        @Override
+        public void memberArrived(Long partyId, MemberArrived event) {
+            sent.add(partyId + ":member-arrived");
+            arrived.add(event);
         }
 
         @Override

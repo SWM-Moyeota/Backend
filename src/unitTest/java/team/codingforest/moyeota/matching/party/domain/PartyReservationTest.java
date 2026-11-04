@@ -139,22 +139,24 @@ class PartyReservationTest {
 
     // ───────────────────────── 합승 종료 ─────────────────────────
 
+    // 예약 방은 만들 때부터 약속이 정해진 방이라 출발 시각과 상관없이 이전 합승 종료 경로로는 끝낼 수 없다 - 출발(depart)로만 끝낸다
+
     @Test
-    void 출발까지_30분이_넘게_남은_예약_방은_합승_종료할_수_없다() {
+    void 출발이_한참_남은_예약_방은_합승_종료_대신_출발로_끝내라고_거절한다() {
         Party party = Party.reserve(방장, 강남역, 판교역, "강남역", "판교역", new Capacity(2), 지금, 지금.plus(Duration.ofHours(1)));
         party.join(참여자);
 
-        assertFails(() -> party.finishWithoutDriver(방장), MatchingErrorCode.RESERVATION_NOT_STARTED);
+        assertFails(() -> party.finishWithoutDriver(방장), MatchingErrorCode.USE_DEPART_FOR_CONFIRMED_PARTY);
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
     }
 
     @Test
-    void 출발이_30분_안으로_다가온_예약_방은_합승_종료할_수_있다() {
+    void 출발이_다가온_예약_방도_합승_종료_대신_출발로_끝내라고_거절한다() {
         Party party = Party.reserve(방장, 강남역, 판교역, "강남역", "판교역", new Capacity(2), 지금, 지금.plus(Duration.ofMinutes(10)));
         party.join(참여자);
 
-        party.finishWithoutDriver(방장);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
+        assertFails(() -> party.finishWithoutDriver(방장), MatchingErrorCode.USE_DEPART_FOR_CONFIRMED_PARTY);
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
     }
 
     // ───────────────────────── 출발 전 알림 ─────────────────────────

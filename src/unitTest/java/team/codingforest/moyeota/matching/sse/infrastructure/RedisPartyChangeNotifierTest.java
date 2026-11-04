@@ -2,6 +2,7 @@ package team.codingforest.moyeota.matching.sse.infrastructure;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import team.codingforest.moyeota.matching.party.dto.MemberArrived;
 import team.codingforest.moyeota.matching.party.dto.MemberJoined;
 import team.codingforest.moyeota.matching.party.dto.MemberLeft;
 import team.codingforest.moyeota.matching.party.dto.PartyClosed;
@@ -32,7 +33,7 @@ class RedisPartyChangeNotifierTest {
     @Test
     void 참여는_들어온_사람_정보를_데이터로_실어_채널에_낸다() {
         UUID publicId = UUID.randomUUID();
-        MemberJoined event = MemberJoined.from(new PartyDetailResult.MemberInfo(publicId, "철수", null, null, 3, false), "ACTIVE", 2L);
+        MemberJoined event = MemberJoined.from(new PartyDetailResult.MemberInfo(publicId, "철수", null, null, 3, false, false), "ACTIVE", 2L);
 
         notifier.memberJoined(방, event);
 
@@ -82,6 +83,21 @@ class RedisPartyChangeNotifierTest {
         assertThat(sent.leftMemberId()).as("확정은 닫을 연결이 없다").isNull();
         assertThat(sent.data()).contains("\"departureAt\":\"2026-11-03T08:30:00Z\"");
         assertThat(objectMapper.readValue(sent.data(), PartyConfirmed.class)).isEqualTo(event);
+    }
+
+    @Test
+    void 도착은_도착한_사람의_publicId_와_version_을_실어_채널에_낸다() {
+        UUID publicId = UUID.randomUUID();
+        MemberArrived event = MemberArrived.from(publicId, 5L);
+
+        notifier.memberArrived(방, event);
+
+        PartySseMessage sent = onlySent();
+        assertThat(sent.partyId()).isEqualTo(방);
+        assertThat(sent.event()).isEqualTo("member-arrived");
+        assertThat(sent.leftMemberId()).as("도착은 닫을 연결이 없다").isNull();
+        assertThat(sent.data()).isEqualTo("{\"publicId\":\"" + publicId + "\",\"version\":5}");
+        assertThat(objectMapper.readValue(sent.data(), MemberArrived.class)).isEqualTo(event);
     }
 
     @Test

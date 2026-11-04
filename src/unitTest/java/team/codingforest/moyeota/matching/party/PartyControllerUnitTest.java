@@ -717,8 +717,8 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          * settings
          */
         PartyDetailResult detail = new PartyDetailResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 2, 500, 500, "ACTIVE", CREATED_AT,
-                List.of(new PartyDetailResult.MemberInfo(PUBLIC_ID, "방장", "host.png", null, 4, true),
-                        new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", null, 0, false)),
+                List.of(new PartyDetailResult.MemberInfo(PUBLIC_ID, "방장", "host.png", null, 4, true, false),
+                        new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", null, 0, false, false)),
                 12000, 25, "encoded-path", 9L, 7L, "REALTIME", null, false);
 
         doReturn(detail).when(partyService).getPartyDetail(eq(PARTY_ID));
@@ -752,12 +752,13 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.members[0].imageUrl").value("host.png"))
                 .andExpect(jsonPath("$.members[0].rideCount").value(4))
                 .andExpect(jsonPath("$.members[0].host").value(true))
+                .andExpect(jsonPath("$.members[0].arrived").value(false))
                 .andExpect(jsonPath("$.members[1].publicId").value(MEMBER_PUBLIC_ID.toString()))
                 .andExpect(jsonPath("$.members[1].host").value(false));
         verify(partyService).getPartyDetail(eq(PARTY_ID));
     }
 
-    @DisplayName("GET /api/v1/matching/rooms/{partyId} - 약속을 확정한 방은 약속 시간과 confirmed=true 를 돌려준다")
+    @DisplayName("GET /api/v1/matching/rooms/{partyId} - 약속을 확정한 방은 약속 시간과 confirmed=true, 멤버별 도착 여부를 돌려준다")
     @Test
     void detail_confirmed() throws Exception {
 
@@ -765,8 +766,8 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          * settings
          */
         PartyDetailResult detail = new PartyDetailResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 2, 500, 500, "COMPLETED", CREATED_AT,
-                List.of(new PartyDetailResult.MemberInfo(PUBLIC_ID, "방장", "host.png", null, 4, true),
-                        new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", null, 0, false)),
+                List.of(new PartyDetailResult.MemberInfo(PUBLIC_ID, "방장", "host.png", null, 4, true, false),
+                        new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", null, 0, false, true)),
                 12000, 25, "encoded-path", null, 3L, "REALTIME", CONFIRMED_AT, true);
 
         doReturn(detail).when(partyService).getPartyDetail(eq(PARTY_ID));
@@ -783,7 +784,9 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.departureAt").value("2026-11-03T08:30:00Z"))
                 .andExpect(jsonPath("$.confirmed").value(true))
-                .andExpect(jsonPath("$.members[0].badgeId").value(nullValue()));
+                .andExpect(jsonPath("$.members[0].badgeId").value(nullValue()))
+                .andExpect(jsonPath("$.members[0].arrived").value(false))
+                .andExpect(jsonPath("$.members[1].arrived").value(true));
     }
 
     @DisplayName("GET /api/v1/matching/rooms/{partyId} - 토큰이 없으면 401")
@@ -1299,6 +1302,242 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         return "{\"departureAt\": " + departureAtJson + "}";
     }
 
+    // ───────────────────────── POST /matching/rooms/{partyId}/arrive ─────────────────────────
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/arrive - 토큰의 사용자와 지금 위치로 도착을 남기고 본문 없이 204")
+    @Test
+    void arrive() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/arrive", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(arriveBody("37.4983", "127.0276")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+        verify(partyService).arrive(eq(PARTY_ID), eq(USER_ID), eq(37.4983), eq(127.0276));
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/arrive - 토큰이 없으면 401")
+    @Test
+    void arrive_noToken() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/arrive", PARTY_ID)
+                        .contentType(MediaType.APPLICATION_JSON).content(arriveBody("37.4983", "127.0276")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(UNAUTHORIZED_CODE));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/arrive - 좌표가 없거나 null 이면 400 이고 서비스를 부르지 않는다")
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "빈 객체 | {}",
+            "위도 누락 | {\"longitude\": 127.0276}",
+            "경도 누락 | {\"latitude\": 37.4983}",
+            "위도 null | {\"latitude\": null, \"longitude\": 127.0276}",
+            "경도 null | {\"latitude\": 37.4983, \"longitude\": null}"
+    })
+    void arrive_missingCoordinate(String name, String body) throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/arrive", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/arrive - 본문이 없으면 400 이고 서비스를 부르지 않는다")
+    @Test
+    void arrive_noBody() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/arrive", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/arrive - 좌표가 숫자가 아니면 400 이고 서비스를 부르지 않는다")
+    @Test
+    void arrive_invalidCoordinate() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/arrive", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(arriveBody("\"강남역\"", "127.0276")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/arrive - partyId 가 숫자가 아니면 400")
+    @Test
+    void arrive_invalidPartyId() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/arrive", "abc").with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(arriveBody("37.4983", "127.0276")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/arrive - 서비스의 비즈니스 예외를 상태코드와 오류 코드로 바꾼다")
+    @ParameterizedTest(name = "{0} → {1}")
+    @CsvSource({
+            "OUT_OF_SERVICE_AREA, 400",
+            "TOO_FAR_FROM_DEPARTURE, 400",
+            "NOT_PARTY_MEMBER, 403",
+            "PARTY_NOT_FOUND, 404",
+            "PARTY_CLOSED, 409",
+            "PARTY_NOT_CONFIRMED, 409",
+            "MEETING_NOT_STARTED, 409"
+    })
+    void arrive_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
+
+        /*
+         * settings
+         */
+        doThrow(new BusinessException(errorCode)).when(partyService).arrive(eq(PARTY_ID), eq(USER_ID), eq(37.4983), eq(127.0276));
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/arrive", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(arriveBody("37.4983", "127.0276")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.code").value(errorCode.name()));
+    }
+
+    private static String arriveBody(String latitudeJson, String longitudeJson) {
+        return "{\"latitude\": " + latitudeJson + ", \"longitude\": " + longitudeJson + "}";
+    }
+
+    // ───────────────────────── POST /matching/rooms/{partyId}/depart ─────────────────────────
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/depart - 토큰의 사용자로 출발하고 본문 없이 204")
+    @Test
+    void depart() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/depart", PARTY_ID).with(loginUser()))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+        verify(partyService).depart(eq(PARTY_ID), eq(USER_ID));
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/depart - 토큰이 없으면 401")
+    @Test
+    void depart_noToken() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/depart", PARTY_ID))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(UNAUTHORIZED_CODE));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/depart - partyId 가 숫자가 아니면 400")
+    @Test
+    void depart_invalidPartyId() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/depart", "abc").with(loginUser()))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/depart - 서비스의 비즈니스 예외를 상태코드와 오류 코드로 바꾼다")
+    @ParameterizedTest(name = "{0} → {1}")
+    @CsvSource({
+            "NOT_PARTY_MEMBER, 403",
+            "PARTY_NOT_FOUND, 404",
+            "PARTY_CLOSED, 409",
+            "PARTY_NOT_CONFIRMED, 409",
+            "DRIVER_ALREADY_ASSIGNED, 409",
+            "NOT_ENOUGH_MEMBERS, 409",
+            "MEETING_NOT_STARTED, 409",
+            "NOT_ARRIVED, 409"
+    })
+    void depart_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
+
+        /*
+         * settings
+         */
+        doThrow(new BusinessException(errorCode)).when(partyService).depart(eq(PARTY_ID), eq(USER_ID));
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/depart", PARTY_ID).with(loginUser()))
+
+        /*
+         * verify
+         */
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.code").value(errorCode.name()));
+    }
+
     // ───────────────────────── POST /matching/rooms/{partyId}/finish ─────────────────────────
 
     @DisplayName("POST /api/v1/matching/rooms/{partyId}/finish - 토큰의 사용자로 종료하고 본문 없이 204")
@@ -1342,7 +1581,8 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
             "NOT_PARTY_HOST, 403",
             "PARTY_NOT_FOUND, 404",
             "PARTY_NOT_COMPLETED, 409",
-            "DRIVER_ALREADY_ASSIGNED, 409"
+            "DRIVER_ALREADY_ASSIGNED, 409",
+            "USE_DEPART_FOR_CONFIRMED_PARTY, 409"
     })
     void finish_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
 

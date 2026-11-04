@@ -74,3 +74,15 @@ Content-Type: application/json
 {
   "departureAt": "2026-11-03T08:30:00Z"
 }
+
+### 8. 출발지 도착 - 약속 시간부터, 방 출발지 100m 안의 지금 위치. 다시 눌러도 204(처음 시각 유지)
+POST {{host}}/api/v1/matching/rooms/1/arrive
+Content-Type: application/json
+
+{
+  "latitude": 37.4979,
+  "longitude": 127.0276
+}
+
+### 9. 출발 - 도착한 멤버가 약속 시간 뒤에 누르면 방이 끝나고, 도착하지 않은 멤버는 노쇼로 남는다
+POST {{host}}/api/v1/matching/rooms/1/depart

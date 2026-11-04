@@ -25,6 +25,7 @@ import team.codingforest.moyeota.matching.party.domain.RoomType;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -197,9 +198,13 @@ public class PartyEntity extends BaseTimeEntity {
 
         members.removeIf(e -> !byId.containsKey(e.getMemberId()));
 
-        Set<Long> existing = members.stream()
-                .map(PartyMemberEntity::getMemberId)
-                .collect(Collectors.toSet());
+        Set<Long> existing = new HashSet<>();
+
+        // 남아 있는 멤버 행도 도착·노쇼가 바뀌었을 수 있다 - 더티체킹으로 반영된다
+        for(PartyMemberEntity e : members) {
+            e.update(byId.get(e.getMemberId()));
+            existing.add(e.getMemberId());
+        }
 
         for(PartyMember m : domainMembers) {
             if(!existing.contains(m.getMemberId())) {

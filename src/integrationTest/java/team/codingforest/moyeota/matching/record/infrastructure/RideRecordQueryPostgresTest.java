@@ -117,6 +117,34 @@ class RideRecordQueryPostgresTest {
     }
 
     @Test
+    void 노쇼로_남은_방은_커서로_넘겨도_내_기록에_나오지_않고_무효로_돌린_노쇼는_나온다() {
+        Instant 기준 = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Instant 합류 = 기준.minusSeconds(3600);
+        Long 탄방 = droppedOff(기준.minusSeconds(120), List.of(PartyMember.load(나, 합류), PartyMember.load(동승자, 합류.plusSeconds(1))));
+        Long 노쇼방 = droppedOff(기준.minusSeconds(60), List.of(PartyMember.load(나, 합류, null, 기준.minusSeconds(600), null),
+                PartyMember.load(동승자, 합류.plusSeconds(1), 기준.minusSeconds(700), null, null)));
+        Long 무효방 = droppedOff(기준, List.of(PartyMember.load(나, 합류, null, 기준.minusSeconds(600), 기준.minusSeconds(10)),
+                PartyMember.load(동승자, 합류.plusSeconds(1), 기준.minusSeconds(700), null, null)));
+
+        List<Long> seen = new ArrayList<>();
+        Long cursor = null;
+        do {
+            RideRecordResponse page = rideRecordService.findMyRides(나, cursor, 1);
+            page.rides().forEach(r -> seen.add(r.partyId()));
+            cursor = page.nextCursor();
+        } while(cursor != null && seen.size() < 10);
+
+        assertThat(seen).containsExactly(무효방, 탄방);
+        assertThat(rideRecords.findMemberIds(List.of(노쇼방, 무효방)))
+                .as("노쇼는 동승자 목록에서도 빠지고, 무효로 돌린 노쇼는 남는다")
+                .containsEntry(노쇼방, List.of(동승자))
+                .containsEntry(무효방, List.of(나, 동승자));
+        assertThat(rideRecordService.findMyRides(동승자, null, 20).rides()).extracting(RideRecordItem::partyId)
+                .as("노쇼가 있던 방도 탄 사람에게는 남는다")
+                .containsExactly(무효방, 노쇼방, 탄방);
+    }
+
+    @Test
     void 없는_방을_가리키는_기록은_저장되지_않는다() {
         Long 없는방 = track(Long.MAX_VALUE);
 
@@ -127,7 +155,11 @@ class RideRecordQueryPostgresTest {
     }
 
     private Long droppedOff(Instant dropoffTime, Long... memberIds) {
-        Long partyId = savedParty(members(dropoffTime.minusSeconds(3600), memberIds));
+        return droppedOff(dropoffTime, members(dropoffTime.minusSeconds(3600), memberIds));
+    }
+
+    private Long droppedOff(Instant dropoffTime, List<PartyMember> members) {
+        Long partyId = savedParty(members);
         rideRecords.save(RideRecord.load(partyId, 기사, "강남역", "판교역", dropoffTime.minusSeconds(600), dropoffTime, 12000));
         return partyId;
     }

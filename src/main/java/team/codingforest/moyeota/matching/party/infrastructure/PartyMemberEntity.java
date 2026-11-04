@@ -32,6 +32,15 @@ public class PartyMemberEntity {
     @Column(nullable = false)
     private Instant joinedAt;
 
+    @Column(name = "arrived_at")
+    private Instant arrivedAt;
+
+    @Column(name = "no_show_at")
+    private Instant noShowAt;
+
+    @Column(name = "no_show_voided_at")
+    private Instant noShowVoidedAt;
+
     protected PartyMemberEntity() {}
 
     private PartyMemberEntity(PartyEntity party, Long memberId, Instant joinedAt) {
@@ -41,10 +50,20 @@ public class PartyMemberEntity {
     }
 
     public static PartyMemberEntity of(PartyEntity party, PartyMember member) {
-        return new PartyMemberEntity(party, member.getMemberId(), member.getJoinedAt());
+        PartyMemberEntity entity = new PartyMemberEntity(party, member.getMemberId(), member.getJoinedAt());
+        entity.update(member);
+
+        return entity;
+    }
+
+    /** 이미 있는 멤버 행의 출석(도착·노쇼) 변경을 옮긴다 - 합류 시각과 키는 바뀌지 않는다 */
+    void update(PartyMember member) {
+        this.arrivedAt = member.getArrivedAt();
+        this.noShowAt = member.getNoShowAt();
+        this.noShowVoidedAt = member.getNoShowVoidedAt();
     }
 
     public PartyMember toDomain() {
-        return PartyMember.load(memberId, joinedAt);
+        return PartyMember.load(memberId, joinedAt, arrivedAt, noShowAt, noShowVoidedAt);
     }
 }

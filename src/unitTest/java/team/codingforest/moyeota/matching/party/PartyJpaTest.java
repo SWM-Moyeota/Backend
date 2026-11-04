@@ -78,7 +78,9 @@ public class PartyJpaTest implements Parties {
         for(Party p : store.values()) {
             if(p.getStatus() != PartyStatus.FINISHED) continue;
             for(Long id : memberIds) {
-                if(p.hasMember(id)) counts.merge(id, 1, Integer::sum);
+                // 실제 쿼리처럼 노쇼(무효로 돌린 노쇼는 빼고)는 세지 않는다
+                boolean rode = p.getMembers().stream().anyMatch(m -> m.getMemberId().equals(id) && !m.isNoShow());
+                if(rode) counts.merge(id, 1, Integer::sum);
             }
         }
         return counts;
@@ -187,5 +189,12 @@ public class PartyJpaTest implements Parties {
     public List<NearbyPartySummary> findMatchesWithinRadius(double departLat, double departLng, double destLat, double destLng, int radius) {
         // PostGIS 반경 쿼리는 메모리로 흉내 내지 않는다 - 실제 쿼리 검증은 Postgres 통합 테스트 몫
         return List.of();
+    }
+
+    @Override
+    public boolean isNearDeparture(Long partyId, double latitude, double longitude, double radiusMeters) {
+        // 거리 공식을 여기서 다시 짜면 걷어낸 하버사인이 테스트 쪽에 되살아나고, 늘 true/false 로 답하면 도착 결과가 조용히 틀어진다.
+        // 그래서 답하지 않고 바로 실패한다 - 도착 흐름은 서비스 유닛 테스트(mock)와 Postgres 통합 테스트가 본다
+        throw new UnsupportedOperationException("출발지 반경 판정은 PostGIS 몫이라 메모리 가짜로 흉내 내지 않는다");
     }
 }

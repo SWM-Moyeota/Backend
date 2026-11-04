@@ -14,6 +14,7 @@ import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
 import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
+import team.codingforest.moyeota.matching.party.dto.MemberArrived;
 import team.codingforest.moyeota.matching.party.dto.MemberJoined;
 import team.codingforest.moyeota.matching.party.dto.MemberLeft;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
@@ -119,7 +120,8 @@ public class PartyService {
 
         eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
 
-        MemberJoined event = MemberJoined.from(PartyDetailResult.MemberInfo.of(summary, rideCount, saved.isHost(memberId)), saved.getStatus().name(), saved.getVersion());
+        // 출발 시각 전에만 참여할 수 있고 도착은 약속 시간부터라, 막 들어온 사람은 아직 도착 전이다
+        MemberJoined event = MemberJoined.from(PartyDetailResult.MemberInfo.of(summary, rideCount, saved.isHost(memberId), false), saved.getStatus().name(), saved.getVersion());
 
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.memberJoined(partyId, event));
 
@@ -224,6 +226,52 @@ public class PartyService {
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.confirmed(partyId, event));
 
         log.info("방장이 약속 시간 확정 partyId={}, memberId={}, departureAt={}, status={}, members={}", partyId, memberId, party.getDepartureAt(), party.getStatus(), party.getMembers().size());
+    }
+
+    @Transactional
+    public void arrive(Long partyId, Long memberId, double latitude, double longitude) {
+        // 서비스 지역 밖 좌표는 DB 에 묻기 전에 거른다
+        Location current = new Location(latitude, longitude);
+
+        MemberSummary summary = userAccess.findMemberSummaries(List.of(memberId)).get(memberId);
+        UUID publicId = summary == null ? null : summary.publicId();
+
+        Party party = parties.findByIdForUpdate(partyId)
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+
+        // 출발지까지의 거리는 PostGIS 가 잰다 - 판정 규칙(멤버·상태·시간 순서)은 도메인이 그 답을 받아 본다
+        boolean nearDeparture = parties.isNearDeparture(partyId, current.latitude(), current.longitude(), Party.ARRIVAL_RADIUS_METERS);
+
+        // 이미 도착한 사람이 다시 누르면 처음 시각을 그대로 두고 저장·신호 없이 끝낸다
+        if (!party.arrive(memberId, nearDeparture, Instant.now())) {
+            log.info("이미 도착한 멤버가 다시 도착을 누름 partyId={}, memberId={}", partyId, memberId);
+            return;
+        }
+
+        parties.save(party);
+
+        MemberArrived event = MemberArrived.from(publicId, party.getVersion());
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.memberArrived(partyId, event));
+
+        log.info("출발지 도착 partyId={}, memberId={}, version={}", partyId, memberId, party.getVersion());
+    }
+
+    /**
+     *  도착한 멤버가 출발을 누르면 방이 끝난다. 그 순간 도착하지 않은 멤버는 노쇼로 저장되고 탑승 기록·탑승 횟수에서 빠진다
+     */
+    @Transactional
+    public void depart(Long partyId, Long memberId) {
+        Party party = parties.findByIdForUpdate(partyId)
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+
+        List<Long> noShowMemberIds = party.depart(memberId, Instant.now());
+        parties.save(party);
+        rideRecords.save(RideRecord.withoutDriver(partyId, party.getDeparture(), party.getDestination()));
+        eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
+        PartyClosed closed = PartyClosed.from(party.getStatus().name());
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
+
+        log.info("출발로 합승 종료 partyId={}, memberId={}, members={}, noShowMemberIds={}", partyId, memberId, party.getMembers().size(), noShowMemberIds);
     }
 
     @Transactional
