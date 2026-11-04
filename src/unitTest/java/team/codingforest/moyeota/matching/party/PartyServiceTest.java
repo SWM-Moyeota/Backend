@@ -25,6 +25,7 @@ import team.codingforest.moyeota.matching.party.dto.RecruitingClosed;
 import team.codingforest.moyeota.matching.party.dto.MemberJoined;
 import team.codingforest.moyeota.matching.party.dto.MemberLeft;
 import team.codingforest.moyeota.matching.party.dto.PartyClosed;
+import team.codingforest.moyeota.matching.party.dto.PartyConfirmed;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
@@ -214,11 +215,12 @@ class PartyServiceTest {
     }
 
     @Test
-    void 나간_예약_방은_시간이_겹쳐도_문제가_되지_않는다() {
+    void 취소된_예약_방은_시간이_겹쳐도_문제가_되지_않는다() {
+        // 예약 방은 나갈 수 없다 - 혼자 남은 방이 모집 만료로 취소되는 길로 끝낸다
         PartyService chatOnly = chatOnlyService();
         Instant 출발 = 뒤(Duration.ofHours(24));
         Long 예약방 = chatOnly.reserve(reservation(host, 출발)).id();
-        chatOnly.leave(예약방, host);
+        chatOnly.expireRecruiting(예약방);
 
         PartyResult result = chatOnly.reserve(reservation(host, 출발));
 
@@ -294,33 +296,61 @@ class PartyServiceTest {
         assertFails(() -> service.findSoonReservationsWithin(38.0, 126.0, 37.0, 128.0), MatchingErrorCode.INVALID_MAP_BOUNDS);
     }
 
-    // ───────────────────────── 모집 종료 ─────────────────────────
+    // ───────────────────────── 약속 시간 확정 ─────────────────────────
 
     @Test
-    void 방장이_모집을_끝내면_확정되고_구독자에게_알린다() {
+    void 방장이_약속_시간을_확정하면_모집이_끝나고_구독자에게_약속_시간을_알린다() {
         PartyService chatOnly = chatOnlyService();
         Long 방 = chatOnly.open(createParty(host, 3)).id();
         chatOnly.join(방, participant);
+        Instant 약속 = 뒤(Duration.ofMinutes(30));
 
-        chatOnly.closeRecruiting(방, host);
+        chatOnly.confirm(방, host, 약속);
 
-        assertThat(parties.findById(방).orElseThrow().getStatus()).isEqualTo(PartyStatus.COMPLETED);
-        assertThat(signals.recruitingClosed).containsExactly(방);
+        Party saved = parties.findById(방).orElseThrow();
+        assertThat(saved.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(saved.getDepartureAt()).isEqualTo(약속);
+        assertThat(saved.isConfirmed()).isTrue();
+        assertThat(signals.confirmed).containsExactly(new PartyConfirmed("COMPLETED", 약속, 2L));
+        assertThat(signals.recruitingClosed).isEmpty();
     }
 
     @Test
-    void 기사_호출_모드에서_방장이_모집을_끝내면_매칭을_시작한다() {
+    void 기사_호출_모드에서_약속_시간을_확정하면_매칭을_시작한다() {
         Long 방 = service.open(createParty(host, 3)).id();
         service.join(방, participant);
 
-        service.closeRecruiting(방, host);
+        service.confirm(방, host, 뒤(Duration.ofMinutes(30)));
 
         assertThat(parties.findById(방).orElseThrow().getStatus()).isEqualTo(PartyStatus.MATCHING);
+        assertThat(events.matchingStartedFor(방)).isEqualTo(1);
     }
 
     @Test
-    void 없는_방의_모집은_끝낼_수_없다() {
-        assertFails(() -> service.closeRecruiting(999L, host), MatchingErrorCode.PARTY_NOT_FOUND);
+    void 기사_호출_모드에서_확정을_두_번_눌러도_매칭은_한_번만_시작한다() {
+        Long 방 = service.open(createParty(host, 3)).id();
+        service.join(방, participant);
+        service.confirm(방, host, 뒤(Duration.ofMinutes(30)));
+
+        assertFails(() -> service.confirm(방, host, 뒤(Duration.ofMinutes(30))), MatchingErrorCode.ALREADY_CONFIRMED);
+        assertThat(events.matchingStartedFor(방)).isEqualTo(1);
+    }
+
+    @Test
+    void 없는_방의_약속_시간은_확정할_수_없다() {
+        assertFails(() -> service.confirm(999L, host, 뒤(Duration.ofMinutes(30))), MatchingErrorCode.PARTY_NOT_FOUND);
+    }
+
+    @Test
+    void 약속을_확정한_방은_방장도_나갈_수_없다() {
+        PartyService chatOnly = chatOnlyService();
+        Long 방 = chatOnly.open(createParty(host, 3)).id();
+        chatOnly.join(방, participant);
+        chatOnly.confirm(방, host, 뒤(Duration.ofMinutes(30)));
+
+        assertFails(() -> chatOnly.leave(방, host), MatchingErrorCode.CANNOT_LEAVE_CONFIRMED_PARTY);
+        assertFails(() -> chatOnly.leave(방, participant), MatchingErrorCode.CANNOT_LEAVE_CONFIRMED_PARTY);
+        assertThat(parties.findById(방).orElseThrow().getMembers()).hasSize(2);
     }
 
     @Test
@@ -1232,6 +1262,13 @@ class PartyServiceTest {
         final List<MemberLeft> left = new ArrayList<>();
         final List<PartyClosed> closed = new ArrayList<>();
         final List<Long> recruitingClosed = new ArrayList<>();
+        final List<PartyConfirmed> confirmed = new ArrayList<>();
+
+        @Override
+        public void confirmed(Long partyId, PartyConfirmed event) {
+            sent.add(partyId + ":confirmed");
+            confirmed.add(event);
+        }
 
         @Override
         public void recruitingClosed(Long partyId, RecruitingClosed event) {

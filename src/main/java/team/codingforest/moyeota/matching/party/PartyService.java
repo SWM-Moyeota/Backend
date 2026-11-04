@@ -21,6 +21,7 @@ import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.party.dto.OpenReservationCommand;
 import team.codingforest.moyeota.matching.party.dto.RecruitingClosed;
 import team.codingforest.moyeota.matching.party.dto.PartyClosed;
+import team.codingforest.moyeota.matching.party.dto.PartyConfirmed;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
@@ -204,16 +205,25 @@ public class PartyService {
     }
 
     @Transactional
-    public void closeRecruiting(Long partyId, Long memberId) {
+    public void confirm(Long partyId, Long memberId, Instant departureAt) {
         Party party = parties.findByIdForUpdate(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
-        party.closeRecruiting(memberId);
-        partyCompletionPolicy.onCompleted(party);
-        parties.save(party);
-        notifyRecruitingClosed(party);
+        // 정원이 차 이미 COMPLETED 인 방은 참여 때 완료 정책을 돌렸다 - 이번 확정으로 모집이 끝나는 ACTIVE 방만 돌린다
+        boolean closesRecruiting = party.getStatus() == PartyStatus.ACTIVE;
 
-        log.info("방장이 모집 종료 partyId={}, memberId={}, members={}", partyId, memberId, party.getMembers().size());
+        party.confirm(memberId, departureAt, Instant.now());
+
+        if (closesRecruiting) {
+            partyCompletionPolicy.onCompleted(party);
+        }
+
+        parties.save(party);
+
+        PartyConfirmed event = PartyConfirmed.from(party.getStatus().name(), party.getDepartureAt(), party.getVersion());
+        afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.confirmed(partyId, event));
+
+        log.info("방장이 약속 시간 확정 partyId={}, memberId={}, departureAt={}, status={}, members={}", partyId, memberId, party.getDepartureAt(), party.getStatus(), party.getMembers().size());
     }
 
     @Transactional

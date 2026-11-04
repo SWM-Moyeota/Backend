@@ -182,6 +182,7 @@ public class PartyEntity extends BaseTimeEntity {
         this.matchingStartedAt = party.getMatchingStartedAt();
         this.completedAt = party.getCompletedAt();
         this.version = party.getVersion();
+        this.departureAt = party.getDepartureAt();   // 실시간 방은 방장이 약속 시간을 확정하면 채워진다
         this.reminderSentAt = party.getReminderSentAt();
         syncMembers(party.getMembers());
     }

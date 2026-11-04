@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import team.codingforest.moyeota.driver.api.DriverSummary;
+import team.codingforest.moyeota.matching.party.dto.ConfirmPartyRequest;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyRequest;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyResponse;
 import team.codingforest.moyeota.matching.party.dto.OpenReservationRequest;
@@ -54,8 +55,8 @@ public class PartyController {
         return ResponseEntity.ok(partyService.join(partyId, memberId));
     }
 
-    @Operation(summary = "방 나가기", description = "모집 중(ACTIVE/COMPLETED)에만 가능. 마지막 멤버가 나가면 방은 CANCELED")
-    @ApiResponses({@ApiResponse(responseCode = "204", description = "나감"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_NOT_RECRUITING - 매칭 시작 후")})
+    @Operation(summary = "방 나가기", description = "모집 중(ACTIVE/COMPLETED)이고 약속이 확정되지 않은 방에서만 가능. 약속이 확정된 방(방장이 약속 시간을 확정한 실시간 방, 그리고 모든 예약 방 - 참여한 순간부터)은 방장도 나갈 수 없다. 방장이 나가면 남은 멤버 중 가장 먼저 합류한 사람이 승계한다. 마지막 멤버가 나가면 방은 CANCELED")
+    @ApiResponses({@ApiResponse(responseCode = "204", description = "나감"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_NOT_RECRUITING - 매칭 시작 후 / CANNOT_LEAVE_CONFIRMED_PARTY - 약속이 확정된 방(확정한 실시간 방, 모든 예약 방)")})
     @DeleteMapping("/matching/leave/{partyId}")
     public ResponseEntity<Void> leave(@PathVariable Long partyId, @CurrentUser Long memberId) {
         partyService.leave(partyId, memberId);
@@ -63,7 +64,7 @@ public class PartyController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "방 상세", description = "members 에 동승자 publicId·닉네임·이미지·탑승 횟수·host(방장 여부, 합류 순 정렬). 방장 = 가장 먼저 합류한 현재 멤버이고 나가면 다음으로 일찍 합류한 멤버가 승계, 항상 정확히 한 명. 본인 판별은 publicId 와 토큰 sub 비교. SSE 구독(/events)의 connected 이벤트도 같은 모양이다. version 은 참여·나가기·합승 종료 때 1 오르는 번호 - SSE 이벤트의 version 과 비교해 놓친 변경을 알아챈다")
+    @Operation(summary = "방 상세", description = "members 에 동승자 publicId·닉네임·이미지·탑승 횟수·host(방장 여부, 합류 순 정렬). 방장 = 방을 만든 사람이고, 방장이 나가면 남은 멤버 중 가장 먼저 합류한 사람이 승계한다(나가기는 약속 확정 전에만 되므로 승계도 확정 전에만 일어난다). 멤버가 있는 방에는 항상 정확히 한 명. 본인 판별은 publicId 와 토큰 sub 비교. departureAt 은 예약 방의 출발 시각이거나 실시간 방에서 방장이 확정한 약속 시간(확정 전 null). confirmed 는 약속이 정해진 방인지 - 예약 방은 항상 true, 실시간 방은 방장이 확정한 뒤 true. true 면 아무도 나갈 수 없다. SSE 구독(/events)의 connected 이벤트도 같은 모양이다. version 은 참여·나가기·모집 마감·약속 확정·합승 종료 때 1 오르는 번호 - SSE 이벤트의 version 과 비교해 놓친 변경을 알아챈다")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "방 상세"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND")})
     @GetMapping("/matching/rooms/{partyId}")
     public ResponseEntity<PartyDetailResult> detail(@PathVariable Long partyId) {
@@ -95,7 +96,7 @@ public class PartyController {
         return ResponseEntity.ok(PartyListResponse.fromSummaries(partyService.findActivePartiesWithin(swLat, swLng, neLat, neLng)));
     }
 
-    @Operation(summary = "합승 종료", description = "기사 배정 없이 합승만 하고 끝났을 때 참여자가 직접 호출. 정원이 찬(COMPLETED) 방에서만 가능. 방장(가장 먼저 합류한 멤버)만 호출 가능. 기사 기능이 켜진 모드에선 COMPLETED 가 순간이라 사실상 호출할 일이 없다")
+    @Operation(summary = "합승 종료", description = "기사 배정 없이 합승만 하고 끝났을 때 참여자가 직접 호출. 정원이 찬(COMPLETED) 방에서만 가능. 방장만 호출 가능. 기사 기능이 켜진 모드에선 COMPLETED 가 순간이라 사실상 호출할 일이 없다")
     @ApiResponses({@ApiResponse(responseCode = "204", description = "종료됨"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER / NOT_PARTY_HOST"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_NOT_COMPLETED / DRIVER_ALREADY_ASSIGNED")})
     @PostMapping("/matching/rooms/{partyId}/finish")
     public ResponseEntity<Void> finish(@PathVariable Long partyId, @CurrentUser Long memberId) {
@@ -103,11 +104,11 @@ public class PartyController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "모집 종료", description = "실시간 방의 방장이 2명 이상일 때 정원을 채우지 않고 지금 인원으로 모집을 끝낸다. 다른 구성원에게는 SSE recruiting-closed 로 알린다")
-    @ApiResponses({@ApiResponse(responseCode = "204", description = "종료됨"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER / NOT_PARTY_HOST"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_CLOSED / NOT_ENOUGH_MEMBERS / NOT_REALTIME_PARTY")})
-    @PostMapping("/matching/rooms/{partyId}/close")
-    public ResponseEntity<Void> closeRecruiting(@PathVariable Long partyId, @CurrentUser Long memberId) {
-        partyService.closeRecruiting(partyId, memberId);
+    @Operation(summary = "약속 시간 확정", description = "실시간 방의 방장이 채팅으로 정한 약속 시간을 확정한다. 장소는 늘 방의 출발지라 시간만 보낸다. 약속 시간은 확정하는 지금부터 1시간 안(지난 시각 불가). 멤버가 2명 이상이고 모집 중(ACTIVE/COMPLETED)일 때 한 번만 할 수 있다. 확정하면 모집이 끝나(ACTIVE → COMPLETED, 정원이 차 이미 COMPLETED 면 그대로) 더는 참여할 수 없고, 방장을 포함해 아무도 나갈 수 없다. 모든 구독자에게 SSE confirmed { status, departureAt, version } 로 알린다")
+    @ApiResponses({@ApiResponse(responseCode = "204", description = "확정됨"), @ApiResponse(responseCode = "400", description = "INVALID_REQUEST - departureAt 누락·형식 오류 / INVALID_MEETING_TIME - 지난 시각이거나 지금부터 1시간 넘게 뒤"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER / NOT_PARTY_HOST"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "NOT_REALTIME_PARTY / ALREADY_CONFIRMED / PARTY_NOT_RECRUITING / NOT_ENOUGH_MEMBERS")})
+    @PostMapping("/matching/rooms/{partyId}/confirm")
+    public ResponseEntity<Void> confirm(@PathVariable Long partyId, @CurrentUser Long memberId, @Valid @RequestBody ConfirmPartyRequest request) {
+        partyService.confirm(partyId, memberId, request.departureAt());
         return ResponseEntity.noContent().build();
     }
 

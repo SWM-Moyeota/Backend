@@ -67,5 +67,10 @@ GET {{host}}/api/v1/matching/reservations?from=2026-11-03T00:00:00Z&to=2026-11-0
 ### 6. 지도 영역 안에서 30분 안에 출발하는 예약 방 목록
 GET {{host}}/api/v1/matching/reservations/soon?swLat=37.0&swLng=126.0&neLat=38.0&neLng=128.0
 
-### 7. 방장이 지금 인원으로 모집 종료 - 실시간 방, 2명 이상
-POST {{host}}/api/v1/matching/rooms/1/close
+### 7. 방장이 약속 시간 확정 - 실시간 방, 2명 이상, 지금부터 1시간 안. 확정하면 모집이 끝나고 아무도 나갈 수 없다
+POST {{host}}/api/v1/matching/rooms/1/confirm
+Content-Type: application/json
+
+{
+  "departureAt": "2026-11-03T08:30:00Z"
+}
