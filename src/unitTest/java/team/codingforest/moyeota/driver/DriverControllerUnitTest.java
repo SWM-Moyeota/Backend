@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(DriverController.class)
+@WebMvcTest(controllers = DriverController.class, properties = "moyeota.taxi.enabled=true")   // 승객 모드에선 꺼지는 컨트롤러 - 모듈을 지울 때까지 켜서 검증한다
 class DriverControllerUnitTest extends ControllerUnitTestSupport {
     private static final String VALID_VEHICLE = """
             {

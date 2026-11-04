@@ -12,7 +12,7 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import team.codingforest.moyeota.common.exception.GlobalExceptionHandler;
-import team.codingforest.moyeota.matching.party.completion.DispatchCompletionPolicy;
+import team.codingforest.moyeota.matching.party.completion.ChatOnlyCompletionPolicy;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
 import team.codingforest.moyeota.matching.party.infrastructure.LoggingMeetingNotifier;
@@ -33,7 +33,7 @@ class PartyControllerTest {
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),
                 new RouteCacheTest());
         PartyJpaTest parties = new PartyJpaTest();
-        DispatchCompletionPolicy policy = new DispatchCompletionPolicy(events);
+        ChatOnlyCompletionPolicy policy = new ChatOnlyCompletionPolicy();
         PartyService service = new PartyService(parties, events, routeService,
                 new PartyServiceTest.FakeDriverAccess(), new FakeUserAccess(), policy,
                 (name, task) -> task.run(), new PartyServiceTest.RecordingPartyChangeNotifier(),

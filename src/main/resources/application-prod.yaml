@@ -45,7 +45,7 @@ management:
 
 moyeota:
   taxi:
-    enabled: ${TAXI_ENABLED:false}
+    enabled: false   # 승객 모드 고정 - 환경 변수 TAXI_ENABLED 는 읽지 않는다. 남은 택시 코드를 지울 때 키도 지운다
   crypto:
     field-key: ${FIELD_ENCRYPTION_KEY}
     hash-key: ${FIELD_HASH_KEY}

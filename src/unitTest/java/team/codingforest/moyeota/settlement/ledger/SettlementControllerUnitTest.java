@@ -42,7 +42,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(SettlementController.class)
+@WebMvcTest(controllers = SettlementController.class, properties = "moyeota.taxi.enabled=true")   // 승객 모드에선 꺼지는 컨트롤러 - 모듈을 지울 때까지 켜서 검증한다
 class SettlementControllerUnitTest extends ControllerUnitTestSupport {
     private static final String WEEKLY_URL = "/api/v1/drivers/me/settlements";
     private static final String DETAIL_URL = "/api/v1/drivers/me/settlements/{settlementId}";
