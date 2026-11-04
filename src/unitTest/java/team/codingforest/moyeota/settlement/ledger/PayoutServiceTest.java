@@ -298,31 +298,49 @@ class PayoutServiceTest {
     }
 
     @Test
-    void 대사는_결과를_모르는_지급을_결제사_조회_결과가_성공이면_SUCCEED_로_확정하고_정산서는_PAID_가_된다() {
+    void 대사는_접수된_지급을_결제사_번호로_조회해_성공이면_SUCCEED_로_확정하고_정산서는_PAID_가_된다() {
         Long 정산서 = 확정(기사, 10_000);
         accounts.register(기사);
         payouts.setNow(요청시각);
-        Payout 지급 = 결과를_모르는_지급(정산서);
-        gateway.willFind(지급.payoutKey(), new PayoutResult.Succeeded("pg-777"));
+        접수된_지급(정산서, "FPA_1");
+        gateway.willFind("FPA_1", new PayoutResult.Succeeded("FPA_1"));
 
         service.reconcile(요청시각.plus(Duration.ofMinutes(1)));
 
         Payout 확정된 = 유일한_지급(정산서);
-        assertThat(gateway.findCalls()).containsExactly(지급.payoutKey());
+        assertThat(gateway.findCalls()).containsExactly("FPA_1");
         assertThat(확정된.getStatus()).isEqualTo(PayoutStatus.SUCCEED);
-        assertThat(확정된.getPgId()).isEqualTo("pg-777");
+        assertThat(확정된.getPgId()).isEqualTo("FPA_1");
         assertThat(확정된.getFailReason()).isNull();
         assertThat(상태(정산서)).isEqualTo(SettlementStatus.PAID);
         assertThat(gateway.requestCount()).isZero();
     }
 
     @Test
-    void 대사는_결과를_모르는_지급을_결제사_조회_결과가_실패면_FAILED_로_확정하고_다음_배치에서_다시_지급한다() {
+    void 대사는_접수된_지급이_아직_처리_중이면_그대로_두고_다시_요청하지_않는다() {
         Long 정산서 = 확정(기사, 10_000);
         accounts.register(기사);
         payouts.setNow(요청시각);
-        Payout 지급 = 결과를_모르는_지급(정산서);
-        gateway.willFind(지급.payoutKey(), new PayoutResult.Failed("잔액 부족"));
+        Payout 접수 = 접수된_지급(정산서, "FPA_1");
+
+        payouts.setNow(요청시각.plus(Duration.ofHours(3)));
+        service.reconcile(요청시각.plus(Duration.ofHours(3)));
+
+        Payout 그대로 = 유일한_지급(정산서);
+        assertThat(gateway.findCalls()).containsExactly("FPA_1");
+        assertThat(gateway.requestCount()).isZero();
+        assertThat(그대로.getStatus()).isEqualTo(PayoutStatus.ACCEPTED);
+        assertThat(그대로.getUpdatedAt()).isEqualTo(접수.getUpdatedAt());
+        assertThat(상태(정산서)).isEqualTo(SettlementStatus.CONFIRMED);
+    }
+
+    @Test
+    void 대사는_접수된_지급을_결제사_조회_결과가_실패면_FAILED_로_확정하고_다음_배치에서_다시_지급한다() {
+        Long 정산서 = 확정(기사, 10_000);
+        accounts.register(기사);
+        payouts.setNow(요청시각);
+        접수된_지급(정산서, "FPA_1");
+        gateway.willFind("FPA_1", new PayoutResult.Failed("잔액 부족"));
 
         service.reconcile(요청시각.plus(Duration.ofMinutes(1)));
 
@@ -340,7 +358,7 @@ class PayoutServiceTest {
     }
 
     @Test
-    void 결제사에_기록이_없고_10분이_지난_UNKNOWN_지급은_같은_지급_키로_다시_요청해_결과를_확정한다() {
+    void 결제사_번호가_없고_10분이_지난_UNKNOWN_지급은_조회하지_않고_같은_지급_키로_다시_요청해_결과를_확정한다() {
         Long 정산서 = 확정(기사, 10_000);
         accounts.register(기사);
         payouts.setNow(요청시각);
@@ -351,7 +369,7 @@ class PayoutServiceTest {
 
         Payout 확정된 = 유일한_지급(정산서);
         PayoutOrder 다시_보낸_요청 = gateway.requests().getLast();
-        assertThat(gateway.findCalls()).containsExactly(지급.payoutKey());
+        assertThat(gateway.findCalls()).isEmpty();
         assertThat(gateway.requestCount()).isEqualTo(앞선_요청 + 1);
         assertThat(다시_보낸_요청).isEqualTo(new PayoutOrder(지급.getId(), 지급.payoutKey(), 10_000, FakePayoutAccounts.sellerOf(기사)));
         assertThat(확정된.getStatus()).isEqualTo(PayoutStatus.SUCCEED);
@@ -360,7 +378,7 @@ class PayoutServiceTest {
     }
 
     @Test
-    void 결제사에_기록이_없고_10분이_지난_REQUESTED_지급은_같은_지급_키로_다시_요청하고_실패_응답이면_실패로_확정한다() {
+    void 결제사_번호가_없고_10분이_지난_REQUESTED_지급은_같은_지급_키로_다시_요청하고_실패_응답이면_실패로_확정한다() {
         Long 정산서 = 확정(기사, 10_000);
         accounts.register(기사);
         payouts.setNow(요청시각);
@@ -370,7 +388,7 @@ class PayoutServiceTest {
         service.reconcile(요청시각.plus(대사_대기).plusNanos(1_000));
 
         Payout 확정된 = 유일한_지급(정산서);
-        assertThat(gateway.findCalls()).containsExactly(지급.payoutKey());
+        assertThat(gateway.findCalls()).isEmpty();
         assertThat(gateway.requests()).extracting(PayoutOrder::payoutKey).containsExactly(지급.payoutKey());
         assertThat(확정된.getStatus()).isEqualTo(PayoutStatus.FAILED);
         assertThat(확정된.getFailReason()).isEqualTo("계좌 오류");
@@ -394,17 +412,61 @@ class PayoutServiceTest {
     }
 
     @Test
-    void 요청한_지_10분이_지나지_않은_지급은_결제사에_기록이_없어도_그대로_둔다() {
+    void 다시_요청한_지급을_결제사가_접수하면_ACCEPTED_가_되고_다음_대사부터는_조회로_확인한다() {
+        Long 정산서 = 확정(기사, 10_000);
+        accounts.register(기사);
+        payouts.setNow(요청시각);
+        결과를_모르는_지급(정산서);
+        gateway.willReturn(new PayoutResult.Accepted("FPA_9"));
+
+        service.reconcile(요청시각.plus(대사_대기).plusSeconds(1));
+        service.reconcile(요청시각.plus(대사_대기).plusSeconds(601));
+
+        assertThat(유일한_지급(정산서).getStatus()).isEqualTo(PayoutStatus.ACCEPTED);
+        assertThat(유일한_지급(정산서).getPgId()).isEqualTo("FPA_9");
+        assertThat(gateway.requestCount()).isEqualTo(1);
+        assertThat(gateway.findCalls()).containsExactly("FPA_9");
+    }
+
+    @Test
+    void 만든_지_14일이_지난_결과_모름_지급은_멱등키가_만료될_수_있어_다시_요청하지_않는다() {
+        Long 정산서 = 확정(기사, 10_000);
+        accounts.register(기사);
+        payouts.setNow(요청시각);
+        결과를_모르는_지급(정산서);
+
+        service.reconcile(요청시각.plus(Duration.ofDays(14)));
+
+        assertThat(gateway.requestCount()).isZero();
+        assertThat(유일한_지급(정산서).getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
+        assertThat(상태(정산서)).isEqualTo(SettlementStatus.CONFIRMED);
+    }
+
+    @Test
+    void 만든_지_14일이_되기_전이면_오래된_결과_모름_지급도_다시_요청한다() {
+        Long 정산서 = 확정(기사, 10_000);
+        accounts.register(기사);
+        payouts.setNow(요청시각);
+        결과를_모르는_지급(정산서);
+
+        service.reconcile(요청시각.plus(Duration.ofDays(13)));
+
+        assertThat(gateway.requestCount()).isEqualTo(1);
+        assertThat(유일한_지급(정산서).getStatus()).isEqualTo(PayoutStatus.SUCCEED);
+    }
+
+    @Test
+    void 요청한_지_10분이_지나지_않은_지급은_조회도_다시_요청도_하지_않는다() {
         Long 모름 = 확정(기사, 10_000);
         Long 요청중 = 확정(다른기사, 20_000);
         accounts.register(기사).register(다른기사);
         payouts.setNow(요청시각);
-        Payout 모름_지급 = 결과를_모르는_지급(모름);
+        결과를_모르는_지급(모름);
         요청만_기록된_지급(요청중);
 
         service.reconcile(요청시각.plus(대사_대기));
 
-        assertThat(gateway.findCalls()).containsExactly(모름_지급.payoutKey());
+        assertThat(gateway.findCalls()).isEmpty();
         assertThat(gateway.requestCount()).isZero();
         assertThat(유일한_지급(모름).getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
         assertThat(유일한_지급(요청중).getStatus()).isEqualTo(PayoutStatus.REQUESTED);
@@ -413,37 +475,38 @@ class PayoutServiceTest {
     }
 
     @Test
-    void 결제사_조회가_예외면_그_지급은_그대로_두고_나머지는_확정한다() {
+    void 결제사_조회가_예외면_그_지급은_접수_상태로_두고_나머지는_확정한다() {
         Long 조회실패 = 확정(기사, 10_000);
         Long 조회성공 = 확정(다른기사, 20_000);
         accounts.register(기사).register(다른기사);
         payouts.setNow(요청시각);
-        Payout 조회실패_지급 = 결과를_모르는_지급(조회실패);
-        Payout 조회성공_지급 = 결과를_모르는_지급(조회성공);
-        gateway.willThrowOnFind(조회실패_지급.payoutKey(), new IllegalStateException("결제사 조회 장애"))
-                .willFind(조회성공_지급.payoutKey(), new PayoutResult.Succeeded("pg-2"));
+        접수된_지급(조회실패, "FPA_1");
+        접수된_지급(조회성공, "FPA_2");
+        gateway.willThrowOnFind("FPA_1", new IllegalStateException("결제사 조회 장애"))
+                .willFind("FPA_2", new PayoutResult.Succeeded("FPA_2"));
 
         service.reconcile(요청시각.plus(대사_대기).plusSeconds(60));
 
         assertThat(gateway.requestCount()).isZero();
-        assertThat(유일한_지급(조회실패).getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
+        assertThat(유일한_지급(조회실패).getStatus()).isEqualTo(PayoutStatus.ACCEPTED);
+        assertThat(유일한_지급(조회실패).getPgId()).isEqualTo("FPA_1");
         assertThat(상태(조회실패)).isEqualTo(SettlementStatus.CONFIRMED);
         assertThat(유일한_지급(조회성공).getStatus()).isEqualTo(PayoutStatus.SUCCEED);
         assertThat(상태(조회성공)).isEqualTo(SettlementStatus.PAID);
     }
 
     @Test
-    void 결제사가_조회에도_결과를_모른다고_답하면_오래된_지급이라도_실패로_만들지_않는다() {
+    void 결제사가_조회에도_결과를_모른다고_답하면_오래된_지급이라도_실패로_만들지_않고_접수_상태로_둔다() {
         Long 정산서 = 확정(기사, 10_000);
         accounts.register(기사);
         payouts.setNow(요청시각);
-        Payout 지급 = 결과를_모르는_지급(정산서);
-        gateway.willFind(지급.payoutKey(), new PayoutResult.Unknown("은행 처리 중"));
+        접수된_지급(정산서, "FPA_1");
+        gateway.willFind("FPA_1", new PayoutResult.Unknown("은행 처리 중"));
 
         service.reconcile(요청시각.plus(Duration.ofHours(1)));
 
         assertThat(gateway.requestCount()).isZero();
-        assertThat(유일한_지급(정산서).getStatus()).isEqualTo(PayoutStatus.UNKNOWN);
+        assertThat(유일한_지급(정산서).getStatus()).isEqualTo(PayoutStatus.ACCEPTED);
         assertThat(상태(정산서)).isEqualTo(SettlementStatus.CONFIRMED);
     }
 
@@ -603,7 +666,7 @@ class PayoutServiceTest {
     }
 
     @Test
-    void 결제사_호출_뒤_결과_반영이_실패해도_나머지는_지급하고_그_지급은_다시_요청하지_않고_대사가_확정한다() {
+    void 결제사_호출_뒤_결과_반영이_실패해도_나머지는_지급하고_그_지급은_배치가_다시_만들지_않고_대사가_같은_지급_키로_확정한다() {
         Long 반영실패 = 확정(기사, 10_000);
         Long 정상 = 확정(다른기사, 20_000);
         accounts.register(기사).register(다른기사);
@@ -634,38 +697,38 @@ class PayoutServiceTest {
         assertThat(유일한_지급(정상).getStatus()).isEqualTo(PayoutStatus.SUCCEED);
         assertThat(상태(정상)).isEqualTo(SettlementStatus.PAID);
 
-        gateway.willFind(걸린_지급.payoutKey(), new PayoutResult.Succeeded("pg-late"));
+        gateway.willReturn(new PayoutResult.Succeeded("pg-late"));
         서비스.reconcile(요청시각.plus(대사_대기).plusSeconds(1));
 
         Payout 확정된 = 유일한_지급(반영실패);
         assertThat(확정된.getStatus()).isEqualTo(PayoutStatus.SUCCEED);
         assertThat(확정된.getPgId()).isEqualTo("pg-late");
         assertThat(상태(반영실패)).isEqualTo(SettlementStatus.PAID);
-        assertThat(gateway.requestCount()).isEqualTo(2);
+        assertThat(gateway.requests()).extracting(PayoutOrder::payoutKey)
+                .containsExactly(걸린_지급.payoutKey(), 유일한_지급(정상).payoutKey(), 걸린_지급.payoutKey());
     }
 
     @Test
-    void 결과를_계속_모르는_지급이_앞에_있어도_뒤_지급을_대사한다() {
-        int 모름_건수 = 3;
+    void 처리_중인_접수_지급이_앞에_있어도_뒤_지급을_대사한다() {
+        int 처리중_건수 = 3;
         payouts.setNow(요청시각);
-        for(long driverId = 1; driverId <= 모름_건수; driverId++) {
+        for(long driverId = 1; driverId <= 처리중_건수; driverId++) {
             accounts.register(driverId);
-            Payout 모름 = 결과를_모르는_지급(확정(driverId, 1_000));
-            gateway.willFind(모름.payoutKey(), new PayoutResult.Unknown("은행 처리 중"));
+            접수된_지급(확정(driverId, 1_000), "FPA_" + driverId);
         }
-        Long 뒤_기사 = 모름_건수 + 1L;
+        Long 뒤_기사 = 처리중_건수 + 1L;
         accounts.register(뒤_기사);
         Long 뒤 = 확정(뒤_기사, 5_000);
-        Payout 뒤_지급 = 결과를_모르는_지급(뒤);
-        gateway.willFind(뒤_지급.payoutKey(), new PayoutResult.Succeeded("pg-tail"));
+        접수된_지급(뒤, "FPA_tail");
+        gateway.willFind("FPA_tail", new PayoutResult.Succeeded("FPA_tail"));
 
         service.reconcile(요청시각.plus(대사_대기).plusSeconds(1));
 
-        assertThat(gateway.findCalls()).hasSize(모름_건수 + 1).doesNotHaveDuplicates();
+        assertThat(gateway.findCalls()).hasSize(처리중_건수 + 1).doesNotHaveDuplicates();
         assertThat(gateway.requestCount()).isZero();
         assertThat(유일한_지급(뒤).getStatus()).isEqualTo(PayoutStatus.SUCCEED);
         assertThat(상태(뒤)).isEqualTo(SettlementStatus.PAID);
-        assertThat(payouts.findAll()).filteredOn(p -> p.getStatus() == PayoutStatus.UNKNOWN).hasSize(모름_건수);
+        assertThat(payouts.findAll()).filteredOn(p -> p.getStatus() == PayoutStatus.ACCEPTED).hasSize(처리중_건수);
     }
 
     @Test
@@ -699,6 +762,12 @@ class PayoutServiceTest {
     private Payout 결과를_모르는_지급(Long settlementId) {
         PayoutOrder order = recorder.recordRequest(settlementId).orElseThrow();
         recorder.recordResult(order.payoutId(), new PayoutResult.Unknown("응답 시간 초과"));
+        return payouts.findById(order.payoutId()).orElseThrow();
+    }
+
+    private Payout 접수된_지급(Long settlementId, String pgId) {
+        PayoutOrder order = recorder.recordRequest(settlementId).orElseThrow();
+        recorder.recordResult(order.payoutId(), new PayoutResult.Accepted(pgId));
         return payouts.findById(order.payoutId()).orElseThrow();
     }
 

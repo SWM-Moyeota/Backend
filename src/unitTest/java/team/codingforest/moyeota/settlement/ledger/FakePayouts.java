@@ -77,7 +77,7 @@ public class FakePayouts implements Payouts {
     public List<Long> findIdsToReconcile(Instant requestedBefore) {
         return store.values().stream()
                 .filter(p -> (p.getStatus() == PayoutStatus.REQUESTED && p.getCreatedAt().isBefore(requestedBefore))
-                        || p.getStatus() == PayoutStatus.UNKNOWN)
+                        || p.getStatus() == PayoutStatus.UNKNOWN || p.getStatus() == PayoutStatus.ACCEPTED)
                 .map(Payout::getId)
                 .sorted()
                 .toList();

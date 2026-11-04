@@ -369,6 +369,17 @@ class SettlementPostgresTest {
     }
 
     @Test
+    void 같은_결제사_지급_번호를_두_지급에_저장할_수_없다() {
+        Long 첫_정산서 = settlement(기사, 주("2026-05-04"), SettlementStatus.CONFIRMED, 1_000);
+        Long 둘째_정산서 = settlement(기사, 주("2026-05-11"), SettlementStatus.CONFIRMED, 1_000);
+        String pgId = "FPA_dup_" + 첫_정산서;
+        payouts.save(Payout.load(null, 첫_정산서, 1_000, PayoutStatus.ACCEPTED, pgId, 셀러, 은행, 가린_계좌번호, 예금주, null, null, null));
+
+        assertThatThrownBy(() -> payouts.save(Payout.load(null, 둘째_정산서, 1_000, PayoutStatus.ACCEPTED, pgId, 셀러, 은행, 가린_계좌번호, 예금주,
+                null, null, null))).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
     void 요청한_지급을_접수로_바꾸면_결제사_번호가_남고_셀러와_가린_계좌는_요청_때_값_그대로다() {
         Long 정산서 = settlement(기사, 주("2026-05-12"), SettlementStatus.CONFIRMED, 1_000);
         Long 지급 = payout(정산서, PayoutStatus.REQUESTED);
@@ -429,20 +440,21 @@ class SettlementPostgresTest {
     }
 
     @Test
-    void 대사_대상은_오래된_요청과_결과를_모르는_지급이다() {
+    void 대사_대상은_오래된_요청과_결과를_모르는_지급과_결제사가_접수한_지급이다() {
         Instant 기준 = Instant.now().truncatedTo(ChronoUnit.MICROS);
         Instant 요청기한 = 기준.minus(10, ChronoUnit.MINUTES);
         Long 오래된요청 = payoutCreatedAt(주("2026-06-01"), PayoutStatus.REQUESTED, 요청기한.minusSeconds(1));
         Long 기한과같은요청 = payoutCreatedAt(주("2026-06-08"), PayoutStatus.REQUESTED, 요청기한);
         Long 최근요청 = payoutCreatedAt(주("2026-06-15"), PayoutStatus.REQUESTED, 기준);
         Long 결과모름 = payoutCreatedAt(주("2026-06-22"), PayoutStatus.UNKNOWN, 기준);
+        Long 방금_접수 = payoutCreatedAt(주("2026-07-13"), PayoutStatus.ACCEPTED, 기준);
         Long 성공 = payoutCreatedAt(주("2026-06-29"), PayoutStatus.SUCCEED, 요청기한.minusSeconds(3_600));
         Long 실패 = payoutCreatedAt(주("2026-07-06"), PayoutStatus.FAILED, 요청기한.minusSeconds(3_600));
 
-        List<Long> 이번_기사 = List.of(오래된요청, 기한과같은요청, 최근요청, 결과모름, 성공, 실패);
+        List<Long> 이번_기사 = List.of(오래된요청, 기한과같은요청, 최근요청, 결과모름, 방금_접수, 성공, 실패);
         assertThat(payouts.findIdsToReconcile(요청기한))
                 .filteredOn(이번_기사::contains)
-                .containsExactly(오래된요청, 결과모름);
+                .containsExactly(오래된요청, 결과모름, 방금_접수);
     }
 
     private Long settlement(Long taxiDriverId, SettlementPeriod period, SettlementStatus status, int amount) {

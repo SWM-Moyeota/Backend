@@ -5,6 +5,7 @@ import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.settlement.account.domain.DriverPayoutAccount;
 import team.codingforest.moyeota.settlement.exception.SettlementErrorCode;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
 
@@ -14,6 +15,8 @@ import java.util.Set;
 public class Payout {
     private static final String PAYOUT_KEY_PREFIX = "moyeota-payout-";
     private static final int MAX_REASON_LENGTH = 255;
+    // 토스 멱등키는 15일 유효. 하루 여유를 두고 그 안에서만 같은 키로 다시 보냄
+    private static final Duration RESEND_WINDOW = Duration.ofDays(14);
 
     private static final Set<PayoutStatus> AWAITING_RESULT = Set.of(PayoutStatus.REQUESTED, PayoutStatus.ACCEPTED, PayoutStatus.UNKNOWN);
     public static final Set<PayoutStatus> ACTIVE_STATUSES = Set.of(PayoutStatus.REQUESTED, PayoutStatus.ACCEPTED, PayoutStatus.UNKNOWN, PayoutStatus.SUCCEED);
@@ -112,6 +115,25 @@ public class Payout {
 
     public boolean isFinished() {
         return FINISHED.contains(status);
+    }
+
+    /**
+     * 결제사 지급 id 가 있어 조회로 결과를 확인할 수 있는지
+     *
+     * @return 결제사가 접수한 적 있는 지급이면 true
+     */
+    public boolean hasPgId() {
+        return pgId != null;
+    }
+
+    /**
+     * 결과를 모르는 지급을 같은 지급 키로 다시 보내도 되는지. 멱등키가 만료되면 결제사가 새 요청으로 받아 이중 지급될 수 있음
+     *
+     * @param now 지금 시각
+     * @return 멱등키 유효 기간 안이면 true
+     */
+    public boolean canResend(Instant now) {
+        return createdAt != null && createdAt.plus(RESEND_WINDOW).isAfter(now);
     }
 
     public PayoutOrder toOrder() {

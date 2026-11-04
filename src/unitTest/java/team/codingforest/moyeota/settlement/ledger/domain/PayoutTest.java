@@ -12,6 +12,7 @@ import team.codingforest.moyeota.settlement.account.domain.DriverPayoutAccount;
 import team.codingforest.moyeota.settlement.account.domain.SellerStatus;
 import team.codingforest.moyeota.settlement.exception.SettlementErrorCode;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,6 +49,7 @@ class PayoutTest {
         assertThat(payout.getCreatedAt()).isNull();
         assertThat(payout.isActive()).isTrue();
         assertThat(payout.isFinished()).isFalse();
+        assertThat(payout.hasPgId()).isFalse();
     }
 
     @Test
@@ -129,6 +131,7 @@ class PayoutTest {
         assertThat(payout.getStatus()).isEqualTo(PayoutStatus.ACCEPTED);
         assertThat(payout.getPgId()).isEqualTo("FPA_1");
         assertThat(payout.getFailReason()).isNull();
+        assertThat(payout.hasPgId()).isTrue();
         assertThat(payout.isActive()).isTrue();
         assertThat(payout.isFinished()).isFalse();
     }
@@ -283,6 +286,32 @@ class PayoutTest {
     @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "ACCEPTED", "UNKNOWN"})
     void 요청_접수_모름은_끝나지_않은_지급이다(PayoutStatus status) {
         assertThat(지급(status).isFinished()).isFalse();
+    }
+
+    // ---------- canResend ----------
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, 1, 13})
+    void 만든_지_14일_안이면_같은_지급_키로_다시_보낼_수_있다(long days) {
+        assertThat(지급(PayoutStatus.UNKNOWN).canResend(생성.plus(Duration.ofDays(days)))).isTrue();
+    }
+
+    @Test
+    void 만든_지_14일이_되기_직전까지는_다시_보낼_수_있다() {
+        assertThat(지급(PayoutStatus.UNKNOWN).canResend(생성.plus(Duration.ofDays(14)).minusSeconds(1))).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {14, 15, 30})
+    void 만든_지_14일이_지나면_멱등키가_만료될_수_있어_다시_보내지_않는다(long days) {
+        assertThat(지급(PayoutStatus.UNKNOWN).canResend(생성.plus(Duration.ofDays(days)))).isFalse();
+    }
+
+    @Test
+    void 저장_전_지급은_다시_보낼_수_없다() {
+        Payout payout = Payout.request(정산서(SettlementStatus.CONFIRMED, 24600), 지급_계좌(SellerStatus.APPROVED));
+
+        assertThat(payout.canResend(생성)).isFalse();
     }
 
     // ---------- 사유 ----------

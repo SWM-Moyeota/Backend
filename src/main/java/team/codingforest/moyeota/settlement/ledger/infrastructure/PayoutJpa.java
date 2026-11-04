@@ -59,6 +59,7 @@ public class PayoutJpa implements Payouts {
 
     @Override
     public List<Long> findIdsToReconcile(Instant requestedBefore) {
-        return payoutJpaRepository.findIdsToReconcile(PayoutStatus.REQUESTED, requestedBefore, PayoutStatus.UNKNOWN);
+        return payoutJpaRepository.findIdsToReconcile(PayoutStatus.REQUESTED, requestedBefore,
+                List.of(PayoutStatus.UNKNOWN, PayoutStatus.ACCEPTED));
     }
 }
