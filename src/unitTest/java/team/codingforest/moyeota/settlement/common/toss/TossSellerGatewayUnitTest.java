@@ -3,21 +3,26 @@ package team.codingforest.moyeota.settlement.common.toss;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import team.codingforest.moyeota.common.bank.BankCode;
 import team.codingforest.moyeota.settlement.account.domain.BusinessInfo;
 import team.codingforest.moyeota.settlement.account.domain.BusinessType;
 import team.codingforest.moyeota.settlement.account.domain.Seller;
+import team.codingforest.moyeota.settlement.account.domain.SellerGatewayException;
 import team.codingforest.moyeota.settlement.account.domain.SellerRegistration;
 import team.codingforest.moyeota.settlement.account.domain.SellerStatus;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.net.SocketTimeoutException;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -161,7 +166,7 @@ class TossSellerGatewayUnitTest {
         server.verify();
     }
 
-    @DisplayName("find - 토스가 셀러를 못 찾으면 에러 코드를 담은 예외를 던진다")
+    @DisplayName("find - 토스가 셀러를 못 찾으면 토스 코드와 원래 예외를 담은 REJECTED 셀러 예외로 바꿔 던진다")
     @Test
     void find_notFound() {
 
@@ -175,12 +180,99 @@ class TossSellerGatewayUnitTest {
         /*
          * test
          */
-        TossPayoutException thrown = catchThrowableOfType(TossPayoutException.class, () -> gateway.find("seller_none"));
+        SellerGatewayException thrown = catchThrowableOfType(SellerGatewayException.class, () -> gateway.find("seller_none"));
 
         /*
          * verify
          */
-        assertThat(thrown.getHttpStatus()).isEqualTo(404);
+        assertThat(thrown.getReason()).isEqualTo(SellerGatewayException.Reason.REJECTED);
         assertThat(thrown.getCode()).isEqualTo("NOT_FOUND_SELLER");
+        assertThat(thrown.getCause()).isInstanceOfSatisfying(TossPayoutException.class, cause -> {
+            assertThat(cause.getHttpStatus()).isEqualTo(404);
+            assertThat(cause.getTraceId()).isEqualTo("t-9");
+        });
+    }
+
+    @DisplayName("토스 에러 - 기사가 고칠 수 있는 4xx 만 REJECTED, 수정 막힘은 LOCKED, 우리 쪽 문제·처리 중·장애는 UNAVAILABLE")
+    @ParameterizedTest(name = "{0} {1} -> {2}")
+    @CsvSource({
+            "400, INVALID_REQUEST, REJECTED",
+            "404, NOT_FOUND_SELLER, REJECTED",
+            "400, FORBIDDEN_SELLER_MODIFY, LOCKED",
+            "403, FORBIDDEN_REQUEST, UNAVAILABLE",
+            "400, INVALID_ENCRYPTION, UNAVAILABLE",
+            "409, PREVIOUS_REQUEST_IN_PROGRESS, UNAVAILABLE",
+            "401, UNAUTHORIZED_KEY, UNAVAILABLE",
+            "429, TOO_MANY_REQUESTS, UNAVAILABLE",
+            "500, INTERNAL_SERVER_ERROR, UNAVAILABLE",
+            "503, SERVICE_UNAVAILABLE, UNAVAILABLE"
+    })
+    void tossError_reason(int status, String code, SellerGatewayException.Reason reason) {
+
+        /*
+         * settings
+         */
+        server.expect(requestTo(BASE_URL + "/v2/sellers/seller_abc"))
+                .andRespond(withStatus(HttpStatus.valueOf(status)).contentType(MediaType.APPLICATION_JSON).body("""
+                        {"traceId":"t-1","error":{"code":"%s","message":"실패"}}""".formatted(code)));
+
+        /*
+         * test
+         */
+        SellerGatewayException thrown = catchThrowableOfType(SellerGatewayException.class, () -> gateway.find("seller_abc"));
+
+        /*
+         * verify
+         */
+        assertThat(thrown.getReason()).isEqualTo(reason);
+        assertThat(thrown.getCode()).isEqualTo(code);
+    }
+
+    @DisplayName("토스 에러 - 4xx 인데 본문을 읽을 수 없어 코드가 없으면 왜 거절됐는지 모르니 UNAVAILABLE")
+    @Test
+    void tossError_unreadable4xx() {
+
+        /*
+         * settings
+         */
+        server.expect(requestTo(BASE_URL + "/v2/sellers/seller_abc"))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST).contentType(MediaType.TEXT_HTML).body("<html>Bad Request</html>"));
+
+        /*
+         * test
+         */
+        SellerGatewayException thrown = catchThrowableOfType(SellerGatewayException.class, () -> gateway.find("seller_abc"));
+
+        /*
+         * verify
+         */
+        assertThat(thrown.getReason()).isEqualTo(SellerGatewayException.Reason.UNAVAILABLE);
+        assertThat(thrown.getCode()).isNull();
+    }
+
+    @DisplayName("토스 에러 - 응답 없이 시간이 초과되면 결과를 모르니 UNAVAILABLE 이고 원래 예외를 남긴다")
+    @Test
+    void tossError_timeout() {
+
+        /*
+         * settings
+         */
+        server.expect(requestTo(BASE_URL + "/v2/sellers"))
+                .andRespond(request -> {
+                    throw new SocketTimeoutException("Read timed out");
+                });
+
+        /*
+         * test
+         */
+        SellerGatewayException thrown = catchThrowableOfType(SellerGatewayException.class, () -> gateway.register(
+                new SellerRegistration("pa00031", BusinessType.CORPORATE, 사업자, BankCode.KOOKMIN, "110123456789", "모여타택시")));
+
+        /*
+         * verify
+         */
+        assertThat(thrown.getReason()).isEqualTo(SellerGatewayException.Reason.UNAVAILABLE);
+        assertThat(thrown.getCode()).isNull();
+        assertThat(thrown.getCause()).isInstanceOf(ResourceAccessException.class);
     }
 }
