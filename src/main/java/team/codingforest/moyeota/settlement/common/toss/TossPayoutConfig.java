@@ -7,7 +7,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
-@ConditionalOnProperty(prefix = "moyeota.settlement.payout", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "moyeota.settlement.toss", name = "enabled", havingValue = "true")
 @Configuration
 public class TossPayoutConfig {
 

@@ -122,6 +122,7 @@ moyeota:
     payout:
       enabled: ${SETTLEMENT_PAYOUT_ENABLED:false}
     toss:
+      enabled: ${SETTLEMENT_TOSS_ENABLED:false}
       base-url: https://api.tosspayments.com
       secret-key: ${TOSS_PAYOUT_SECRET_KEY:}
       security-key: ${TOSS_PAYOUT_SECURITY_KEY:}
