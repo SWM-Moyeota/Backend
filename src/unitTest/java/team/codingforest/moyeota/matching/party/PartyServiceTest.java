@@ -30,8 +30,10 @@ import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
+import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
+import team.codingforest.moyeota.matching.party.domain.RoomType;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.Coordinate;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
@@ -56,7 +58,6 @@ class PartyServiceTest {
     private static final Long participant = 2L;
     private static final Long anotherHost = 3L;
     private static final Long guest = 4L;
-    private static final Long 기사 = 9L;
 
     private PartyJpaTest parties;
     private RecordingEventPublisher events;
@@ -905,7 +906,7 @@ class PartyServiceTest {
 
         @Test
         void 만든_지_1일이_지난_방만_자동_종료된다() {
-            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)), null);   // anotherHost·guest 가 여기 묶여 있다
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)));   // anotherHost·guest 가 여기 묶여 있다
             PartyResult 방금찬방 = service.open(createParty(host, 2));
             service.join(방금찬방.id(), participant);
 
@@ -917,12 +918,12 @@ class PartyServiceTest {
 
         @Test
         void 한_방이_실패해도_나머지_방은_닫힌다() {
-            Long 기사있는방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)), 기사);   // DRIVER_ALREADY_ASSIGNED 로 실패할 방
-            Long 정상방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)), null);
+            Long 약속전방 = saveConfirmedBeforeMeeting(Instant.now().minus(Duration.ofDays(2)));   // 약속 시간 전이라 MEETING_NOT_STARTED 로 실패할 방
+            Long 정상방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)));
 
             new CompletedPartySweeper(parties, service).sweep();   // 예외가 새어 나오면 여기서 터진다
 
-            assertThat(parties.findById(기사있는방).orElseThrow().getStatus()).isEqualTo(PartyStatus.COMPLETED);
+            assertThat(parties.findById(약속전방).orElseThrow().getStatus()).isEqualTo(PartyStatus.COMPLETED);
             assertThat(parties.findById(정상방).orElseThrow().getStatus()).isEqualTo(PartyStatus.FINISHED);
         }
 
@@ -938,7 +939,7 @@ class PartyServiceTest {
 
         @Test
         void 자동_종료해도_FINISHED_닫힘_이벤트가_발행된다() {
-            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)), null);
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)));
 
             service.autoClose(오래된방);
 
@@ -947,7 +948,7 @@ class PartyServiceTest {
 
         @Test
         void 자동_종료된_방은_하차_기록이_남지_않는다() {
-            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)), null);
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)));
 
             service.autoClose(오래된방);
 
@@ -967,7 +968,7 @@ class PartyServiceTest {
 
         @Test
         void 자동_종료해도_closed_신호를_보낸다() {
-            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)), null);
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)));
 
             service.autoClose(오래된방);
 
@@ -978,7 +979,7 @@ class PartyServiceTest {
 
         @Test
         void 자동_종료하면_closed_에_FINISHED_가_실리고_version_은_오른다() {
-            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)), null);
+            Long 오래된방 = saveCompleted(Instant.now().minus(Duration.ofDays(2)));
 
             service.autoClose(오래된방);
 
@@ -999,16 +1000,34 @@ class PartyServiceTest {
         }
 
         /** 정원 2가 찬 확정 전 실시간 방을 원하는 생성·충족 시각으로 저장 - 도메인은 Instant.now() 만 찍으므로 과거 시각은 load 로만 만들 수 있다 */
-        private Long saveCompleted(Instant completedAt, Long driverId) {
-            Location 강남역 = new Location(37.4979, 127.0276);
-            Location 판교역 = new Location(37.3948, 127.1112);
-            Party seed = Party.open(anotherHost, 강남역, 판교역, "강남역", "판교역", new Capacity(2),
-                    completedAt, new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
-            seed.join(guest);   // 멤버 목록만 빌려 쓴다 (PartyMember 생성자는 도메인 패키지 밖에서 못 부른다)
-
-            Party party = Party.load(null, 강남역, 판교역, new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
-                    seed.getMembers(), completedAt, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", driverId, null, completedAt, 0L);
+        private Long saveCompleted(Instant completedAt) {
+            Party party = Party.load(null, 강남역(), 판교역(), new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
+                    seedMembers(completedAt), completedAt, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", null, null, completedAt, 0L);
             return parties.save(party).getId();
+        }
+
+        /** 만든 지 오래됐지만 방장이 확정한 약속 시간이 아직 1시간 뒤인 실시간 방(COMPLETED) - 자동 정리가 MEETING_NOT_STARTED 로 거절한다 */
+        private Long saveConfirmedBeforeMeeting(Instant createdAt) {
+            Party party = Party.load(null, 강남역(), 판교역(), new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
+                    seedMembers(createdAt), anotherHost, createdAt, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", null, null, createdAt, 0L,
+                    RoomType.REALTIME, Instant.now().plus(Duration.ofHours(1)), null, null, 0);
+            return parties.save(party).getId();
+        }
+
+        /** anotherHost·guest 멤버 목록 - PartyMember 생성자는 도메인 패키지 밖에서 못 부르므로 방을 하나 만들어 멤버 목록만 빌려 쓴다 */
+        private List<PartyMember> seedMembers(Instant createdAt) {
+            Party seed = Party.open(anotherHost, 강남역(), 판교역(), "강남역", "판교역", new Capacity(2),
+                    createdAt, new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
+            seed.join(guest);
+            return seed.getMembers();
+        }
+
+        private Location 강남역() {
+            return new Location(37.4979, 127.0276);
+        }
+
+        private Location 판교역() {
+            return new Location(37.3948, 127.1112);
         }
     }
 

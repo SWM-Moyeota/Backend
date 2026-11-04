@@ -37,7 +37,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -124,10 +123,6 @@ class PartyOpenerUnitTest {
 
         doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
         doReturn(saved).when(parties).save(any(Party.class));
-        doAnswer(invocation -> {
-            saved.startMatching(BASE_TIME);
-            return null;
-        }).when(partyCompletionPolicy).onCompleted(eq(saved));
 
         /*
          * test
@@ -137,7 +132,7 @@ class PartyOpenerUnitTest {
         /*
          * verify
          */
-        assertThat(result.status()).as("완료 정책이 바꾼 상태가 응답에 실린다").isEqualTo("MATCHING");
+        assertThat(result.status()).isEqualTo("COMPLETED");
         verify(parties, times(2)).save(any(Party.class));
         verify(parties).save(eq(saved));
         verify(partyCompletionPolicy).onCompleted(eq(saved));

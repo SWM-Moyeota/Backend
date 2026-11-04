@@ -28,10 +28,7 @@ public class RideRecordJpa implements RideRecords {
 
     @Override
     public RideRecord save(RideRecord rideRecord) {
-        return rideRecordJpaRepository.findById(rideRecord.getMatchId())
-                .map(entity -> entity.update(rideRecord))
-                .orElseGet(() -> rideRecordJpaRepository.save(RideRecordEntity.from(rideRecord)))
-                .toDomain();
+        return rideRecordJpaRepository.save(RideRecordEntity.from(rideRecord)).toDomain();
     }
 
     @Override

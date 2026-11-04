@@ -16,8 +16,4 @@ public enum PartyStatus {
     public boolean isRecruiting() {
         return this == ACTIVE || this == COMPLETED;
     }
-
-    public boolean isRiding() {
-        return this == IN_RIDE;
-    }
 }

@@ -598,7 +598,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        doReturn(new PartyStatusResponse("MATCHING", 3)).when(partyService).join(eq(PARTY_ID), eq(USER_ID));
+        doReturn(new PartyStatusResponse("COMPLETED", 3)).when(partyService).join(eq(PARTY_ID), eq(USER_ID));
 
         /*
          * test
@@ -609,7 +609,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("MATCHING"))
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.currentMembers").value(3));
         verify(partyService).join(eq(PARTY_ID), eq(USER_ID));
     }
@@ -1526,7 +1526,6 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
             "PARTY_NOT_FOUND, 404",
             "PARTY_CLOSED, 409",
             "PARTY_NOT_CONFIRMED, 409",
-            "DRIVER_ALREADY_ASSIGNED, 409",
             "NOT_ENOUGH_MEMBERS, 409",
             "MEETING_NOT_STARTED, 409",
             "NOT_ARRIVED, 409"
@@ -1593,7 +1592,6 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
             "NOT_PARTY_HOST, 403",
             "PARTY_NOT_FOUND, 404",
             "PARTY_NOT_COMPLETED, 409",
-            "DRIVER_ALREADY_ASSIGNED, 409",
             "USE_DEPART_FOR_CONFIRMED_PARTY, 409"
     })
     void finish_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {

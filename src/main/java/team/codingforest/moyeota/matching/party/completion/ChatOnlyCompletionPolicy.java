@@ -11,9 +11,4 @@ public class ChatOnlyCompletionPolicy implements PartyCompletionPolicy{
     public void onCompleted(Party party) {
         log.info("정원 충족 - 배차 없이 대기 partyId={}", party.getId());
     }
-
-    @Override
-    public boolean supportsReservation() {
-        return true;
-    }
 }

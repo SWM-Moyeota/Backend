@@ -56,13 +56,6 @@ public class RideRecordEntity extends BaseTimeEntity {
                 rideRecord.getDestinationPlace(), rideRecord.getPickupTime(), rideRecord.getDropoffTime(), rideRecord.getTotalFare());
     }
 
-    public RideRecordEntity update(RideRecord rideRecord) {
-        this.pickupTime = rideRecord.getPickupTime();
-        this.dropoffTime = rideRecord.getDropoffTime();
-        this.totalFare = rideRecord.getTotalFare();
-        return this;
-    }
-
     public RideRecord toDomain() {
         return RideRecord.load(matchId, taxiDriverId, departurePlace, destinationPlace, pickupTime, dropoffTime, totalFare);
     }

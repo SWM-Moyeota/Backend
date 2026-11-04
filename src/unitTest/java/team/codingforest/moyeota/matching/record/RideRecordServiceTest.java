@@ -188,10 +188,10 @@ class RideRecordServiceTest {
 
     @Test
     void 아직_하차_전인_기록의_커서는_INVALID_CURSOR() {
-        Long 운행중 = savedParty(members(나));
-        rideRecords.save(RideRecord.pickUp(운행중, 기사, "강남역", "판교역"));
+        Long 하차전 = savedParty(members(나));
+        rideRecords.save(RideRecord.load(하차전, null, "강남역", "판교역", null, null, null));
 
-        assertThatThrownBy(() -> service.findMyRides(나, 운행중, 20))
+        assertThatThrownBy(() -> service.findMyRides(나, 하차전, 20))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.INVALID_CURSOR);
@@ -253,14 +253,6 @@ class RideRecordServiceTest {
     }
 
     @Test
-    void 탑승_시각_없이_만들어진_기록은_pickupTime_이_null_이다() {
-        Long partyId = savedParty(members(나));
-        rideRecords.save(RideRecord.load(partyId, 기사, "강남역", "판교역", null, 기준, 12000));
-
-        assertThat(service.findMyRides(나, null, 20).rides().getFirst().pickupTime()).isNull();
-    }
-
-    @Test
     void 기사_없이_끝난_합승_기록은_탑승_시각과_요금과_1인_요금이_null_이다() {
         Long partyId = savedParty(members(나, 동승자));
         rideRecords.save(RideRecord.load(partyId, null, "강남역", "판교역", null, 기준, null));
@@ -305,10 +297,10 @@ class RideRecordServiceTest {
     }
 
     @Test
-    void 운행_중인_기록과_내가_없는_방의_기록은_나오지_않는다() {
+    void 하차_전인_기록과_내가_없는_방의_기록은_나오지_않는다() {
         Long 내기록 = ride(기준.plusSeconds(10), 나, 동승자);
         ride(기준.plusSeconds(20), 동승자, 남);
-        rideRecords.save(RideRecord.pickUp(savedParty(members(나)), 기사, "강남역", "판교역"));
+        rideRecords.save(RideRecord.load(savedParty(members(나)), null, "강남역", "판교역", null, null, null));
 
         assertThat(partyIds(service.findMyRides(나, null, 20))).containsExactly(내기록);
     }

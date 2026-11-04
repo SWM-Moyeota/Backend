@@ -1,6 +1,5 @@
 package team.codingforest.moyeota.matching.party;
 
-import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
@@ -84,21 +83,6 @@ public class PartyJpaTest implements Parties {
             }
         }
         return counts;
-    }
-
-    @Override
-    public boolean hasOngoingRide(Long driverId) {
-        return store.values().stream()
-                .anyMatch(p -> (p.getStatus() == PartyStatus.DRIVER_ASSIGNED || p.getStatus() == PartyStatus.IN_RIDE)
-                        && driverId.equals(p.getTaxiDriverId()));
-    }
-
-    @Override
-    public List<MatchingTarget> findMatchingTargets() {
-        return store.values().stream()
-                .filter(p -> p.getStatus() == PartyStatus.MATCHING)
-                .map(p -> new MatchingTarget(p.getId(), p.getMatchingStartedAt()))
-                .toList();
     }
 
     @Override
@@ -189,17 +173,6 @@ public class PartyJpaTest implements Parties {
                 .filter(p -> p.nextDepartureReminderDue().filter(due -> !due.isAfter(now)).isPresent())
                 .map(Party::getId)
                 .toList();
-    }
-
-    @Override
-    public boolean existsById(Long id) {
-        return store.containsKey(id);
-    }
-
-    @Override
-    public boolean hasMember(Long partyId, Long memberId) {
-        Party party = store.get(partyId);
-        return party != null && party.hasMember(memberId);
     }
 
     @Override

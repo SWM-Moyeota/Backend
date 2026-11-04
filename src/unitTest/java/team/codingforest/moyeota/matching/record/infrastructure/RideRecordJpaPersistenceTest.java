@@ -28,7 +28,6 @@ class RideRecordJpaPersistenceTest {
     private static final Long 나 = 100L;
     private static final Long 동승자 = 200L;
     private static final Long 남 = 300L;
-    private static final Long 기사 = 9L;
     private static final Instant 기준 = Instant.parse("2026-10-01T10:00:00.123456Z");
 
     private final RideRecordJpa rideRecords;
@@ -42,41 +41,6 @@ class RideRecordJpaPersistenceTest {
         this.repository = repository;
         this.parties = parties;
         this.em = em;
-    }
-
-    @Test
-    void 탑승_기록을_저장하고_다시_읽으면_값이_그대로다() {
-        Long partyId = party(나, 동승자);
-        RideRecord saved = rideRecords.save(RideRecord.pickUp(partyId, 기사, "강남역", "판교역"));
-        clear();
-
-        RideRecord found = rideRecords.findById(partyId).orElseThrow();
-
-        assertThat(found.getMatchId()).isEqualTo(partyId);
-        assertThat(found.getTaxiDriverId()).isEqualTo(기사);
-        assertThat(found.getDeparturePlace()).isEqualTo("강남역");
-        assertThat(found.getDestinationPlace()).isEqualTo("판교역");
-        assertThat(found.getPickupTime()).isNotNull().isEqualTo(saved.getPickupTime());
-        assertThat(found.getDropoffTime()).isNull();
-        assertThat(found.getTotalFare()).isNull();
-    }
-
-    @Test
-    void 하차를_반영해_다시_저장하면_하차_시각과_요금이_갱신되고_탑승_시각은_그대로다() {
-        Long partyId = party(나);
-        RideRecord picked = rideRecords.save(RideRecord.pickUp(partyId, 기사, "강남역", "판교역"));
-        clear();
-        RideRecord rideRecord = rideRecords.findById(partyId).orElseThrow();
-        rideRecord.dropOff(15000);
-
-        rideRecords.save(rideRecord);
-        clear();
-
-        RideRecord found = rideRecords.findById(partyId).orElseThrow();
-        assertThat(found.getPickupTime()).isEqualTo(picked.getPickupTime());
-        assertThat(found.getDropoffTime()).isNotNull().isEqualTo(rideRecord.getDropoffTime());
-        assertThat(found.getTotalFare()).isEqualTo(15000);
-        assertThat(repository.count()).isEqualTo(1);
     }
 
     @Test
@@ -95,36 +59,23 @@ class RideRecordJpaPersistenceTest {
     }
 
     @Test
-    void 처음_저장하면_생성_시각이_찍히고_하차를_반영해도_생성_시각은_그대로다() {
+    void 처음_저장하면_생성_시각이_찍히고_같은_방을_다시_저장해도_행이_늘지_않고_생성_시각은_그대로다() {
+        // id 를 직접 넣는 엔티티라 save 는 merge(SELECT 뒤 INSERT 또는 UPDATE)로 돈다 - 같은 match_id 를 다시 저장해도 PK 위반 없이 덮어쓴다
         Long partyId = party(나);
-        rideRecords.save(RideRecord.pickUp(partyId, 기사, "강남역", "판교역"));
+        rideRecords.save(RideRecord.withoutDriver(partyId, "강남역", "판교역"));
         clear();
         Instant createdAt = repository.findById(partyId).orElseThrow().getCreatedAt();
-        RideRecord rideRecord = rideRecords.findById(partyId).orElseThrow();
-        rideRecord.dropOff(15000);
 
-        rideRecords.save(rideRecord);
+        RideRecord 다시 = RideRecord.withoutDriver(partyId, "강남역", "판교역");
+        rideRecords.save(다시);
         clear();
 
         RideRecordEntity found = repository.findById(partyId).orElseThrow();
         assertThat(createdAt).isNotNull();
         assertThat(found.getCreatedAt()).isEqualTo(createdAt);
         assertThat(found.getUpdatedAt()).isNotNull().isAfterOrEqualTo(createdAt);
-    }
-
-    @Test
-    void 탑승_시각_없이_만든_기록도_저장된다() {
-        Long partyId = party(나);
-        RideRecord rideRecord = RideRecord.withoutPickup(partyId, 기사, "강남역", "판교역");
-        rideRecord.dropOff(15000);
-
-        rideRecords.save(rideRecord);
-        clear();
-
-        RideRecord found = rideRecords.findById(partyId).orElseThrow();
-        assertThat(found.getPickupTime()).isNull();
-        assertThat(found.getDropoffTime()).isEqualTo(rideRecord.getDropoffTime());
-        assertThat(found.getTotalFare()).isEqualTo(15000);
+        assertThat(found.getDropoffTime()).isEqualTo(다시.getDropoffTime());
+        assertThat(repository.count()).isEqualTo(1);
     }
 
     @Test
@@ -201,7 +152,7 @@ class RideRecordJpaPersistenceTest {
     @Test
     void 하차하지_않은_기록과_기록이_없는_방은_나오지_않는다() {
         Long 끝난방 = dropOff(party(나), 기준.plusSeconds(10));
-        rideRecords.save(RideRecord.pickUp(party(나, 동승자), 기사, "강남역", "판교역"));
+        rideRecords.save(RideRecord.load(party(나, 동승자), null, "강남역", "판교역", null, null, null));
         party(나);
         clear();
 
@@ -248,11 +199,11 @@ class RideRecordJpaPersistenceTest {
 
     private Long savedParty(List<PartyMember> members) {
         return parties.save(Party.load(null, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), new Radius(100), new Radius(100),
-                "강남역", "판교역", new Capacity(3), members, 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 기사, 기준, 기준, 0L)).getId();
+                "강남역", "판교역", new Capacity(3), members, 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", null, null, 기준, 0L)).getId();
     }
 
     private Long dropOff(Long partyId, Instant dropoffTime) {
-        rideRecords.save(RideRecord.load(partyId, 기사, "강남역", "판교역", dropoffTime.minusSeconds(600), dropoffTime, 12000));
+        rideRecords.save(RideRecord.load(partyId, null, "강남역", "판교역", null, dropoffTime, null));
         return partyId;
     }
 
