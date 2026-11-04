@@ -1,4 +1,3 @@
-
 package team.codingforest.moyeota.settlement.account.infrastructure;
 
 import lombok.RequiredArgsConstructor;
