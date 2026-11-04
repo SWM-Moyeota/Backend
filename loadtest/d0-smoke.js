@@ -47,7 +47,7 @@ export default function () {
   const detail = roomDetail(host.token, room.id);
   const v2 = detail.status === 200 ? detail.json('version') : null;
   check(detail, {
-    '정원이 차면 COMPLETED 에 머문다 (MATCHING 이면 택시가 켜진 서버)': (r) => r.json('status') === 'COMPLETED',
+    '정원이 차면 COMPLETED 에 머문다': (r) => r.json('status') === 'COMPLETED',
     '멤버 3명': (r) => r.json('members').length === 3,
     // 방 상세는 SSE connected 의 data 와 같은 JSON 이다. 지문·입장 시각은 서버에서 빠졌다 - 여기서 떨어지면 옛 서버다
     '방 상세에 fingerprint 가 없다': (r) => r.json('fingerprint') === undefined,

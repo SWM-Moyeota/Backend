@@ -39,7 +39,7 @@ export default function (data) {
 export function teardown(data) {
   const detail = roomDetail(users[0].token, data.partyId);
   check(detail, { '최종 인원 3명': (r) => r.json('members').length === 3 });
-  // 정리: 참여자 → 방장 순으로 나가면 마지막에 방이 CANCELED. 배차가 켜진 서버면 MATCHING 이라 못 나감(409) - 그 경우 다음 실행은 새 RUN_ID 로 seed
+  // 정리: 참여자 → 방장 순으로 나가면 마지막에 방이 CANCELED.
   for (let v = 1; v <= RACERS; v++) leaveRoom(users[v].token, data.partyId);   // 비멤버는 403 - 무시
   leaveRoom(users[0].token, data.partyId);
 }
