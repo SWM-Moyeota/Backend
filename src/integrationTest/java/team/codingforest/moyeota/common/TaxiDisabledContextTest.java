@@ -57,7 +57,7 @@ class TaxiDisabledContextTest {
 
     @Test
     void 다른_모듈이_의존하는_서비스는_남아_있다() {
-        // ReportService·PartyService 가 DriverAccess 를 주입받으므로 driver 서비스는 살아 있어야 한다
+        // PartyService 가 DriverAccess 를 주입받으므로 driver 서비스는 살아 있어야 한다
         assertThat(ctx.getBeanNamesForType(DriverService.class)).isNotEmpty();
         assertThat(ctx.getBeanNamesForType(DispatchService.class)).isNotEmpty();
         assertThat(ctx.getBeanNamesForType(SettlementAccess.class)).as("결제 모듈이 결제 그룹을 만들 때 주입받을 정산 원장 기록 창구라 택시 설정으로 꺼지면 안 된다").isNotEmpty();
