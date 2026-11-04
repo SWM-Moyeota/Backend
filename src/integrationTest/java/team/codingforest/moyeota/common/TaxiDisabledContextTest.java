@@ -10,9 +10,6 @@ import team.codingforest.moyeota.matching.party.completion.ChatOnlyCompletionPol
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
 import team.codingforest.moyeota.matching.party.PartyRecruitingSweeper;
 import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
-import team.codingforest.moyeota.settlement.api.SettlementAccess;
-import team.codingforest.moyeota.settlement.ledger.SettlementCloseScheduler;
-import team.codingforest.moyeota.settlement.ledger.SettlementController;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -27,8 +24,6 @@ class TaxiDisabledContextTest {
     @Test
     void 택시_입구_빈은_등록되지_않는다() {
         assertThat(ctx.getBeanNamesForType(DriverController.class)).isEmpty();
-        assertThat(ctx.getBeanNamesForType(SettlementController.class)).isEmpty();
-        assertThat(ctx.getBeanNamesForType(SettlementCloseScheduler.class)).as("택시 운행이 없으니 마감할 정산서도 없다").isEmpty();
     }
 
     /** 단위 테스트는 정책을 new 로 꽂으므로 정책 빈이 하나만 뜨는지는 여기서만 잡힌다 */
@@ -48,6 +43,5 @@ class TaxiDisabledContextTest {
     void 다른_모듈이_의존하는_서비스는_남아_있다() {
         // PartyService 가 DriverAccess 를 주입받으므로 driver 서비스는 살아 있어야 한다
         assertThat(ctx.getBeanNamesForType(DriverService.class)).isNotEmpty();
-        assertThat(ctx.getBeanNamesForType(SettlementAccess.class)).as("결제 모듈이 결제 그룹을 만들 때 주입받을 정산 원장 기록 창구라 택시 설정으로 꺼지면 안 된다").isNotEmpty();
     }
 }
