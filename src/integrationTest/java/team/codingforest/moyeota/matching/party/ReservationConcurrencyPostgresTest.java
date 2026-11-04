@@ -22,7 +22,7 @@ import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(properties = {"spring.profiles.active=dev", "moyeota.taxi.enabled=false"})
+@SpringBootTest(properties = "spring.profiles.active=dev")
 class ReservationConcurrencyPostgresTest {
     private static final long MEMBER_ID = 987_654_322L;
 

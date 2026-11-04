@@ -29,7 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *  정리 스케줄러의 대상 조회(실시간 방은 created_at, 예약 방은 departure_at 에서 1일)와 자동 정리 결과(노쇼·상태·탑승 기록)가
  *  실제 Postgres 에 맞게 도는지 본다
  */
-@SpringBootTest(properties = {"spring.profiles.active=dev", "moyeota.taxi.enabled=false"})
+@SpringBootTest(properties = "spring.profiles.active=dev")
 class PartyAutoClosePostgresTest {
     // 다른 테스트가 남긴 방과 섞이지 않게 울산 좌표를 쓴다
     private static final double DEPARTURE_LAT = 35.5384;

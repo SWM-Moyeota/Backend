@@ -8,7 +8,6 @@ import team.codingforest.moyeota.common.exception.ErrorCode;
 public enum MatchingErrorCode implements ErrorCode {
     // 조회
     PARTY_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 방입니다."),
-    ASSIGNED_DRIVER_NOT_FOUND(HttpStatus.NOT_FOUND, "기사 정보를 찾을 수 없습니다."),
 
     // 참여/이탈
     ALREADY_JOINED_OTHER_PARTY(HttpStatus.CONFLICT, "이미 참여 중인 방이 있습니다."),
@@ -43,7 +42,6 @@ public enum MatchingErrorCode implements ErrorCode {
     PARTY_NOT_COMPLETED(HttpStatus.CONFLICT, "정원이 다 차지 않은 방입니다."),
     PARTY_NOT_MATCHING(HttpStatus.CONFLICT, "매칭 중인 방이 아닙니다."),
     DRIVER_ALREADY_ASSIGNED(HttpStatus.CONFLICT, "이미 기사가 배정된 방입니다."),
-    DRIVER_NOT_ASSIGNED(HttpStatus.CONFLICT, "아직 기사가 배정되지 않았습니다."),
     NOT_ASSIGNED_DRIVER(HttpStatus.FORBIDDEN, "이 방에 배정된 기사가 아닙니다."),
     NOT_AWAITING_PICKUP(HttpStatus.CONFLICT, "탑승 대기 상태가 아닙니다."),
     NOT_RIDING(HttpStatus.CONFLICT, "운행 중이 아닙니다."),

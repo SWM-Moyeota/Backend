@@ -7,8 +7,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
-import team.codingforest.moyeota.driver.api.DriverAccess;
-import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.api.dto.PartyClosedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
@@ -72,7 +70,6 @@ public class PartyService {
     private final Parties parties;
     private final ApplicationEventPublisher eventPublisher;
     private final RouteService routeService;
-    private final DriverAccess driverAccess;
     private final UserAccess userAccess;
     private final PartyCompletionPolicy partyCompletionPolicy;
     private final AfterCommitExecutor afterCommitExecutor;
@@ -180,17 +177,6 @@ public class PartyService {
         return parties.findRealtimeByStatus(PartyStatus.ACTIVE).stream()
                 .map(PartyResult::from)
                 .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public DriverSummary getAssignDriver(Long partyId) {
-        Party party = getParty(partyId);
-
-        Long driverId = party.getTaxiDriverId();
-        if (driverId == null) throw new BusinessException(MatchingErrorCode.DRIVER_NOT_ASSIGNED);
-
-        return driverAccess.findSummary(driverId)
-                .orElseThrow(() -> new BusinessException(MatchingErrorCode.ASSIGNED_DRIVER_NOT_FOUND));
     }
 
     @Transactional(readOnly = true)
@@ -321,12 +307,12 @@ public class PartyService {
         PartyClosed closed = PartyClosed.from(party.getStatus().name());
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
 
-        log.info("기사 없이 합승 종료 partyId={}, memberId={}", partyId, memberId);
+        log.info("합승 종료 partyId={}, memberId={}", partyId, memberId);
     }
 
     /**
      *  정리 스케줄러가 생성(실시간)·출발(예약) 후 1일이 지나도 열려 있는 방을 닫는다. 노쇼 판정은 Party.autoClose 가 한다.
-     *  도착한 멤버가 있어 FINISHED 로 끝난 방만 기사 없는 하차 기록을 남긴다. 노쇼로 찍힌 멤버는 같은 트랜잭션에서 제재가 더해지고 커밋 후 노쇼 알림을 받는다(방해 금지 시간 제외)
+     *  도착한 멤버가 있어 FINISHED 로 끝난 방만 하차 기록을 남긴다. 노쇼로 찍힌 멤버는 같은 트랜잭션에서 제재가 더해지고 커밋 후 노쇼 알림을 받는다(방해 금지 시간 제외)
      *
      *  @return 이번에 노쇼로 찍힌 memberId (합류 순)
      */

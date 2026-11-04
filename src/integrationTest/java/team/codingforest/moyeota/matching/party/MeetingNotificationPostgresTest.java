@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  *  V28(약속 시각 알림·출발 재촉 컬럼, 부분 인덱스)과 스케줄러의 대상 조회, 처리 결과 저장이 실제 Postgres 에서 맞게 도는지 본다
  */
-@SpringBootTest(properties = {"spring.profiles.active=dev", "moyeota.taxi.enabled=false"})
+@SpringBootTest(properties = "spring.profiles.active=dev")
 class MeetingNotificationPostgresTest {
     // 다른 테스트가 남긴 방과 섞이지 않게 제주 좌표를 쓴다
     private static final Location DEPARTURE = new Location(33.4996, 126.5312);

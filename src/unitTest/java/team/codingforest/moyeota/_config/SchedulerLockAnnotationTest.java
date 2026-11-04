@@ -4,8 +4,8 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.junit.jupiter.api.Test;
 import org.springframework.scheduling.annotation.Scheduled;
 import team.codingforest.moyeota.common.event.EventResubmitter;
-import team.codingforest.moyeota.driver.DriverRetentionSweeper;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
+import team.codingforest.moyeota.matching.party.MeetingNotificationSweeper;
 import team.codingforest.moyeota.matching.party.PartyRecruitingSweeper;
 import team.codingforest.moyeota.matching.sse.infrastructure.PartySseRegistry;
 import team.codingforest.moyeota.user.deletion.application.UserDeletionSweeper;
@@ -29,7 +29,7 @@ class SchedulerLockAnnotationTest {
         assertLocked(CompletedPartySweeper.class, "sweep", "completed-party-sweep");
         assertLocked(PartyRecruitingSweeper.class, "sweep", "party-recruiting-sweep");
         assertLocked(PartyRecruitingSweeper.class, "remind", "reservation-reminder");
-        assertLocked(DriverRetentionSweeper.class, "sweep", "driver-retention-sweep");
+        assertLocked(MeetingNotificationSweeper.class, "sweep", "meeting-notification-sweep");
     }
 
     @Test
@@ -46,7 +46,8 @@ class SchedulerLockAnnotationTest {
         // lockAtLeastFor 는 주기보다 짧아야 한다 - 길면 매 주기 잠금이 안 풀려 건너뛴다
         for (Method m : List.of(scheduled(EventResubmitter.class, "run"),
                 scheduled(CompletedPartySweeper.class, "sweep"),
-                scheduled(PartyRecruitingSweeper.class, "sweep"), scheduled(PartyRecruitingSweeper.class, "remind"))) {
+                scheduled(PartyRecruitingSweeper.class, "sweep"), scheduled(PartyRecruitingSweeper.class, "remind"),
+                scheduled(MeetingNotificationSweeper.class, "sweep"))) {
             Duration period = Duration.ofMillis(m.getAnnotation(Scheduled.class).fixedDelay());
             SchedulerLock lock = m.getAnnotation(SchedulerLock.class);
 
@@ -60,7 +61,8 @@ class SchedulerLockAnnotationTest {
         List<String> names = List.of(lockName(EventResubmitter.class, "run"),
                 lockName(CompletedPartySweeper.class, "sweep"),
                 lockName(PartyRecruitingSweeper.class, "sweep"), lockName(PartyRecruitingSweeper.class, "remind"),
-                lockName(UserDeletionSweeper.class, "sweep"), lockName(DriverRetentionSweeper.class, "sweep"));
+                lockName(MeetingNotificationSweeper.class, "sweep"),
+                lockName(UserDeletionSweeper.class, "sweep"));
 
         assertThat(names).doesNotHaveDuplicates();
     }

@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.party.dto.ArriveRequest;
 import team.codingforest.moyeota.matching.party.dto.ConfirmPartyRequest;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyRequest;
@@ -77,13 +76,6 @@ public class PartyController {
     @GetMapping("/matching/rooms")
     public ResponseEntity<PartyListResponse> list() {
         return ResponseEntity.ok(PartyListResponse.from(partyService.findActiveParties()));
-    }
-
-    @Operation(summary = "배정 기사 차량 정보", description = "좌석·번호판·차종. 배정 전이면 409")
-    @ApiResponses({@ApiResponse(responseCode = "200", description = "차량 요약"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND / ASSIGNED_DRIVER_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "DRIVER_NOT_ASSIGNED")})
-    @GetMapping("/matching/rooms/{partyId}/driver")
-    public ResponseEntity<DriverSummary> findDriverSummary(@PathVariable Long partyId) {
-        return ResponseEntity.ok(partyService.getAssignDriver(partyId));
     }
 
     // 같은 경로의 전체 목록 조회와 쿼리 파라미터 유무로 구분한다 (params 없이 두 개면 Ambiguous mapping으로 기동 실패)

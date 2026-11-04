@@ -36,7 +36,7 @@ import static org.awaitility.Awaitility.await;
  *  출발·자동 정리로 생긴 노쇼가 같은 트랜잭션에서 users 행의 제재로 쌓이고, 제한 중엔 방 만들기·참여가 막히며,
  *  이의가 인정되면 노쇼가 무효로 돌아가고 제재가 풀리는 흐름을 실제 서비스와 Postgres 로 본다
  */
-@SpringBootTest(properties = {"spring.profiles.active=dev", "moyeota.taxi.enabled=false"})
+@SpringBootTest(properties = "spring.profiles.active=dev")
 class NoShowSanctionFlowPostgresTest {
     // 다른 테스트가 남긴 방과 섞이지 않게 제주 좌표를 쓴다
     private static final double DEPARTURE_LAT = 33.4996;

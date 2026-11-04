@@ -14,6 +14,7 @@ import team.codingforest.moyeota.matching.record.dto.RideRecordResponse;
 import java.time.Instant;
 import java.util.List;
 
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.eq;
@@ -123,6 +124,10 @@ class RideRecordControllerUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isOk())
+                // 출시된 앱이 읽는 키라 값이 없어도 키는 남아야 한다 - 둘 다 null 이면 앱이 요금 줄을 숨긴다
+                .andExpect(jsonPath("$.rides[0]", hasKey("pickupTime")))
+                .andExpect(jsonPath("$.rides[0]", hasKey("totalFare")))
+                .andExpect(jsonPath("$.rides[0]", hasKey("farePerPerson")))
                 .andExpect(jsonPath("$.rides[0].pickupTime").value(nullValue()))
                 .andExpect(jsonPath("$.rides[0].totalFare").value(nullValue()))
                 .andExpect(jsonPath("$.rides[0].farePerPerson").value(nullValue()))

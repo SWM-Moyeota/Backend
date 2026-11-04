@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.entry;
  *  약속 확정 → 출발지 도착 → 출발을 실제 서비스와 Postgres 로 돌려, 도착하지 않은 멤버가 노쇼로 저장되고
  *  탑승 기록·탑승 횟수에서 빠지는지 본다. 운영자가 노쇼를 무효로 돌리면(다른 PR - 여기선 컬럼을 직접 채운다) 다시 잡힌다
  */
-@SpringBootTest(properties = {"spring.profiles.active=dev", "moyeota.taxi.enabled=false"})
+@SpringBootTest(properties = "spring.profiles.active=dev")
 class PartyAttendancePostgresTest {
     // 다른 테스트가 남긴 방과 섞이지 않게 광주 좌표를 쓴다
     private static final double DEPARTURE_LAT = 35.1595;

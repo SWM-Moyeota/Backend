@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+// taxiDriverId 는 택시(기사) 기능을 없애 늘 null 이다. 이미 출시된 앱(강제 업데이트 없음)이 이 키를 읽어 null 이 아닐 때만 기사 화면으로 가므로 응답에 남겨 둔다 - 옛 버전 앱이 사라지면 지운다
 public record PartyDetailResult(Long id,
                                 Double departureLat, Double departureLng,
                                 Double destinationLat, Double destinationLng,
@@ -45,7 +46,7 @@ public record PartyDetailResult(Long id,
                 party.getEstimatedFare(),
                 party.getEstimatedTime(),
                 party.getRoute(),
-                party.getTaxiDriverId(),
+                null,
                 party.getVersion(),
                 party.getRoomType().name(),
                 party.getDepartureAt(),

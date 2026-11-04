@@ -35,7 +35,7 @@ class PartyControllerTest {
         PartyJpaTest parties = new PartyJpaTest();
         ChatOnlyCompletionPolicy policy = new ChatOnlyCompletionPolicy();
         PartyService service = new PartyService(parties, events, routeService,
-                new PartyServiceTest.FakeDriverAccess(), new FakeUserAccess(), policy,
+                new FakeUserAccess(), policy,
                 (name, task) -> task.run(), new PartyServiceTest.RecordingPartyChangeNotifier(),
                 new PartyServiceTest.FakeWalkRouteFinder(), new FakeRideRecords(new PartyJpaTest()),
                 new PartyOpener(parties, events, policy), new FakeNoShowPenalty(),

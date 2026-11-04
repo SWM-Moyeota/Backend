@@ -65,7 +65,7 @@ public class AuthController {
         authService.logout(request.refreshToken());
     }
 
-    @Operation(summary = "전화번호 가입 여부", description = "기사 phone-first 온보딩 1단계. exists=false 면 회원가입으로, true 면 로그인으로")
+    @Operation(summary = "전화번호 가입 여부", description = "가입 전 전화번호 가입 여부 확인. exists=false 면 회원가입으로, true 면 로그인으로")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "exists"), @ApiResponse(responseCode = "400", description = "INVALID_PHONE_NUMBER(USER105)")})
     @PostMapping("/phone/check")
     public PhoneCheckResponse checkPhone(@Valid @RequestBody PhoneCheckRequest request) {

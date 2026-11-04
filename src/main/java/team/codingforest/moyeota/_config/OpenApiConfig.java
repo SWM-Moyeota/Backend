@@ -37,7 +37,7 @@ public class OpenApiConfig {
                 .info(new Info().title("모여타 API").version("v1")
                         .description("""
                                 목적지 기반 택시 동승 매칭 API.
-                                - 인증: 로그인 후 받은 accessToken 을 `Authorization: Bearer {token}` 으로 보낸다. 신원(userId/driverId)은 토큰에서 추출하므로 요청에 싣지 않는다.
+                                - 인증: 로그인 후 받은 accessToken 을 `Authorization: Bearer {token}` 으로 보낸다. 신원(userId)은 토큰에서 추출하므로 요청에 싣지 않는다.
                                 - 401 분기: code 가 USER002(만료)면 `POST /api/v1/auth/reissue` 로 재발급, 그 외 401 은 재로그인.
                                 - 에러 응답: 항상 `{code, message}`.
                                 """))

@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *  users 행의 노쇼 제재 컬럼이 실제 Postgres 에서 잃어버려지지 않는지 본다 -
  *  같은 사용자의 노쇼가 동시에 더해질 때(행 잠금), 프로필 수정이 읽어 둔 옛 값으로 제재를 덮어쓸 때(@DynamicUpdate)
  */
-@SpringBootTest(properties = {"spring.profiles.active=dev", "moyeota.taxi.enabled=false"})
+@SpringBootTest(properties = "spring.profiles.active=dev")
 class NoShowSanctionPostgresTest {
     private static final Instant MEETING_AT = Instant.now().truncatedTo(ChronoUnit.MICROS).minus(Duration.ofMinutes(10));
 
