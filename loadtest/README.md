@@ -1,8 +1,8 @@
 # 부하 테스트
 
 시나리오는 두 묶음이다.
-- **D0~D6 — 1차 배포(택시 꺼짐, `TAXI_ENABLED=false`)**: 매칭 + 채팅만. 지금 쓰는 것.
-- **S1~S6 — 택시 켜짐(발표 모드)**: 기사 위치·배차 포함. 택시 기능을 켤 때 다시 쓴다.
+- **D0~D8 — 1차 배포**: 매칭 + 채팅. 앱의 화면별 호출을 따른다. 지금 쓰는 것.
+- **S1·S2·S5·S6 — 초기 시나리오**: 승객 API(폴링, 동시 참여, 방 생성, 한계 찾기)만 부른다. 기사 위치 보고(S3)는 택시 기능과 함께 지웠다.
 
 ## 준비
 1. 대상 서버: `micrometer-registry-prometheus` 추가, `exposure.include` 에 `prometheus`, prod 는 `management.server.port: 9091` (CloudFront VPC origin 이 8080 을 통째로 전달하므로 관리 포트를 분리해야 인터넷에 안 노출됨). actuator base-path 가 `/` 라 지표는 `http://IP:9091/prometheus`.
@@ -237,15 +237,14 @@ node summarize.mjs results/d2-sse-4000-r7070.json "2026-10-06 21:58 KST, VUS=400
 `results/` 의 `.json` 은 정본(모든 지표·분위수), `.txt` 는 터미널 요약과 같은 형식이다. 파일 이름은 `--tag testid=` 와 같게 둔다 - Grafana 에서 같은 이름으로 찾는다.
 Grafana 에는 k6 가 미리 계산한 분위수(p95·p99)만 있고 avg·med 는 없다. 그 값은 여기 파일에서 본다.
 
-## 택시 켜짐 시나리오 (S)
+## 초기 시나리오 (S)
 ```
 k6 run -o experimental-prometheus-rw s1-polling.js        # 20 RPS 5분
 k6 run s2-join-race.js                                     # 정합성 - 2 성공 / 8 PARTY_FULL
-k6 run -o experimental-prometheus-rw s3-driver-location.js # TAXI_ENABLED=true 서버
 k6 run -o experimental-prometheus-rw s5-open-party.js      # loadtest 프로필 서버 (RouteFinder 가짜)
 k6 run -o experimental-prometheus-rw s6-breakpoint.js      # 한계 찾기
 ```
-슬롯: 0..19 S1·S6 방장 / 1..10 S2 참여자 (S1 과 동시 실행 금지) / 100..149 S3 기사 / 150..179 S5 방 생성자.
+슬롯: 0..19 S1·S6 방장 / 1..10 S2 참여자 (S1 과 동시 실행 금지) / 150..179 S5 방 생성자.
 
 ## WAS 1대 vs 2대 비교
 
