@@ -1,5 +1,5 @@
 package team.codingforest.moyeota.settlement.ledger.domain;
 
 public enum PayoutStatus {
-    REQUESTED, SUCCEED, FAILED, UNKNOWN
+    REQUESTED, ACCEPTED, SUCCEED, FAILED, UNKNOWN
 }

@@ -29,6 +29,12 @@ public class PayoutEntity extends BaseTimeEntity {
     @Column(name = "settlement_id", nullable = false, updatable = false)
     private Long settlementId;
 
+    @Column(name = "seller_id", updatable = false)
+    private String sellerId;
+
+    @Column(name = "pg_id")
+    private String pgId;
+
     @Column(name = "amount", nullable = false, updatable = false)
     private Integer amount;
 
@@ -36,15 +42,12 @@ public class PayoutEntity extends BaseTimeEntity {
     @Column(name = "status", nullable = false)
     private PayoutStatus status;
 
-    @Column(name = "pg_id")
-    private String pgId;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "bank_code", nullable = false, updatable = false)
     private BankCode bankCode;
 
-    @Column(name = "account_number", nullable = false, updatable = false)
-    private String accountNumber;
+    @Column(name = "masked_account_number", nullable = false, updatable = false)
+    private String maskedAccountNumber;
 
     @Column(name = "account_holder", nullable = false, updatable = false)
     private String accountHolder;
@@ -52,21 +55,22 @@ public class PayoutEntity extends BaseTimeEntity {
     @Column(name = "fail_reason")
     private String failReason;
 
-    private PayoutEntity(Long settlementId, Integer amount, PayoutStatus status, String pgId, BankCode bankCode,
-                         String accountNumber, String accountHolder, String failReason) {
+    private PayoutEntity(Long settlementId, String sellerId, String pgId, Integer amount, PayoutStatus status, BankCode bankCode,
+                         String maskedAccountNumber, String accountHolder, String failReason) {
         this.settlementId = settlementId;
+        this.sellerId = sellerId;
+        this.pgId = pgId;
         this.amount = amount;
         this.status = status;
-        this.pgId = pgId;
         this.bankCode = bankCode;
-        this.accountNumber = accountNumber;
+        this.maskedAccountNumber = maskedAccountNumber;
         this.accountHolder = accountHolder;
         this.failReason = failReason;
     }
 
     public static PayoutEntity from(Payout payout) {
-        return new PayoutEntity(payout.getSettlementId(), payout.getAmount(), payout.getStatus(), payout.getPgId(), payout.getBankCode(),
-                payout.getAccountNumber(), payout.getAccountHolder(), payout.getFailReason());
+        return new PayoutEntity(payout.getSettlementId(), payout.getSellerId(), payout.getPgId(), payout.getAmount(), payout.getStatus(),
+                payout.getBankCode(), payout.getMaskedAccountNumber(), payout.getAccountHolder(), payout.getFailReason());
     }
 
     public PayoutEntity update(Payout payout) {
@@ -77,7 +81,7 @@ public class PayoutEntity extends BaseTimeEntity {
     }
 
     public Payout toDomain() {
-        return Payout.load(id, settlementId, amount, status, pgId, bankCode, accountNumber, accountHolder, failReason,
+        return Payout.load(id, settlementId, amount, status, pgId, sellerId, bankCode, maskedAccountNumber, accountHolder, failReason,
                 getCreatedAt(), getUpdatedAt());
     }
 }

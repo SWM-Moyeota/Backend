@@ -10,9 +10,12 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 
+/**
+ * 요청은 정해 둔 응답을 차례로 돌려주고, 없으면 바로 성공함
+ * 조회는 결제사 지급 id 마다 정해 둔 결과를 돌려주고, 없으면 아직 처리 중(Accepted)으로 답함
+ */
 public class FakePayoutGateway implements PayoutGateway {
     public static final String DEFAULT_PG_ID_PREFIX = "pg-";
 
@@ -36,13 +39,13 @@ public class FakePayoutGateway implements PayoutGateway {
         return this;
     }
 
-    public FakePayoutGateway willFind(String payoutKey, PayoutResult result) {
-        records.put(payoutKey, result);
+    public FakePayoutGateway willFind(String pgId, PayoutResult result) {
+        records.put(pgId, result);
         return this;
     }
 
-    public FakePayoutGateway willThrowOnFind(String payoutKey, RuntimeException exception) {
-        findFailures.put(payoutKey, exception);
+    public FakePayoutGateway willThrowOnFind(String pgId, RuntimeException exception) {
+        findFailures.put(pgId, exception);
         return this;
     }
 
@@ -57,13 +60,13 @@ public class FakePayoutGateway implements PayoutGateway {
     }
 
     @Override
-    public Optional<PayoutResult> find(String payoutKey) {
-        findCalls.add(payoutKey);
+    public PayoutResult find(String pgId) {
+        findCalls.add(pgId);
 
-        RuntimeException failure = findFailures.get(payoutKey);
+        RuntimeException failure = findFailures.get(pgId);
         if(failure != null) throw failure;
 
-        return Optional.ofNullable(records.get(payoutKey));
+        return records.getOrDefault(pgId, new PayoutResult.Accepted(pgId));
     }
 
     public List<PayoutOrder> requests() {

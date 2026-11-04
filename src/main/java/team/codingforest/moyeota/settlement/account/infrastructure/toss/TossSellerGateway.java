@@ -1,6 +1,8 @@
-package team.codingforest.moyeota.settlement.common.toss;
+package team.codingforest.moyeota.settlement.account.infrastructure.toss;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Component;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.RestClientException;
 import team.codingforest.moyeota.common.bank.BankCode;
@@ -10,6 +12,8 @@ import team.codingforest.moyeota.settlement.account.domain.SellerGateway;
 import team.codingforest.moyeota.settlement.account.domain.SellerGatewayException;
 import team.codingforest.moyeota.settlement.account.domain.SellerRegistration;
 import team.codingforest.moyeota.settlement.account.domain.SellerStatus;
+import team.codingforest.moyeota.settlement.common.toss.TossPayoutClient;
+import team.codingforest.moyeota.settlement.common.toss.TossPayoutException;
 
 import java.util.Set;
 import java.util.function.Supplier;
@@ -17,6 +21,8 @@ import java.util.function.Supplier;
 /**
  * 셀러 포트를 토스 지급대행 셀러 API 로 구현함. 토스 에러는 SellerGatewayException 으로 바꿔 던짐
  */
+@ConditionalOnProperty(prefix = "moyeota.settlement.toss", name = "enabled", havingValue = "true")
+@Component
 @RequiredArgsConstructor
 public class TossSellerGateway implements SellerGateway {
     private static final String SELLERS = "/v2/sellers";

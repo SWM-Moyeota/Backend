@@ -38,7 +38,7 @@ public class PayoutService {
         Instant staleBefore = now.minus(STALE_AFTER);
 
         for(Long payoutId : payouts.findIdsToReconcile(staleBefore)) {
-            reconcileSafely(payoutId, staleBefore);
+            reconcileSafely(payoutId, now, staleBefore);
         }
     }
 
@@ -80,30 +80,53 @@ public class PayoutService {
         }
     }
 
-    private void reconcileSafely(Long payoutId, Instant staleBefore) {
+    private void reconcileSafely(Long payoutId, Instant now, Instant staleBefore) {
         try {
-            reconcileOne(payoutId, staleBefore);
+            reconcileOne(payoutId, now, staleBefore);
         } catch (RuntimeException e) {
             log.error("지급 대사 실패, 다음 대사에서 다시 확인 payoutId={}", payoutId, e);
         }
     }
 
-    private void reconcileOne(Long payoutId, Instant staleBefore) {
+    /**
+     * 결제사가 접수한 지급은 조회로 결과를 확인하고, 응답을 못 받은 지급은 같은 지급 키로 다시 보내 처음 결과를 받음
+     *
+     * @param payoutId    지급 id
+     * @param now         지금 시각
+     * @param staleBefore 이보다 먼저 만든 요청만 멈춘 것으로 봄
+     */
+    private void reconcileOne(Long payoutId, Instant now, Instant staleBefore) {
         Optional<Payout> found = payouts.findById(payoutId);
         if(found.isEmpty() || found.get().isFinished()) return;
 
         Payout payout = found.get();
-        Optional<PayoutResult> recorded = gateway.find(payout.payoutKey());
-        if(recorded.isPresent()) {
-            recorder.recordResult(payoutId, recorded.get());
+        if(payout.hasPgId()) {
+            PayoutResult result = findAtGateway(payout);
+            if(result instanceof PayoutResult.Accepted) return;
+
+            recorder.recordResult(payoutId, result);
             return;
         }
 
         boolean waitedLongEnough = payout.getCreatedAt().isBefore(staleBefore);
         if(!waitedLongEnough) return;
 
+        if(!payout.canResend(now)) {
+            log.error("멱등키 유효 기간이 지나 다시 요청하지 않음, 결제사에서 직접 확인 필요 payoutId={}, payoutKey={}", payoutId, payout.payoutKey());
+            return;
+        }
+
         PayoutResult result = callGateway(payout.toOrder());
         recorder.recordResult(payoutId, result);
-        log.info("결제사에 기록이 없는 지급을 같은 지급 키로 다시 요청 payoutId={}, result={}", payoutId, result);
+        log.info("응답을 받지 못한 지급을 같은 지급 키로 다시 요청 payoutId={}, result={}", payoutId, result);
+    }
+
+    private PayoutResult findAtGateway(Payout payout) {
+        try {
+            return gateway.find(payout.getPgId());
+        } catch (RuntimeException e) {
+            log.warn("결제사 지급 조회 실패, 다음 대사에서 다시 확인 payoutId={}, pgId={}", payout.getId(), payout.getPgId(), e);
+            return new PayoutResult.Unknown(NO_RESULT_REASON + ": " + e.getClass().getSimpleName());
+        }
     }
 }

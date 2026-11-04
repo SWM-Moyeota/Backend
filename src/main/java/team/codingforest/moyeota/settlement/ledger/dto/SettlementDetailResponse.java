@@ -3,7 +3,6 @@ package team.codingforest.moyeota.settlement.ledger.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import team.codingforest.moyeota.common.bank.BankCode;
 import team.codingforest.moyeota.settlement.ledger.domain.Payout;
-import team.codingforest.moyeota.settlement.ledger.domain.PayoutAccount;
 import team.codingforest.moyeota.settlement.ledger.domain.PayoutStatus;
 import team.codingforest.moyeota.settlement.ledger.domain.Settlement;
 import team.codingforest.moyeota.settlement.ledger.domain.SettlementLedger;
@@ -18,7 +17,7 @@ public record SettlementDetailResponse(@Schema(description = "정산서 ID") Lon
                                        @Schema(description = "정산 기간 시작 - weekStart(월요일) 00:00(KST). UTC 로 내려간다", example = "2026-10-25T15:00:00Z") Instant periodStart,
                                        @Schema(description = "정산 기간 끝(이 시각은 포함하지 않음) - 다음 월요일 00:00(KST). UTC 로 내려간다", example = "2026-11-01T15:00:00Z") Instant periodEnd,
                                        @Schema(description = "정산 금액(원) - rides 의 settlementAmount 합. 정산서를 만든 뒤에는 금액과 rides 가 바뀌지 않는다") int amount,
-                                       @Schema(description = "정산 상태. CONFIRMED - 지급 대기 또는 지급 중 / HOLD - 지급 계좌가 없어 지급 보류 / PAID - 지급 완료 / FAILED - 지급 실패") SettlementStatus status,
+                                       @Schema(description = "정산 상태. CONFIRMED - 지급 대기 또는 지급 중 / HOLD - 지급 계좌가 없거나 결제사 셀러 승인 전이라 지급 보류(매일 지급 때 다시 확인) / PAID - 지급 완료 / FAILED - 지급 실패") SettlementStatus status,
                                        @Schema(description = "이 정산서에 담긴 운행별 정산 원장. 운행 종료 시각(occurredAt) 오름차순, 같으면 기록 순") List<LedgerItem> rides,
                                        @Schema(description = "가장 최근 지급 시도 1건. 지급을 시도한 적이 없으면 null") PayoutItem payout) {
 
@@ -34,7 +33,7 @@ public record SettlementDetailResponse(@Schema(description = "정산서 ID") Lon
         }
     }
 
-    public record PayoutItem(@Schema(description = "지급 상태. REQUESTED - 결제사에 지급 요청 중 / UNKNOWN - 결제사 처리 결과 확인 중(확인되면 SUCCEED 나 FAILED) / SUCCEED - 입금 완료 / FAILED - 지급 실패") PayoutStatus status,
+    public record PayoutItem(@Schema(description = "지급 상태. REQUESTED - 결제사에 지급 요청 중 / ACCEPTED - 결제사가 접수해 입금 대기 / UNKNOWN - 결제사 처리 결과 확인 중(확인되면 SUCCEED 나 FAILED) / SUCCEED - 입금 완료 / FAILED - 지급 실패") PayoutStatus status,
                              @Schema(description = "지급 금액(원) - 지급을 요청한 시점의 정산 금액") int amount,
                              @Schema(description = "입금 은행 - 지급을 요청한 시점의 기사 지급 계좌 은행") BankCode bankCode,
                              @Schema(description = "입금 계좌번호 - 지급을 요청한 시점의 계좌. 끝 4자리만 보이고 앞자리는 * 로 가린다(4자리 이하면 전부 *)", example = "********6789") String maskedAccountNumber,
@@ -45,7 +44,7 @@ public record SettlementDetailResponse(@Schema(description = "정산서 ID") Lon
             String failReason = payout.getStatus() == PayoutStatus.FAILED ? payout.getFailReason() : null;
 
             return new PayoutItem(payout.getStatus(), payout.getAmount(), payout.getBankCode(),
-                    PayoutAccount.mask(payout.getAccountNumber()), failReason, payout.getCreatedAt());
+                    payout.getMaskedAccountNumber(), failReason, payout.getCreatedAt());
         }
     }
 

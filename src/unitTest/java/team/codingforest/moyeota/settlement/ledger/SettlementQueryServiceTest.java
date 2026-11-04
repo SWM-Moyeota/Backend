@@ -313,8 +313,9 @@ class SettlementQueryServiceTest {
     private void 지급(Settlement settlement, PayoutStatus status, String failReason, Instant requestedAt) {
         payouts.setNow(requestedAt);
         String pgId = status == PayoutStatus.SUCCEED ? "pg-" + settlement.getId() : null;
-        payouts.save(Payout.load(null, settlement.getId(), settlement.getAmount(), status, pgId, FakePayoutAccounts.SAMPLE_BANK,
-                FakePayoutAccounts.SAMPLE_ACCOUNT_NUMBER, FakePayoutAccounts.SAMPLE_ACCOUNT_HOLDER, failReason, null, null));
+        payouts.save(Payout.load(null, settlement.getId(), settlement.getAmount(), status, pgId,
+                FakePayoutAccounts.sellerOf(settlement.getTaxiDriverId()), FakePayoutAccounts.SAMPLE_BANK,
+                FakePayoutAccounts.SAMPLE_MASKED_ACCOUNT_NUMBER, FakePayoutAccounts.SAMPLE_ACCOUNT_HOLDER, failReason, null, null));
     }
 
     private static SettlementPeriod 주(LocalDate date) {

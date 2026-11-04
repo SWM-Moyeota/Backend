@@ -5,17 +5,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
-import team.codingforest.moyeota.settlement.account.domain.SellerGateway;
 import tools.jackson.databind.ObjectMapper;
 
 @ConditionalOnProperty(prefix = "moyeota.settlement.toss", name = "enabled", havingValue = "true")
 @Configuration
 public class TossPayoutConfig {
-
-    @Bean
-    public SellerGateway sellerGateway(TossPayoutClient tossPayoutClient) {
-        return new TossSellerGateway(tossPayoutClient);
-    }
 
     @Bean
     public TossJweCipher tossJweCipher(TossPayoutProperties properties, ObjectMapper objectMapper) {
@@ -36,7 +30,7 @@ public class TossPayoutConfig {
         return new TossPayoutClient(restClient, tossJweCipher, objectMapper);
     }
 
-    static RestClient.Builder authorized(RestClient.Builder builder, TossPayoutProperties properties) {
+    public static RestClient.Builder authorized(RestClient.Builder builder, TossPayoutProperties properties) {
         return builder.baseUrl(properties.baseUrl())
                 .defaultHeaders(headers -> headers.setBasicAuth(properties.secretKey(), ""));
     }

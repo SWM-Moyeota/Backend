@@ -3,57 +3,76 @@ package team.codingforest.moyeota.settlement.ledger.domain;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import team.codingforest.moyeota.common.bank.BankCode;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.settlement.account.domain.BusinessType;
+import team.codingforest.moyeota.settlement.account.domain.DriverPayoutAccount;
+import team.codingforest.moyeota.settlement.account.domain.SellerStatus;
 import team.codingforest.moyeota.settlement.exception.SettlementErrorCode;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.params.provider.EnumSource.Mode.EXCLUDE;
 import static org.junit.jupiter.params.provider.EnumSource.Mode.INCLUDE;
 
 class PayoutTest {
     private static final Long 정산서_번호 = 1L;
     private static final Long 지급_번호 = 42L;
     private static final Long 기사 = 9L;
-    private static final BankCode 은행 = BankCode.values()[0];
-    private static final String 계좌번호 = "110123456789";
+    private static final BankCode 은행 = BankCode.KOOKMIN;
+    private static final String 가린_계좌번호 = "********6789";
     private static final String 예금주 = "김기사";
-    private static final PayoutAccount 계좌 = new PayoutAccount(은행, 계좌번호, 예금주);
+    private static final String 셀러 = "seller_abc";
     private static final SettlementPeriod 기간 = SettlementPeriod.weekOf(Instant.parse("2026-10-28T03:00:00Z"));
     private static final Instant 생성 = Instant.parse("2026-11-02T01:00:00.123456Z");
 
     @ParameterizedTest
     @EnumSource(value = SettlementStatus.class, mode = INCLUDE, names = {"CONFIRMED", "HOLD", "FAILED"})
-    void 지급할_수_있는_정산서로_지급을_요청하면_금액과_계좌를_복사해_요청_상태가_된다(SettlementStatus status) {
-        Payout payout = Payout.request(정산서(status, 24600), 계좌);
+    void 지급할_수_있는_정산서로_지급을_요청하면_금액과_셀러와_가린_계좌를_복사해_요청_상태가_된다(SettlementStatus status) {
+        Payout payout = Payout.request(정산서(status, 24600), 지급_계좌(SellerStatus.APPROVED));
 
         assertThat(payout.getId()).isNull();
         assertThat(payout.getSettlementId()).isEqualTo(정산서_번호);
         assertThat(payout.getAmount()).isEqualTo(24600);
         assertThat(payout.getStatus()).isEqualTo(PayoutStatus.REQUESTED);
+        assertThat(payout.getSellerId()).isEqualTo(셀러);
         assertThat(payout.getBankCode()).isEqualTo(은행);
-        assertThat(payout.getAccountNumber()).isEqualTo(계좌번호);
+        assertThat(payout.getMaskedAccountNumber()).isEqualTo(가린_계좌번호);
         assertThat(payout.getAccountHolder()).isEqualTo(예금주);
         assertThat(payout.getPgId()).isNull();
         assertThat(payout.getFailReason()).isNull();
         assertThat(payout.getCreatedAt()).isNull();
-        assertThat(payout.account()).isEqualTo(계좌);
         assertThat(payout.isActive()).isTrue();
         assertThat(payout.isFinished()).isFalse();
+        assertThat(payout.hasPgId()).isFalse();
     }
 
     @Test
-    void 지급된_정산서로는_지급을_요청할_수_없다() {
-        assertErrorCode(() -> Payout.request(정산서(SettlementStatus.PAID, 24600), 계좌), SettlementErrorCode.INVALID_SETTLEMENT_STATUS);
+    void 부분_승인된_셀러에게도_지급을_요청할_수_있다() {
+        Payout payout = Payout.request(정산서(SettlementStatus.CONFIRMED, 24600), 지급_계좌(SellerStatus.PARTIALLY_APPROVED));
+
+        assertThat(payout.getSellerId()).isEqualTo(셀러);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = SellerStatus.class, mode = INCLUDE, names = {"APPROVAL_REQUIRED", "KYC_REQUIRED"})
+    void 승인되지_않은_셀러에게는_지급을_요청할_수_없다(SellerStatus status) {
+        assertThatThrownBy(() -> Payout.request(정산서(SettlementStatus.CONFIRMED, 24600), 지급_계좌(status)))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    void 금액이_0인_정산서로는_지급을_요청할_수_없다() {
-        assertErrorCode(() -> Payout.request(정산서(SettlementStatus.CONFIRMED, 0), 계좌), SettlementErrorCode.INVALID_PAYOUT_AMOUNT);
+    void 셀러_등록이_끝나지_않은_계좌로는_지급을_요청할_수_없다() {
+        DriverPayoutAccount 셀러_없는_계좌 = DriverPayoutAccount.load(31L, 기사, BusinessType.CORPORATE, 은행, 가린_계좌번호, 예금주,
+                null, null, 생성, 생성);
+
+        assertThatThrownBy(() -> Payout.request(정산서(SettlementStatus.CONFIRMED, 24600), 셀러_없는_계좌))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -63,30 +82,98 @@ class PayoutTest {
     }
 
     @Test
+    void 지급된_정산서로는_지급을_요청할_수_없다() {
+        assertErrorCode(() -> Payout.request(정산서(SettlementStatus.PAID, 24600), 지급_계좌(SellerStatus.APPROVED)),
+                SettlementErrorCode.INVALID_SETTLEMENT_STATUS);
+    }
+
+    @Test
+    void 금액이_0인_정산서로는_지급을_요청할_수_없다() {
+        assertErrorCode(() -> Payout.request(정산서(SettlementStatus.CONFIRMED, 0), 지급_계좌(SellerStatus.APPROVED)),
+                SettlementErrorCode.INVALID_PAYOUT_AMOUNT);
+    }
+
+    @Test
     void 지급_키는_접두어와_지급_번호로_만든다() {
         assertThat(지급(PayoutStatus.REQUESTED).payoutKey()).isEqualTo("moyeota-payout-42");
     }
 
     @Test
-    void 결제사에_보낼_지급_요청에는_지급_번호와_지급_키와_금액과_계좌가_담긴다() {
+    void 결제사에_보낼_지급_요청에는_지급_번호와_지급_키와_금액과_셀러가_담긴다() {
         PayoutOrder order = 지급(PayoutStatus.UNKNOWN).toOrder();
 
-        assertThat(order).isEqualTo(new PayoutOrder(지급_번호, "moyeota-payout-42", 24600, 계좌));
+        assertThat(order).isEqualTo(new PayoutOrder(지급_번호, "moyeota-payout-42", 24600, 셀러));
     }
 
     @Test
     void 저장_전_지급으로는_지급_요청을_만들_수_없다() {
-        Payout payout = Payout.request(정산서(SettlementStatus.CONFIRMED, 24600), 계좌);
+        Payout payout = Payout.request(정산서(SettlementStatus.CONFIRMED, 24600), 지급_계좌(SellerStatus.APPROVED));
 
         assertThatThrownBy(payout::toOrder).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
     void 저장_전_지급에는_지급_키가_없다() {
-        Payout payout = Payout.request(정산서(SettlementStatus.CONFIRMED, 24600), 계좌);
+        Payout payout = Payout.request(정산서(SettlementStatus.CONFIRMED, 24600), 지급_계좌(SellerStatus.APPROVED));
 
         assertThatThrownBy(payout::payoutKey).isInstanceOf(IllegalStateException.class);
     }
+
+    // ---------- accept ----------
+
+    @ParameterizedTest
+    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "UNKNOWN"})
+    void 요청했거나_결과를_모르던_지급을_결제사가_접수하면_결제사_번호가_남고_모름_사유는_지워진다(PayoutStatus status) {
+        Payout payout = 지급(status, null, "타임아웃");
+
+        payout.accept("FPA_1");
+
+        assertThat(payout.getStatus()).isEqualTo(PayoutStatus.ACCEPTED);
+        assertThat(payout.getPgId()).isEqualTo("FPA_1");
+        assertThat(payout.getFailReason()).isNull();
+        assertThat(payout.hasPgId()).isTrue();
+        assertThat(payout.isActive()).isTrue();
+        assertThat(payout.isFinished()).isFalse();
+    }
+
+    @Test
+    void 같은_결제사_번호로_다시_접수되면_그대로_둔다() {
+        Payout payout = 지급(PayoutStatus.ACCEPTED, "FPA_1", null);
+
+        payout.accept("FPA_1");
+
+        assertThat(payout.getStatus()).isEqualTo(PayoutStatus.ACCEPTED);
+        assertThat(payout.getPgId()).isEqualTo("FPA_1");
+    }
+
+    @Test
+    void 접수된_지급에_다른_결제사_번호가_오면_막는다() {
+        Payout payout = 지급(PayoutStatus.ACCEPTED, "FPA_1", null);
+
+        assertErrorCode(() -> payout.accept("FPA_2"), SettlementErrorCode.INVALID_PAYOUT_STATUS);
+        assertThat(payout.getPgId()).isEqualTo("FPA_1");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"SUCCEED", "FAILED"})
+    void 끝난_지급은_접수로_되돌릴_수_없다(PayoutStatus status) {
+        Payout payout = 지급(status);
+
+        assertErrorCode(() -> payout.accept("FPA_9"), SettlementErrorCode.INVALID_PAYOUT_STATUS);
+        assertThat(payout.getStatus()).isEqualTo(status);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = "   ")
+    void 결제사_번호_없이는_접수할_수_없다(String pgId) {
+        Payout payout = 지급(PayoutStatus.REQUESTED);
+
+        assertThatThrownBy(() -> payout.accept(pgId)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(payout.getStatus()).isEqualTo(PayoutStatus.REQUESTED);
+    }
+
+    // ---------- succeed / fail / markUnknown ----------
 
     @Test
     void 요청한_지급이_성공하면_결제사_번호가_남는다() {
@@ -99,6 +186,16 @@ class PayoutTest {
         assertThat(payout.getFailReason()).isNull();
         assertThat(payout.isActive()).isTrue();
         assertThat(payout.isFinished()).isTrue();
+    }
+
+    @Test
+    void 접수된_지급이_성공하면_결제사_번호가_없어도_접수_때_받은_번호를_지킨다() {
+        Payout payout = 지급(PayoutStatus.ACCEPTED, "FPA_1", null);
+
+        payout.succeed(null);
+
+        assertThat(payout.getStatus()).isEqualTo(PayoutStatus.SUCCEED);
+        assertThat(payout.getPgId()).isEqualTo("FPA_1");
     }
 
     @Test
@@ -124,7 +221,7 @@ class PayoutTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "UNKNOWN"})
+    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "ACCEPTED", "UNKNOWN"})
     void 결과를_기다리는_지급은_실패할_수_있고_사유가_남는다(PayoutStatus status) {
         Payout payout = 지급(status);
 
@@ -158,7 +255,7 @@ class PayoutTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"UNKNOWN", "SUCCEED", "FAILED"})
+    @EnumSource(value = PayoutStatus.class, mode = EXCLUDE, names = "REQUESTED")
     void 요청_상태가_아니면_결과_모름으로_바꿀_수_없다(PayoutStatus status) {
         Payout payout = 지급(status);
 
@@ -166,9 +263,11 @@ class PayoutTest {
         assertThat(payout.getStatus()).isEqualTo(status);
     }
 
+    // ---------- 상태 묶음 ----------
+
     @ParameterizedTest
-    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "UNKNOWN", "SUCCEED"})
-    void 요청_모름_성공은_활성_지급이다(PayoutStatus status) {
+    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "ACCEPTED", "UNKNOWN", "SUCCEED"})
+    void 요청_접수_모름_성공은_활성_지급이다(PayoutStatus status) {
         assertThat(지급(status).isActive()).isTrue();
     }
 
@@ -184,10 +283,38 @@ class PayoutTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "UNKNOWN"})
-    void 요청과_모름은_끝나지_않은_지급이다(PayoutStatus status) {
+    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "ACCEPTED", "UNKNOWN"})
+    void 요청_접수_모름은_끝나지_않은_지급이다(PayoutStatus status) {
         assertThat(지급(status).isFinished()).isFalse();
     }
+
+    // ---------- canResend ----------
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, 1, 13})
+    void 만든_지_14일_안이면_같은_지급_키로_다시_보낼_수_있다(long days) {
+        assertThat(지급(PayoutStatus.UNKNOWN).canResend(생성.plus(Duration.ofDays(days)))).isTrue();
+    }
+
+    @Test
+    void 만든_지_14일이_되기_직전까지는_다시_보낼_수_있다() {
+        assertThat(지급(PayoutStatus.UNKNOWN).canResend(생성.plus(Duration.ofDays(14)).minusSeconds(1))).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {14, 15, 30})
+    void 만든_지_14일이_지나면_멱등키가_만료될_수_있어_다시_보내지_않는다(long days) {
+        assertThat(지급(PayoutStatus.UNKNOWN).canResend(생성.plus(Duration.ofDays(days)))).isFalse();
+    }
+
+    @Test
+    void 저장_전_지급은_다시_보낼_수_없다() {
+        Payout payout = Payout.request(정산서(SettlementStatus.CONFIRMED, 24600), 지급_계좌(SellerStatus.APPROVED));
+
+        assertThat(payout.canResend(생성)).isFalse();
+    }
+
+    // ---------- 사유 ----------
 
     @Test
     void 사유가_255자면_그대로_남는다() {
@@ -230,56 +357,24 @@ class PayoutTest {
     void 복원한_지급은_값을_그대로_가진다() {
         Instant 수정 = 생성.plusSeconds(3);
 
-        Payout payout = Payout.load(지급_번호, 정산서_번호, 24600, PayoutStatus.FAILED, "pg-1", 은행, 계좌번호, 예금주, "한도 초과", 생성, 수정);
+        Payout payout = Payout.load(지급_번호, 정산서_번호, 24600, PayoutStatus.FAILED, "pg-1", 셀러, 은행, 가린_계좌번호, 예금주, "한도 초과", 생성, 수정);
 
         assertThat(payout.getId()).isEqualTo(지급_번호);
         assertThat(payout.getSettlementId()).isEqualTo(정산서_번호);
         assertThat(payout.getAmount()).isEqualTo(24600);
         assertThat(payout.getStatus()).isEqualTo(PayoutStatus.FAILED);
         assertThat(payout.getPgId()).isEqualTo("pg-1");
+        assertThat(payout.getSellerId()).isEqualTo(셀러);
         assertThat(payout.getBankCode()).isEqualTo(은행);
-        assertThat(payout.getAccountNumber()).isEqualTo(계좌번호);
+        assertThat(payout.getMaskedAccountNumber()).isEqualTo(가린_계좌번호);
         assertThat(payout.getAccountHolder()).isEqualTo(예금주);
         assertThat(payout.getFailReason()).isEqualTo("한도 초과");
         assertThat(payout.getCreatedAt()).isEqualTo(생성);
         assertThat(payout.getUpdatedAt()).isEqualTo(수정);
     }
 
-    @Test
-    void 계좌번호는_마지막_4자리만_보인다() {
-        assertThat(PayoutAccount.mask("110123456789")).isEqualTo("********6789");
-        assertThat(PayoutAccount.mask("12345")).isEqualTo("*2345");
-        assertThat(계좌.maskedAccountNumber()).isEqualTo("********6789");
-    }
-
-    @Test
-    void 계좌번호가_4자리_이하면_전부_가린다() {
-        assertThat(PayoutAccount.mask("1234")).isEqualTo("****");
-        assertThat(PayoutAccount.mask("123")).isEqualTo("***");
-    }
-
-    @Test
-    void 계좌_문자열에는_전체_계좌번호와_예금주가_드러나지_않는다() {
-        assertThat(계좌.toString()).doesNotContain(계좌번호).doesNotContain(예금주).contains("6789");
-    }
-
-    @ParameterizedTest
-    @NullSource
-    @ValueSource(strings = {"", "   "})
-    void 계좌번호가_비어_있으면_계좌를_만들_수_없다(String accountNumber) {
-        assertThatThrownBy(() -> new PayoutAccount(은행, accountNumber, 예금주)).isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @ParameterizedTest
-    @NullSource
-    @ValueSource(strings = {"", "   "})
-    void 예금주가_비어_있으면_계좌를_만들_수_없다(String accountHolder) {
-        assertThatThrownBy(() -> new PayoutAccount(은행, 계좌번호, accountHolder)).isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    void 은행이_없으면_계좌를_만들_수_없다() {
-        assertThatThrownBy(() -> new PayoutAccount(null, 계좌번호, 예금주)).isInstanceOf(IllegalArgumentException.class);
+    private static DriverPayoutAccount 지급_계좌(SellerStatus status) {
+        return DriverPayoutAccount.load(31L, 기사, BusinessType.CORPORATE, 은행, 가린_계좌번호, 예금주, 셀러, status, 생성, 생성);
     }
 
     private static Settlement 정산서(SettlementStatus status, int amount) {
@@ -287,8 +382,12 @@ class PayoutTest {
     }
 
     private static Payout 지급(PayoutStatus status) {
-        String pgId = status == PayoutStatus.SUCCEED ? "pg-1" : null;
-        return Payout.load(지급_번호, 정산서_번호, 24600, status, pgId, 은행, 계좌번호, 예금주, null, 생성, 생성);
+        String pgId = status == PayoutStatus.SUCCEED || status == PayoutStatus.ACCEPTED ? "pg-1" : null;
+        return 지급(status, pgId, null);
+    }
+
+    private static Payout 지급(PayoutStatus status, String pgId, String failReason) {
+        return Payout.load(지급_번호, 정산서_번호, 24600, status, pgId, 셀러, 은행, 가린_계좌번호, 예금주, failReason, 생성, 생성);
     }
 
     private static void assertErrorCode(Runnable action, SettlementErrorCode errorCode) {

@@ -211,9 +211,9 @@ class SettlementControllerTest {
                 .andExpect(jsonPath("$.payout.requestedAt").value(요청시각.toString()))
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
 
-        assertThat(body).as("예금주·전체 계좌번호·결제사 거래 ID 와 지난 지급 시도는 내려가지 않는다")
-                .doesNotContain(FakePayoutAccounts.SAMPLE_ACCOUNT_NUMBER, FakePayoutAccounts.SAMPLE_ACCOUNT_HOLDER, "pg-거래-777", "예금주 불일치",
-                        "\"accountNumber\"", "\"accountHolder\"", "\"pgId\"");
+        assertThat(body).as("예금주·결제사 셀러 ID·결제사 거래 ID 와 지난 지급 시도는 내려가지 않는다")
+                .doesNotContain(FakePayoutAccounts.SAMPLE_ACCOUNT_HOLDER, FakePayoutAccounts.sellerOf(기사), "pg-거래-777", "예금주 불일치",
+                        "\"accountNumber\"", "\"accountHolder\"", "\"pgId\"", "\"sellerId\"");
     }
 
     @Test
@@ -268,8 +268,9 @@ class SettlementControllerTest {
 
     private void 지급(Settlement settlement, PayoutStatus status, String failReason, String pgId, Instant requestedAt) {
         payouts.setNow(requestedAt);
-        payouts.save(Payout.load(null, settlement.getId(), settlement.getAmount(), status, pgId, FakePayoutAccounts.SAMPLE_BANK,
-                FakePayoutAccounts.SAMPLE_ACCOUNT_NUMBER, FakePayoutAccounts.SAMPLE_ACCOUNT_HOLDER, failReason, null, null));
+        payouts.save(Payout.load(null, settlement.getId(), settlement.getAmount(), status, pgId,
+                FakePayoutAccounts.sellerOf(settlement.getTaxiDriverId()), FakePayoutAccounts.SAMPLE_BANK,
+                FakePayoutAccounts.SAMPLE_MASKED_ACCOUNT_NUMBER, FakePayoutAccounts.SAMPLE_ACCOUNT_HOLDER, failReason, null, null));
     }
 
     private static Instant kst(String localDateTime) {
