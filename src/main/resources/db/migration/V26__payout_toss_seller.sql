@@ -9,3 +9,12 @@ END;
 
 ALTER TABLE payout ALTER COLUMN masked_account_number SET NOT NULL;
 ALTER TABLE payout DROP COLUMN account_number;
+
+-- 토스가 접수만 하고 결과는 나중에 주는 동안의 상태
+ALTER TABLE payout DROP CONSTRAINT payout_status_check;
+ALTER TABLE payout ADD CONSTRAINT payout_status_check
+    CHECK (status IN ('REQUESTED', 'ACCEPTED', 'SUCCEED', 'FAILED', 'UNKNOWN'));
+
+-- 정산서 하나에 진행 중이거나 성공한 지급은 하나뿐. 토스가 접수한 지급도 진행 중이라 넣는다
+DROP INDEX uk_payout_settlement_active;
+CREATE UNIQUE INDEX uk_payout_settlement_active ON payout (settlement_id) WHERE status IN ('REQUESTED', 'ACCEPTED', 'UNKNOWN', 'SUCCEED');

@@ -73,6 +73,23 @@ class PayoutServiceTest {
     }
 
     @Test
+    void 결제사가_접수하면_지급은_ACCEPTED_로_결제사_번호를_남기고_정산서는_CONFIRMED_로_두며_다음_배치는_다시_지급하지_않는다() {
+        Long 정산서 = 확정(기사, 32_000);
+        accounts.register(기사);
+        gateway.willReturn(new PayoutResult.Accepted("FPA_1"));
+
+        service.payDue();
+        service.payDue();
+
+        Payout 지급 = 유일한_지급(정산서);
+        assertThat(gateway.requestCount()).isEqualTo(1);
+        assertThat(지급.getStatus()).isEqualTo(PayoutStatus.ACCEPTED);
+        assertThat(지급.getPgId()).isEqualTo("FPA_1");
+        assertThat(지급.getFailReason()).isNull();
+        assertThat(상태(정산서)).isEqualTo(SettlementStatus.CONFIRMED);
+    }
+
+    @Test
     void 결제사에_넘기는_지급_요청에는_정산_금액과_기사_셀러와_지급_키가_담기고_지급에는_요청_시점_계좌가_남는다() {
         DriverPayoutAccount 계좌 = DriverPayoutAccount.load(77L, 기사, BusinessType.CORPORATE, BankCode.SHINHAN, "*********5678", "박기사",
                 "seller_park", SellerStatus.PARTIALLY_APPROVED, 요청시각, 요청시각);
@@ -445,6 +462,8 @@ class PayoutServiceTest {
         recorder.recordResult(성공_지급, new PayoutResult.Succeeded("pg-again"));
         recorder.recordResult(실패_지급, new PayoutResult.Succeeded("pg-late"));
         recorder.recordResult(실패_지급, new PayoutResult.Failed("늦게 온 다른 사유"));
+        recorder.recordResult(성공_지급, new PayoutResult.Accepted("FPA_late"));
+        recorder.recordResult(실패_지급, new PayoutResult.Accepted("FPA_late"));
 
         Payout 성공_후 = 유일한_지급(성공);
         assertThat(성공_후.getStatus()).isEqualTo(PayoutStatus.SUCCEED);

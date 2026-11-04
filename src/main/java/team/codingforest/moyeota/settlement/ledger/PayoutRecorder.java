@@ -68,6 +68,7 @@ public class PayoutRecorder {
                 .orElseThrow(() -> new BusinessException(SettlementErrorCode.SETTLEMENT_NOT_FOUND));
 
         switch(result) {
+            case PayoutResult.Accepted accepted -> payout.accept(accepted.pgId());
             case PayoutResult.Succeeded succeeded -> {
                 payout.succeed(succeeded.pgId());
                 settlement.paid();

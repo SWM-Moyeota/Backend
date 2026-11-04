@@ -33,7 +33,7 @@ public record SettlementDetailResponse(@Schema(description = "정산서 ID") Lon
         }
     }
 
-    public record PayoutItem(@Schema(description = "지급 상태. REQUESTED - 결제사에 지급 요청 중 / UNKNOWN - 결제사 처리 결과 확인 중(확인되면 SUCCEED 나 FAILED) / SUCCEED - 입금 완료 / FAILED - 지급 실패") PayoutStatus status,
+    public record PayoutItem(@Schema(description = "지급 상태. REQUESTED - 결제사에 지급 요청 중 / ACCEPTED - 결제사가 접수해 입금 대기 / UNKNOWN - 결제사 처리 결과 확인 중(확인되면 SUCCEED 나 FAILED) / SUCCEED - 입금 완료 / FAILED - 지급 실패") PayoutStatus status,
                              @Schema(description = "지급 금액(원) - 지급을 요청한 시점의 정산 금액") int amount,
                              @Schema(description = "입금 은행 - 지급을 요청한 시점의 기사 지급 계좌 은행") BankCode bankCode,
                              @Schema(description = "입금 계좌번호 - 지급을 요청한 시점의 계좌. 끝 4자리만 보이고 앞자리는 * 로 가린다(4자리 이하면 전부 *)", example = "********6789") String maskedAccountNumber,

@@ -3,6 +3,8 @@ package team.codingforest.moyeota.settlement.ledger.domain;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import team.codingforest.moyeota.common.bank.BankCode;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.settlement.account.domain.BusinessType;
@@ -115,6 +117,61 @@ class PayoutTest {
         assertThatThrownBy(payout::payoutKey).isInstanceOf(IllegalStateException.class);
     }
 
+    // ---------- accept ----------
+
+    @ParameterizedTest
+    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "UNKNOWN"})
+    void 요청했거나_결과를_모르던_지급을_결제사가_접수하면_결제사_번호가_남고_모름_사유는_지워진다(PayoutStatus status) {
+        Payout payout = 지급(status, null, "타임아웃");
+
+        payout.accept("FPA_1");
+
+        assertThat(payout.getStatus()).isEqualTo(PayoutStatus.ACCEPTED);
+        assertThat(payout.getPgId()).isEqualTo("FPA_1");
+        assertThat(payout.getFailReason()).isNull();
+        assertThat(payout.isActive()).isTrue();
+        assertThat(payout.isFinished()).isFalse();
+    }
+
+    @Test
+    void 같은_결제사_번호로_다시_접수되면_그대로_둔다() {
+        Payout payout = 지급(PayoutStatus.ACCEPTED, "FPA_1", null);
+
+        payout.accept("FPA_1");
+
+        assertThat(payout.getStatus()).isEqualTo(PayoutStatus.ACCEPTED);
+        assertThat(payout.getPgId()).isEqualTo("FPA_1");
+    }
+
+    @Test
+    void 접수된_지급에_다른_결제사_번호가_오면_막는다() {
+        Payout payout = 지급(PayoutStatus.ACCEPTED, "FPA_1", null);
+
+        assertErrorCode(() -> payout.accept("FPA_2"), SettlementErrorCode.INVALID_PAYOUT_STATUS);
+        assertThat(payout.getPgId()).isEqualTo("FPA_1");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"SUCCEED", "FAILED"})
+    void 끝난_지급은_접수로_되돌릴_수_없다(PayoutStatus status) {
+        Payout payout = 지급(status);
+
+        assertErrorCode(() -> payout.accept("FPA_9"), SettlementErrorCode.INVALID_PAYOUT_STATUS);
+        assertThat(payout.getStatus()).isEqualTo(status);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = "   ")
+    void 결제사_번호_없이는_접수할_수_없다(String pgId) {
+        Payout payout = 지급(PayoutStatus.REQUESTED);
+
+        assertThatThrownBy(() -> payout.accept(pgId)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(payout.getStatus()).isEqualTo(PayoutStatus.REQUESTED);
+    }
+
+    // ---------- succeed / fail / markUnknown ----------
+
     @Test
     void 요청한_지급이_성공하면_결제사_번호가_남는다() {
         Payout payout = 지급(PayoutStatus.REQUESTED);
@@ -126,6 +183,16 @@ class PayoutTest {
         assertThat(payout.getFailReason()).isNull();
         assertThat(payout.isActive()).isTrue();
         assertThat(payout.isFinished()).isTrue();
+    }
+
+    @Test
+    void 접수된_지급이_성공하면_결제사_번호가_없어도_접수_때_받은_번호를_지킨다() {
+        Payout payout = 지급(PayoutStatus.ACCEPTED, "FPA_1", null);
+
+        payout.succeed(null);
+
+        assertThat(payout.getStatus()).isEqualTo(PayoutStatus.SUCCEED);
+        assertThat(payout.getPgId()).isEqualTo("FPA_1");
     }
 
     @Test
@@ -151,7 +218,7 @@ class PayoutTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "UNKNOWN"})
+    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "ACCEPTED", "UNKNOWN"})
     void 결과를_기다리는_지급은_실패할_수_있고_사유가_남는다(PayoutStatus status) {
         Payout payout = 지급(status);
 
@@ -193,9 +260,11 @@ class PayoutTest {
         assertThat(payout.getStatus()).isEqualTo(status);
     }
 
+    // ---------- 상태 묶음 ----------
+
     @ParameterizedTest
-    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "UNKNOWN", "SUCCEED"})
-    void 요청_모름_성공은_활성_지급이다(PayoutStatus status) {
+    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "ACCEPTED", "UNKNOWN", "SUCCEED"})
+    void 요청_접수_모름_성공은_활성_지급이다(PayoutStatus status) {
         assertThat(지급(status).isActive()).isTrue();
     }
 
@@ -211,10 +280,12 @@ class PayoutTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "UNKNOWN"})
-    void 요청과_모름은_끝나지_않은_지급이다(PayoutStatus status) {
+    @EnumSource(value = PayoutStatus.class, mode = INCLUDE, names = {"REQUESTED", "ACCEPTED", "UNKNOWN"})
+    void 요청_접수_모름은_끝나지_않은_지급이다(PayoutStatus status) {
         assertThat(지급(status).isFinished()).isFalse();
     }
+
+    // ---------- 사유 ----------
 
     @Test
     void 사유가_255자면_그대로_남는다() {
@@ -282,7 +353,7 @@ class PayoutTest {
     }
 
     private static Payout 지급(PayoutStatus status) {
-        String pgId = status == PayoutStatus.SUCCEED ? "pg-1" : null;
+        String pgId = status == PayoutStatus.SUCCEED || status == PayoutStatus.ACCEPTED ? "pg-1" : null;
         return 지급(status, pgId, null);
     }
 

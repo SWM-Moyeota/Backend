@@ -326,7 +326,9 @@ class SettlementPostgresTest {
     }
 
     @Test
-    void 요청_결과모름_성공_지급은_진행_중으로_보고_실패한_지급만_있으면_진행_중으로_보지_않는다() {
+    void 요청_접수_결과모름_성공_지급은_진행_중으로_보고_실패한_지급만_있으면_진행_중으로_보지_않는다() {
+        Long 접수됨 = settlement(기사, 주("2026-07-06"), SettlementStatus.CONFIRMED, 1_000);
+        payout(접수됨, PayoutStatus.ACCEPTED);
         Long 지급없음 = settlement(기사, 주("2026-06-01"), SettlementStatus.CONFIRMED, 1_000);
         Long 지급중 = settlement(기사, 주("2026-06-08"), SettlementStatus.CONFIRMED, 1_000);
         Long 결과모름 = settlement(기사, 주("2026-06-15"), SettlementStatus.CONFIRMED, 1_000);
@@ -340,6 +342,7 @@ class SettlementPostgresTest {
         payout(세번실패, PayoutStatus.FAILED);
 
         assertThat(payouts.existsActiveBySettlementId(지급중)).isTrue();
+        assertThat(payouts.existsActiveBySettlementId(접수됨)).isTrue();
         assertThat(payouts.existsActiveBySettlementId(결과모름)).isTrue();
         assertThat(payouts.existsActiveBySettlementId(지급완료)).isTrue();
         assertThat(payouts.existsActiveBySettlementId(세번실패)).isFalse();
@@ -355,6 +358,32 @@ class SettlementPostgresTest {
 
         assertThatThrownBy(() -> payout(정산서, PayoutStatus.UNKNOWN)).isInstanceOf(DataIntegrityViolationException.class);
         assertThat(payouts.existsActiveBySettlementId(정산서)).isTrue();
+    }
+
+    @Test
+    void 결제사가_접수한_지급이_있으면_새_지급을_저장할_수_없다() {
+        Long 정산서 = settlement(기사, 주("2026-05-03"), SettlementStatus.CONFIRMED, 1_000);
+        payout(정산서, PayoutStatus.ACCEPTED);
+
+        assertThatThrownBy(() -> payout(정산서, PayoutStatus.REQUESTED)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void 요청한_지급을_접수로_바꾸면_결제사_번호가_남고_셀러와_가린_계좌는_요청_때_값_그대로다() {
+        Long 정산서 = settlement(기사, 주("2026-05-12"), SettlementStatus.CONFIRMED, 1_000);
+        Long 지급 = payout(정산서, PayoutStatus.REQUESTED);
+        String pgId = "FPA_" + 지급;
+
+        tx.executeWithoutResult(status -> {
+            Payout payout = payouts.findByIdForUpdate(지급).orElseThrow();
+            payout.accept(pgId);
+            payouts.save(payout);
+        });
+
+        assertThat(payouts.findById(지급).orElseThrow())
+                .extracting(Payout::getStatus, Payout::getPgId, Payout::getSellerId, Payout::getBankCode, Payout::getMaskedAccountNumber,
+                        Payout::getAccountHolder)
+                .containsExactly(PayoutStatus.ACCEPTED, pgId, 셀러, 은행, 가린_계좌번호, 예금주);
     }
 
     @Test
@@ -421,7 +450,7 @@ class SettlementPostgresTest {
     }
 
     private Long payout(Long settlementId, PayoutStatus status) {
-        String pgId = status == PayoutStatus.SUCCEED ? "pg-" + settlementId : null;
+        String pgId = status == PayoutStatus.SUCCEED || status == PayoutStatus.ACCEPTED ? "pg-" + settlementId : null;
         String failReason = status == PayoutStatus.FAILED ? "잔액 부족" : null;
         return payouts.save(Payout.load(null, settlementId, 1_000, status, pgId, 셀러, 은행, 가린_계좌번호, 예금주, failReason, null, null)).getId();
     }

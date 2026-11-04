@@ -15,8 +15,8 @@ public class Payout {
     private static final String PAYOUT_KEY_PREFIX = "moyeota-payout-";
     private static final int MAX_REASON_LENGTH = 255;
 
-    private static final Set<PayoutStatus> AWAITING_RESULT = Set.of(PayoutStatus.REQUESTED, PayoutStatus.UNKNOWN);
-    public static final Set<PayoutStatus> ACTIVE_STATUSES = Set.of(PayoutStatus.REQUESTED, PayoutStatus.UNKNOWN, PayoutStatus.SUCCEED);
+    private static final Set<PayoutStatus> AWAITING_RESULT = Set.of(PayoutStatus.REQUESTED, PayoutStatus.ACCEPTED, PayoutStatus.UNKNOWN);
+    public static final Set<PayoutStatus> ACTIVE_STATUSES = Set.of(PayoutStatus.REQUESTED, PayoutStatus.ACCEPTED, PayoutStatus.UNKNOWN, PayoutStatus.SUCCEED);
     private static final Set<PayoutStatus> FINISHED = Set.of(PayoutStatus.SUCCEED, PayoutStatus.FAILED);
 
     private final Long id;
@@ -69,11 +69,26 @@ public class Payout {
         return PAYOUT_KEY_PREFIX + id;
     }
 
+    /**
+     * 결제사가 접수함. 같은 지급 id 로 다시 접수되면 그대로 둠
+     *
+     * @param pgId 결제사 지급 id
+     */
+    public void accept(String pgId) {
+        if(pgId == null || pgId.isBlank()) throw new IllegalArgumentException("결제사 지급 id 가 필요합니다.");
+        if(status == PayoutStatus.ACCEPTED && pgId.equals(this.pgId)) return;
+        if(status != PayoutStatus.REQUESTED && status != PayoutStatus.UNKNOWN) throw new BusinessException(SettlementErrorCode.INVALID_PAYOUT_STATUS);
+
+        this.status = PayoutStatus.ACCEPTED;
+        this.pgId = pgId;
+        this.failReason = null;
+    }
+
     public void succeed(String pgId) {
         if(!AWAITING_RESULT.contains(status)) throw new BusinessException(SettlementErrorCode.INVALID_PAYOUT_STATUS);
 
         this.status = PayoutStatus.SUCCEED;
-        this.pgId = pgId;
+        if(pgId != null) this.pgId = pgId;
         this.failReason = null;
     }
 
