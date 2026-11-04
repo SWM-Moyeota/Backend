@@ -158,4 +158,20 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 
     @Query("select count(m) > 0 from PartyMemberEntity m where m.party.id = :partyId and m.memberId = :memberId")
     boolean existsMember(@Param("partyId") Long partyId, @Param("memberId") Long memberId);
+
+    // 출발지 도착 판정. geography 라 타원체 위 m 단위로 재고, ST_DWithin 은 경계(radius 와 같은 거리)를 포함한다.
+    // ST_MakePoint 는 경도가 먼저다. EXISTS 로 감싸 없는 방이어도 행 하나(false)가 돌아온다
+    @Query(value = """
+            SELECT EXISTS (
+                SELECT 1 FROM match_room m
+                WHERE m.id = :partyId
+                  AND ST_DWithin(m.departure_geog,
+                                 CAST(ST_SetSRID(ST_MakePoint(:lng, :lat), 4326) AS geography),
+                                 :radius)
+            )
+            """, nativeQuery = true)
+    boolean isNearDeparture(@Param("partyId") Long partyId,
+                            @Param("lat") double latitude,
+                            @Param("lng") double longitude,
+                            @Param("radius") double radiusMeters);
 }

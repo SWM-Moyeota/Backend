@@ -343,7 +343,8 @@ class PartyJpaPersistenceTest {
         // 저장은 이미 있는 멤버 행을 고치는 update() 경로다 - 멤버 추가·삭제만 옮기면 도착이 조용히 사라진다
         Party party = confirmedJustNow();
         Instant 도착 = micros(Instant.now());
-        party.arrive(2L, 강남, 도착);
+        // 출발지 100m 판정은 PostGIS 쿼리라 H2 로는 못 잰다 - 여기선 저장만 보므로 반경 안이라고 넘긴다
+        party.arrive(2L, true, 도착);
         parties.save(party);
         clearContext();
 
@@ -360,7 +361,7 @@ class PartyJpaPersistenceTest {
     @Test
     void 출발하면_도착하지_않은_기존_멤버_행에_노쇼가_저장된다() {
         Party party = confirmedJustNow();
-        party.arrive(2L, 강남, Instant.now());
+        party.arrive(2L, true, Instant.now());
         parties.save(party);
         Instant 출발 = micros(Instant.now());
         party.depart(2L, 출발);
@@ -379,7 +380,7 @@ class PartyJpaPersistenceTest {
     @Test
     void 운영자가_무효로_돌린_노쇼는_복원해도_노쇼가_아니다() {
         Party party = confirmedJustNow();
-        party.arrive(2L, 강남, Instant.now());
+        party.arrive(2L, true, Instant.now());
         party.depart(2L, Instant.now());
         parties.save(party);
         em.flush();
@@ -399,7 +400,7 @@ class PartyJpaPersistenceTest {
     @Test
     void 탑승_횟수는_노쇼를_세지_않고_무효로_돌린_노쇼는_센다() {
         Party party = confirmedJustNow();
-        party.arrive(2L, 강남, Instant.now());
+        party.arrive(2L, true, Instant.now());
         party.depart(2L, Instant.now());   // 1L 노쇼
         parties.save(party);
         em.flush();

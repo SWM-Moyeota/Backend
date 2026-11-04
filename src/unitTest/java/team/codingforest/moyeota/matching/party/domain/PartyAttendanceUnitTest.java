@@ -31,10 +31,9 @@ class PartyAttendanceUnitTest {
     // 약속 시간이 5분 지났다
     private static final Instant MEETING_AT = NOW.minus(Duration.ofMinutes(5));
     private static final Instant ARRIVED_AT = MEETING_AT.plusSeconds(30);
-    // 출발지에서 북쪽으로 약 50m
-    private static final Location NEAR = new Location(37.4979 + 0.00045, 127.0276);
-    // 출발지에서 북쪽으로 약 111m
-    private static final Location FAR = new Location(37.4979 + 0.001, 127.0276);
+    // 출발지 100m 안인지는 서비스가 DB(PostGIS)에 물어 넘긴다 - 도메인은 그 답만 받는다. 거리 경계는 Postgres 통합 테스트가 본다
+    private static final boolean NEAR = true;
+    private static final boolean FAR = false;
 
     // ───────────────────────── arrive ─────────────────────────
 
@@ -63,9 +62,9 @@ class PartyAttendanceUnitTest {
         assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
     }
 
-    @DisplayName("arrive - 약속 시간 정각과 출발지 바로 그 자리도 받는다")
+    @DisplayName("arrive - 약속 시간 정각이면 받는다")
     @Test
-    void arrive_boundaries() {
+    void arrive_meetingTimeBoundary() {
 
         /*
          * settings
@@ -75,40 +74,13 @@ class PartyAttendanceUnitTest {
         /*
          * test
          */
-        boolean arrived = party.arrive(HOST_ID, DEPARTURE, MEETING_AT);
+        boolean arrived = party.arrive(HOST_ID, NEAR, MEETING_AT);
 
         /*
          * verify
          */
         assertThat(arrived).isTrue();
         assertThat(memberOf(party, HOST_ID).getArrivedAt()).isEqualTo(MEETING_AT);
-    }
-
-    @DisplayName("arrive - 출발지에서 약 99m 면 받고 약 101m 면 TOO_FAR_FROM_DEPARTURE 다")
-    @Test
-    void arrive_radiusBoundary() {
-
-        /*
-         * settings
-         */
-        Location inside = new Location(37.4979 + 0.00089, 127.0276);
-        Location outside = new Location(37.4979 + 0.00091, 127.0276);
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID));
-
-        /*
-         * test
-         */
-        boolean arrived = party.arrive(HOST_ID, inside, NOW);
-        Throwable thrown = catchThrowable(() -> party.arrive(MEMBER_ID, outside, NOW));
-
-        /*
-         * verify
-         */
-        assertThat(DEPARTURE.distanceMeters(inside)).isLessThan(Party.ARRIVAL_RADIUS_METERS);
-        assertThat(DEPARTURE.distanceMeters(outside)).isGreaterThan(Party.ARRIVAL_RADIUS_METERS);
-        assertThat(arrived).isTrue();
-        assertBusinessException(thrown, MatchingErrorCode.TOO_FAR_FROM_DEPARTURE);
-        assertThat(memberOf(party, MEMBER_ID).isArrived()).isFalse();
     }
 
     @DisplayName("arrive - 이미 도착한 멤버가 다시 누르면 오류 없이 처음 시각을 그대로 두고 version 도 그대로다")
@@ -125,7 +97,7 @@ class PartyAttendanceUnitTest {
         /*
          * test
          */
-        // 그새 멀어졌어도 다시 재지 않는다
+        // 그새 멀어져 출발지 밖이라는 답이 와도 다시 보지 않는다
         boolean arrivedAgain = party.arrive(MEMBER_ID, FAR, NOW.plus(Duration.ofMinutes(3)));
 
         /*
@@ -223,7 +195,27 @@ class PartyAttendanceUnitTest {
         assertThat(party.getVersion()).isZero();
     }
 
-    @DisplayName("arrive - 출발지에서 100m 넘게 떨어져 있으면 TOO_FAR_FROM_DEPARTURE 이고 도착이 남지 않는다")
+    @DisplayName("arrive - 약속 시간 전이면 출발지 밖이라는 답이어도 MEETING_NOT_STARTED 가 먼저다")
+    @Test
+    void arrive_beforeMeetingAndFar() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> party.arrive(HOST_ID, FAR, MEETING_AT.minusSeconds(1)));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.MEETING_NOT_STARTED);
+    }
+
+    @DisplayName("arrive - 출발지 100m 밖이라는 답이면 TOO_FAR_FROM_DEPARTURE 이고 도착이 남지 않는다")
     @Test
     void arrive_tooFar() {
 

@@ -156,4 +156,9 @@ public class PartyJpa implements Parties {
     public List<NearbyPartySummary> findMatchesWithinRadius(double departLat, double departLng, double destLat, double destLng, int radius) {
         return partyJpaRepository.findNearbyParties(departLat, departLng, destLat, destLng, radius);
     }
+
+    @Override
+    public boolean isNearDeparture(Long partyId, double latitude, double longitude, double radiusMeters) {
+        return partyJpaRepository.isNearDeparture(partyId, latitude, longitude, radiusMeters);
+    }
 }

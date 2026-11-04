@@ -99,9 +99,11 @@ class PartyServiceUnitTest {
     private static final double DESTINATION_LNG = 127.1112;
     private static final Location DEPARTURE = new Location(DEPARTURE_LAT, DEPARTURE_LNG);
     private static final Location DESTINATION = new Location(DESTINATION_LAT, DESTINATION_LNG);
-    // 출발지에서 북쪽으로 약 50m / 약 111m
+    // 도착 요청 좌표 - 출발지에서 북쪽으로 약 50m / 약 111m. 반경 안인지는 DB(PostGIS)가 재므로 여기선 isNearDeparture 를 mock 한다
     private static final double NEAR_LAT = DEPARTURE_LAT + 0.00045;
     private static final double FAR_LAT = DEPARTURE_LAT + 0.001;
+    // 도착을 받는 출발지 반경(Party.ARRIVAL_RADIUS_METERS) - 값이 바뀌면 이 테스트가 알아채도록 숫자로 적는다
+    private static final double ARRIVAL_RADIUS = 100.0;
     private static final Instant BASE_TIME = Instant.parse("2026-10-01T00:00:00Z");
     private static final RouteEstimate ESTIMATE = new RouteEstimate(12000, 25, "encoded-path");
     private static final String SSE_TASK = "party.sse";
@@ -1356,7 +1358,7 @@ class PartyServiceUnitTest {
 
     // ───────────────────────── arrive ─────────────────────────
 
-    @DisplayName("arrive - 잠금 조회한 방에 도착을 남기고 저장한 뒤 커밋 후 member-arrived 에 publicId 와 오른 version 을 싣는다")
+    @DisplayName("arrive - 잠금 조회한 방의 출발지 100m 안인지 요청 좌표로 DB 에 묻고, 안이면 도착을 남기고 저장한 뒤 커밋 후 member-arrived 에 publicId 와 오른 version 을 싣는다")
     @Test
     void arrive() {
 
@@ -1368,6 +1370,7 @@ class PartyServiceUnitTest {
 
         doReturn(Map.of(MEMBER_ID, summary(MEMBER_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+        doReturn(true).when(parties).isNearDeparture(eq(PARTY_ID), eq(NEAR_LAT), eq(DEPARTURE_LNG), eq(ARRIVAL_RADIUS));
 
         /*
          * test
@@ -1385,6 +1388,7 @@ class PartyServiceUnitTest {
         InOrder order = inOrder(userAccess, parties, afterCommitExecutor);
         order.verify(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         order.verify(parties).findByIdForUpdate(eq(PARTY_ID));
+        order.verify(parties).isNearDeparture(eq(PARTY_ID), eq(NEAR_LAT), eq(DEPARTURE_LNG), eq(ARRIVAL_RADIUS));
         order.verify(parties).save(eq(party));
         order.verify(afterCommitExecutor).execute(eq(SSE_TASK), any());
         verify(parties, never()).findById(any());
@@ -1410,11 +1414,12 @@ class PartyServiceUnitTest {
 
         doReturn(Map.of(MEMBER_ID, summary(MEMBER_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+        doReturn(false).when(parties).isNearDeparture(eq(PARTY_ID), eq(FAR_LAT), eq(DEPARTURE_LNG), eq(ARRIVAL_RADIUS));
 
         /*
          * test
          */
-        // 멀리 있어도 다시 재지 않는다
+        // DB 가 출발지 밖이라고 답해도 이미 도착했으니 도메인이 다시 보지 않는다
         partyService.arrive(PARTY_ID, MEMBER_ID, FAR_LAT, DEPARTURE_LNG);
 
         /*
@@ -1438,6 +1443,7 @@ class PartyServiceUnitTest {
 
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(HOST_ID)));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+        doReturn(true).when(parties).isNearDeparture(eq(PARTY_ID), eq(DEPARTURE_LAT), eq(DEPARTURE_LNG), eq(ARRIVAL_RADIUS));
 
         /*
          * test
@@ -1468,7 +1474,7 @@ class PartyServiceUnitTest {
         verifyNoInteractions(parties, userAccess, afterCommitExecutor, partyChangeNotifier);
     }
 
-    @DisplayName("arrive - 없는 방이면 PARTY_NOT_FOUND")
+    @DisplayName("arrive - 없는 방이면 PARTY_NOT_FOUND 이고 출발지 거리를 묻지 않는다")
     @Test
     void arrive_partyNotFound() {
 
@@ -1487,20 +1493,22 @@ class PartyServiceUnitTest {
          * verify
          */
         assertBusinessException(thrown, MatchingErrorCode.PARTY_NOT_FOUND);
+        verify(parties, never()).isNearDeparture(any(), anyDouble(), anyDouble(), anyDouble());
         verify(parties, never()).save(any());
         verifyNoInteractions(afterCommitExecutor, partyChangeNotifier);
     }
 
     @DisplayName("arrive - 도메인이 거절하면 그 오류가 나가고 저장·신호가 없다")
-    @ParameterizedTest(name = "{0} - {4}")
+    @ParameterizedTest(name = "{0} - {5}")
     @MethodSource("arriveRejections")
-    void arrive_rejected(MatchingErrorCode expected, Party party, Long memberId, double latitude, String reason) {
+    void arrive_rejected(MatchingErrorCode expected, Party party, Long memberId, double latitude, boolean nearDeparture, String reason) {
 
         /*
          * settings
          */
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(memberId)));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+        doReturn(nearDeparture).when(parties).isNearDeparture(eq(PARTY_ID), eq(latitude), eq(DEPARTURE_LNG), eq(ARRIVAL_RADIUS));
 
         /*
          * test
@@ -1519,11 +1527,11 @@ class PartyServiceUnitTest {
     static Stream<Arguments> arriveRejections() {
         Instant started = Instant.now().minus(Duration.ofMinutes(5));
         return Stream.of(
-                Arguments.of(MatchingErrorCode.NOT_PARTY_MEMBER, confirmedParty(started, PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), THIRD_ID, NEAR_LAT, "방에 없는 사람"),
-                Arguments.of(MatchingErrorCode.PARTY_NOT_CONFIRMED, party(PartyStatus.COMPLETED, 2, null, 0L, HOST_ID, MEMBER_ID), HOST_ID, NEAR_LAT, "약속 확정 전 실시간 방"),
-                Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.FINISHED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, NEAR_LAT, "이미 끝난 방"),
-                Arguments.of(MatchingErrorCode.MEETING_NOT_STARTED, confirmedParty(Instant.now().plus(Duration.ofMinutes(10)), PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, NEAR_LAT, "약속 시간 전"),
-                Arguments.of(MatchingErrorCode.TOO_FAR_FROM_DEPARTURE, confirmedParty(started, PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, FAR_LAT, "출발지에서 약 111m"));
+                Arguments.of(MatchingErrorCode.NOT_PARTY_MEMBER, confirmedParty(started, PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), THIRD_ID, NEAR_LAT, true, "방에 없는 사람"),
+                Arguments.of(MatchingErrorCode.PARTY_NOT_CONFIRMED, party(PartyStatus.COMPLETED, 2, null, 0L, HOST_ID, MEMBER_ID), HOST_ID, NEAR_LAT, true, "약속 확정 전 실시간 방"),
+                Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.FINISHED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, NEAR_LAT, true, "이미 끝난 방"),
+                Arguments.of(MatchingErrorCode.MEETING_NOT_STARTED, confirmedParty(Instant.now().plus(Duration.ofMinutes(10)), PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, NEAR_LAT, true, "약속 시간 전"),
+                Arguments.of(MatchingErrorCode.TOO_FAR_FROM_DEPARTURE, confirmedParty(started, PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, FAR_LAT, false, "출발지에서 약 111m - DB 가 반경 밖이라고 답함"));
     }
 
     // ───────────────────────── depart ─────────────────────────

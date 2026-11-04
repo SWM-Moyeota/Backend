@@ -17,8 +17,8 @@ import java.util.List;
 public class Party {
     private static final Duration MAX_RESERVATION_AHEAD = Duration.ofDays(7);
     private static final Duration MAX_CONFIRM_AHEAD = Duration.ofHours(1);
-    // "도착했어요"를 받는 출발지 반경
-    static final double ARRIVAL_RADIUS_METERS = 100;
+    // "도착했어요"를 받는 출발지 반경. 거리는 서비스가 이 값으로 DB(PostGIS)에 물어 잰다
+    public static final double ARRIVAL_RADIUS_METERS = 100;
     // 앱이 "지금"을 고르면 요청이 도착할 때는 이미 지난 시각이라, 그만큼은 지난 시각도 받는다
     private static final Duration CONFIRM_CLOCK_SKEW = Duration.ofMinutes(1);
     private static final int MIN_MEMBERS_TO_DEPART = 2;
@@ -212,13 +212,14 @@ public class Party {
     }
 
     /**
-     *  출발지 도착 - 약속 시간(departureAt)부터 출발지 100m 안에 있는 멤버가 누른다. 장소는 늘 방의 출발지다.
+     *  출발지 도착 - 약속 시간(departureAt)부터 출발지 100m(ARRIVAL_RADIUS_METERS) 안에 있는 멤버가 누른다. 장소는 늘 방의 출발지다.
+     *  거리는 도메인이 재지 않는다 - 서비스가 지금 위치가 반경 안인지 DB(PostGIS ST_DWithin)에 물어본 답을 nearDeparture 로 넘긴다.
      *  예약 방은 모집 정리 스케줄러가 돌기 전이면 출발 시각에도 ACTIVE 일 수 있어 COMPLETED 와 함께 받는다.
      *  이미 도착했으면 처음 시각을 그대로 두고 아무것도 바꾸지 않는다(위치·시간도 다시 보지 않는다)
      *
      *  @return 이번에 처음 도착했으면 true, 이미 도착해 있었으면 false
      */
-    public boolean arrive(Long memberId, Location current, Instant now) {
+    public boolean arrive(Long memberId, boolean nearDeparture, Instant now) {
         PartyMember member = findMember(memberId);
 
         ensureAttendanceOpen();
@@ -227,7 +228,7 @@ public class Party {
 
         if(now.isBefore(departureAt)) throw new BusinessException(MatchingErrorCode.MEETING_NOT_STARTED);
 
-        if(departureLocation.distanceMeters(current) > ARRIVAL_RADIUS_METERS) throw new BusinessException(MatchingErrorCode.TOO_FAR_FROM_DEPARTURE);
+        if(!nearDeparture) throw new BusinessException(MatchingErrorCode.TOO_FAR_FROM_DEPARTURE);
 
         member.arrive(now);
         version++;

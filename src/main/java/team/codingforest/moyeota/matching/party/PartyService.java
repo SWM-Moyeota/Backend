@@ -230,6 +230,7 @@ public class PartyService {
 
     @Transactional
     public void arrive(Long partyId, Long memberId, double latitude, double longitude) {
+        // 서비스 지역 밖 좌표는 DB 에 묻기 전에 거른다
         Location current = new Location(latitude, longitude);
 
         MemberSummary summary = userAccess.findMemberSummaries(List.of(memberId)).get(memberId);
@@ -238,8 +239,11 @@ public class PartyService {
         Party party = parties.findByIdForUpdate(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
+        // 출발지까지의 거리는 PostGIS 가 잰다 - 판정 규칙(멤버·상태·시간 순서)은 도메인이 그 답을 받아 본다
+        boolean nearDeparture = parties.isNearDeparture(partyId, current.latitude(), current.longitude(), Party.ARRIVAL_RADIUS_METERS);
+
         // 이미 도착한 사람이 다시 누르면 처음 시각을 그대로 두고 저장·신호 없이 끝낸다
-        if (!party.arrive(memberId, current, Instant.now())) {
+        if (!party.arrive(memberId, nearDeparture, Instant.now())) {
             log.info("이미 도착한 멤버가 다시 도착을 누름 partyId={}, memberId={}", partyId, memberId);
             return;
         }
