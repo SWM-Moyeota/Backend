@@ -3,10 +3,15 @@ package team.codingforest.moyeota.settlement.ledger;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.support.CronExpression;
+import team.codingforest.moyeota.common.bank.BankCode;
+import team.codingforest.moyeota.settlement.account.domain.BusinessType;
+import team.codingforest.moyeota.settlement.account.domain.DriverPayoutAccount;
+import team.codingforest.moyeota.settlement.account.domain.SellerStatus;
 import team.codingforest.moyeota.settlement.ledger.domain.Payout;
-import team.codingforest.moyeota.settlement.ledger.domain.PayoutAccount;
 import team.codingforest.moyeota.settlement.ledger.domain.PayoutOrder;
 import team.codingforest.moyeota.settlement.ledger.domain.PayoutResult;
 import team.codingforest.moyeota.settlement.ledger.domain.PayoutStatus;
@@ -63,23 +68,25 @@ class PayoutServiceTest {
         assertThat(지급.getPgId()).isEqualTo(FakePayoutGateway.DEFAULT_PG_ID_PREFIX + 지급.getId());
         assertThat(지급.getAmount()).isEqualTo(32_000);
         assertThat(지급.getFailReason()).isNull();
-        assertThat(지급.account()).isEqualTo(FakePayoutAccounts.sampleAccount());
+        assertThat(지급.getSellerId()).isEqualTo(FakePayoutAccounts.sellerOf(기사));
         assertThat(상태(정산서)).isEqualTo(SettlementStatus.PAID);
     }
 
     @Test
-    void 결제사에_넘기는_지급_요청에는_정산_금액과_기사_계좌와_지급_키가_정확히_담긴다() {
-        PayoutAccount 계좌 = new PayoutAccount(FakePayoutAccounts.SAMPLE_BANK, "3333012345678", "박기사");
+    void 결제사에_넘기는_지급_요청에는_정산_금액과_기사_셀러와_지급_키가_담기고_지급에는_요청_시점_계좌가_남는다() {
+        DriverPayoutAccount 계좌 = DriverPayoutAccount.load(77L, 기사, BusinessType.CORPORATE, BankCode.SHINHAN, "*********5678", "박기사",
+                "seller_park", SellerStatus.PARTIALLY_APPROVED, 요청시각, 요청시각);
         Long 정산서 = 확정(기사, 45_000);
-        accounts.register(기사, 계좌);
+        accounts.register(계좌);
 
         service.payDue();
 
         Payout 지급 = 유일한_지급(정산서);
         assertThat(gateway.requests()).containsExactly(
-                new PayoutOrder(지급.getId(), "moyeota-payout-" + 지급.getId(), 45_000, 계좌));
-        assertThat(지급.getBankCode()).isEqualTo(FakePayoutAccounts.SAMPLE_BANK);
-        assertThat(지급.getAccountNumber()).isEqualTo("3333012345678");
+                new PayoutOrder(지급.getId(), "moyeota-payout-" + 지급.getId(), 45_000, "seller_park"));
+        assertThat(지급.getSellerId()).isEqualTo("seller_park");
+        assertThat(지급.getBankCode()).isEqualTo(BankCode.SHINHAN);
+        assertThat(지급.getMaskedAccountNumber()).isEqualTo("*********5678");
         assertThat(지급.getAccountHolder()).isEqualTo("박기사");
     }
 
@@ -165,6 +172,44 @@ class PayoutServiceTest {
         assertThat(상태(정산서)).isEqualTo(SettlementStatus.HOLD);
         assertThat(payouts.findBySettlementId(정산서)).isEmpty();
         assertThat(gateway.requestCount()).isZero();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = SellerStatus.class, names = {"APPROVAL_REQUIRED", "KYC_REQUIRED"})
+    void 셀러가_승인_전이면_정산서를_HOLD_로_두고_결제사를_부르지_않는다(SellerStatus status) {
+        Long 정산서 = 확정(기사, 15_000);
+        accounts.register(기사, status);
+
+        service.payDue();
+
+        assertThat(상태(정산서)).isEqualTo(SettlementStatus.HOLD);
+        assertThat(payouts.findBySettlementId(정산서)).isEmpty();
+        assertThat(gateway.requestCount()).isZero();
+    }
+
+    @Test
+    void 셀러_등록이_끝나지_않은_계좌면_정산서를_HOLD_로_두고_결제사를_부르지_않는다() {
+        Long 정산서 = 확정(기사, 15_000);
+        accounts.register(기사, (SellerStatus) null);
+
+        service.payDue();
+
+        assertThat(상태(정산서)).isEqualTo(SettlementStatus.HOLD);
+        assertThat(gateway.requestCount()).isZero();
+    }
+
+    @Test
+    void 승인을_기다리던_셀러가_승인되면_보류된_정산서가_다음_배치에서_지급된다() {
+        Long 정산서 = 확정(기사, 15_000);
+        accounts.register(기사, SellerStatus.KYC_REQUIRED);
+        service.payDue();
+        assertThat(상태(정산서)).isEqualTo(SettlementStatus.HOLD);
+
+        accounts.register(기사, SellerStatus.APPROVED);
+        service.payDue();
+
+        assertThat(유일한_지급(정산서).getStatus()).isEqualTo(PayoutStatus.SUCCEED);
+        assertThat(상태(정산서)).isEqualTo(SettlementStatus.PAID);
     }
 
     @Test
@@ -291,7 +336,7 @@ class PayoutServiceTest {
         PayoutOrder 다시_보낸_요청 = gateway.requests().getLast();
         assertThat(gateway.findCalls()).containsExactly(지급.payoutKey());
         assertThat(gateway.requestCount()).isEqualTo(앞선_요청 + 1);
-        assertThat(다시_보낸_요청).isEqualTo(new PayoutOrder(지급.getId(), 지급.payoutKey(), 10_000, FakePayoutAccounts.sampleAccount()));
+        assertThat(다시_보낸_요청).isEqualTo(new PayoutOrder(지급.getId(), 지급.payoutKey(), 10_000, FakePayoutAccounts.sellerOf(기사)));
         assertThat(확정된.getStatus()).isEqualTo(PayoutStatus.SUCCEED);
         assertThat(상태(정산서)).isEqualTo(SettlementStatus.PAID);
         assertThat(payouts.findBySettlementId(정산서)).hasSize(1);
@@ -468,7 +513,7 @@ class PayoutServiceTest {
         Long 정상 = 확정(다른기사, 20_000);
         FakePayoutAccounts 장애_계좌 = new FakePayoutAccounts() {
             @Override
-            public Optional<PayoutAccount> findByDriverId(Long taxiDriverId) {
+            public Optional<DriverPayoutAccount> findByDriverId(Long taxiDriverId) {
                 if(기사.equals(taxiDriverId)) throw new IllegalStateException("계좌 조회 장애");
                 return super.findByDriverId(taxiDriverId);
             }

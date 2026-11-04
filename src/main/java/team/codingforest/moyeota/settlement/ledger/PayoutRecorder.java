@@ -6,10 +6,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.settlement.account.domain.DriverPayoutAccount;
+import team.codingforest.moyeota.settlement.account.domain.DriverPayoutAccounts;
 import team.codingforest.moyeota.settlement.exception.SettlementErrorCode;
 import team.codingforest.moyeota.settlement.ledger.domain.Payout;
-import team.codingforest.moyeota.settlement.ledger.domain.PayoutAccount;
-import team.codingforest.moyeota.settlement.ledger.domain.PayoutAccounts;
 import team.codingforest.moyeota.settlement.ledger.domain.PayoutOrder;
 import team.codingforest.moyeota.settlement.ledger.domain.PayoutResult;
 import team.codingforest.moyeota.settlement.ledger.domain.PayoutStatus;
@@ -29,7 +29,7 @@ public class PayoutRecorder {
 
     private final Settlements settlements;
     private final Payouts payouts;
-    private final PayoutAccounts payoutAccounts;
+    private final DriverPayoutAccounts payoutAccounts;
 
     @Transactional
     public Optional<PayoutOrder> recordRequest(Long settlementId) {
@@ -39,7 +39,8 @@ public class PayoutRecorder {
         Settlement settlement = found.get();
         if(!canPayNow(settlement)) return Optional.empty();
 
-        Optional<PayoutAccount> account = payoutAccounts.findByDriverId(settlement.getTaxiDriverId());
+        Optional<DriverPayoutAccount> account = payoutAccounts.findByDriverId(settlement.getTaxiDriverId())
+                .filter(DriverPayoutAccount::canReceivePayout);
         if(account.isEmpty()) {
             hold(settlement);
             return Optional.empty();
@@ -103,10 +104,10 @@ public class PayoutRecorder {
     private void hold(Settlement settlement) {
         settlement.hold();
         settlements.save(settlement);
-        log.warn("지급 계좌가 없어 정산서 지급 보류 settlementId={}, driverId={}", settlement.getId(), settlement.getTaxiDriverId());
+        log.warn("지급받을 수 있는 셀러가 없어 정산서 지급 보류 settlementId={}, driverId={}", settlement.getId(), settlement.getTaxiDriverId());
     }
 
-    private Payout saveRequestedPayout(Settlement settlement, PayoutAccount account) {
+    private Payout saveRequestedPayout(Settlement settlement, DriverPayoutAccount account) {
         settlement.startPayout();
         Settlement started = settlements.save(settlement);
         Payout payout = payouts.save(Payout.request(started, account));

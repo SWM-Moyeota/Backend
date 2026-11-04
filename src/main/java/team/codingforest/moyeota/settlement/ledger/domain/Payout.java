@@ -2,11 +2,15 @@ package team.codingforest.moyeota.settlement.ledger.domain;
 
 import team.codingforest.moyeota.common.bank.BankCode;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.settlement.account.domain.DriverPayoutAccount;
 import team.codingforest.moyeota.settlement.exception.SettlementErrorCode;
 
 import java.time.Instant;
 import java.util.Set;
 
+/**
+ * 정산서 하나를 결제사에 보낸 지급 시도 한 번. 받을 셀러와 계좌는 요청한 시점의 값을 남김
+ */
 public class Payout {
     private static final String PAYOUT_KEY_PREFIX = "moyeota-payout-";
     private static final int MAX_REASON_LENGTH = 255;
@@ -20,40 +24,43 @@ public class Payout {
     private final Integer amount;
     private PayoutStatus status;
     private String pgId;
+    private final String sellerId;
     private final BankCode bankCode;
-    private final String accountNumber;
+    private final String maskedAccountNumber;
     private final String accountHolder;
     private String failReason;
     private final Instant createdAt;
     private final Instant updatedAt;
 
-    private Payout(Long id, Long settlementId, Integer amount, PayoutStatus status, String pgId, BankCode bankCode,
-            String accountNumber, String accountHolder, String failReason, Instant createdAt, Instant updatedAt) {
+    private Payout(Long id, Long settlementId, Integer amount, PayoutStatus status, String pgId, String sellerId, BankCode bankCode,
+                   String maskedAccountNumber, String accountHolder, String failReason, Instant createdAt, Instant updatedAt) {
         this.id = id;
         this.settlementId = settlementId;
         this.amount = amount;
         this.status = status;
         this.pgId = pgId;
+        this.sellerId = sellerId;
         this.bankCode = bankCode;
-        this.accountNumber = accountNumber;
+        this.maskedAccountNumber = maskedAccountNumber;
         this.accountHolder = accountHolder;
         this.failReason = failReason;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
 
-    public static Payout request(Settlement settlement, PayoutAccount account) {
-        if(account == null) throw new IllegalArgumentException("지급 계좌가 없습니다.");
+    public static Payout request(Settlement settlement, DriverPayoutAccount account) {
+        if(account == null || !account.canReceivePayout()) throw new IllegalArgumentException("지급받을 수 있는 셀러가 없습니다.");
         if(!settlement.isUnpaid()) throw new BusinessException(SettlementErrorCode.INVALID_SETTLEMENT_STATUS);
         if(settlement.getAmount() <= 0) throw new BusinessException(SettlementErrorCode.INVALID_PAYOUT_AMOUNT);
 
-        return new Payout(null, settlement.getId(), settlement.getAmount(), PayoutStatus.REQUESTED, null,
-                account.bankCode(), account.accountNumber(), account.accountHolder(), null, null, null);
+        return new Payout(null, settlement.getId(), settlement.getAmount(), PayoutStatus.REQUESTED, null, account.getSellerId(),
+                account.getBankCode(), account.getMaskedAccountNumber(), account.getAccountHolder(), null, null, null);
     }
 
-    public static Payout load(Long id, Long settlementId, Integer amount, PayoutStatus status, String pgId, BankCode bankCode,
-            String accountNumber, String accountHolder, String failReason, Instant createdAt, Instant updatedAt) {
-        return new Payout(id, settlementId, amount, status, pgId, bankCode, accountNumber, accountHolder, failReason, createdAt, updatedAt);
+    public static Payout load(Long id, Long settlementId, Integer amount, PayoutStatus status, String pgId, String sellerId, BankCode bankCode,
+                              String maskedAccountNumber, String accountHolder, String failReason, Instant createdAt, Instant updatedAt) {
+        return new Payout(id, settlementId, amount, status, pgId, sellerId, bankCode, maskedAccountNumber, accountHolder, failReason,
+                createdAt, updatedAt);
     }
 
     public String payoutKey() {
@@ -92,12 +99,8 @@ public class Payout {
         return FINISHED.contains(status);
     }
 
-    public PayoutAccount account() {
-        return new PayoutAccount(bankCode, accountNumber, accountHolder);
-    }
-
     public PayoutOrder toOrder() {
-        return new PayoutOrder(id, payoutKey(), amount, account());
+        return new PayoutOrder(id, payoutKey(), amount, sellerId);
     }
 
     private static String truncate(String reason) {
@@ -126,12 +129,16 @@ public class Payout {
         return pgId;
     }
 
+    public String getSellerId() {
+        return sellerId;
+    }
+
     public BankCode getBankCode() {
         return bankCode;
     }
 
-    public String getAccountNumber() {
-        return accountNumber;
+    public String getMaskedAccountNumber() {
+        return maskedAccountNumber;
     }
 
     public String getAccountHolder() {

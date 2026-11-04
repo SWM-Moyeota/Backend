@@ -11,7 +11,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import team.codingforest.moyeota.common.bank.BankCode;
 import team.codingforest.moyeota.settlement.ledger.domain.Payout;
-import team.codingforest.moyeota.settlement.ledger.domain.PayoutAccount;
 import team.codingforest.moyeota.settlement.ledger.domain.PayoutGateway;
 import team.codingforest.moyeota.settlement.ledger.domain.PayoutOrder;
 import team.codingforest.moyeota.settlement.ledger.domain.PayoutResult;
@@ -43,9 +42,9 @@ class PayoutServiceUnitTest {
     private static final String PAYOUT_KEY = "moyeota-payout-70";
     private static final String NEXT_PAYOUT_KEY = "moyeota-payout-71";
     private static final int AMOUNT = 30000;
-    private static final PayoutAccount ACCOUNT = new PayoutAccount(BankCode.KAKAO, "3333123456789", "홍길동");
-    private static final PayoutOrder ORDER = new PayoutOrder(PAYOUT_ID, PAYOUT_KEY, AMOUNT, ACCOUNT);
-    private static final PayoutOrder NEXT_ORDER = new PayoutOrder(NEXT_PAYOUT_ID, NEXT_PAYOUT_KEY, AMOUNT, ACCOUNT);
+    private static final String SELLER_ID = "seller_abc";
+    private static final PayoutOrder ORDER = new PayoutOrder(PAYOUT_ID, PAYOUT_KEY, AMOUNT, SELLER_ID);
+    private static final PayoutOrder NEXT_ORDER = new PayoutOrder(NEXT_PAYOUT_ID, NEXT_PAYOUT_KEY, AMOUNT, SELLER_ID);
     private static final Instant NOW = Instant.parse("2026-10-31T01:00:00Z");
     private static final Instant STALE_BEFORE = NOW.minus(Duration.ofMinutes(10));
     private static final Instant OLD = STALE_BEFORE.minusSeconds(1);
@@ -833,7 +832,7 @@ class PayoutServiceUnitTest {
     }
 
     private static Payout payout(Long id, PayoutStatus status, Instant createdAt) {
-        return Payout.load(id, SETTLEMENT_ID, AMOUNT, status, null, ACCOUNT.bankCode(), ACCOUNT.accountNumber(),
-                ACCOUNT.accountHolder(), null, createdAt, createdAt);
+        return Payout.load(id, SETTLEMENT_ID, AMOUNT, status, null, SELLER_ID, BankCode.KAKAO, "*********6789",
+                "홍길동", null, createdAt, createdAt);
     }
 }

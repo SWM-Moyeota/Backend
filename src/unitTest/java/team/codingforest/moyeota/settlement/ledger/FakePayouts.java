@@ -36,8 +36,8 @@ public class FakePayouts implements Payouts {
         Payout stored = store.get(id);
         Instant createdAt = stored != null ? stored.getCreatedAt() : payout.getCreatedAt() != null ? payout.getCreatedAt() : now;
 
-        Payout saved = Payout.load(id, payout.getSettlementId(), payout.getAmount(), payout.getStatus(), payout.getPgId(),
-                payout.getBankCode(), payout.getAccountNumber(), payout.getAccountHolder(), payout.getFailReason(), createdAt, now);
+        Payout saved = Payout.load(id, payout.getSettlementId(), payout.getAmount(), payout.getStatus(), payout.getPgId(), payout.getSellerId(),
+                payout.getBankCode(), payout.getMaskedAccountNumber(), payout.getAccountHolder(), payout.getFailReason(), createdAt, now);
         store.put(id, saved);
         return copy(saved);
     }
@@ -104,7 +104,7 @@ public class FakePayouts implements Payouts {
     }
 
     private static Payout copy(Payout p) {
-        return Payout.load(p.getId(), p.getSettlementId(), p.getAmount(), p.getStatus(), p.getPgId(), p.getBankCode(),
-                p.getAccountNumber(), p.getAccountHolder(), p.getFailReason(), p.getCreatedAt(), p.getUpdatedAt());
+        return Payout.load(p.getId(), p.getSettlementId(), p.getAmount(), p.getStatus(), p.getPgId(), p.getSellerId(), p.getBankCode(),
+                p.getMaskedAccountNumber(), p.getAccountHolder(), p.getFailReason(), p.getCreatedAt(), p.getUpdatedAt());
     }
 }

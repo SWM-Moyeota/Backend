@@ -299,7 +299,7 @@ class SettlementQueryServiceUnitTest {
         doReturn(Optional.of(settlement(DRIVER_ID, 28500, SettlementStatus.PAID))).when(settlements).findById(eq(SETTLEMENT_ID));
         doReturn(List.of(ledger(1001L, 12000, 500, morning), ledger(1002L, 15000, 1000, evening)))
                 .when(ledgers).findBySettlementId(eq(SETTLEMENT_ID));
-        doReturn(Optional.of(payout(PayoutStatus.SUCCEED, null, "3333123456789", requestedAt)))
+        doReturn(Optional.of(payout(PayoutStatus.SUCCEED, null, "*********6789", requestedAt)))
                 .when(payouts).findLatestBySettlementId(eq(SETTLEMENT_ID));
 
         /*
@@ -443,7 +443,7 @@ class SettlementQueryServiceUnitTest {
         /*
          * settings
          */
-        stubDetailWithPayout(payout(PayoutStatus.FAILED, "예금주 불일치", "3333123456789", kst("2026-10-27T10:00")));
+        stubDetailWithPayout(payout(PayoutStatus.FAILED, "예금주 불일치", "*********6789", kst("2026-10-27T10:00")));
 
         /*
          * test
@@ -465,7 +465,7 @@ class SettlementQueryServiceUnitTest {
         /*
          * settings
          */
-        stubDetailWithPayout(payout(status, "지급 요청 결과를 받지 못함", "3333123456789", kst("2026-10-27T10:00")));
+        stubDetailWithPayout(payout(status, "지급 요청 결과를 받지 못함", "*********6789", kst("2026-10-27T10:00")));
 
         /*
          * test
@@ -479,20 +479,19 @@ class SettlementQueryServiceUnitTest {
         assertThat(response.payout().failReason()).isNull();
     }
 
-    @DisplayName("findDetail - 계좌번호는 끝 4자리만 보이고 4자리 이하면 전부 가린다")
+    @DisplayName("findDetail - 지급에 저장된 가린 계좌번호를 그대로 내려준다")
     @ParameterizedTest
     @CsvSource({
-            "123, ***",
-            "1234, ****",
-            "12345, *2345",
-            "3333123456789, *********6789"
+            "***",
+            "*2345",
+            "*********6789"
     })
-    void findDetail_maskedAccountNumber(String accountNumber, String masked) {
+    void findDetail_maskedAccountNumber(String masked) {
 
         /*
          * settings
          */
-        stubDetailWithPayout(payout(PayoutStatus.SUCCEED, null, accountNumber, kst("2026-10-27T10:00")));
+        stubDetailWithPayout(payout(PayoutStatus.SUCCEED, null, masked, kst("2026-10-27T10:00")));
 
         /*
          * test
@@ -520,8 +519,9 @@ class SettlementQueryServiceUnitTest {
                 platformPromotion, occurredAt, null);
     }
 
-    private static Payout payout(PayoutStatus status, String failReason, String accountNumber, Instant requestedAt) {
-        return Payout.load(70L, SETTLEMENT_ID, 28500, status, null, BankCode.KAKAO, accountNumber, "홍길동", failReason, requestedAt, requestedAt);
+    private static Payout payout(PayoutStatus status, String failReason, String maskedAccountNumber, Instant requestedAt) {
+        return Payout.load(70L, SETTLEMENT_ID, 28500, status, null, "seller_abc", BankCode.KAKAO, maskedAccountNumber, "홍길동", failReason,
+                requestedAt, requestedAt);
     }
 
     private static Instant kst(String localDateTime) {

@@ -42,7 +42,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @SpringBootTest(properties = "spring.profiles.active=dev")
 class SettlementPostgresTest {
     private static final BankCode 은행 = BankCode.values()[0];
-    private static final String 계좌번호 = "110123456789";
+    private static final String 가린_계좌번호 = "********6789";
+    private static final String 셀러 = "seller_postgres_test";
     private static final String 예금주 = "김기사";
     private static final String 정산서_생성_배치가_닿지_않는_해 = "2999";
     private static final SettlementPeriod 모든_기간 = new SettlementPeriod(Instant.EPOCH, Instant.parse("3000-01-01T00:00:00Z"));
@@ -357,6 +358,19 @@ class SettlementPostgresTest {
     }
 
     @Test
+    void 지급에는_요청_때_셀러와_가린_계좌가_남고_계좌번호_원문_컬럼은_없다() {
+        Long 정산서 = settlement(기사, 주("2026-05-05"), SettlementStatus.CONFIRMED, 1_000);
+        Long 지급 = payout(정산서, PayoutStatus.REQUESTED);
+
+        assertThat(payouts.findById(지급).orElseThrow())
+                .extracting(Payout::getStatus, Payout::getSellerId, Payout::getBankCode, Payout::getMaskedAccountNumber, Payout::getAccountHolder)
+                .containsExactly(PayoutStatus.REQUESTED, 셀러, 은행, 가린_계좌번호, 예금주);
+        Integer rawAccountColumns = jdbc.queryForObject(
+                "SELECT count(*) FROM information_schema.columns WHERE table_name = 'payout' AND column_name = 'account_number'", Integer.class);
+        assertThat(rawAccountColumns).isZero();
+    }
+
+    @Test
     void 성공한_지급이_있으면_새_지급을_저장할_수_없다() {
         Long 정산서 = settlement(기사, 주("2026-05-02"), SettlementStatus.PAID, 1_000);
         payout(정산서, PayoutStatus.SUCCEED);
@@ -381,8 +395,8 @@ class SettlementPostgresTest {
         assertThat(payouts.existsActiveBySettlementId(정산서)).isTrue();
         assertThat(payouts.findLatestBySettlementId(정산서).orElseThrow().getId()).isEqualTo(새지급);
         assertThat(payouts.findById(첫지급).orElseThrow())
-                .extracting(Payout::getStatus, Payout::getFailReason, Payout::getBankCode, Payout::getAccountNumber)
-                .containsExactly(PayoutStatus.FAILED, "잔액 부족", 은행, 계좌번호);
+                .extracting(Payout::getStatus, Payout::getFailReason, Payout::getSellerId, Payout::getBankCode, Payout::getMaskedAccountNumber)
+                .containsExactly(PayoutStatus.FAILED, "잔액 부족", 셀러, 은행, 가린_계좌번호);
     }
 
     @Test
@@ -409,7 +423,7 @@ class SettlementPostgresTest {
     private Long payout(Long settlementId, PayoutStatus status) {
         String pgId = status == PayoutStatus.SUCCEED ? "pg-" + settlementId : null;
         String failReason = status == PayoutStatus.FAILED ? "잔액 부족" : null;
-        return payouts.save(Payout.load(null, settlementId, 1_000, status, pgId, 은행, 계좌번호, 예금주, failReason, null, null)).getId();
+        return payouts.save(Payout.load(null, settlementId, 1_000, status, pgId, 셀러, 은행, 가린_계좌번호, 예금주, failReason, null, null)).getId();
     }
 
     private Long payoutCreatedAt(SettlementPeriod period, PayoutStatus status, Instant createdAt) {
