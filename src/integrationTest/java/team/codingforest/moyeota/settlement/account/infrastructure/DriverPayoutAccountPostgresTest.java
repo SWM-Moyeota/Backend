@@ -103,6 +103,16 @@ class DriverPayoutAccountPostgresTest {
     }
 
     @Test
+    void 계좌를_지우면_다시_찾을_수_없고_같은_기사로_새로_만들_수_있다() {
+        DriverPayoutAccount saved = accounts.save(새_계좌(기사));
+
+        accounts.delete(saved);
+
+        assertThat(accounts.findByDriverId(기사)).isEmpty();
+        assertThat(accounts.save(새_계좌(기사)).getId()).isNotEqualTo(saved.getId());
+    }
+
+    @Test
     void 기사_한_명에게_지급_계좌는_하나만_만들_수_있다() {
         accounts.save(새_계좌(기사));
 

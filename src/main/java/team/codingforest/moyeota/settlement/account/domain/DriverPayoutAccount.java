@@ -5,6 +5,7 @@ import team.codingforest.moyeota.common.bank.BankCode;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.settlement.exception.SettlementErrorCode;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -22,6 +23,7 @@ public class DriverPayoutAccount {
     private static final int VISIBLE_DIGITS = 4;
     private static final char MASK = '*';
     private static final Set<SellerStatus> PAYABLE = Set.of(SellerStatus.PARTIALLY_APPROVED, SellerStatus.APPROVED);
+    private static final Duration REGISTRATION_TIMEOUT = Duration.ofMinutes(1);
 
     private final Long id;
     private final Long taxiDriverId;
@@ -100,6 +102,16 @@ public class DriverPayoutAccount {
 
     public boolean canReceivePayout() {
         return isSellerRegistered() && PAYABLE.contains(sellerStatus);
+    }
+
+    /**
+     * 셀러 등록을 마치지 못하고 버려진 행인지. 결제사 호출 시간(연결 3초, 응답 10초)보다 넉넉히 지났으면 진행 중인 등록이 아님
+     *
+     * @param now 지금 시각
+     * @return 셀러 없이 등록 제한 시간이 지났으면 true
+     */
+    public boolean isAbandonedRegistration(Instant now) {
+        return !isSellerRegistered() && createdAt != null && createdAt.plus(REGISTRATION_TIMEOUT).isBefore(now);
     }
 
     private static void validateAccount(BankCode bankCode, String accountNumber, String accountHolder) {

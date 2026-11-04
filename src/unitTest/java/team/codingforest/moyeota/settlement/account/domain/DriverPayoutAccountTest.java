@@ -217,6 +217,30 @@ class DriverPayoutAccountTest {
         assertThat(등록된_계좌(status).canReceivePayout()).isFalse();
     }
 
+    @ParameterizedTest
+    @ValueSource(longs = {61, 600, 86_400})
+    void 셀러_없이_만든_지_1분이_지난_행은_버려진_등록이다(long secondsAfter) {
+        assertThat(저장된_계좌().isAbandonedRegistration(생성.plusSeconds(secondsAfter))).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, 13, 59, 60})
+    void 셀러_없이_만든_지_1분이_안_지난_행은_진행_중인_등록이다(long secondsAfter) {
+        assertThat(저장된_계좌().isAbandonedRegistration(생성.plusSeconds(secondsAfter))).isFalse();
+    }
+
+    @Test
+    void 셀러가_등록된_계좌는_오래돼도_버려진_등록이_아니다() {
+        assertThat(등록된_계좌(SellerStatus.APPROVAL_REQUIRED).isAbandonedRegistration(생성.plusSeconds(86_400))).isFalse();
+    }
+
+    @Test
+    void 저장_전이라_생성_시각이_없으면_버려진_등록이_아니다() {
+        DriverPayoutAccount account = DriverPayoutAccount.create(기사, BusinessType.CORPORATE, 은행, 계좌번호, 예금주);
+
+        assertThat(account.isAbandonedRegistration(생성)).isFalse();
+    }
+
     private static DriverPayoutAccount 저장된_계좌() {
         return DriverPayoutAccount.load(계좌_번호, 기사, BusinessType.CORPORATE, 은행, "********6789", 예금주, null, null, 생성, null);
     }

@@ -34,6 +34,11 @@ public class DriverPayoutAccountJpa implements DriverPayoutAccounts {
     }
 
     @Override
+    public void delete(DriverPayoutAccount account) {
+        repository.deleteById(account.getId());
+    }
+
+    @Override
     public Optional<DriverPayoutAccount> findByDriverId(Long taxiDriverId) {
         return repository.findByTaxiDriverId(taxiDriverId).map(DriverPayoutAccountEntity::toDomain);
     }
