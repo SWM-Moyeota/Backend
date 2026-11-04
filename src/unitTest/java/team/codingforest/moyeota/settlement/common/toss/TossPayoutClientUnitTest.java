@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.settlement.ledger.infrastructure.toss;
+package team.codingforest.moyeota.settlement.common.toss;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

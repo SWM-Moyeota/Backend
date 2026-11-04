@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.settlement.ledger.infrastructure.toss;
+package team.codingforest.moyeota.settlement.common.toss;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatusCode;
@@ -22,29 +22,42 @@ public class TossPayoutClient {
     private final ObjectMapper objectMapper;
 
     public TossBalance findBalance() {
+        return get("/v2/balances", TossBalance.class);
+    }
+
+    /**
+     * 암호화하지 않는 GET 요청을 보냄. 잔액 조회, 셀러 조회에 씀
+     *
+     * @param path         API 경로, {id} 같은 경로 변수를 쓸 수 있음
+     * @param type         entityBody 를 바꿀 타입
+     * @param uriVariables 경로 변수 값
+     * @return 응답의 entityBody
+     */
+    public <T> T get(String path, Class<T> type, Object... uriVariables) {
         ResponseEntity<String> response = restClient.get()
-                .uri("/v2/balances")
+                .uri(path, uriVariables)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (request, res) -> { })
                 .toEntity(String.class);
 
-        return read(response, TossBalance.class);
+        return read(response, type);
     }
 
     /**
      * 본문을 JWE 로 암호화해 POST 함. 셀러 등록·수정, 지급 요청에 씀
      *
-     * @param path           API 경로
+     * @param path           API 경로, {id} 같은 경로 변수를 쓸 수 있음
      * @param body           암호화 전 요청 본문
      * @param idempotencyKey 멱등키, 없으면 null
      * @param type           entityBody 를 바꿀 타입
+     * @param uriVariables   경로 변수 값
      * @return 응답의 entityBody
      */
-    public <T> T postEncrypted(String path, Object body, String idempotencyKey, Class<T> type) {
+    public <T> T postEncrypted(String path, Object body, String idempotencyKey, Class<T> type, Object... uriVariables) {
         String jwe = cipher.encrypt(objectMapper.writeValueAsString(body));
 
         ResponseEntity<String> response = restClient.post()
-                .uri(path)
+                .uri(path, uriVariables)
                 .header(SECURITY_MODE_HEADER, ENCRYPTION)
                 .headers(headers -> {
                     if(idempotencyKey != null) headers.set(IDEMPOTENCY_KEY_HEADER, idempotencyKey);

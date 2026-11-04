@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.settlement.ledger.infrastructure.toss;
+package team.codingforest.moyeota.settlement.common.toss;
 
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;

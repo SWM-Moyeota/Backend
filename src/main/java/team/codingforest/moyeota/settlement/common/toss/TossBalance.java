@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.settlement.ledger.infrastructure.toss;
+package team.codingforest.moyeota.settlement.common.toss;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
