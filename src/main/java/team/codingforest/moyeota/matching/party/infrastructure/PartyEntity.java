@@ -109,12 +109,19 @@ public class PartyEntity extends BaseTimeEntity {
     @Column(name = "reminder_sent_at")
     private Instant reminderSentAt;
 
+    @Column(name = "meeting_notified_at")
+    private Instant meetingNotifiedAt;
+
+    // 컬럼이 smallint(0..4)라 short 로 맞춘다 - int 로 두면 ddl-auto=validate 가 integer 를 기대해 기동이 실패한다
+    @Column(name = "departure_reminder_count", nullable = false)
+    private short departureReminderCount;
+
     protected PartyEntity() {}
 
     private PartyEntity(Double departureLat, Double departureLng, Double destinationLat, Double destinationLng, String departure,
                        String destination, Integer capacity, Integer departureRadius, Integer destinationRadius, Long hostId, PartyStatus status,
                         Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version,
-                        RoomType roomType, Instant departureAt, Instant reminderSentAt) {
+                        RoomType roomType, Instant departureAt, Instant reminderSentAt, Instant meetingNotifiedAt, int departureReminderCount) {
         this.departureLat = departureLat;
         this.departureLng = departureLng;
         this.destinationLat = destinationLat;
@@ -136,6 +143,8 @@ public class PartyEntity extends BaseTimeEntity {
         this.roomType = roomType;
         this.departureAt = departureAt;
         this.reminderSentAt = reminderSentAt;
+        this.meetingNotifiedAt = meetingNotifiedAt;
+        this.departureReminderCount = (short) departureReminderCount;
     }
 
     public static PartyEntity from(Party party) {
@@ -160,7 +169,9 @@ public class PartyEntity extends BaseTimeEntity {
                 party.getVersion(),
                 party.getRoomType(),
                 party.getDepartureAt(),
-                party.getReminderSentAt()
+                party.getReminderSentAt(),
+                party.getMeetingNotifiedAt(),
+                party.getDepartureReminderCount()
         );
 
         for(PartyMember member : party.getMembers()) {
@@ -173,7 +184,8 @@ public class PartyEntity extends BaseTimeEntity {
     public Party toDomain() {
         return Party.load(getId(), new Location(departureLat, departureLng), new Location(destinationLat, destinationLng),
                 new Radius(departureRadius), new Radius(destinationRadius), departure, destination, new Capacity(capacity),
-                members.stream().map(PartyMemberEntity::toDomain).toList(), hostId, getCreatedAt(), status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, roomType, departureAt, reminderSentAt);
+                members.stream().map(PartyMemberEntity::toDomain).toList(), hostId, getCreatedAt(), status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, roomType, departureAt, reminderSentAt,
+                meetingNotifiedAt, departureReminderCount);
     }
 
     public void update(Party party) {
@@ -185,6 +197,8 @@ public class PartyEntity extends BaseTimeEntity {
         this.version = party.getVersion();
         this.departureAt = party.getDepartureAt();   // 실시간 방은 방장이 약속 시간을 확정하면 채워진다
         this.reminderSentAt = party.getReminderSentAt();
+        this.meetingNotifiedAt = party.getMeetingNotifiedAt();
+        this.departureReminderCount = (short) party.getDepartureReminderCount();
         syncMembers(party.getMembers());
     }
 

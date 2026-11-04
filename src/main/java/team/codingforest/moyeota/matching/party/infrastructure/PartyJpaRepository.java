@@ -132,6 +132,34 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
             """)
     List<Long> findIdsToRemind(@Param("statuses") Collection<PartyStatus> statuses, @Param("from") Instant from, @Param("to") Instant to);
 
+    // 약속 시각 알림·출발 재촉 대상(1분마다). 상태와 departure_at IS NOT NULL 을 리터럴로 써야 부분 인덱스
+    // idx_match_room_open_confirmed_departure(V28)의 조건과 맞아 열린 확정 방만 훑는다 - 파라미터로 넘기면 일반 계획에서 인덱스 조건을 증명하지 못한다
+    @Query("""
+            select p.id from PartyEntity p
+            where p.status in (team.codingforest.moyeota.matching.party.domain.PartyStatus.ACTIVE,
+                               team.codingforest.moyeota.matching.party.domain.PartyStatus.COMPLETED)
+                and p.departureAt is not null
+                and p.departureAt <= :now
+                and p.meetingNotifiedAt is null
+            """)
+    List<Long> findMeetingNoticeTargetIds(@Param("now") Instant now);
+
+    // 처리한 차례 수(departure_reminder_count)마다 기준 시각이 다르다 - dueN = now - Party.DEPARTURE_REMINDER_OFFSETS[N].
+    // 차례를 다 쓴 방(4)은 어느 조건에도 걸리지 않는다
+    @Query("""
+            select p.id from PartyEntity p
+            where p.status in (team.codingforest.moyeota.matching.party.domain.PartyStatus.ACTIVE,
+                               team.codingforest.moyeota.matching.party.domain.PartyStatus.COMPLETED)
+                and p.departureAt is not null
+                and p.departureAt <= :due0
+                and ((p.departureReminderCount = 0 and p.departureAt <= :due0)
+                    or (p.departureReminderCount = 1 and p.departureAt <= :due1)
+                    or (p.departureReminderCount = 2 and p.departureAt <= :due2)
+                    or (p.departureReminderCount = 3 and p.departureAt <= :due3))
+            """)
+    List<Long> findDepartureReminderTargetIds(@Param("due0") Instant due0, @Param("due1") Instant due1,
+                                              @Param("due2") Instant due2, @Param("due3") Instant due3);
+
     @Query(value = """
             SELECT m.id, m.departure_lat, m.departure_lng, m.destination_lat, m.destination_lng, m.departure, m.destination, m.capacity,
                    CAST((SELECT COUNT(*) FROM user_match_room um WHERE um.match_id = m.id) AS integer) AS current_members

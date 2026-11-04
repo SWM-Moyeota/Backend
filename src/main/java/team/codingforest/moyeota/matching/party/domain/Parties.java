@@ -35,4 +35,13 @@ public interface Parties {
     List<ReservationSummary> findReservationsWithinBounds(Instant from, Instant to, double swLat, double neLat, double swLng, double neLng, int limit);
     List<Long> findRecruitingExpired(Instant realtimeCreatedBefore, Instant now);
     List<Long> findReservationsToRemind(Instant from, Instant to);
+    /**
+     *  약속 시각 알림 차례인 방 - 약속이 정해진 열린 방(ACTIVE·COMPLETED) 중 약속 시각(departure_at)이 now 이전이고 알림을 아직 처리하지 않은 방
+     */
+    List<Long> findMeetingNoticeTargets(Instant now);
+    /**
+     *  출발 재촉 차례인 방 - 약속이 정해진 열린 방 중 departure_at + Party.DEPARTURE_REMINDER_OFFSETS[처리한 차례 수] 가 now 이전인 방.
+     *  차례를 다 쓴 방은 고르지 않는다
+     */
+    List<Long> findDepartureReminderTargets(Instant now);
 }

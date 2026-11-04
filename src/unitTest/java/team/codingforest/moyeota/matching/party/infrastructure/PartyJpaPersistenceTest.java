@@ -89,6 +89,29 @@ class PartyJpaPersistenceTest {
     }
 
     @Test
+    void 약속_시각_알림과_출발_재촉_차례가_저장된다() {
+        Party party = reserve(1L, 뒤(Duration.ofMinutes(10)));
+        party.join(2L);
+        parties.save(party);
+        clearContext();
+        Instant 약속 = party.getDepartureAt();
+
+        Party found = parties.findById(party.getId()).orElseThrow();
+        assertThat(found.getMeetingNotifiedAt()).as("새 방은 알림을 처리한 적이 없다").isNull();
+        assertThat(found.getDepartureReminderCount()).isZero();
+
+        Instant 알림시각 = 약속.plusSeconds(30).truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+        found.markMeetingNotified(알림시각);
+        found.advanceDepartureReminder(약속.plus(Duration.ofHours(1)));   // 30분·1시간 두 차례가 밀려 한 번에 넘어간다
+        parties.save(found);
+        clearContext();
+
+        Party reloaded = parties.findById(party.getId()).orElseThrow();
+        assertThat(reloaded.getMeetingNotifiedAt()).isEqualTo(알림시각);
+        assertThat(reloaded.getDepartureReminderCount()).isEqualTo(2);
+    }
+
+    @Test
     void 실시간_목록은_예약_방을_빼고_돌려준다() {
         Long 실시간 = realtime(1L).getId();
         Long 예약 = reserve(2L, 뒤(Duration.ofDays(1))).getId();

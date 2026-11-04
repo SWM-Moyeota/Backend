@@ -15,6 +15,7 @@ import team.codingforest.moyeota.common.exception.GlobalExceptionHandler;
 import team.codingforest.moyeota.matching.party.completion.DispatchCompletionPolicy;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
+import team.codingforest.moyeota.matching.party.infrastructure.LoggingMeetingNotifier;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -37,7 +38,8 @@ class PartyControllerTest {
                 new PartyServiceTest.FakeDriverAccess(), new FakeUserAccess(), policy,
                 (name, task) -> task.run(), new PartyServiceTest.RecordingPartyChangeNotifier(),
                 new PartyServiceTest.FakeWalkRouteFinder(), new FakeRideRecords(new PartyJpaTest()),
-                new PartyOpener(parties, events, policy), new FakeNoShowPenalty());
+                new PartyOpener(parties, events, policy), new FakeNoShowPenalty(),
+                new MeetingNotificationService(parties, (name, task) -> task.run(), new LoggingMeetingNotifier()));
 
         mvc = MockMvcBuilders.standaloneSetup(new PartyController(service))
                 .setCustomArgumentResolvers(new StubCurrentUserResolver())

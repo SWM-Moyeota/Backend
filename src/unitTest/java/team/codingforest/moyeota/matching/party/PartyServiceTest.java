@@ -39,6 +39,7 @@ import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.Coordinate;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
+import team.codingforest.moyeota.matching.party.infrastructure.LoggingMeetingNotifier;
 import team.codingforest.moyeota.matching.route.domain.WalkRouteFinder;
 import team.codingforest.moyeota.matching.route.domain.WalkingEstimate;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
@@ -97,7 +98,8 @@ class PartyServiceTest {
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
                 new RouteCacheTest());
         return new PartyService(parties, events, routeService, driverAccess, userAccess, policy, afterCommit, signals,
-                new FakeWalkRouteFinder(), rideRecords, new PartyOpener(parties, events, policy), noShowPenalty);
+                new FakeWalkRouteFinder(), rideRecords, new PartyOpener(parties, events, policy), noShowPenalty,
+                new MeetingNotificationService(parties, afterCommit, new LoggingMeetingNotifier()));
     }
 
     // ───────────────────────── 예약 방 ─────────────────────────
