@@ -18,8 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.exception.ErrorCode;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
-import team.codingforest.moyeota.driver.api.DriverAccess;
-import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.api.dto.PartyClosedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
@@ -116,8 +114,6 @@ class PartyServiceUnitTest {
     private ApplicationEventPublisher eventPublisher;
     @Mock
     private RouteService routeService;
-    @Mock
-    private DriverAccess driverAccess;
     @Mock
     private UserAccess userAccess;
     @Mock
@@ -1065,94 +1061,6 @@ class PartyServiceUnitTest {
          * verify
          */
         assertThat(result).isEmpty();
-    }
-
-    // ───────────────────────── getAssignDriver ─────────────────────────
-
-    @DisplayName("getAssignDriver - 배정된 기사의 차량 요약을 돌려준다")
-    @Test
-    void getAssignDriver() {
-
-        /*
-         * settings
-         */
-        DriverSummary summary = new DriverSummary(4, "12가3456", "SEDAN");
-
-        doReturn(Optional.of(party(PartyStatus.DRIVER_ASSIGNED, 2, DRIVER_ID, 0L, HOST_ID, MEMBER_ID))).when(parties).findById(eq(PARTY_ID));
-        doReturn(Optional.of(summary)).when(driverAccess).findSummary(eq(DRIVER_ID));
-
-        /*
-         * test
-         */
-        DriverSummary result = partyService.getAssignDriver(PARTY_ID);
-
-        /*
-         * verify
-         */
-        assertThat(result).isEqualTo(summary);
-    }
-
-    @DisplayName("getAssignDriver - 없는 방이면 PARTY_NOT_FOUND")
-    @Test
-    void getAssignDriver_partyNotFound() {
-
-        /*
-         * settings
-         */
-        doReturn(Optional.empty()).when(parties).findById(eq(PARTY_ID));
-
-        /*
-         * test
-         */
-        Throwable thrown = catchThrowable(() -> partyService.getAssignDriver(PARTY_ID));
-
-        /*
-         * verify
-         */
-        assertBusinessException(thrown, MatchingErrorCode.PARTY_NOT_FOUND);
-        verifyNoInteractions(driverAccess);
-    }
-
-    @DisplayName("getAssignDriver - 기사가 배정 전이면 DRIVER_NOT_ASSIGNED 이고 기사 조회를 하지 않는다")
-    @Test
-    void getAssignDriver_notAssigned() {
-
-        /*
-         * settings
-         */
-        doReturn(Optional.of(party(PartyStatus.MATCHING, 2, null, 0L, HOST_ID, MEMBER_ID))).when(parties).findById(eq(PARTY_ID));
-
-        /*
-         * test
-         */
-        Throwable thrown = catchThrowable(() -> partyService.getAssignDriver(PARTY_ID));
-
-        /*
-         * verify
-         */
-        assertBusinessException(thrown, MatchingErrorCode.DRIVER_NOT_ASSIGNED);
-        verifyNoInteractions(driverAccess);
-    }
-
-    @DisplayName("getAssignDriver - 배정된 기사 정보가 없으면 ASSIGNED_DRIVER_NOT_FOUND")
-    @Test
-    void getAssignDriver_driverNotFound() {
-
-        /*
-         * settings
-         */
-        doReturn(Optional.of(party(PartyStatus.DRIVER_ASSIGNED, 2, DRIVER_ID, 0L, HOST_ID, MEMBER_ID))).when(parties).findById(eq(PARTY_ID));
-        doReturn(Optional.empty()).when(driverAccess).findSummary(eq(DRIVER_ID));
-
-        /*
-         * test
-         */
-        Throwable thrown = catchThrowable(() -> partyService.getAssignDriver(PARTY_ID));
-
-        /*
-         * verify
-         */
-        assertBusinessException(thrown, MatchingErrorCode.ASSIGNED_DRIVER_NOT_FOUND);
     }
 
     // ───────────────────────── findActivePartiesWithin ─────────────────────────

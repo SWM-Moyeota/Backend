@@ -8,8 +8,6 @@ import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.matching.record.FakeRideRecords;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
-import team.codingforest.moyeota.driver.api.DriverAccess;
-import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.api.dto.PartyClosedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
@@ -48,8 +46,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -64,7 +60,6 @@ class PartyServiceTest {
 
     private PartyJpaTest parties;
     private RecordingEventPublisher events;
-    private FakeDriverAccess driverAccess;
     private FakeUserAccess userAccess;
     private RecordingPartyChangeNotifier signals;
     private FakeRideRecords rideRecords;
@@ -75,7 +70,6 @@ class PartyServiceTest {
     void setUp() {
         parties = new PartyJpaTest();
         events = new RecordingEventPublisher();
-        driverAccess = new FakeDriverAccess();
         userAccess = new FakeUserAccess();
         signals = new RecordingPartyChangeNotifier();
         rideRecords = new FakeRideRecords(parties);
@@ -95,7 +89,7 @@ class PartyServiceTest {
         RouteService routeService = new RouteService(
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
                 new RouteCacheTest());
-        return new PartyService(parties, events, routeService, driverAccess, userAccess, policy, afterCommit, signals,
+        return new PartyService(parties, events, routeService, userAccess, policy, afterCommit, signals,
                 new FakeWalkRouteFinder(), rideRecords, new PartyOpener(parties, events, policy), noShowPenalty,
                 new MeetingNotificationService(parties, afterCommit, new LoggingMeetingNotifier()));
     }
@@ -778,7 +772,7 @@ class PartyServiceTest {
         assertThat(deferred).isEmpty();
     }
 
-    // ───────────────────────── 배포 모드 (TAXI_ENABLED=false) ─────────────────────────
+    // ───────────────────────── 배포 모드 (승객 모드 고정) ─────────────────────────
 
     /** 기사 기능이 없는 1차 배포. 정원이 차도 배차 없이 COMPLETED 에 머물러야 한다 - MATCHING 으로 가면 받는 리스너가 없어 계정이 잠긴다 */
     @Nested
@@ -1221,41 +1215,6 @@ class PartyServiceTest {
         @Override
         public List<WalkingEstimate> toFrom(Coordinate to, List<Coordinate> from) {
             return from.stream().map(c -> new WalkingEstimate(60)).toList();
-        }
-    }
-
-    /** 기사 정보 조회용 가짜 - summary를 넣어두면 그걸 반환 */
-    static class FakeDriverAccess implements DriverAccess {
-        DriverSummary summary;
-
-        @Override
-        public boolean canReceiveCalls(Long driverId) {
-            return true;
-        }
-
-        @Override
-        public Map<Long, String> findFcmTokens(List<Long> driverIds) {
-            return Map.of();
-        }
-
-        @Override
-        public Optional<DriverSummary> findSummary(Long driverId) {
-            return Optional.ofNullable(summary);
-        }
-
-        @Override
-        public Optional<Long> findUserId(Long driverId) {
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<Long> lockIdByUserId(Long userId) {
-            return Optional.empty();
-        }
-
-        @Override
-        public boolean lockAndCanReceiveCalls(Long driverId) {
-            return canReceiveCalls(driverId);
         }
     }
 }

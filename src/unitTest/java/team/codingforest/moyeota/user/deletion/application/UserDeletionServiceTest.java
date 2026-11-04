@@ -43,7 +43,6 @@ class UserDeletionServiceTest {
     private FakeRefreshTokens refreshTokens;
     private FakePrincipalCache principalCache;
     private Set<Long> inOngoingParty;
-    private List<Long> withdrawnDrivers;
     private List<Object> events;
     private UserDeletionService service;
     private User user;
@@ -57,12 +56,11 @@ class UserDeletionServiceTest {
         refreshTokens = new FakeRefreshTokens();
         principalCache = new FakePrincipalCache();
         inOngoingParty = new HashSet<>();
-        withdrawnDrivers = new ArrayList<>();
         events = new ArrayList<>();
         AfterCommitExecutor runNow = (name, task) -> task.run();   // 커밋 후 작업은 바로 실행해 결과만 본다
 
         service = new UserDeletionService(users, localUsers, userProfiles, userDeletions, refreshTokens, principalCache,
-                new PrefixPasswordHasher(), inOngoingParty::contains, (userId, at) -> withdrawnDrivers.add(userId), events::add, runNow);
+                new PrefixPasswordHasher(), inOngoingParty::contains, events::add, runNow);
 
         user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "모여타"));
         localUsers.register(user.getId(), "moyeota", "hashed:" + PASSWORD);
@@ -89,13 +87,6 @@ class UserDeletionServiceTest {
         assertThat(refreshTokens.cancelledUserIds).containsExactly(user.getId());
         assertThat(principalCache.store).doesNotContainKey(user.getPublicId());
         assertThat(events).containsExactly(new UserDeletedEvent(user.getId(), user.getPublicId()));
-    }
-
-    @Test
-    void 탈퇴하면_같은_트랜잭션에서_기사_탈퇴도_한다() {
-        service.delete(user.getId(), PASSWORD);
-
-        assertThat(withdrawnDrivers).containsExactly(user.getId());
     }
 
     @Test
@@ -130,7 +121,6 @@ class UserDeletionServiceTest {
         assertThat(userDeletions.deletedAt).isEmpty();
         assertThat(refreshTokens.cancelledUserIds).isEmpty();
         assertThat(events).isEmpty();
-        assertThat(withdrawnDrivers).isEmpty();
     }
 
     private static void assertError(Runnable call, UserErrorCode expected) {

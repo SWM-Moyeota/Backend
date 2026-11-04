@@ -41,13 +41,13 @@ jobs:
             아래 인라인 서식을 따른다. 코드 식별자·경로·에러 메시지 원문만 그대로 둔다.
 
             이 PR을 코드 리뷰해줘.
-            DDD 기반 모듈러 모놀리스(Spring Boot + Modulith)야. 모듈: matching, chat, driver, dispatch, place, report, user, common
+            DDD 기반 모듈러 모놀리스(Spring Boot + Modulith)야. 모듈: matching, chat, place, user, common
 
             리뷰 관점:
             1. **버그** - 로직 오류, null/엣지 케이스, 동시성, 트랜잭션 경계(@Transactional 안의 외부 API 호출)
             2. **모듈 경계** - 타 모듈은 api 패키지와 이벤트로만 접근. domain/application 직접 import 금지
             3. **애그리거트 경계** - 타 애그리거트 참조는 ID로만(JPA 연관관계 금지), 리포지토리는 루트당 하나,
-               자식 조작은 루트의 위임 메서드 경유(예: driver.disableCall())
+               자식 조작은 루트의 위임 메서드 경유(예: party.join(memberId))
             4. **도메인 규칙 위치** - 검증·상태 전이는 도메인 행위 메서드에(서비스에 새면 지적),
                public 생성자/setter 금지(정적 팩토리 + restore), domain 패키지에 JPA/Spring 의존 금지
             5. **영속성** - 도메인 변경 후 save 누락(이 구조는 더티체킹이 자동 적용 안 됨 - 변경이 조용히 유실됨),

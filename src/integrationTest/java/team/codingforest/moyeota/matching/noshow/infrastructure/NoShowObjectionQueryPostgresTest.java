@@ -34,7 +34,7 @@ import static org.assertj.core.api.Assertions.tuple;
  *  V27 의 no_show_objection 제약(한 사람·한 방 유니크, 상태 CHECK, 방 FK)·users 제재 컬럼 기본값과
  *  내 노쇼 기록·운영자 목록 JPQL 이 실제 Postgres 에서 맞게 도는지 본다
  */
-@SpringBootTest(properties = {"spring.profiles.active=dev", "moyeota.taxi.enabled=false"})
+@SpringBootTest(properties = "spring.profiles.active=dev")
 class NoShowObjectionQueryPostgresTest {
     // 다른 테스트가 남긴 방과 섞이지 않게 대구 좌표를 쓴다
     private static final Location DEPARTURE = new Location(35.8714, 128.6014);

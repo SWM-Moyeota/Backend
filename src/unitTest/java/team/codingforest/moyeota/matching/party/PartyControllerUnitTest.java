@@ -9,7 +9,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import team.codingforest.moyeota.common.ControllerUnitTestSupport;
 import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
@@ -102,7 +101,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
     @Test
     void reserve() throws Exception {
         OpenReservationCommand command = new OpenReservationCommand(USER_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, DEPARTURE_AT);
-        PartyResult result = new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, 500, 500, "ACTIVE", CREATED_AT, null, null, null, null, "RESERVED", DEPARTURE_AT);
+        PartyResult result = new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, 500, 500, "ACTIVE", CREATED_AT, null, null, null, "RESERVED", DEPARTURE_AT);
         doReturn(result).when(partyService).reserve(eq(command));
 
         mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
@@ -113,6 +112,32 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.departureAt").value("2026-11-03T08:00:00Z"))
                 .andExpect(jsonPath("$.estimateFare").value(nullValue()))
                 .andExpect(jsonPath("$.route").value(nullValue()));
+    }
+
+    @DisplayName("POST /api/v1/matching/reservations - 기사 기능은 없앴지만 출시된 앱이 읽는 taxiDriverId 키는 null 로 남는다")
+    @Test
+    void reserve_taxiDriverIdKeyKeptAsNull() throws Exception {
+
+        /*
+         * settings
+         */
+        OpenReservationCommand command = new OpenReservationCommand(USER_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, DEPARTURE_AT);
+        PartyResult result = new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, 500, 500, "ACTIVE", CREATED_AT, null, null, null, "RESERVED", DEPARTURE_AT);
+
+        doReturn(result).when(partyService).reserve(eq(command));
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(3, ", \"departureAt\": \"2026-11-03T08:00:00Z\"")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasKey("taxiDriverId")))
+                .andExpect(jsonPath("$.taxiDriverId").value(nullValue()));
     }
 
     @DisplayName("POST /api/v1/matching/reservations - 출발 시각이 없으면 400")
@@ -184,7 +209,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        doReturn(partyResult(null)).when(partyService).open(eq(OPEN_COMMAND));
+        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
 
         /*
          * test
@@ -215,6 +240,28 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         verify(partyService).open(eq(OPEN_COMMAND));
     }
 
+    @DisplayName("POST /api/v1/matching/rooms - 기사 기능은 없앴지만 출시된 앱이 읽는 taxiDriverId 키는 null 로 남는다")
+    @Test
+    void open_taxiDriverIdKeyKeptAsNull() throws Exception {
+
+        /*
+         * settings
+         */
+        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms").with(loginUser()).contentType(MediaType.APPLICATION_JSON).content(OPEN_BODY))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasKey("taxiDriverId")))
+                .andExpect(jsonPath("$.taxiDriverId").value(nullValue()));
+    }
+
     @DisplayName("POST /api/v1/matching/rooms - 본문의 creatorId 는 무시하고 토큰의 사용자를 쓴다")
     @Test
     void open_ignoresBodyCreatorId() throws Exception {
@@ -235,7 +282,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 }
                 """;
 
-        doReturn(partyResult(null)).when(partyService).open(eq(OPEN_COMMAND));
+        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
 
         /*
          * test
@@ -270,7 +317,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 }
                 """;
 
-        doReturn(partyResult(null)).when(partyService).open(eq(OPEN_COMMAND));
+        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
 
         /*
          * test
@@ -482,7 +529,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         final String body = OPEN_BODY.replace("\"capacity\": 3", "\"capacity\": " + capacity);
         final OpenPartyCommand command = new OpenPartyCommand(USER_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", capacity);
 
-        doReturn(partyResult(null)).when(partyService).open(eq(command));
+        doReturn(partyResult()).when(partyService).open(eq(command));
 
         /*
          * test
@@ -721,7 +768,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         PartyDetailResult detail = new PartyDetailResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 2, 500, 500, "ACTIVE", CREATED_AT,
                 List.of(new PartyDetailResult.MemberInfo(PUBLIC_ID, "방장", "host.png", null, 4, true, false),
                         new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", null, 0, false, false)),
-                12000, 25, "encoded-path", 9L, 7L, "REALTIME", null, false);
+                12000, 25, "encoded-path", null, 7L, "REALTIME", null, false);
 
         doReturn(detail).when(partyService).getPartyDetail(eq(PARTY_ID));
 
@@ -743,7 +790,8 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.estimateFare").value(12000))
                 .andExpect(jsonPath("$.estimateTime").value(25))
                 .andExpect(jsonPath("$.route").value("encoded-path"))
-                .andExpect(jsonPath("$.taxiDriverId").value(9))
+                .andExpect(jsonPath("$", hasKey("taxiDriverId")))
+                .andExpect(jsonPath("$.taxiDriverId").value(nullValue()))
                 .andExpect(jsonPath("$.version").value(7))
                 .andExpect(jsonPath("$.roomType").value("REALTIME"))
                 .andExpect(jsonPath("$.departureAt").value(nullValue()))
@@ -886,7 +934,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        doReturn(List.of(partyResult(null))).when(partyService).findActiveParties();
+        doReturn(List.of(partyResult())).when(partyService).findActiveParties();
 
         /*
          * test
@@ -945,75 +993,6 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(UNAUTHORIZED_CODE));
         verifyNoInteractions(partyService);
-    }
-
-    // ───────────────────────── GET /matching/rooms/{partyId}/driver ─────────────────────────
-
-    @DisplayName("GET /api/v1/matching/rooms/{partyId}/driver - 배정 기사의 차량 요약을 돌려준다")
-    @Test
-    void findDriverSummary() throws Exception {
-
-        /*
-         * settings
-         */
-        doReturn(new DriverSummary(4, "12가3456", "SEDAN")).when(partyService).getAssignDriver(eq(PARTY_ID));
-
-        /*
-         * test
-         */
-        mockMvc.perform(get("/api/v1/matching/rooms/{partyId}/driver", PARTY_ID).with(loginUser()))
-
-        /*
-         * verify
-         */
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.seats").value(4))
-                .andExpect(jsonPath("$.plateNumber").value("12가3456"))
-                .andExpect(jsonPath("$.type").value("SEDAN"));
-        verify(partyService).getAssignDriver(eq(PARTY_ID));
-    }
-
-    @DisplayName("GET /api/v1/matching/rooms/{partyId}/driver - 토큰이 없으면 401")
-    @Test
-    void findDriverSummary_noToken() throws Exception {
-
-        /*
-         * test
-         */
-        mockMvc.perform(get("/api/v1/matching/rooms/{partyId}/driver", PARTY_ID))
-
-        /*
-         * verify
-         */
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value(UNAUTHORIZED_CODE));
-        verifyNoInteractions(partyService);
-    }
-
-    @DisplayName("GET /api/v1/matching/rooms/{partyId}/driver - 서비스의 비즈니스 예외를 상태코드와 오류 코드로 바꾼다")
-    @ParameterizedTest(name = "{0} → {1}")
-    @CsvSource({
-            "PARTY_NOT_FOUND, 404",
-            "ASSIGNED_DRIVER_NOT_FOUND, 404",
-            "DRIVER_NOT_ASSIGNED, 409"
-    })
-    void findDriverSummary_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
-
-        /*
-         * settings
-         */
-        doThrow(new BusinessException(errorCode)).when(partyService).getAssignDriver(eq(PARTY_ID));
-
-        /*
-         * test
-         */
-        mockMvc.perform(get("/api/v1/matching/rooms/{partyId}/driver", PARTY_ID).with(loginUser()))
-
-        /*
-         * verify
-         */
-                .andExpect(status().is(expectedStatus))
-                .andExpect(jsonPath("$.code").value(errorCode.name()));
     }
 
     // ───────────────────────── GET /matching/rooms?swLat... ─────────────────────────
@@ -1808,7 +1787,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.code").value(errorCode.name()));
     }
 
-    private static PartyResult partyResult(Long taxiDriverId) {
-        return new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, 500, 500, "ACTIVE", CREATED_AT, 12000, 25, "encoded-path", taxiDriverId, "REALTIME", null);
+    private static PartyResult partyResult() {
+        return new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, 500, 500, "ACTIVE", CREATED_AT, 12000, 25, "encoded-path", "REALTIME", null);
     }
 }
