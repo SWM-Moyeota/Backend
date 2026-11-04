@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
@@ -130,17 +129,6 @@ public class PartyJpa implements Parties {
     }
 
     @Override
-    public List<MatchingTarget> findMatchingTargets() {
-        return partyJpaRepository.findTargetsByStatus(PartyStatus.MATCHING)
-                .stream().map(PartyEntity::toMatchTarget).toList();
-    }
-
-    @Override
-    public boolean hasOngoingRide(Long driverId) {
-        return partyJpaRepository.existsByTaxiDriverIdStatus(driverId, List.of(PartyStatus.DRIVER_ASSIGNED, PartyStatus.IN_RIDE));
-    }
-
-    @Override
     public List<PartySummary> findSummariesWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng, int limit) {
         return partyJpaRepository.findSummariesWithinBounds(status, swLat, neLat, swLng, neLng, Limit.of(limit));
     }
@@ -161,16 +149,6 @@ public class PartyJpa implements Parties {
     @Override
     public List<Long> findAutoCloseTargets(Instant cutoff) {
         return partyJpaRepository.findAutoCloseTargetIds(recruitingStatuses(), cutoff);
-    }
-
-    @Override
-    public boolean existsById(Long id) {
-        return partyJpaRepository.existsById(id);
-    }
-
-    @Override
-    public boolean hasMember(Long partyId, Long memberId) {
-        return partyJpaRepository.existsMember(partyId, memberId);
     }
 
     @Override

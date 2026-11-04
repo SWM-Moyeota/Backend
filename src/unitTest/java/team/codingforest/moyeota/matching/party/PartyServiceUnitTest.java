@@ -74,7 +74,6 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -89,7 +88,6 @@ class PartyServiceUnitTest {
     private static final Long HOST_ID = 1L;
     private static final Long MEMBER_ID = 2L;
     private static final Long THIRD_ID = 3L;
-    private static final Long DRIVER_ID = 9L;
     private static final UUID HOST_PUBLIC_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID MEMBER_PUBLIC_ID = UUID.fromString("00000000-0000-0000-0000-000000000002");
     private static final UUID THIRD_PUBLIC_ID = UUID.fromString("00000000-0000-0000-0000-000000000003");
@@ -294,7 +292,7 @@ class PartyServiceUnitTest {
         verify(partyChangeNotifier).memberJoined(eq(PARTY_ID), eq(new MemberJoined(info, "ACTIVE", 4L)));
     }
 
-    @DisplayName("join - 정원이 차면 저장 전에 완료 정책을 돌리고 바뀐 상태로 신호를 보낸다")
+    @DisplayName("join - 정원이 차면 저장 전에 완료 정책을 돌리고 COMPLETED 로 신호를 보낸다")
     @Test
     void join_becomesFull() {
 
@@ -302,7 +300,7 @@ class PartyServiceUnitTest {
          * settings
          */
         Party party = party(PartyStatus.ACTIVE, 2, null, 0L, HOST_ID);
-        Party saved = party(PartyStatus.MATCHING, 2, null, 1L, HOST_ID, MEMBER_ID);
+        Party saved = party(PartyStatus.COMPLETED, 2, null, 1L, HOST_ID, MEMBER_ID);
 
         doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
@@ -321,12 +319,12 @@ class PartyServiceUnitTest {
         InOrder inOrder = inOrder(partyCompletionPolicy, parties);
         inOrder.verify(partyCompletionPolicy).onCompleted(eq(party));
         inOrder.verify(parties).save(eq(party));
-        assertThat(response).isEqualTo(new PartyStatusResponse("MATCHING", 2));
+        assertThat(response).isEqualTo(new PartyStatusResponse("COMPLETED", 2));
 
         capturedAfterCommitTask().run();
         ArgumentCaptor<MemberJoined> captor = ArgumentCaptor.forClass(MemberJoined.class);
         verify(partyChangeNotifier).memberJoined(eq(PARTY_ID), captor.capture());
-        assertThat(captor.getValue().status()).isEqualTo("MATCHING");
+        assertThat(captor.getValue().status()).isEqualTo("COMPLETED");
         assertThat(captor.getValue().version()).isEqualTo(1L);
     }
 
@@ -1180,37 +1178,6 @@ class PartyServiceUnitTest {
         verify(partyChangeNotifier).confirmed(eq(PARTY_ID), eq(new PartyConfirmed("COMPLETED", departureAt, 2L)));
     }
 
-    @DisplayName("confirm - 완료 정책이 바꾼 상태(기사 호출 모드의 MATCHING)를 신호에 싣는다")
-    @Test
-    void confirm_policyChangesStatus() {
-
-        /*
-         * settings
-         */
-        Party party = party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID, MEMBER_ID);
-        Instant departureAt = Instant.now().plus(Duration.ofMinutes(30));
-
-        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
-        doAnswer(invocation -> {
-            invocation.<Party>getArgument(0).startMatching(Instant.now());
-            return null;
-        }).when(partyCompletionPolicy).onCompleted(eq(party));
-
-        /*
-         * test
-         */
-        partyService.confirm(PARTY_ID, HOST_ID, departureAt);
-
-        /*
-         * verify
-         */
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.MATCHING);
-        verify(parties).save(eq(party));
-
-        capturedAfterCommitTask().run();
-        verify(partyChangeNotifier).confirmed(eq(PARTY_ID), eq(new PartyConfirmed("MATCHING", departureAt, 1L)));
-    }
-
     @DisplayName("confirm - 없는 방이면 PARTY_NOT_FOUND")
     @Test
     void confirm_partyNotFound() {
@@ -1581,7 +1548,6 @@ class PartyServiceUnitTest {
                 Arguments.of(MatchingErrorCode.PARTY_NOT_CONFIRMED, party(PartyStatus.COMPLETED, 2, null, 0L, HOST_ID, MEMBER_ID), HOST_ID, "약속 확정 전 실시간 방"),
                 Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.FINISHED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, "이미 끝난 방"),
                 Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.CANCELED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, "취소된 방"),
-                Arguments.of(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED, confirmedParty(started, PartyStatus.COMPLETED, DRIVER_ID, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, "기사가 배정된 방"),
                 Arguments.of(MatchingErrorCode.MEETING_NOT_STARTED, confirmedParty(Instant.now().plus(Duration.ofMinutes(10)), PartyStatus.COMPLETED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, "약속 시간 전"),
                 Arguments.of(MatchingErrorCode.NOT_ARRIVED, confirmedParty(started, PartyStatus.COMPLETED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), MEMBER_ID, "누른 사람이 도착 전"));
     }
@@ -1679,7 +1645,6 @@ class PartyServiceUnitTest {
                 Arguments.of(MatchingErrorCode.NOT_PARTY_MEMBER, party(PartyStatus.COMPLETED, 2, null, 0L, HOST_ID, THIRD_ID), MEMBER_ID),
                 Arguments.of(MatchingErrorCode.NOT_PARTY_HOST, party(PartyStatus.COMPLETED, 2, null, 0L, HOST_ID, MEMBER_ID), MEMBER_ID),
                 Arguments.of(MatchingErrorCode.PARTY_NOT_COMPLETED, party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID, MEMBER_ID), HOST_ID),
-                Arguments.of(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED, party(PartyStatus.COMPLETED, 2, DRIVER_ID, 0L, HOST_ID, MEMBER_ID), HOST_ID),
                 Arguments.of(MatchingErrorCode.USE_DEPART_FOR_CONFIRMED_PARTY, party(RoomType.REALTIME, Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 2, 0L, HOST_ID, MEMBER_ID), HOST_ID),
                 Arguments.of(MatchingErrorCode.USE_DEPART_FOR_CONFIRMED_PARTY, party(RoomType.RESERVED, Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 2, 0L, HOST_ID, MEMBER_ID), HOST_ID));
     }
@@ -1854,7 +1819,6 @@ class PartyServiceUnitTest {
                 Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.FINISHED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), "출발로 이미 끝난 방"),
                 Arguments.of(MatchingErrorCode.PARTY_CLOSED, party(PartyStatus.CANCELED, 2, null, 0L, HOST_ID), "이미 취소된 방"),
                 Arguments.of(MatchingErrorCode.PARTY_CLOSED, party(PartyStatus.MATCHING, 2, null, 0L, HOST_ID, MEMBER_ID), "기사 호출 중인 방"),
-                Arguments.of(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED, party(PartyStatus.COMPLETED, 2, DRIVER_ID, 0L, HOST_ID, MEMBER_ID), "기사가 배정된 COMPLETED 방"),
                 Arguments.of(MatchingErrorCode.MEETING_NOT_STARTED, confirmedParty(Instant.now().plus(Duration.ofMinutes(30)), PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), "약속 시간 전"));
     }
 

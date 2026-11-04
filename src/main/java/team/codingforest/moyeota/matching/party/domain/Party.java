@@ -202,7 +202,7 @@ public class Party {
 
         if(isReservation()) throw new BusinessException(MatchingErrorCode.NOT_REALTIME_PARTY);
 
-        // 상태 검사보다 먼저 - 기사 호출 모드에선 확정 직후 MATCHING 으로 넘어가 두 번 누르면 "모집 중 아님"이 아니라 "이미 확정"이어야 한다
+        // 상태 검사보다 먼저 - 이미 확정한 방은 모집 상태와 상관없이 "모집 중 아님"이 아니라 "이미 확정"으로 알린다
         if(isConfirmed()) throw new BusinessException(MatchingErrorCode.ALREADY_CONFIRMED);
 
         ensureRecruiting();
@@ -263,8 +263,6 @@ public class Party {
 
         ensureAttendanceOpen();
 
-        if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
-
         if(members.size() < MIN_MEMBERS_TO_DEPART) throw new BusinessException(MatchingErrorCode.NOT_ENOUGH_MEMBERS);
 
         if(now.isBefore(departureAt)) throw new BusinessException(MatchingErrorCode.MEETING_NOT_STARTED);
@@ -287,12 +285,10 @@ public class Party {
      *   - 아무도 도착하지 않았으면 합승이 없었으니 CANCELED, 멤버 전원이 노쇼다. 도착 버튼을 누르지 않은 것도 본인 몫이고 이의는 운영자가 노쇼를 무효로 돌려 받는다
      *   - 함께 탈 사람이 들어오지 않은 예약 방(멤버 1명)은 모집 정리와 같이 노쇼 없이 CANCELED - 출발도 할 수 없던 방이다
      *  약속을 정하지 않은 실시간 방은 노쇼를 가릴 약속이 없다 - COMPLETED 는 이전 자동 종료처럼 FINISHED(구버전 앱), ACTIVE 는 CANCELED.
-     *  조회와 행 잠금 사이에 출발·나가기로 이미 닫혔거나 기사 호출 단계로 넘어간 방은 PARTY_CLOSED 로 거절한다(스케줄러는 건너뛴다)
+     *  조회와 행 잠금 사이에 출발·나가기로 이미 닫힌 방은 PARTY_CLOSED 로 거절한다(스케줄러는 건너뛴다)
      */
     public AutoCloseResult autoClose(Instant now) {
         if(!status.isRecruiting()) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
-
-        if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
 
         // 만든 지 1일이 다 돼 확정한 실시간 방은 약속이 그 뒤일 수 있다 - 만나기도 전에 전원을 노쇼로 찍지 않게 약속 시간이 지난 다음 정리에서 닫는다
         if(isConfirmed() && now.isBefore(departureAt)) throw new BusinessException(MatchingErrorCode.MEETING_NOT_STARTED);
@@ -523,56 +519,6 @@ public class Party {
         status = PartyStatus.CANCELED;
     }
 
-    public void assignDriver(Long driverId) {
-        if(status != PartyStatus.MATCHING) throw new BusinessException(MatchingErrorCode.PARTY_NOT_MATCHING);
-
-        if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
-
-        this.taxiDriverId = driverId;
-        this.status = PartyStatus.DRIVER_ASSIGNED;
-    }
-
-    public void startMatching(Instant now) {
-        if(status != PartyStatus.COMPLETED) throw new BusinessException(MatchingErrorCode.PARTY_NOT_COMPLETED);
-
-        status = PartyStatus.MATCHING;
-        matchingStartedAt = now;
-    }
-
-    public void startRide(Long driverId) {
-        ensureAssignDriver(driverId);
-        if(status != PartyStatus.DRIVER_ASSIGNED) throw new BusinessException(MatchingErrorCode.NOT_AWAITING_PICKUP);
-
-        status = PartyStatus.IN_RIDE;
-    }
-
-    public void completeRide(Long driverId, int fare) {
-        ensureAssignDriver(driverId);
-        if(status != PartyStatus.IN_RIDE) throw new BusinessException(MatchingErrorCode.NOT_RIDING);
-
-        // TODO 결제쪽이 완료된 후 완성
-
-        status = PartyStatus.FINISHED;
-    }
-
-    /**
-     *      기사를 못 구한 방 폭파
-     */
-    public void failMatching() {
-        if(status != PartyStatus.MATCHING) throw new BusinessException(MatchingErrorCode.PARTY_NOT_MATCHING);
-
-        if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
-
-        status = PartyStatus.CANCELED;
-    }
-
-    /**
-     *  배정된 기사가 픽업하러 오는 중인가 - "기사 도착" 통보가 유효한 유일한 구간
-     */
-    public boolean isAwaitingPickup(Long driverId) {
-        return status == PartyStatus.DRIVER_ASSIGNED && driverId.equals(taxiDriverId);
-    }
-
     /**
      *  방장 userId (match_room.host_id). 방을 만든 사람이 방장이고, 방장이 나가면 남은 멤버 중 가장 먼저 합류한 사람이 승계한다.
      *  마지막 멤버까지 나가 멤버가 없는 방은 null
@@ -601,14 +547,8 @@ public class Party {
 
         if(status != PartyStatus.COMPLETED) throw new BusinessException(MatchingErrorCode.PARTY_NOT_COMPLETED);
 
-        if(taxiDriverId != null) throw new BusinessException(MatchingErrorCode.DRIVER_ALREADY_ASSIGNED);
-
         status = PartyStatus.FINISHED;
         version++;
-    }
-
-    private void ensureAssignDriver(Long driverId) {
-        if(taxiDriverId == null || !taxiDriverId.equals(driverId)) throw new BusinessException(MatchingErrorCode.NOT_ASSIGNED_DRIVER);
     }
 
     private void ensureRecruiting() {

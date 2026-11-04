@@ -14,7 +14,6 @@ import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import team.codingforest.moyeota.common.BaseTimeEntity;
-import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
@@ -200,10 +199,6 @@ public class PartyEntity extends BaseTimeEntity {
         this.meetingNotifiedAt = party.getMeetingNotifiedAt();
         this.departureReminderCount = (short) party.getDepartureReminderCount();
         syncMembers(party.getMembers());
-    }
-
-    public MatchingTarget toMatchTarget() {
-        return new MatchingTarget(getId(), matchingStartedAt);
     }
 
     private void syncMembers(List<PartyMember> domainMembers) {

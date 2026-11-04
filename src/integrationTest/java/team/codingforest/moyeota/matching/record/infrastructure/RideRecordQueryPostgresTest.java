@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import team.codingforest.moyeota.matching.api.PartyAccess;
+import team.codingforest.moyeota.matching.party.PartyService;
 import team.codingforest.moyeota.matching.record.RideRecordService;
 import team.codingforest.moyeota.matching.record.domain.RideRecords;
 import team.codingforest.moyeota.matching.record.domain.RideRecord;
@@ -33,10 +33,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class RideRecordQueryPostgresTest {
     private static final Location DEPARTURE = new Location(37.4979, 127.0276);
     private static final Location DESTINATION = new Location(37.3948, 127.1112);
-    private static final Long 기사 = 9L;
 
     @Autowired Parties parties;
-    @Autowired PartyAccess partyAccess;
+    @Autowired PartyService partyService;
     @Autowired RideRecords rideRecords;
     @Autowired RideRecordService rideRecordService;
     @Autowired JdbcTemplate jdbc;
@@ -56,45 +55,42 @@ class RideRecordQueryPostgresTest {
     }
 
     @Test
-    void 기사가_태우고_요금을_입력하면_기록이_남고_동승자의_탑승_기록으로_조회된다() {
+    void 방장이_합승을_종료하면_기록이_남고_동승자의_탑승_기록으로_조회된다() {
         Party party = Party.open(나, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(2), Instant.now(),
                 new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
-        party.join(동승자);
-        party.startMatching(Instant.now());
+        party.join(동승자);   // 정원 2 충족 → COMPLETED
         Long partyId = track(parties.save(party).getId());
 
-        partyAccess.assignDriver(partyId, 기사);
-        partyAccess.startRide(partyId, 기사);
-        partyAccess.completeRide(partyId, 기사, 15001);
+        partyService.finish(partyId, 나);
 
         RideRecord rideRecord = rideRecords.findById(partyId).orElseThrow();
-        assertThat(rideRecord.getTaxiDriverId()).isEqualTo(기사);
+        assertThat(rideRecord.getTaxiDriverId()).isNull();
         assertThat(rideRecord.getDeparturePlace()).isEqualTo("강남역");
         assertThat(rideRecord.getDestinationPlace()).isEqualTo("판교역");
-        assertThat(rideRecord.getPickupTime()).isNotNull();
-        assertThat(rideRecord.getDropoffTime()).isAfterOrEqualTo(rideRecord.getPickupTime());
-        assertThat(rideRecord.getTotalFare()).isEqualTo(15001);
+        assertThat(rideRecord.getPickupTime()).isNull();
+        assertThat(rideRecord.getDropoffTime()).isNotNull();
+        assertThat(rideRecord.getTotalFare()).isNull();
 
         RideRecordResponse response = rideRecordService.findMyRides(동승자, null, 20);
         RideRecordItem ride = response.rides().getFirst();
         assertThat(response.rides()).hasSize(1);
         assertThat(ride.partyId()).isEqualTo(partyId);
-        assertThat(ride.pickupTime()).isEqualTo(rideRecord.getPickupTime());
+        assertThat(ride.pickupTime()).isNull();
         assertThat(ride.dropoffTime()).isEqualTo(rideRecord.getDropoffTime());
-        assertThat(ride.totalFare()).isEqualTo(15001);
-        assertThat(ride.farePerPerson()).isEqualTo(7500);
+        assertThat(ride.totalFare()).isNull();
+        assertThat(ride.farePerPerson()).isNull();
         assertThat(ride.currentMembers()).isEqualTo(2);
     }
 
     @Test
-    void 하차_시각이_같은_기록도_커서로_빠짐없이_이어지고_남의_방과_운행_중인_방은_빠진다() {
+    void 하차_시각이_같은_기록도_커서로_빠짐없이_이어지고_남의_방과_하차_전인_방은_빠진다() {
         Instant 같은시각 = Instant.now().truncatedTo(ChronoUnit.MICROS);
         Long 이전 = droppedOff(같은시각.minusSeconds(60), 나);
         Long 동률1 = droppedOff(같은시각, 나, 동승자);
         Long 동률2 = droppedOff(같은시각, 동승자, 나);
         Long 이후 = droppedOff(같은시각.plusSeconds(60), 나);
         droppedOff(같은시각, 동승자, 남);
-        rideRecords.save(RideRecord.pickUp(savedParty(members(같은시각, 나)), 기사, "강남역", "판교역"));
+        rideRecords.save(RideRecord.load(savedParty(members(같은시각, 나)), null, "강남역", "판교역", null, null, null));
 
         List<Long> seen = new ArrayList<>();
         Long cursor = null;
@@ -149,8 +145,8 @@ class RideRecordQueryPostgresTest {
         Long 없는방 = track(Long.MAX_VALUE);
 
         assertThatThrownBy(() -> jdbc.update("""
-                INSERT INTO ride_record (match_id, taxi_driver_id, departure_place, destination_place, created_at) VALUES (?, ?, ?, ?, now())
-                """, 없는방, 기사, "강남역", "판교역"))
+                INSERT INTO ride_record (match_id, departure_place, destination_place, created_at) VALUES (?, ?, ?, now())
+                """, 없는방, "강남역", "판교역"))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
@@ -160,7 +156,7 @@ class RideRecordQueryPostgresTest {
 
     private Long droppedOff(Instant dropoffTime, List<PartyMember> members) {
         Long partyId = savedParty(members);
-        rideRecords.save(RideRecord.load(partyId, 기사, "강남역", "판교역", dropoffTime.minusSeconds(600), dropoffTime, 12000));
+        rideRecords.save(RideRecord.load(partyId, null, "강남역", "판교역", null, dropoffTime, null));
         return partyId;
     }
 
@@ -175,7 +171,7 @@ class RideRecordQueryPostgresTest {
     private Long savedParty(List<PartyMember> members) {
         Instant now = Instant.now();
         return track(parties.save(Party.load(null, DEPARTURE, DESTINATION, new Radius(100), new Radius(100), "강남역", "판교역",
-                new Capacity(3), members, now, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 기사, now, now, 0L)).getId());
+                new Capacity(3), members, now, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", null, null, now, 0L)).getId());
     }
 
     private Long track(Long partyId) {

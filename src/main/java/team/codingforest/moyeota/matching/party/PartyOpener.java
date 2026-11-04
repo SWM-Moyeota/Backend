@@ -5,9 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
-import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
@@ -59,10 +57,6 @@ public class PartyOpener {
 
 	@Transactional
 	public PartyResult reserve(OpenReservationCommand command) {
-		if (!partyCompletionPolicy.supportsReservation()) {
-			throw new BusinessException(MatchingErrorCode.RESERVATION_NOT_SUPPORTED);
-		}
-
 		parties.lockMember(command.creatorId());
 		PartyConflictRule.check(parties, command.creatorId(), command.departureAt());
 

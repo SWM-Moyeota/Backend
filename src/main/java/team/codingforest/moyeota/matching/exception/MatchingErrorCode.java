@@ -22,7 +22,6 @@ public enum MatchingErrorCode implements ErrorCode {
     NOT_REALTIME_PARTY(HttpStatus.CONFLICT, "실시간 방에서만 할 수 있습니다."),
     ALREADY_CONFIRMED(HttpStatus.CONFLICT, "이미 약속 시간을 확정한 방입니다."),
     CANNOT_LEAVE_CONFIRMED_PARTY(HttpStatus.CONFLICT, "약속이 확정된 방은 나갈 수 없습니다."),
-    RESERVATION_NOT_SUPPORTED(HttpStatus.CONFLICT, "지금은 예약 방을 만들 수 없습니다."),
 
     // 출발지 도착·출발
     PARTY_NOT_CONFIRMED(HttpStatus.CONFLICT, "약속 시간이 확정되지 않은 방입니다."),
@@ -38,13 +37,8 @@ public enum MatchingErrorCode implements ErrorCode {
     OBJECTION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 이의 신청입니다."),
     OBJECTION_ALREADY_RESOLVED(HttpStatus.CONFLICT, "이미 처리된 이의 신청입니다."),
 
-    // 매칭·배정·운행 상태
+    // 합승 종료
     PARTY_NOT_COMPLETED(HttpStatus.CONFLICT, "정원이 다 차지 않은 방입니다."),
-    PARTY_NOT_MATCHING(HttpStatus.CONFLICT, "매칭 중인 방이 아닙니다."),
-    DRIVER_ALREADY_ASSIGNED(HttpStatus.CONFLICT, "이미 기사가 배정된 방입니다."),
-    NOT_ASSIGNED_DRIVER(HttpStatus.FORBIDDEN, "이 방에 배정된 기사가 아닙니다."),
-    NOT_AWAITING_PICKUP(HttpStatus.CONFLICT, "탑승 대기 상태가 아닙니다."),
-    NOT_RIDING(HttpStatus.CONFLICT, "운행 중이 아닙니다."),
 
     // 지도 영역 조회 검증
     INVALID_MAP_BOUNDS(HttpStatus.BAD_REQUEST, "영역 좌표가 올바르지 않습니다."),

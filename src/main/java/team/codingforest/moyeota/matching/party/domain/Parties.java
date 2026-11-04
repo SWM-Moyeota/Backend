@@ -1,6 +1,5 @@
 package team.codingforest.moyeota.matching.party.domain;
 
-import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
@@ -14,8 +13,6 @@ public interface Parties {
     List<Party> findRealtimeByStatus(PartyStatus status);
     boolean existsOngoingByMemberId(Long memberId);
     Optional<Party> findByIdForUpdate(Long id);
-    List<MatchingTarget> findMatchingTargets();
-    boolean hasOngoingRide(Long driverId);
     List<PartySummary> findSummariesWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng, int limit);
     Map<Long, Integer> countFinishedRides(List<Long> memberIds);
     /**
@@ -26,8 +23,6 @@ public interface Parties {
     List<NearbyPartySummary> findMatchesWithinRadius(double departLat, double departLng, double destLat, double destLng, int radius);
     // 이 방의 출발지에서 radiusMeters 안(경계 포함)인지 - 거리는 DB(PostGIS)가 잰다. 없는 방이면 false
     boolean isNearDeparture(Long partyId, double latitude, double longitude, double radiusMeters);
-    boolean existsById(Long id);
-    boolean hasMember(Long partyId, Long memberId);
     void lockMember(Long memberId);
     boolean existsOngoingRealtimeByMemberId(Long memberId);
     boolean existsOngoingReservationBetween(Long memberId, Instant from, Instant to);

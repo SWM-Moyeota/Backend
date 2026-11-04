@@ -31,12 +31,6 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     @Query("select p from PartyEntity p where p.id = :id")
     Optional<PartyEntity> findByForUpdate(@Param("id") Long id);
 
-    @Query("select p from PartyEntity p where p.status = :status")
-    List<PartyEntity> findTargetsByStatus(@Param("status") PartyStatus status);
-
-    @Query("select count(p) > 0 from PartyEntity p where p.taxiDriverId = :driverId and p.status in :statuses")
-    boolean existsByTaxiDriverIdStatus(@Param("driverId") Long driverId, @Param("statuses") Collection<PartyStatus> statuses);
-
     // 지도 목록은 인원수만 필요하다 - 멤버를 join fetch 하면 방 하나가 멤버 수만큼 행으로 불어나고 route(TEXT)까지 행마다 딸려 온다
     @Query("""
             select p.id, p.departure, p.destination,
@@ -183,9 +177,6 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
                                                @Param("destLat") double destLat,
                                                @Param("destLng") double destLng,
                                                @Param("radius") int radius);
-
-    @Query("select count(m) > 0 from PartyMemberEntity m where m.party.id = :partyId and m.memberId = :memberId")
-    boolean existsMember(@Param("partyId") Long partyId, @Param("memberId") Long memberId);
 
     // 출발지 도착 판정. geography 라 타원체 위 m 단위로 재고, ST_DWithin 은 경계(radius 와 같은 거리)를 포함한다.
     // ST_MakePoint 는 경도가 먼저다. EXISTS 로 감싸 없는 방이어도 행 하나(false)가 돌아온다

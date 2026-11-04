@@ -24,7 +24,6 @@ class PartyAutoCloseUnitTest {
     private static final Long HOST_ID = 1L;
     private static final Long MEMBER_ID = 2L;
     private static final Long THIRD_ID = 3L;
-    private static final Long DRIVER_ID = 9L;
     private static final Location DEPARTURE = new Location(37.4979, 127.0276);
     private static final Location DESTINATION = new Location(37.3948, 127.1112);
     private static final Instant NOW = Instant.parse("2026-11-03T12:00:00Z");
@@ -330,26 +329,6 @@ class PartyAutoCloseUnitTest {
         assertThat(party.getStatus()).isEqualTo(PartyStatus.CANCELED);
         assertThat(party.getVersion()).isEqualTo(1L);
         assertThat(party.getMembers()).extracting(PartyMember::getNoShowAt).containsOnly(NOW);
-    }
-
-    @DisplayName("autoClose - 기사가 배정된 방이면 DRIVER_ALREADY_ASSIGNED")
-    @Test
-    void autoClose_driverAssigned() {
-
-        /*
-         * settings
-         */
-        Party party = realtime(PartyStatus.COMPLETED, null, DRIVER_ID, member(HOST_ID), member(MEMBER_ID));
-
-        /*
-         * test
-         */
-        Throwable thrown = catchThrowable(() -> party.autoClose(NOW));
-
-        /*
-         * verify
-         */
-        assertRejected(thrown, MatchingErrorCode.DRIVER_ALREADY_ASSIGNED, party, PartyStatus.COMPLETED);
     }
 
     @DisplayName("autoClose - 돌려준 노쇼 목록은 바꿀 수 없다")

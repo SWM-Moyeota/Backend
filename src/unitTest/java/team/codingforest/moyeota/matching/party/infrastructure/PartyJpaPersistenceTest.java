@@ -581,24 +581,6 @@ class PartyJpaPersistenceTest {
     }
 
     @Test
-    void 매칭_시작_시각은_저장_후_다시_조회해도_유지된다() {
-        // 스위퍼가 이 값으로 타임아웃을 판정한다 - 왕복에서 유실되면 방이 즉시 해산된다
-        Instant 시작시각 = Instant.parse("2026-08-28T12:00:00Z");
-        Party saved = openAndSave();
-        saved.join(2L);
-        saved.join(3L);   // capacity 3 충족 → COMPLETED
-        saved.startMatching(시작시각);
-        parties.save(saved);
-
-        Party reloaded = parties.findById(saved.getId()).orElseThrow();
-
-        assertThat(reloaded.getMatchingStartedAt()).isEqualTo(시작시각);
-        assertThat(parties.findMatchingTargets())
-                .extracting(t -> t.partyId())
-                .contains(saved.getId());   // 스위퍼 조회 경로에도 잡히는지
-    }
-
-    @Test
     void 상태_변경_후_저장하면_원래_id로_조회했을_때_상태가_반영된다() {
         Party saved = openAndSave();
 
@@ -697,15 +679,12 @@ class PartyJpaPersistenceTest {
 
     // ───────────────────────── 탑승 횟수 집계 ─────────────────────────
 
-    /** 1L·2L·3L 이 탄 방을 FINISHED 까지 진행해 저장한다 */
+    /** 1L·2L·3L 이 탄 방을 방장(1L)이 합승 종료해 FINISHED 로 저장한다 */
     private void finishRide() {
         Party party = openAndSave();
         party.join(2L);
-        party.join(3L);
-        party.startMatching(Instant.now());
-        party.assignDriver(9L);
-        party.startRide(9L);
-        party.completeRide(9L, 12000);
+        party.join(3L);   // capacity 3 충족 → COMPLETED
+        party.finishWithoutDriver(1L);
         parties.save(party);
     }
 

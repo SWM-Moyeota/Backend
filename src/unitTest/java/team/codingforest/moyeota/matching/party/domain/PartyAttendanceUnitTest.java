@@ -24,7 +24,6 @@ class PartyAttendanceUnitTest {
     private static final Long MEMBER_ID = 2L;
     private static final Long THIRD_ID = 3L;
     private static final Long OUTSIDER_ID = 99L;
-    private static final Long DRIVER_ID = 9L;
     private static final Location DEPARTURE = new Location(37.4979, 127.0276);
     private static final Location DESTINATION = new Location(37.3948, 127.1112);
     private static final Instant NOW = Instant.parse("2026-11-03T12:00:00Z");
@@ -542,26 +541,6 @@ class PartyAttendanceUnitTest {
          * verify
          */
         assertRejected(thrown, MatchingErrorCode.NOT_PARTY_MEMBER, party, PartyStatus.COMPLETED);
-    }
-
-    @DisplayName("depart - 기사가 배정된 방이면 DRIVER_ALREADY_ASSIGNED")
-    @Test
-    void depart_driverAssigned() {
-
-        /*
-         * settings
-         */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, DRIVER_ID, arrivedMember(HOST_ID), member(MEMBER_ID));
-
-        /*
-         * test
-         */
-        Throwable thrown = catchThrowable(() -> party.depart(HOST_ID, NOW));
-
-        /*
-         * verify
-         */
-        assertRejected(thrown, MatchingErrorCode.DRIVER_ALREADY_ASSIGNED, party, PartyStatus.COMPLETED);
     }
 
     @DisplayName("depart - 아무도 들어오지 않은 예약 방(방장 혼자)은 NOT_ENOUGH_MEMBERS - 모집 정리 때 취소될 방이다")
