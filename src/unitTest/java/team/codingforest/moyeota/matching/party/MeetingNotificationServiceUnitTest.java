@@ -507,7 +507,7 @@ class MeetingNotificationServiceUnitTest {
     private static Party confirmedParty(Instant departureAt, PartyStatus status, Instant meetingNotifiedAt, int departureReminderCount, PartyMember... members) {
         return Party.load(PARTY_ID, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
                 new ArrayList<>(List.of(members)), members[0].getMemberId(), MEETING_AT.minus(Duration.ofDays(1)), status, 12000, 25, "encoded-path",
-                null, null, null, 5L, RoomType.REALTIME, departureAt, null, meetingNotifiedAt, departureReminderCount);
+                null, 5L, RoomType.REALTIME, departureAt, null, meetingNotifiedAt, departureReminderCount);
     }
 
     private static PartyMember waiting(Long memberId, int order) {

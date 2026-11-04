@@ -64,12 +64,9 @@ class RideRecordQueryPostgresTest {
         partyService.finish(partyId, 나);
 
         RideRecord rideRecord = rideRecords.findById(partyId).orElseThrow();
-        assertThat(rideRecord.getTaxiDriverId()).isNull();
         assertThat(rideRecord.getDeparturePlace()).isEqualTo("강남역");
         assertThat(rideRecord.getDestinationPlace()).isEqualTo("판교역");
-        assertThat(rideRecord.getPickupTime()).isNull();
         assertThat(rideRecord.getDropoffTime()).isNotNull();
-        assertThat(rideRecord.getTotalFare()).isNull();
 
         RideRecordResponse response = rideRecordService.findMyRides(동승자, null, 20);
         RideRecordItem ride = response.rides().getFirst();
@@ -90,7 +87,7 @@ class RideRecordQueryPostgresTest {
         Long 동률2 = droppedOff(같은시각, 동승자, 나);
         Long 이후 = droppedOff(같은시각.plusSeconds(60), 나);
         droppedOff(같은시각, 동승자, 남);
-        rideRecords.save(RideRecord.load(savedParty(members(같은시각, 나)), null, "강남역", "판교역", null, null, null));
+        rideRecords.save(RideRecord.load(savedParty(members(같은시각, 나)), "강남역", "판교역", null));
 
         List<Long> seen = new ArrayList<>();
         Long cursor = null;
@@ -156,7 +153,7 @@ class RideRecordQueryPostgresTest {
 
     private Long droppedOff(Instant dropoffTime, List<PartyMember> members) {
         Long partyId = savedParty(members);
-        rideRecords.save(RideRecord.load(partyId, null, "강남역", "판교역", null, dropoffTime, null));
+        rideRecords.save(RideRecord.load(partyId, "강남역", "판교역", dropoffTime));
         return partyId;
     }
 
@@ -171,7 +168,7 @@ class RideRecordQueryPostgresTest {
     private Long savedParty(List<PartyMember> members) {
         Instant now = Instant.now();
         return track(parties.save(Party.load(null, DEPARTURE, DESTINATION, new Radius(100), new Radius(100), "강남역", "판교역",
-                new Capacity(3), members, now, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", null, null, now, 0L)).getId());
+                new Capacity(3), members, now, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", now, 0L)).getId());
     }
 
     private Long track(Long partyId) {

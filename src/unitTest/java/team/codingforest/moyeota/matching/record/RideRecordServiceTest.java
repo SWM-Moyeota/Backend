@@ -36,7 +36,6 @@ class RideRecordServiceTest {
     private static final Long 동승자 = 2L;
     private static final Long 셋째 = 3L;
     private static final Long 남 = 4L;
-    private static final Long 기사 = 9L;
     private static final Instant 기준 = Instant.parse("2026-10-01T10:00:00.123456Z");
 
     private PartyJpaTest parties;
@@ -189,7 +188,7 @@ class RideRecordServiceTest {
     @Test
     void 아직_하차_전인_기록의_커서는_INVALID_CURSOR() {
         Long 하차전 = savedParty(members(나));
-        rideRecords.save(RideRecord.load(하차전, null, "강남역", "판교역", null, null, null));
+        rideRecords.save(RideRecord.load(하차전, "강남역", "판교역", null));
 
         assertThatThrownBy(() -> service.findMyRides(나, 하차전, 20))
                 .isInstanceOf(BusinessException.class)
@@ -213,7 +212,7 @@ class RideRecordServiceTest {
         MemberSummary 셋째정보 = users.등록(셋째, "지우");
         Long partyId = savedParty(List.of(PartyMember.load(셋째, 기준.plusSeconds(2)), PartyMember.load(나, 기준.plusSeconds(1)),
                 PartyMember.load(동승자, 기준)));
-        dropOff(partyId, 기준.plusSeconds(600), 9600);
+        dropOff(partyId, 기준.plusSeconds(600));
 
         RideRecordItem ride = service.findMyRides(나, null, 20).rides().getFirst();
 
@@ -224,38 +223,34 @@ class RideRecordServiceTest {
     }
 
     @Test
-    void 기록_항목은_운행_정보와_실제_요금과_1인_요금을_담는다() {
+    void 기록_항목은_운행_정보와_함께_탄_인원을_담는다() {
         Long partyId = savedParty(members(나, 동승자, 셋째));
-        Instant 탑승 = 기준.plusSeconds(60);
         Instant 하차 = 기준.plusSeconds(1800);
-        rideRecords.save(RideRecord.load(partyId, 기사, "부산대학교 정문", "서면역 1번 출구", 탑승, 하차, 10000));
+        rideRecords.save(RideRecord.load(partyId, "부산대학교 정문", "서면역 1번 출구", 하차));
 
         RideRecordItem ride = service.findMyRides(나, null, 20).rides().getFirst();
 
         assertThat(ride.partyId()).isEqualTo(partyId);
         assertThat(ride.departure()).isEqualTo("부산대학교 정문");
         assertThat(ride.destination()).isEqualTo("서면역 1번 출구");
-        assertThat(ride.pickupTime()).isEqualTo(탑승);
         assertThat(ride.dropoffTime()).isEqualTo(하차);
-        assertThat(ride.totalFare()).isEqualTo(10000);
-        assertThat(ride.farePerPerson()).as("1/N 정수 나눗셈 - 나머지 버림").isEqualTo(3333);
         assertThat(ride.currentMembers()).isEqualTo(3);
     }
 
     @Test
-    void 혼자_탄_기록은_1인_요금이_실제_요금과_같다() {
-        dropOff(savedParty(members(나)), 기준, 12345);
+    void 혼자_탄_기록도_1인_요금은_null_이고_인원은_1명이다() {
+        dropOff(savedParty(members(나)), 기준);
 
         RideRecordItem ride = service.findMyRides(나, null, 20).rides().getFirst();
 
-        assertThat(ride.farePerPerson()).isEqualTo(12345);
+        assertThat(ride.farePerPerson()).isNull();
         assertThat(ride.currentMembers()).isEqualTo(1);
     }
 
     @Test
-    void 기사_없이_끝난_합승_기록은_탑승_시각과_요금과_1인_요금이_null_이다() {
+    void 끝난_합승_기록은_탑승_시각과_요금과_1인_요금이_null_이다() {
         Long partyId = savedParty(members(나, 동승자));
-        rideRecords.save(RideRecord.load(partyId, null, "강남역", "판교역", null, 기준, null));
+        rideRecords.save(RideRecord.load(partyId, "강남역", "판교역", 기준));
 
         var ride = service.findMyRides(나, null, 20).rides().getFirst();
 
@@ -272,7 +267,7 @@ class RideRecordServiceTest {
         users.등록(나, "성윤");
         UUID 탈퇴자공개ID = users.등록(동승자, "지민").publicId();
         users.탈퇴(동승자);
-        dropOff(savedParty(members(나, 동승자)), 기준, 12000);
+        dropOff(savedParty(members(나, 동승자)), 기준);
 
         RideRecordMember 탈퇴자 = service.findMyRides(나, null, 20).rides().getFirst().members().get(1);
 
@@ -284,7 +279,7 @@ class RideRecordServiceTest {
     @Test
     void 사용자_정보가_없는_멤버는_세_값이_모두_null_이고_인원에는_센다() {
         users.등록(나, "성윤");
-        dropOff(savedParty(members(나, 동승자)), 기준, 12000);
+        dropOff(savedParty(members(나, 동승자)), 기준);
 
         RideRecordItem ride = service.findMyRides(나, null, 20).rides().getFirst();
         RideRecordMember 없는멤버 = ride.members().get(1);
@@ -293,14 +288,13 @@ class RideRecordServiceTest {
         assertThat(없는멤버.nickname()).isNull();
         assertThat(없는멤버.imageUrl()).isNull();
         assertThat(ride.currentMembers()).isEqualTo(2);
-        assertThat(ride.farePerPerson()).isEqualTo(6000);
     }
 
     @Test
     void 하차_전인_기록과_내가_없는_방의_기록은_나오지_않는다() {
         Long 내기록 = ride(기준.plusSeconds(10), 나, 동승자);
         ride(기준.plusSeconds(20), 동승자, 남);
-        rideRecords.save(RideRecord.load(savedParty(members(나)), null, "강남역", "판교역", null, null, null));
+        rideRecords.save(RideRecord.load(savedParty(members(나)), "강남역", "판교역", null));
 
         assertThat(partyIds(service.findMyRides(나, null, 20))).containsExactly(내기록);
     }
@@ -323,11 +317,11 @@ class RideRecordServiceTest {
     }
 
     private Long ride(Instant dropoffTime, Long... memberIds) {
-        return dropOff(savedParty(members(memberIds)), dropoffTime, 12000);
+        return dropOff(savedParty(members(memberIds)), dropoffTime);
     }
 
-    private Long dropOff(Long partyId, Instant dropoffTime, int fare) {
-        rideRecords.save(RideRecord.load(partyId, 기사, "강남역", "판교역", dropoffTime.minusSeconds(600), dropoffTime, fare));
+    private Long dropOff(Long partyId, Instant dropoffTime) {
+        rideRecords.save(RideRecord.load(partyId, "강남역", "판교역", dropoffTime));
         return partyId;
     }
 
@@ -341,7 +335,7 @@ class RideRecordServiceTest {
 
     private Long savedParty(List<PartyMember> members) {
         return parties.save(Party.load(null, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), new Radius(100), new Radius(100),
-                "강남역", "판교역", new Capacity(3), members, 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 기사, 기준, 기준, 0L)).getId();
+                "강남역", "판교역", new Capacity(3), members, 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 기준, 0L)).getId();
     }
 
     static class StubUserAccess implements UserAccess {

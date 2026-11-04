@@ -67,7 +67,7 @@ class RideRecordControllerUnitTest extends ControllerUnitTestSupport {
          * settings
          */
         RideRecordResponse.RideRecordItem item = new RideRecordResponse.RideRecordItem(30L, "강남역", "판교역",
-                Instant.parse("2026-10-01T00:00:00Z"), Instant.parse("2026-10-01T00:30:00Z"), 15000, 7500, 2,
+                null, Instant.parse("2026-10-01T00:30:00Z"), null, null, 2,
                 List.of(new RideRecordResponse.RideRecordMember(PUBLIC_ID, "나", "me.png"),
                         new RideRecordResponse.RideRecordMember(null, null, null)));
 
@@ -88,10 +88,10 @@ class RideRecordControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.rides[0].partyId").value(30))
                 .andExpect(jsonPath("$.rides[0].departure").value("강남역"))
                 .andExpect(jsonPath("$.rides[0].destination").value("판교역"))
-                .andExpect(jsonPath("$.rides[0].pickupTime").value("2026-10-01T00:00:00Z"))
+                .andExpect(jsonPath("$.rides[0].pickupTime").value(nullValue()))
                 .andExpect(jsonPath("$.rides[0].dropoffTime").value("2026-10-01T00:30:00Z"))
-                .andExpect(jsonPath("$.rides[0].totalFare").value(15000))
-                .andExpect(jsonPath("$.rides[0].farePerPerson").value(7500))
+                .andExpect(jsonPath("$.rides[0].totalFare").value(nullValue()))
+                .andExpect(jsonPath("$.rides[0].farePerPerson").value(nullValue()))
                 .andExpect(jsonPath("$.rides[0].currentMembers").value(2))
                 .andExpect(jsonPath("$.rides[0].members", hasSize(2)))
                 .andExpect(jsonPath("$.rides[0].members[0].publicId").value(PUBLIC_ID.toString()))
@@ -103,9 +103,9 @@ class RideRecordControllerUnitTest extends ControllerUnitTestSupport {
         verify(rideRecordService).findMyRides(eq(USER_ID), eq(50L), eq(10));
     }
 
-    @DisplayName("GET /api/v1/users/me/parties - 1차 모드 기록은 탑승 시각·요금이 null 로 나간다")
+    @DisplayName("GET /api/v1/users/me/parties - 탑승 시각·요금 키는 값 없이 null 로 남는다")
     @Test
-    void findMyRides_withoutDriver() throws Exception {
+    void findMyRides_fareKeysKeptAsNull() throws Exception {
 
         /*
          * settings

@@ -165,7 +165,7 @@ class PartyMeetingNotificationUnitTest {
         assertThat(party.getMeetingNotifiedAt()).isNull();
     }
 
-    @DisplayName("markMeetingNotified - 닫혔거나 기사 호출 단계로 넘어간 방은 차례가 아니다")
+    @DisplayName("markMeetingNotified - 이미 끝났거나 취소된 방은 차례가 아니다")
     @ParameterizedTest(name = "{0}")
     @EnumSource(value = PartyStatus.class, names = {"ACTIVE", "COMPLETED"}, mode = EnumSource.Mode.EXCLUDE)
     void markMeetingNotified_notOpen(PartyStatus status) {
@@ -497,7 +497,7 @@ class PartyMeetingNotificationUnitTest {
         return Party.load(100L, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
                 new ArrayList<>(List.of(members)), members[0].getMemberId(), MEETING_AT.minus(Duration.ofHours(1)), status,
                 realtime ? 12000 : null, realtime ? 25 : null, realtime ? "encoded-path" : null,
-                null, null, null, VERSION, roomType, departureAt, null, meetingNotifiedAt, departureReminderCount);
+                null, VERSION, roomType, departureAt, null, meetingNotifiedAt, departureReminderCount);
     }
 
     /** 아직 도착하지 않은 멤버. order 가 작을수록 먼저 합류했다 */

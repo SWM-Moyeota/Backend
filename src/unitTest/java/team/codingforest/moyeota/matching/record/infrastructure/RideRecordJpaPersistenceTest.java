@@ -44,17 +44,16 @@ class RideRecordJpaPersistenceTest {
     }
 
     @Test
-    void 기사_없이_끝난_합승_기록은_기사_탑승_시각_요금이_비어도_저장되고_목록에_나온다() {
+    void 끝난_합승_기록은_출발지_도착지_하차_시각으로_저장되고_목록에_나온다() {
         Long partyId = party(나, 동승자);
 
         rideRecords.save(RideRecord.withoutDriver(partyId, "강남역", "판교역"));
         clear();
 
         RideRecord found = rideRecords.findById(partyId).orElseThrow();
-        assertThat(found.getTaxiDriverId()).isNull();
-        assertThat(found.getPickupTime()).isNull();
+        assertThat(found.getDeparturePlace()).isEqualTo("강남역");
+        assertThat(found.getDestinationPlace()).isEqualTo("판교역");
         assertThat(found.getDropoffTime()).isNotNull();
-        assertThat(found.getTotalFare()).isNull();
         assertThat(rideRecords.findDroppedOffByMember(나, 10)).extracting(RideRecord::getMatchId).containsExactly(partyId);
     }
 
@@ -152,7 +151,7 @@ class RideRecordJpaPersistenceTest {
     @Test
     void 하차하지_않은_기록과_기록이_없는_방은_나오지_않는다() {
         Long 끝난방 = dropOff(party(나), 기준.plusSeconds(10));
-        rideRecords.save(RideRecord.load(party(나, 동승자), null, "강남역", "판교역", null, null, null));
+        rideRecords.save(RideRecord.load(party(나, 동승자), "강남역", "판교역", null));
         party(나);
         clear();
 
@@ -199,11 +198,11 @@ class RideRecordJpaPersistenceTest {
 
     private Long savedParty(List<PartyMember> members) {
         return parties.save(Party.load(null, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), new Radius(100), new Radius(100),
-                "강남역", "판교역", new Capacity(3), members, 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", null, null, 기준, 0L)).getId();
+                "강남역", "판교역", new Capacity(3), members, 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 기준, 0L)).getId();
     }
 
     private Long dropOff(Long partyId, Instant dropoffTime) {
-        rideRecords.save(RideRecord.load(partyId, null, "강남역", "판교역", null, dropoffTime, null));
+        rideRecords.save(RideRecord.load(partyId, "강남역", "판교역", dropoffTime));
         return partyId;
     }
 

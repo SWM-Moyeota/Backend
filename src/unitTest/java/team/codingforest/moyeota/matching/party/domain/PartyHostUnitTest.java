@@ -29,7 +29,7 @@ class PartyHostUnitTest {
     /** 저장된 host_id 와 합류 시각을 그대로 복원한 모집 중인 방 */
     private static Party restored(Long hostId, PartyMember... members) {
         return Party.load(100L, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
-                List.of(members), hostId, BASE_TIME, PartyStatus.ACTIVE, 12000, 25, "encoded-path", null, null, null, 0L,
+                List.of(members), hostId, BASE_TIME, PartyStatus.ACTIVE, 12000, 25, "encoded-path", null, 0L,
                 RoomType.REALTIME, null, null);
     }
 
@@ -262,7 +262,7 @@ class PartyHostUnitTest {
          */
         Party party = Party.load(100L, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
                 List.of(joinedAt(THIRD_ID, 20), joinedAt(MEMBER_ID, 10)), BASE_TIME, PartyStatus.ACTIVE, 12000, 25, "encoded-path",
-                null, null, null, 0L);
+                null, 0L);
 
         /*
          * verify

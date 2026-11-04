@@ -272,14 +272,14 @@ class PartyConfirmUnitTest {
         assertThat(party.getVersion()).isEqualTo(version);
     }
 
-    @DisplayName("confirm - 확정 뒤 매칭이 시작된 방(기사 호출 모드)에 다시 누르면 상태보다 확정 여부를 먼저 보고 ALREADY_CONFIRMED")
+    @DisplayName("confirm - 확정 뒤 이미 끝난 방에 다시 누르면 상태보다 확정 여부를 먼저 보고 ALREADY_CONFIRMED")
     @Test
-    void confirm_alreadyConfirmedAfterMatching() {
+    void confirm_alreadyConfirmedAfterFinished() {
 
         /*
          * settings
          */
-        Party party = restored(PartyStatus.MATCHING, MEETING_AT, HOST_ID, MEMBER_ID);
+        Party party = restored(PartyStatus.FINISHED, MEETING_AT, HOST_ID, MEMBER_ID);
 
         /*
          * test
@@ -534,14 +534,14 @@ class PartyConfirmUnitTest {
         assertThat(party.isHost(MEMBER_ID)).isTrue();
     }
 
-    @DisplayName("leave - 매칭이 시작된 확정 방은 확정 여부보다 모집 상태를 먼저 보고 PARTY_NOT_RECRUITING")
+    @DisplayName("leave - 이미 끝난 확정 방은 확정 여부보다 모집 상태를 먼저 보고 PARTY_NOT_RECRUITING")
     @Test
-    void leave_confirmedAfterMatching() {
+    void leave_confirmedAfterFinished() {
 
         /*
          * settings
          */
-        Party party = restored(PartyStatus.MATCHING, MEETING_AT, HOST_ID, MEMBER_ID);
+        Party party = restored(PartyStatus.FINISHED, MEETING_AT, HOST_ID, MEMBER_ID);
 
         /*
          * test
@@ -581,7 +581,7 @@ class PartyConfirmUnitTest {
         }
 
         return Party.load(100L, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
-                members, memberIds[0], NOW.minus(Duration.ofMinutes(5)), status, 12000, 25, "encoded-path", null, null, null, 0L,
+                members, memberIds[0], NOW.minus(Duration.ofMinutes(5)), status, 12000, 25, "encoded-path", null, 0L,
                 RoomType.REALTIME, departureAt, null);
     }
 

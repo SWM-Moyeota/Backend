@@ -30,6 +30,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+// 택시 시절 컬럼(배정 기사 id, 매칭 시작 시각)은 테이블에 남아 있지만 매핑하지 않는다 - 둘 다 nullable 이라 INSERT 때 null 로 들어간다.
+// 컬럼 DROP 은 이 매핑을 지운 코드가 모든 서버와 롤백 대상에 깔린 다음 릴리스에서 한다
 @Entity
 @Getter
 @Table(name = "match_room",
@@ -86,12 +88,6 @@ public class PartyEntity extends BaseTimeEntity {
     @Column(columnDefinition = "TEXT")
     private String route;
 
-    @Column(name = "taxi_driver_id")
-    private Long taxiDriverId;
-
-    @Column(name = "match_started_at")
-    private Instant matchingStartedAt;
-
     @Column(name = "completed_at")
     private Instant completedAt;
 
@@ -119,7 +115,7 @@ public class PartyEntity extends BaseTimeEntity {
 
     private PartyEntity(Double departureLat, Double departureLng, Double destinationLat, Double destinationLng, String departure,
                        String destination, Integer capacity, Integer departureRadius, Integer destinationRadius, Long hostId, PartyStatus status,
-                        Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version,
+                        Integer estimatedFare, Integer estimatedTime, String route, Instant completedAt, long version,
                         RoomType roomType, Instant departureAt, Instant reminderSentAt, Instant meetingNotifiedAt, int departureReminderCount) {
         this.departureLat = departureLat;
         this.departureLng = departureLng;
@@ -135,8 +131,6 @@ public class PartyEntity extends BaseTimeEntity {
         this.estimatedFare = estimatedFare;
         this.estimatedTime = estimatedTime;
         this.route = route;
-        this.taxiDriverId = taxiDriverId;
-        this.matchingStartedAt = matchingStartedAt;
         this.completedAt = completedAt;
         this.version = version;
         this.roomType = roomType;
@@ -162,8 +156,6 @@ public class PartyEntity extends BaseTimeEntity {
                 party.getEstimatedFare(),
                 party.getEstimatedTime(),
                 party.getRoute(),
-                party.getTaxiDriverId(),
-                party.getMatchingStartedAt(),
                 party.getCompletedAt(),
                 party.getVersion(),
                 party.getRoomType(),
@@ -183,15 +175,13 @@ public class PartyEntity extends BaseTimeEntity {
     public Party toDomain() {
         return Party.load(getId(), new Location(departureLat, departureLng), new Location(destinationLat, destinationLng),
                 new Radius(departureRadius), new Radius(destinationRadius), departure, destination, new Capacity(capacity),
-                members.stream().map(PartyMemberEntity::toDomain).toList(), hostId, getCreatedAt(), status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version, roomType, departureAt, reminderSentAt,
+                members.stream().map(PartyMemberEntity::toDomain).toList(), hostId, getCreatedAt(), status, estimatedFare, estimatedTime, route, completedAt, version, roomType, departureAt, reminderSentAt,
                 meetingNotifiedAt, departureReminderCount);
     }
 
     public void update(Party party) {
         this.hostId = party.hostId();   // 방장이 나가면 승계된다
         this.status = party.getStatus();
-        this.taxiDriverId = party.getTaxiDriverId();
-        this.matchingStartedAt = party.getMatchingStartedAt();
         this.completedAt = party.getCompletedAt();
         this.version = party.getVersion();
         this.departureAt = party.getDepartureAt();   // 실시간 방은 방장이 약속 시간을 확정하면 채워진다

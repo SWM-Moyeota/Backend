@@ -72,10 +72,9 @@ class PartyAutoClosePostgresTest {
             Long 최근방 = realtimeRoom(PartyStatus.COMPLETED, now.minus(Duration.ofHours(23)));
             Long 끝난방 = realtimeRoom(PartyStatus.FINISHED, now.minus(Duration.ofDays(2)));
             Long 취소된방 = realtimeRoom(PartyStatus.CANCELED, now.minus(Duration.ofDays(2)));
-            Long 기사호출방 = realtimeRoom(PartyStatus.MATCHING, now.minus(Duration.ofDays(2)));
 
             return List.of(parties.findAutoCloseTargets(now.minus(AUTO_CLOSE_AFTER)),
-                    List.of(오래된방, 오래된모집방), List.of(최근방, 끝난방, 취소된방, 기사호출방));
+                    List.of(오래된방, 오래된모집방), List.of(최근방, 끝난방, 취소된방));
         });
 
         assertThat(result.get(0)).containsAll(result.get(1)).doesNotContainAnyElementsOf(result.get(2));

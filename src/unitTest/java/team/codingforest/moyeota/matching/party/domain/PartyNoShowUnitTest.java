@@ -213,7 +213,7 @@ class PartyNoShowUnitTest {
 
         return Party.load(100L, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3), members,
                 HOST_ID, MEETING_AT.minus(Duration.ofHours(1)), PartyStatus.FINISHED, 12000, 25, "encoded-path",
-                null, null, null, 7L, RoomType.REALTIME, MEETING_AT, null);
+                null, 7L, RoomType.REALTIME, MEETING_AT, null);
     }
 
     private static PartyMember memberOf(Party party, Long memberId) {

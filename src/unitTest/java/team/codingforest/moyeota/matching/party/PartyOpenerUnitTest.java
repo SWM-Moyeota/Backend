@@ -324,7 +324,7 @@ class PartyOpenerUnitTest {
     private static Party party(PartyStatus status, int capacity) {
         return Party.load(PARTY_ID, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(capacity),
                 List.of(PartyMember.load(HOST_ID, BASE_TIME)),
-                BASE_TIME, status, 12000, 25, "encoded-path", null, null, null, 0L);
+                BASE_TIME, status, 12000, 25, "encoded-path", null, 0L);
     }
 
     private static void assertBusinessException(Throwable thrown, ErrorCode expected) {

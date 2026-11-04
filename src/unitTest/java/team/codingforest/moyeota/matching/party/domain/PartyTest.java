@@ -225,7 +225,7 @@ class PartyTest {
     /** 합류 시각을 조작해 복원한 정원 충족 방 - 도메인 경로로는 joinedAt 이 항상 Instant.now() 로 찍힌다 */
     private Party completedPartyWith(PartyMember... members) {
         return Party.load(1L, 강남역, 판교역, 기본반경, 기본반경, 강남역출발, 판교역도착, new Capacity(members.length),
-                List.of(members), 지금, PartyStatus.COMPLETED, 예상요금, 예상시간, 경로, null, null, 지금, 0L);
+                List.of(members), 지금, PartyStatus.COMPLETED, 예상요금, 예상시간, 경로, 지금, 0L);
     }
 
     @Test

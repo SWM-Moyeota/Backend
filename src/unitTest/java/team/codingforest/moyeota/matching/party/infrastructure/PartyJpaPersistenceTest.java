@@ -316,7 +316,7 @@ class PartyJpaPersistenceTest {
         Party party = Party.load(null, 강남, 판교, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
                 List.of(PartyMember.load(1L, Instant.now().minusSeconds(600), 도착, null, null),
                         PartyMember.load(2L, Instant.now().minusSeconds(500), null, 노쇼, 무효)),
-                1L, Instant.now(), PartyStatus.FINISHED, 12000, 25, "encoded-path", null, null, null, 0L, RoomType.REALTIME, Instant.now().minusSeconds(300), null);
+                1L, Instant.now(), PartyStatus.FINISHED, 12000, 25, "encoded-path", null, 0L, RoomType.REALTIME, Instant.now().minusSeconds(300), null);
         Long id = parties.save(party).getId();
         clearContext();
 
