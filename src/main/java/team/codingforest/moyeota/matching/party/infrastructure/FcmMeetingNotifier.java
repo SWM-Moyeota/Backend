@@ -79,7 +79,6 @@ public class FcmMeetingNotifier implements MeetingNotifier {
 
     /**
      *  iOS 는 백그라운드에서 앱 코드가 돌지 않아 시스템이 이 값을 그대로 표시한다.
-     *  같은 방의 같은 종류 알림은 collapse-id 가 같아 새 알림이 이전 것을 바꾼다(출발 재촉이 쌓이지 않는다). 방 알림은 thread-id 로 한 묶음이 된다
      */
     private ApnsConfig apnsConfig(Push push, Long partyId) {
         return ApnsConfig.builder()
