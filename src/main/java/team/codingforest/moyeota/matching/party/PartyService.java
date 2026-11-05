@@ -58,9 +58,6 @@ import java.util.stream.IntStream;
 @Slf4j
 @RequiredArgsConstructor
 public class PartyService {
-    /**
-     * 지도 한 화면에 내려주는 방 수 상한. 넘으면 최신순으로 자른다
-     */
     static final int MAP_LIST_LIMIT = 100;
     private static final int RADIUS = 300;
     private static final Duration SOON_WINDOW = Duration.ofMinutes(30);
