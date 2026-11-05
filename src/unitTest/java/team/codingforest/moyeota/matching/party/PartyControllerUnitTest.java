@@ -4,12 +4,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import team.codingforest.moyeota.common.ControllerUnitTestSupport;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
+import team.codingforest.moyeota.matching.party.domain.NearbyReservation;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
@@ -24,7 +27,9 @@ import team.codingforest.moyeota.matching.party.dto.RealTimeMatchingCommand;
 import team.codingforest.moyeota.user.api.MemberSummary;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasKey;
@@ -33,6 +38,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -226,6 +232,222 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                         .param("swLat", "37.0").param("swLng", "126.0").param("neLat", "38.0").param("neLng", "128.0"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.list[0].partyId").value(PARTY_ID));
+    }
+
+    // ───────────────────────── GET /matching/reservations/search ─────────────────────────
+
+    private static final String SEARCH_URL = "/api/v1/matching/reservations/search";
+    private static final LocalDate SEARCH_DATE = LocalDate.parse("2026-11-06");
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 출발지·도착지·날짜로 검색해 방마다 destinationNearby 를 붙여 돌려준다")
+    @Test
+    void searchReservations() throws Exception {
+
+        /*
+         * settings
+         */
+        ReservationSummary nearDestination = new ReservationSummary(PARTY_ID, "강남역", "판교역", 2L, 3, PartyStatus.ACTIVE,
+                37.4979, 127.0276, 37.3948, 127.1112, DEPARTURE_AT);
+        ReservationSummary farDestination = new ReservationSummary(PARTY_ID + 1, "강남역", "잠실역", 1L, 2, PartyStatus.ACTIVE,
+                37.4985, 127.0280, 37.5133, 127.1001, DEPARTURE_AT.plusSeconds(600));
+
+        doReturn(List.of(new NearbyReservation(nearDestination, true), new NearbyReservation(farDestination, false)))
+                .when(partyService).searchReservations(eq(37.4979), eq(127.0276), eq(37.3948), eq(127.1112), eq(SEARCH_DATE));
+
+        /*
+         * test
+         */
+        mockMvc.perform(get(SEARCH_URL).with(loginUser())
+                        .param("depLat", "37.4979").param("depLng", "127.0276")
+                        .param("destLat", "37.3948").param("destLng", "127.1112")
+                        .param("date", "2026-11-06"))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.list", hasSize(2)))
+                .andExpect(jsonPath("$.list[0].partyId").value(PARTY_ID))
+                .andExpect(jsonPath("$.list[0].departure").value("강남역"))
+                .andExpect(jsonPath("$.list[0].destination").value("판교역"))
+                .andExpect(jsonPath("$.list[0].currentMembers").value(2))
+                .andExpect(jsonPath("$.list[0].capacity").value(3))
+                .andExpect(jsonPath("$.list[0].status").value("ACTIVE"))
+                .andExpect(jsonPath("$.list[0].departureLat").value(37.4979))
+                .andExpect(jsonPath("$.list[0].departureLng").value(127.0276))
+                .andExpect(jsonPath("$.list[0].destinationLat").value(37.3948))
+                .andExpect(jsonPath("$.list[0].destinationLng").value(127.1112))
+                .andExpect(jsonPath("$.list[0].departureAt").value("2026-11-03T08:00:00Z"))
+                .andExpect(jsonPath("$.list[0].destinationNearby").value(true))
+                .andExpect(jsonPath("$.list[1].partyId").value(PARTY_ID + 1))
+                .andExpect(jsonPath("$.list[1].destination").value("잠실역"))
+                .andExpect(jsonPath("$.list[1].departureAt").value("2026-11-03T08:10:00Z"))
+                .andExpect(jsonPath("$.list[1].destinationNearby").value(false));
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 도착지 없이 검색하면 도착지를 null 로 넘기고 destinationNearby 키는 null 로 남는다")
+    @Test
+    void searchReservations_withoutDestination() throws Exception {
+
+        /*
+         * settings
+         */
+        ReservationSummary summary = new ReservationSummary(PARTY_ID, "강남역", "판교역", 1L, 3, PartyStatus.ACTIVE,
+                37.4979, 127.0276, 37.3948, 127.1112, DEPARTURE_AT);
+
+        doReturn(List.of(new NearbyReservation(summary, null)))
+                .when(partyService).searchReservations(eq(37.4979), eq(127.0276), isNull(), isNull(), eq(SEARCH_DATE));
+
+        /*
+         * test
+         */
+        mockMvc.perform(get(SEARCH_URL).with(loginUser())
+                        .param("depLat", "37.4979").param("depLng", "127.0276").param("date", "2026-11-06"))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.list", hasSize(1)))
+                .andExpect(jsonPath("$.list[0].partyId").value(PARTY_ID))
+                .andExpect(jsonPath("$.list[0]", hasKey("destinationNearby")))
+                .andExpect(jsonPath("$.list[0].destinationNearby").value(nullValue()));
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 검색 결과가 없으면 빈 목록")
+    @Test
+    void searchReservations_empty() throws Exception {
+
+        /*
+         * settings
+         */
+        doReturn(List.of()).when(partyService).searchReservations(eq(37.4979), eq(127.0276), isNull(), isNull(), eq(SEARCH_DATE));
+
+        /*
+         * test
+         */
+        mockMvc.perform(get(SEARCH_URL).with(loginUser())
+                        .param("depLat", "37.4979").param("depLng", "127.0276").param("date", "2026-11-06"))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.list", hasSize(0)));
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 토큰이 없으면 401")
+    @Test
+    void searchReservations_noToken() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(get(SEARCH_URL)
+                        .param("depLat", "37.4979").param("depLng", "127.0276").param("date", "2026-11-06"))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(UNAUTHORIZED_CODE));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 필수 파라미터(depLat·depLng·date)가 없으면 400 이고 서비스를 부르지 않는다")
+    @ParameterizedTest(name = "{0} 없음")
+    @ValueSource(strings = {"depLat", "depLng", "date"})
+    void searchReservations_missingRequired(String missing) throws Exception {
+
+        /*
+         * settings
+         */
+        MockHttpServletRequestBuilder request = get(SEARCH_URL).with(loginUser());
+        Map.of("depLat", "37.4979", "depLng", "127.0276", "date", "2026-11-06").forEach((name, value) -> {
+            if (!name.equals(missing)) request.param(name, value);
+        });
+
+        /*
+         * test
+         */
+        mockMvc.perform(request)
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 날짜가 yyyy-MM-dd 가 아니면 400 INVALID_REQUEST 이고 서비스를 부르지 않는다")
+    @ParameterizedTest(name = "date={0}")
+    @ValueSource(strings = {"2026/11/06", "20261106", "2026-11-06T00:00:00Z", "2026-13-01"})
+    void searchReservations_invalidDate(String date) throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(get(SEARCH_URL).with(loginUser())
+                        .param("depLat", "37.4979").param("depLng", "127.0276").param("date", date))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 좌표가 숫자가 아니면 400 INVALID_REQUEST 이고 서비스를 부르지 않는다")
+    @ParameterizedTest(name = "{0}=abc")
+    @ValueSource(strings = {"depLat", "depLng", "destLat", "destLng"})
+    void searchReservations_coordinateNotNumber(String name) throws Exception {
+
+        /*
+         * settings
+         */
+        MockHttpServletRequestBuilder request = get(SEARCH_URL).with(loginUser()).param("date", "2026-11-06");
+        Map.of("depLat", "37.4979", "depLng", "127.0276", "destLat", "37.3948", "destLng", "127.1112").forEach((param, value) ->
+                request.param(param, param.equals(name) ? "abc" : value));
+
+        /*
+         * test
+         */
+        mockMvc.perform(request)
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 서비스의 비즈니스 예외를 상태코드와 오류 코드로 바꾼다")
+    @ParameterizedTest(name = "{0} → {1}")
+    @CsvSource({
+            "INCOMPLETE_DESTINATION, 400",
+            "OUT_OF_SERVICE_AREA, 400",
+            "INVALID_SEARCH_DATE, 400"
+    })
+    void searchReservations_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
+
+        /*
+         * settings
+         */
+        doThrow(new BusinessException(errorCode)).when(partyService).searchReservations(eq(37.4979), eq(127.0276), eq(37.3948), isNull(), eq(SEARCH_DATE));
+
+        /*
+         * test
+         */
+        mockMvc.perform(get(SEARCH_URL).with(loginUser())
+                        .param("depLat", "37.4979").param("depLng", "127.0276").param("destLat", "37.3948").param("date", "2026-11-06"))
+
+        /*
+         * verify
+         */
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.code").value(errorCode.name()));
     }
 
     // ───────────────────────── POST /matching/rooms ─────────────────────────

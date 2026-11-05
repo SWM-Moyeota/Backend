@@ -26,6 +26,7 @@ import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
 import team.codingforest.moyeota.matching.party.domain.AutoCloseResult;
 import team.codingforest.moyeota.matching.party.domain.Location;
+import team.codingforest.moyeota.matching.party.domain.NearbyReservation;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyConflictRule;
@@ -49,6 +50,8 @@ import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -60,6 +63,15 @@ import java.util.stream.IntStream;
 public class PartyService {
     static final int MAP_LIST_LIMIT = 100;
     private static final int RADIUS = 300;
+    /**
+     * 예약 방 검색 반경(m). 출발지는 이 안이어야 하고, 도착지는 이 안이면 근처로 앞에 세운다
+     */
+    private static final int RESERVATION_SEARCH_RADIUS = 1000;
+    /**
+     * 예약 방 검색 날짜는 오늘(KST)부터 이 일수 뒤까지 - 예약 방은 7일 뒤까지 만들 수 있다
+     */
+    private static final int RESERVATION_SEARCH_DAYS = 7;
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final Duration SOON_WINDOW = Duration.ofMinutes(30);
 
     private final Parties parties;
@@ -192,6 +204,29 @@ public class PartyService {
         Instant now = Instant.now();
 
         return parties.findReservationsWithinBounds(now, now.plus(SOON_WINDOW), swLat, neLat, swLng, neLng, MAP_LIST_LIMIT);
+    }
+
+    /**
+     *  출발지 반경 1km 안에서 date(KST) 하루 동안 출발하는 ACTIVE 예약 방. 오늘이면 이미 출발한 방은 뺀다.
+     *  도착지를 넣으면 도착지도 1km 안인 방이 먼저 오고, 빼면 출발 시각 순이다
+     */
+    @Transactional(readOnly = true)
+    public List<NearbyReservation> searchReservations(double depLat, double depLng, Double destLat, Double destLng, LocalDate date) {
+        if ((destLat == null) != (destLng == null)) throw new BusinessException(MatchingErrorCode.INCOMPLETE_DESTINATION);
+
+        Location departure = new Location(depLat, depLng);
+        Location destination = destLat == null ? null : new Location(destLat, destLng);
+
+        Instant now = Instant.now();
+        LocalDate today = LocalDate.ofInstant(now, KST);
+
+        if (date.isBefore(today) || date.isAfter(today.plusDays(RESERVATION_SEARCH_DAYS))) throw new BusinessException(MatchingErrorCode.INVALID_SEARCH_DATE);
+
+        Instant dayStart = date.atStartOfDay(KST).toInstant();
+        Instant from = now.isAfter(dayStart) ? now : dayStart;
+        Instant to = date.plusDays(1).atStartOfDay(KST).toInstant();
+
+        return parties.findReservationsWithinRadius(from, to, departure, destination, RESERVATION_SEARCH_RADIUS, MAP_LIST_LIMIT);
     }
 
     @Transactional
