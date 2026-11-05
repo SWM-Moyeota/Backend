@@ -14,13 +14,10 @@ import java.util.Optional;
 /**
  *  애그리거트 루트
   */
-// TODO - 예외처리 해야함
 public class Party {
     private static final Duration MAX_RESERVATION_AHEAD = Duration.ofDays(7);
     private static final Duration MAX_CONFIRM_AHEAD = Duration.ofHours(1);
-    // "도착했어요"를 받는 출발지 반경. 거리는 서비스가 이 값으로 DB(PostGIS)에 물어 잰다
     public static final double ARRIVAL_RADIUS_METERS = 100;
-    // 앱이 "지금"을 고르면 요청이 도착할 때는 이미 지난 시각이라, 그만큼은 지난 시각도 받는다
     private static final Duration CONFIRM_CLOCK_SKEW = Duration.ofMinutes(1);
     private static final int MIN_MEMBERS_TO_DEPART = 2;
     // 약속 시각 알림은 이만큼 넘게 늦으면(서버가 멈췄다 다시 돈 경우) "약속 시간이에요"가 맞지 않아 보내지 않는다

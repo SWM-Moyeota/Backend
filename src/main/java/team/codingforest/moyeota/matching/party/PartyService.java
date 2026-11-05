@@ -25,7 +25,6 @@ import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
 import team.codingforest.moyeota.matching.party.domain.AutoCloseResult;
-import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
@@ -81,14 +80,12 @@ public class PartyService {
 
     public PartyResult open(OpenPartyCommand command) {
         Instant now = Instant.now();
-        // 제한된 사용자 때문에 네이버 경로 API 를 부르지 않게 맨 먼저 본다
+
         ensureNotRestricted(command.creatorId(), now);
         PartyConflictRule.check(parties, command.creatorId(), now);
 
-		// 네이버 API를 사용하기에 트랜잭션을 사용하지 않음
         RouteEstimate estimate = routeService.estimate(command.departureLat(), command.departureLng(), command.destinationLat(), command.destinationLng());
 
-		// match 테이블 저장(트랜잭션)
 		return partyOpener.open(command, estimate);
     }
 
@@ -126,7 +123,6 @@ public class PartyService {
 
         eventPublisher.publishEvent(new PartyMemberJoinedEvent(partyId, memberId));
 
-        // 출발 시각 전에만 참여할 수 있고 도착은 약속 시간부터라, 막 들어온 사람은 아직 도착 전이다
         MemberJoined event = MemberJoined.from(PartyDetailResult.MemberInfo.of(summary, rideCount, saved.isHost(memberId), false), saved.getStatus().name(), saved.getVersion());
 
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.memberJoined(partyId, event));
@@ -225,7 +221,7 @@ public class PartyService {
 
     @Transactional
     public void arrive(Long partyId, Long memberId, double latitude, double longitude) {
-        // 서비스 지역 밖 좌표는 DB 에 묻기 전에 거른다
+        // 요청온 위도 경도 유효한지 확인
         Location current = new Location(latitude, longitude);
 
         MemberSummary summary = userAccess.findMemberSummaries(List.of(memberId)).get(memberId);
@@ -234,10 +230,10 @@ public class PartyService {
         Party party = parties.findByIdForUpdate(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
-        // 출발지까지의 거리는 PostGIS 가 잰다 - 판정 규칙(멤버·상태·시간 순서)은 도메인이 그 답을 받아 본다
+		// 출발지 반경 100m 있는지 확인
         boolean nearDeparture = parties.isNearDeparture(partyId, current.latitude(), current.longitude(), Party.ARRIVAL_RADIUS_METERS);
 
-        // 이미 도착한 사람이 다시 누르면 처음 시각을 그대로 두고 저장·신호 없이 끝낸다
+		// 중복 요청 처리
         if (!party.arrive(memberId, nearDeparture, Instant.now())) {
             log.info("이미 도착한 멤버가 다시 도착을 누름 partyId={}, memberId={}", partyId, memberId);
             return;
@@ -264,6 +260,7 @@ public class PartyService {
         List<Long> noShowMemberIds = party.depart(memberId, now);
         parties.save(party);
         penalizeNoShows(party, noShowMemberIds, now);
+
         meetingNotificationService.notifyNoShows(partyId, noShowMemberIds, now);
         rideRecords.save(RideRecord.withoutDriver(partyId, party.getDeparture(), party.getDestination()));
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
@@ -345,10 +342,8 @@ public class PartyService {
         Location destinationLocation = new Location(command.destLat(), command.destLng());
         PartyConflictRule.check(parties, memberId, Instant.now());
 
-        // 1. 입력으로 들어온 출발지 위경도와 목적지 위경도에서 300m 반경의 매칭방을 찾기
         List<NearbyPartySummary> summary = parties.findMatchesWithinRadius(departureLocation.latitude(), departureLocation.longitude(), destinationLocation.latitude(), destinationLocation.longitude(), RADIUS);
 
-        // 2. OSRM으로 매칭방 목록과 현재 출발하고 싶은 출발점 위경도와 목적지 위경도 estimateTime 계산
         Coordinate departure = Coordinate.from(departureLocation.latitude(), departureLocation.longitude());
         Coordinate destination = Coordinate.from(destinationLocation.latitude(), destinationLocation.longitude());
 
@@ -358,7 +353,6 @@ public class PartyService {
         List<WalkingEstimate> dropOff = walkRouteFinder.toFrom(destination, summary.stream()
                 .map(p -> new Coordinate(p.destinationLat(), p.destinationLng())).toList());
 
-        // 3. 출발지에서 인근 방으로 걸리는 시간 + 방의 목적지에서 원래 목적지로 걸리는 시간 정렬
         return IntStream.range(0, summary.size())
                 .filter(i -> toPickup.get(i) != null && dropOff.get(i) != null)
                 .mapToObj(i -> new MatchCandidate(summary.get(i), toPickup.get(i).durationSeconds() + dropOff.get(i).durationSeconds()))
