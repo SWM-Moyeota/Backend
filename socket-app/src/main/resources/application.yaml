@@ -24,6 +24,9 @@ management:
   metrics:
     tags:
       application: moyeota-socket
+    distribution:
+      slo:
+        http.client.requests: 10ms, 50ms, 100ms, 300ms, 1s   # /internal 지연 구간 - timeout 1s 까지
 
 chat:
   websocket:
