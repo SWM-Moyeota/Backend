@@ -63,13 +63,9 @@ import java.util.stream.IntStream;
 public class PartyService {
     static final int MAP_LIST_LIMIT = 100;
     private static final int RADIUS = 300;
-    /**
-     * 예약 방 검색 반경(m). 출발지는 이 안이어야 하고, 도착지는 이 안이면 근처로 앞에 세운다
-     */
+	// 예약 방 검색 반경 1Km 지정
     private static final int RESERVATION_SEARCH_RADIUS = 1000;
-    /**
-     * 예약 방 검색 날짜는 오늘(KST)부터 이 일수 뒤까지 - 예약 방은 7일 뒤까지 만들 수 있다
-     */
+	// 예약 방 생성 날짜는 현재부터 7일 뒤까지 생성할 수 있음
     private static final int RESERVATION_SEARCH_DAYS = 7;
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final Duration SOON_WINDOW = Duration.ofMinutes(30);
@@ -280,8 +276,7 @@ public class PartyService {
     }
 
     /**
-     *  도착한 멤버가 출발을 누르면 방이 끝난다. 그 순간 도착하지 않은 멤버는 노쇼로 저장되고 탑승 기록·탑승 횟수에서 빠지며,
-     *  같은 트랜잭션에서 노쇼 제재(누적 횟수 +1, 약속 시간부터 누적 횟수 × 24시간 이용 제한)가 더해지고, 커밋 후 노쇼 멤버에게 노쇼 알림이 나간다(방해 금지 시간 제외)
+     *  도착한 멤버가 출발을 누르면 방이 끝나며 도착버튼을 누르지 않은 유저는 노쇼로 기록
      */
     @Transactional
     public void depart(Long partyId, Long memberId) {
@@ -341,8 +336,6 @@ public class PartyService {
     /**
      *  정리 스케줄러가 생성(실시간)·출발(예약) 후 1일이 지나도 열려 있는 방을 닫는다. 노쇼 판정은 Party.autoClose 가 한다.
      *  도착한 멤버가 있어 FINISHED 로 끝난 방만 하차 기록을 남긴다. 노쇼로 찍힌 멤버는 같은 트랜잭션에서 제재가 더해지고 커밋 후 노쇼 알림을 받는다(방해 금지 시간 제외)
-     *
-     *  @return 이번에 노쇼로 찍힌 memberId (합류 순)
      */
     @Transactional
     public List<Long> autoClose(Long partyId) {
@@ -409,7 +402,7 @@ public class PartyService {
     private void penalizeNoShows(Party party, List<Long> noShowMemberIds, Instant now) {
         noShowMemberIds.stream()
                 .sorted()
-                .forEach(userId -> noShowPenalty.record(userId, party.getDepartureAt(), now));
+                .forEach(userId -> noShowPenalty.record(userId, party.getId(), party.getDepartureAt(), now));
     }
 
     private Party getParty(Long partyId) {

@@ -10,8 +10,10 @@ import team.codingforest.moyeota.user.local.domain.LocalUsers;
 import team.codingforest.moyeota.user.local.domain.PasswordHasher;
 import team.codingforest.moyeota.user.local.dto.MyProfileResponse;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
+import team.codingforest.moyeota.user.sanction.domain.NoShow;
 import team.codingforest.moyeota.user.sanction.domain.NoShowSanction;
 import team.codingforest.moyeota.user.sanction.domain.NoShowSanctions;
+import team.codingforest.moyeota.user.sanction.domain.NoShows;
 import team.codingforest.moyeota.user.users.application.ProfileImages;
 import team.codingforest.moyeota.user.users.domain.IdGenerator;
 import team.codingforest.moyeota.user.users.domain.User;
@@ -21,10 +23,12 @@ import team.codingforest.moyeota.user.verification.application.SmsVerificationSe
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -54,6 +58,8 @@ class LocalUserServiceUnitTest {
     private ProfileImages profileImages;
     @Mock
     private NoShowSanctions noShowSanctions;
+    @Mock
+    private NoShows noShows;
     @InjectMocks
     private LocalUserService service;
 
@@ -62,7 +68,7 @@ class LocalUserServiceUnitTest {
         doReturn(IMAGE_URL).when(profileImages).toUrl(eq(null));
     }
 
-    @DisplayName("getProfile - 제한 중이면 감소를 반영한 누적 횟수와 제한 끝 시각을 싣는다")
+    @DisplayName("getProfile - 제한 중이면 지금 노쇼 횟수와 제한 끝 시각을 싣는다")
     @Test
     void getProfile_restricted() {
 
@@ -71,7 +77,9 @@ class LocalUserServiceUnitTest {
          */
         Instant until = Instant.now().plus(Duration.ofDays(1));
         givenUser();
-        doReturn(Optional.of(new NoShowSanction(2, Instant.now().minus(Duration.ofDays(1)), until))).when(noShowSanctions).find(eq(USER_ID));
+        doReturn(Optional.of(new NoShowSanction(until))).when(noShowSanctions).find(eq(USER_ID));
+        doReturn(List.of(new NoShow(Instant.now().minus(Duration.ofDays(3)), null), new NoShow(Instant.now().minus(Duration.ofHours(1)), null)))
+                .when(noShows).findUnexpired(eq(USER_ID), any(Instant.class));
 
         /*
          * test
@@ -89,16 +97,18 @@ class LocalUserServiceUnitTest {
         verifyNoInteractions(userProfiles);
     }
 
-    @DisplayName("getProfile - 제한이 끝났으면 restrictedUntil 은 null 이고 30일이 지난 만큼 누적 횟수가 줄어 있다")
+    @DisplayName("getProfile - 제한이 끝났으면 restrictedUntil 은 null 이고, 무효로 돌린 노쇼는 노쇼 횟수에 들어가지 않는다")
     @Test
-    void getProfile_expiredAndDecayed() {
+    void getProfile_expiredAndVoided() {
 
         /*
          * settings
          */
         givenUser();
-        doReturn(Optional.of(new NoShowSanction(2, Instant.now().minus(Duration.ofDays(31)), Instant.now().minus(Duration.ofDays(29)))))
-                .when(noShowSanctions).find(eq(USER_ID));
+        doReturn(Optional.of(new NoShowSanction(Instant.now().minus(Duration.ofDays(1))))).when(noShowSanctions).find(eq(USER_ID));
+        doReturn(List.of(new NoShow(Instant.now().minus(Duration.ofDays(5)), null),
+                new NoShow(Instant.now().minus(Duration.ofDays(3)), Instant.now().minus(Duration.ofDays(2)))))
+                .when(noShows).findUnexpired(eq(USER_ID), any(Instant.class));
 
         /*
          * test

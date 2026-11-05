@@ -18,6 +18,7 @@ import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
 import team.codingforest.moyeota.user.sanction.domain.NoShowSanction;
 import team.codingforest.moyeota.user.sanction.domain.NoShowSanctions;
+import team.codingforest.moyeota.user.sanction.domain.NoShows;
 import team.codingforest.moyeota.user.users.application.ProfileImages;
 import team.codingforest.moyeota.user.users.domain.IdGenerator;
 import team.codingforest.moyeota.user.users.domain.Nickname;
@@ -40,6 +41,7 @@ public class LocalUserService {
     private final SmsVerificationService smsVerificationService;
     private final ProfileImages profileImages;
     private final NoShowSanctions noShowSanctions;
+    private final NoShows noShows;
 
     @Transactional // users / local_user / profile 3개 테이블 원자 저장
     public UserResponse register(UserRegisterCommand command) {
@@ -91,12 +93,12 @@ public class LocalUserService {
         String name = user.getNickname() != null ? user.getNickname()
                 : userProfiles.findByUserId(userId).map(UserProfile::getName).map(Masking::name).orElse(null);
 
-        // 앱이 "언제까지 이용 제한"을 보여 준다. 누적 횟수는 30일 감소를 반영한 지금 값이다
+        // 앱이 "언제까지 이용 제한"을 보여 준다. 노쇼 횟수는 약속 시간에서 30일이 지나지 않은 노쇼 수다
         Instant now = Instant.now();
         NoShowSanction sanction = noShowSanctions.find(userId).orElse(NoShowSanction.NONE);
 
         return new MyProfileResponse(user.getPublicId(), name, profileImages.toUrl(user.getImageUrl()),
-                sanction.effectiveCount(now), sanction.activeRestrictionUntil(now).orElse(null));
+                NoShowSanction.count(noShows.findUnexpired(userId, now), now), sanction.activeRestrictionUntil(now).orElse(null));
     }
 
     @Transactional(readOnly = true)

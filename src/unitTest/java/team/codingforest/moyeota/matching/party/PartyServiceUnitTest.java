@@ -2337,7 +2337,7 @@ class PartyServiceUnitTest {
         verifyNoInteractions(parties, userAccess, eventPublisher, afterCommitExecutor, partyChangeNotifier);
     }
 
-    @DisplayName("depart - 노쇼로 찍힌 멤버마다 방의 약속 시간으로 제재를 더한다(방 저장 뒤, 같은 시각, userId 오름차순)")
+    @DisplayName("depart - 노쇼로 찍힌 멤버마다 방 번호와 약속 시간으로 제재를 더한다(방 저장 뒤, 같은 시각, userId 오름차순)")
     @Test
     void depart_penalizesNoShows() {
 
@@ -2363,10 +2363,10 @@ class PartyServiceUnitTest {
 
         InOrder order = inOrder(parties, noShowPenalty);
         order.verify(parties).save(eq(party));
-        order.verify(noShowPenalty).record(eq(MEMBER_ID), eq(meetingAt), eq(noShowAt));
-        order.verify(noShowPenalty).record(eq(THIRD_ID), eq(meetingAt), eq(noShowAt));
-        verify(noShowPenalty, never()).record(eq(HOST_ID), any(), any());
-        verify(noShowPenalty, never()).cancel(any(), any());
+        order.verify(noShowPenalty).record(eq(MEMBER_ID), eq(PARTY_ID), eq(meetingAt), eq(noShowAt));
+        order.verify(noShowPenalty).record(eq(THIRD_ID), eq(PARTY_ID), eq(meetingAt), eq(noShowAt));
+        verify(noShowPenalty, never()).record(eq(HOST_ID), any(), any(), any());
+        verify(noShowPenalty, never()).cancel(any(), any(), any());
     }
 
     @DisplayName("depart - 모두 도착했으면 제재가 없다")
@@ -2414,7 +2414,7 @@ class PartyServiceUnitTest {
         verifyNoInteractions(noShowPenalty);
     }
 
-    @DisplayName("autoClose - 노쇼로 찍힌 멤버마다 방의 약속 시간으로 제재를 더한다")
+    @DisplayName("autoClose - 노쇼로 찍힌 멤버마다 방 번호와 약속 시간으로 제재를 더한다")
     @Test
     void autoClose_penalizesNoShows() {
 
@@ -2439,9 +2439,9 @@ class PartyServiceUnitTest {
 
         InOrder order = inOrder(parties, noShowPenalty);
         order.verify(parties).save(eq(party));
-        order.verify(noShowPenalty).record(eq(MEMBER_ID), eq(meetingAt), eq(noShowAt));
-        order.verify(noShowPenalty).record(eq(THIRD_ID), eq(meetingAt), eq(noShowAt));
-        verify(noShowPenalty, never()).record(eq(HOST_ID), any(), any());
+        order.verify(noShowPenalty).record(eq(MEMBER_ID), eq(PARTY_ID), eq(meetingAt), eq(noShowAt));
+        order.verify(noShowPenalty).record(eq(THIRD_ID), eq(PARTY_ID), eq(meetingAt), eq(noShowAt));
+        verify(noShowPenalty, never()).record(eq(HOST_ID), any(), any(), any());
     }
 
     @DisplayName("autoClose - 예약 방은 출발 시각을 약속 시간으로 제재한다(전원 노쇼면 전원)")
@@ -2464,8 +2464,8 @@ class PartyServiceUnitTest {
          * verify
          */
         assertThat(party.getStatus()).isEqualTo(PartyStatus.CANCELED);
-        verify(noShowPenalty).record(eq(HOST_ID), eq(departureAt), any(Instant.class));
-        verify(noShowPenalty).record(eq(MEMBER_ID), eq(departureAt), any(Instant.class));
+        verify(noShowPenalty).record(eq(HOST_ID), eq(PARTY_ID), eq(departureAt), any(Instant.class));
+        verify(noShowPenalty).record(eq(MEMBER_ID), eq(PARTY_ID), eq(departureAt), any(Instant.class));
     }
 
     @DisplayName("autoClose - 약속을 정하지 않은 방은 노쇼가 없어 제재도 없다")
@@ -2513,7 +2513,7 @@ class PartyServiceUnitTest {
         Instant noShowAt = memberOf(party, MEMBER_ID).getNoShowAt();
         InOrder order = inOrder(parties, noShowPenalty, meetingNotificationService);
         order.verify(parties).save(eq(party));
-        order.verify(noShowPenalty).record(eq(MEMBER_ID), any(), eq(noShowAt));
+        order.verify(noShowPenalty).record(eq(MEMBER_ID), eq(PARTY_ID), any(), eq(noShowAt));
         order.verify(meetingNotificationService).notifyNoShows(eq(PARTY_ID), eq(List.of(THIRD_ID, MEMBER_ID)), eq(noShowAt));
     }
 

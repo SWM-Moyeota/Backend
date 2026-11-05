@@ -13,10 +13,11 @@ import java.util.Optional;
  *  가짜 NoShowPenalty. 제한은 restrict 로 직접 걸고, record·cancel 호출은 기록만 한다(제재 계산은 user 모듈 테스트가 본다)
  */
 class FakeNoShowPenalty implements NoShowPenalty {
-    record Recorded(Long userId, Instant meetingAt) {}
+    record Recorded(Long userId, Long partyId, Instant meetingAt) {}
+    record Cancelled(Long userId, Long partyId) {}
 
     final List<Recorded> recorded = new ArrayList<>();
-    final List<Long> cancelled = new ArrayList<>();
+    final List<Cancelled> cancelled = new ArrayList<>();
     private final Map<Long, Instant> restrictedUntil = new HashMap<>();
 
     void restrict(Long userId, Instant until) {
@@ -24,13 +25,13 @@ class FakeNoShowPenalty implements NoShowPenalty {
     }
 
     @Override
-    public void record(Long userId, Instant meetingAt, Instant now) {
-        recorded.add(new Recorded(userId, meetingAt));
+    public void record(Long userId, Long partyId, Instant meetingAt, Instant now) {
+        recorded.add(new Recorded(userId, partyId, meetingAt));
     }
 
     @Override
-    public void cancel(Long userId, Instant now) {
-        cancelled.add(userId);
+    public void cancel(Long userId, Long partyId, Instant now) {
+        cancelled.add(new Cancelled(userId, partyId));
     }
 
     @Override

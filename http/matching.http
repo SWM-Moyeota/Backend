@@ -108,7 +108,7 @@ Content-Type: application/json
 GET {{host}}/api/v1/operator/no-show-objections?status=PENDING
 X-Operator-Token: {{operatorToken}}
 
-### 13. (운영자) 이의 인정 - 노쇼 무효, 누적 횟수 -1, 지금 걸린 제한 해제
+### 13. (운영자) 이의 인정 - 노쇼 무효(노쇼 횟수에서 빠짐), 지금 걸린 제한 해제
 POST {{host}}/api/v1/operator/no-show-objections/1/accept
 X-Operator-Token: {{operatorToken}}
 

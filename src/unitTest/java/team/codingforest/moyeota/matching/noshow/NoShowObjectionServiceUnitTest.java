@@ -301,7 +301,7 @@ class NoShowObjectionServiceUnitTest {
 
     // ───────────────────────── accept ─────────────────────────
 
-    @DisplayName("accept - 신청을 잠가 ACCEPTED 로 바꾸고, 방을 잠가 멤버의 노쇼를 무효로 저장한 뒤 제재를 줄인다")
+    @DisplayName("accept - 신청을 잠가 ACCEPTED 로 바꾸고, 방을 잠가 멤버의 노쇼를 무효로 저장한 뒤 그 방의 제재를 취소한다")
     @Test
     void accept() {
 
@@ -331,7 +331,7 @@ class NoShowObjectionServiceUnitTest {
         order.verify(objections).findByIdForUpdate(eq(OBJECTION_ID));
         order.verify(parties).findByIdForUpdate(eq(PARTY_ID));
         order.verify(parties).save(eq(party));
-        order.verify(noShowPenalty).cancel(eq(NO_SHOW_ID), eq(objection.getResolvedAt()));
+        order.verify(noShowPenalty).cancel(eq(NO_SHOW_ID), eq(PARTY_ID), eq(objection.getResolvedAt()));
         order.verify(objections).save(eq(objection));
     }
 
