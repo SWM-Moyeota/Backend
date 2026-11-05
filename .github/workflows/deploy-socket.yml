@@ -1,0 +1,79 @@
+name: Deploy socket-app to EC2
+
+# develop 머지 중 socket-app·chat-contract 가 바뀌면 dev 소켓 서버(배포 그룹 moyeota-socket-dev, EC2 태그 Service=socket)에 배포
+# prod 소켓 서버는 아직 없어 main 은 넣지 않음. 손으로 다시 배포할 때는 Actions 화면에서 실행(workflow_dispatch)
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'socket-app/**'
+      - 'chat-contract/**'
+      - '.github/workflows/deploy-socket.yml'
+  workflow_dispatch:
+
+# 배포가 겹치지 않게 함. API 배포(deploy-*)와는 서로 독립
+concurrency:
+  group: deploy-socket-dev
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-northeast-2
+  S3_BUCKET: moyeota-deploy-bucket
+  ECR_REPOSITORY: moyeota-socket
+  CD_APP: moyeota-socket
+  CD_GROUP: moyeota-socket-dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        run: ./gradlew :socket-app:bootJar --no-daemon
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 태그는 커밋 해시 - latest 를 쓰지 않아 어떤 커밋이 떠 있는지 알 수 있고, 예전 해시로 다시 배포하면 롤백됨
+      - name: Build and push image
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+        run: |
+          docker build -f socket-app/Dockerfile -t "$IMAGE" socket-app
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" > socket-app/deploy/image.env
+
+      - name: Package
+        run: |
+          chmod +x socket-app/deploy/scripts/*.sh
+          cd socket-app/deploy && zip -r "$GITHUB_WORKSPACE/moyeota-socket-${{ github.sha }}.zip" .
+
+      - name: Upload to S3
+        run: aws s3 cp moyeota-socket-${{ github.sha }}.zip s3://$S3_BUCKET/socket/
+
+      - name: Deploy
+        run: |
+          DEPLOY_ID=$(aws deploy create-deployment \
+            --application-name $CD_APP \
+            --deployment-group-name $CD_GROUP \
+            --s3-location bucket=$S3_BUCKET,key=socket/moyeota-socket-${{ github.sha }}.zip,bundleType=zip \
+            --query deploymentId --output text)
+          echo "Deployment: $DEPLOY_ID"
+          aws deploy wait deployment-successful --deployment-id $DEPLOY_ID
