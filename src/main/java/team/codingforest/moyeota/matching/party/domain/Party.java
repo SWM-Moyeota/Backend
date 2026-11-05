@@ -18,6 +18,8 @@ public class Party {
     private static final Duration MAX_RESERVATION_AHEAD = Duration.ofDays(7);
     private static final Duration MAX_CONFIRM_AHEAD = Duration.ofHours(1);
     public static final double ARRIVAL_RADIUS_METERS = 100;
+    // 약속 시간 이만큼 전부터 도착을 받는다. 출발은 약속 시간부터다
+    public static final Duration ARRIVAL_OPENS_BEFORE = Duration.ofMinutes(10);
     private static final Duration CONFIRM_CLOCK_SKEW = Duration.ofMinutes(1);
     private static final int MIN_MEMBERS_TO_DEPART = 2;
     // 약속 시각 알림은 이만큼 넘게 늦으면(서버가 멈췄다 다시 돈 경우) "약속 시간이에요"가 맞지 않아 보내지 않는다
@@ -207,7 +209,7 @@ public class Party {
     }
 
     /**
-     *  출발지 도착 - 약속 시간(departureAt)부터 출발지 100m(ARRIVAL_RADIUS_METERS) 안에 있는 멤버가 누른다. 장소는 늘 방의 출발지다.
+     *  출발지 도착 - 약속 시간(departureAt) 10분 전(ARRIVAL_OPENS_BEFORE)부터 출발지 100m(ARRIVAL_RADIUS_METERS) 안에 있는 멤버가 누른다. 장소는 늘 방의 출발지다.
      *  거리는 도메인이 재지 않는다 - 서비스가 지금 위치가 반경 안인지 DB(PostGIS ST_DWithin)에 물어본 답을 nearDeparture 로 넘긴다.
      *  예약 방은 모집 정리 스케줄러가 돌기 전이면 출발 시각에도 ACTIVE 일 수 있어 COMPLETED 와 함께 받는다.
      *  이미 도착했으면 처음 시각을 그대로 두고 아무것도 바꾸지 않는다(위치·시간도 다시 보지 않는다)
@@ -221,7 +223,7 @@ public class Party {
 
         if(member.isArrived()) return false;
 
-        if(now.isBefore(departureAt)) throw new BusinessException(MatchingErrorCode.MEETING_NOT_STARTED);
+        if(now.isBefore(departureAt.minus(ARRIVAL_OPENS_BEFORE))) throw new BusinessException(MatchingErrorCode.ARRIVAL_NOT_OPEN);
 
         if(!nearDeparture) throw new BusinessException(MatchingErrorCode.TOO_FAR_FROM_DEPARTURE);
 
