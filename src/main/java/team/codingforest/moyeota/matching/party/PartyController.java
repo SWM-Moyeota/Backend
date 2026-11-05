@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +22,7 @@ import team.codingforest.moyeota.matching.party.dto.OpenPartyRequest;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyResponse;
 import team.codingforest.moyeota.matching.party.dto.OpenReservationRequest;
 import team.codingforest.moyeota.matching.party.dto.ReservationListResponse;
+import team.codingforest.moyeota.matching.party.dto.ReservationSearchResponse;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyListResponse;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
@@ -30,6 +32,7 @@ import team.codingforest.moyeota.matching.party.dto.RealTimeMatchingRequest;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 @Tag(name = "매칭방", description = "동승 매칭방 생성·참여·조회. 정원이 차면 모집이 끝난다(COMPLETED)")
@@ -143,6 +146,17 @@ public class PartyController {
                                                                         @RequestParam Double neLat,
                                                                         @RequestParam Double neLng) {
         return ResponseEntity.ok(ReservationListResponse.from(partyService.findSoonReservationsWithin(swLat, swLng, neLat, neLng)));
+    }
+
+    @Operation(summary = "예약 방 검색", description = "출발지(depLat·depLng) 1km 안에서 date(한국 날짜 yyyy-MM-dd) 하루 동안 출발하는 ACTIVE 예약 방을 최대 100개 조회. date 는 오늘부터 7일 뒤까지 고를 수 있고, 오늘이면 이미 출발한 방은 빠진다. 도착지(destLat·destLng)는 선택이며 둘 다 보내거나 둘 다 뺀다. 도착지를 보내면 방마다 destinationNearby(도착지도 1km 안인지)가 붙고 true 인 방이 먼저, 그 안에서 출발 시각 순이다. 도착지를 빼면 출발 시각 순이고 destinationNearby 는 null")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "방 목록(없으면 빈 목록)"), @ApiResponse(responseCode = "400", description = "depLat·depLng·date 누락 / INVALID_REQUEST - 숫자·날짜 형식 오류 / INCOMPLETE_DESTINATION - destLat·destLng 중 하나만 보냄 / OUT_OF_SERVICE_AREA - 서비스 지역 밖 좌표 / INVALID_SEARCH_DATE - date 가 오늘부터 7일 뒤 밖")})
+    @GetMapping("/matching/reservations/search")
+    public ResponseEntity<ReservationSearchResponse> searchReservations(@RequestParam Double depLat,
+                                                                        @RequestParam Double depLng,
+                                                                        @RequestParam(required = false) Double destLat,
+                                                                        @RequestParam(required = false) Double destLng,
+                                                                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(ReservationSearchResponse.from(partyService.searchReservations(depLat, depLng, destLat, destLng, date)));
     }
 
     @Operation(summary = "실시간 매칭 후보", description = "출발지·도착지 반경 300m 안의 ACTIVE 방을 도보 시간 합(탑승지까지 + 하차지에서 목적지까지) 오름차순으로 반환")

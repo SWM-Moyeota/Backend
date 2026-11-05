@@ -67,6 +67,12 @@ GET {{host}}/api/v1/matching/reservations?from=2026-11-03T00:00:00Z&to=2026-11-0
 ### 6. 지도 영역 안에서 30분 안에 출발하는 예약 방 목록
 GET {{host}}/api/v1/matching/reservations/soon?swLat=37.0&swLng=126.0&neLat=38.0&neLng=128.0
 
+### 6-1. 예약 방 검색 - 출발지·도착지 1km 안, date(한국 날짜)는 오늘부터 7일 뒤까지. 도착지도 가까운 방(destinationNearby=true)이 먼저
+GET {{host}}/api/v1/matching/reservations/search?depLat=37.4979&depLng=127.0276&destLat=37.3948&destLng=127.1112&date=2026-11-06
+
+### 6-2. 예약 방 검색 - 도착지 없이 출발지만. 출발 시각 순, destinationNearby 는 null
+GET {{host}}/api/v1/matching/reservations/search?depLat=37.4979&depLng=127.0276&date=2026-11-06
+
 ### 7. 방장이 약속 시간 확정 - 실시간 방, 2명 이상, 지금부터 1시간 안. 확정하면 모집이 끝나고 아무도 나갈 수 없다
 POST {{host}}/api/v1/matching/rooms/1/confirm
 Content-Type: application/json

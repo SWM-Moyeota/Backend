@@ -46,6 +46,10 @@ public enum MatchingErrorCode implements ErrorCode {
     INVALID_CURSOR(HttpStatus.BAD_REQUEST, "커서가 올바르지 않습니다."),
     INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "조회 기간이 올바르지 않습니다."),
 
+    // 예약 방 검색 검증
+    INVALID_SEARCH_DATE(HttpStatus.BAD_REQUEST, "검색 날짜는 오늘부터 7일 뒤까지만 고를 수 있습니다."),
+    INCOMPLETE_DESTINATION(HttpStatus.BAD_REQUEST, "도착지는 위도와 경도를 함께 보내야 합니다."),
+
     // 방 생성 입력 검증
     SAME_DEPARTURE_DESTINATION(HttpStatus.BAD_REQUEST, "출발지와 도착지가 같습니다."),
     INVALID_CAPACITY(HttpStatus.BAD_REQUEST, "방 정원은 1~3명이어야 합니다."),

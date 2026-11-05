@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.matching.party;
 
+import team.codingforest.moyeota.matching.party.domain.Location;
+import team.codingforest.moyeota.matching.party.domain.NearbyReservation;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
@@ -124,6 +126,13 @@ public class PartyJpaTest implements Parties {
                 .filter(s -> s.departureLng() >= swLng && s.departureLng() <= neLng)
                 .limit(limit)
                 .toList();
+    }
+
+    @Override
+    public List<NearbyReservation> findReservationsWithinRadius(Instant from, Instant to, Location departure, Location destination, int radius, int limit) {
+        // 반경 판정을 메모리로 흉내 내면 거리 공식을 테스트 쪽에 다시 짜야 하고, 빈 목록으로 답하면 검색 결과가 조용히 틀어진다.
+        // 그래서 답하지 않고 바로 실패한다 - 검색 흐름은 서비스 유닛 테스트(mock)와 Postgres 통합 테스트가 본다
+        throw new UnsupportedOperationException("예약 방 반경 검색은 PostGIS 몫이라 메모리 가짜로 흉내 내지 않는다");
     }
 
     private java.util.stream.Stream<ReservationSummary> activeReservations(Instant from, Instant to) {
