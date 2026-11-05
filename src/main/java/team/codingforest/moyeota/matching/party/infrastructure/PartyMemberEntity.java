@@ -9,16 +9,16 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
+import team.codingforest.moyeota.common.BaseTimeEntity;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 
 import java.time.Instant;
 
-// 생성시간, 변경 시간 컬럼이 없음
 @Entity
 @Getter
 @IdClass(PartyMemberId.class)
 @Table(name = "user_match_room")
-public class PartyMemberEntity {
+public class PartyMemberEntity extends BaseTimeEntity {
 
     @Id
     @ManyToOne(fetch = FetchType.LAZY)
@@ -28,9 +28,6 @@ public class PartyMemberEntity {
     @Id
     @Column(name = "user_id")
     private Long memberId;
-
-    @Column(nullable = false)
-    private Instant joinedAt;
 
     @Column(name = "arrived_at")
     private Instant arrivedAt;
@@ -43,14 +40,14 @@ public class PartyMemberEntity {
 
     protected PartyMemberEntity() {}
 
-    private PartyMemberEntity(PartyEntity party, Long memberId, Instant joinedAt) {
+    private PartyMemberEntity(PartyEntity party, Long memberId) {
         this.party = party;
         this.memberId = memberId;
-        this.joinedAt = joinedAt;
     }
 
+    // 합류 시각은 행이 생긴 시각(created_at)이라 auditing 이 채운다
     public static PartyMemberEntity of(PartyEntity party, PartyMember member) {
-        PartyMemberEntity entity = new PartyMemberEntity(party, member.getMemberId(), member.getJoinedAt());
+        PartyMemberEntity entity = new PartyMemberEntity(party, member.getMemberId());
         entity.update(member);
 
         return entity;
@@ -64,6 +61,6 @@ public class PartyMemberEntity {
     }
 
     public PartyMember toDomain() {
-        return PartyMember.load(memberId, joinedAt, arrivedAt, noShowAt, noShowVoidedAt);
+        return PartyMember.load(memberId, getCreatedAt(), arrivedAt, noShowAt, noShowVoidedAt);
     }
 }

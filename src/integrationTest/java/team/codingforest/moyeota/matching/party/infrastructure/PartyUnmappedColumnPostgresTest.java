@@ -83,7 +83,7 @@ class PartyUnmappedColumnPostgresTest {
          */
         Map<String, Object> row = jdbc.queryForMap("""
                 INSERT INTO match_room (capacity, departure_lat, departure_lng, destination_lat, destination_lng,
-                                        created_at, departure, destination, status, version, room_type, estimated_fare, estimated_time, route)
+                                        created_at, departure_place, destination_place, status, version, room_type, estimated_fare, estimated_time, route)
                 VALUES (3, 35.1595, 126.8526, 35.1768, 126.9055, now(), '광주송정역', '전남대', 'ACTIVE', 0, 'REALTIME', 9000, 20, 'x')
                 RETURNING id, departure_radius, destination_radius
                 """);
@@ -166,13 +166,13 @@ class PartyUnmappedColumnPostgresTest {
          */
         Long id = jdbc.queryForObject("""
                 INSERT INTO match_room (capacity, departure_lat, departure_lng, departure_radius, destination_lat, destination_lng, destination_radius,
-                                        created_at, departure, destination, status, version, room_type, estimated_fare, estimated_time, route,
+                                        created_at, departure_place, destination_place, status, version, room_type, estimated_fare, estimated_time, route,
                                         host_id, completed_at)
                 VALUES (2, 35.1595, 126.8526, 100, 35.1768, 126.9055, 100, now(), '광주송정역', '전남대', 'COMPLETED', 1, 'REALTIME', 9000, 20, 'x', ?, now())
                 RETURNING id
                 """, Long.class, 방장);
         created.add(id);
-        jdbc.update("INSERT INTO user_match_room (match_id, user_id, joined_at) VALUES (?, ?, now() - interval '1 minute'), (?, ?, now())",
+        jdbc.update("INSERT INTO user_match_room (match_id, user_id, created_at) VALUES (?, ?, now() - interval '1 minute'), (?, ?, now())",
                 id, 방장, id, 동승자);
         Timestamp completedAt = jdbc.queryForObject("SELECT completed_at FROM match_room WHERE id = ?", Timestamp.class, id);
 

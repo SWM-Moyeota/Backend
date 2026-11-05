@@ -37,7 +37,7 @@ public interface RideRecordJpaRepository extends JpaRepository<RideRecordEntity,
             from PartyMemberEntity m
             where m.party.id in :matchIds
                 and (m.noShowAt is null or m.noShowVoidedAt is not null)
-            order by m.party.id, m.joinedAt, m.memberId
+            order by m.party.id, m.createdAt, m.memberId
             """)
     List<MatchMemberRow> findMembersByMatchIds(@Param("matchIds") Collection<Long> matchIds);
 }

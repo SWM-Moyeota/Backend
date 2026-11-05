@@ -196,8 +196,15 @@ class RideRecordJpaPersistenceTest {
     }
 
     private Long savedParty(List<PartyMember> members) {
-        return parties.save(Party.load(null, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
+        Long partyId = parties.save(Party.load(null, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
                 "강남역", "판교역", new Capacity(3), members, 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L)).getId();
+        em.flush();
+        // 합류 시각(created_at)은 auditing 이 저장 시각으로 채운다 - 픽스처의 합류 시각을 행에 그대로 옮긴다
+        members.forEach(member -> em.getEntityManager()
+                .createNativeQuery("UPDATE user_match_room SET created_at = ?1 WHERE match_id = ?2 AND user_id = ?3")
+                .setParameter(1, member.getJoinedAt()).setParameter(2, partyId).setParameter(3, member.getMemberId())
+                .executeUpdate());
+        return partyId;
     }
 
     private Long dropOff(Long partyId, Instant dropoffTime) {
