@@ -1714,7 +1714,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
             "PARTY_NOT_FOUND, 404",
             "PARTY_CLOSED, 409",
             "PARTY_NOT_CONFIRMED, 409",
-            "MEETING_NOT_STARTED, 409"
+            "ARRIVAL_NOT_OPEN, 409"
     })
     void arrive_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
 

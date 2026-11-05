@@ -26,6 +26,7 @@ public enum MatchingErrorCode implements ErrorCode {
     // 출발지 도착·출발
     PARTY_NOT_CONFIRMED(HttpStatus.CONFLICT, "약속 시간이 확정되지 않은 방입니다."),
     MEETING_NOT_STARTED(HttpStatus.CONFLICT, "아직 약속 시간이 되지 않았습니다."),
+    ARRIVAL_NOT_OPEN(HttpStatus.CONFLICT, "도착은 약속 시간 10분 전부터 누를 수 있습니다."),
     TOO_FAR_FROM_DEPARTURE(HttpStatus.BAD_REQUEST, "출발지에서 100m 안에 있어야 합니다."),
     NOT_ARRIVED(HttpStatus.CONFLICT, "출발지에 도착한 사람만 출발할 수 있습니다."),
     USE_DEPART_FOR_CONFIRMED_PARTY(HttpStatus.CONFLICT, "약속이 확정된 방은 출발 버튼으로 끝냅니다."),

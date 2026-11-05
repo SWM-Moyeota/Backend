@@ -172,9 +172,9 @@ class PartyAttendanceUnitTest {
         assertThat(memberOf(party, HOST_ID).isArrived()).isFalse();
     }
 
-    @DisplayName("arrive - 약속 시간 1초 전이면 MEETING_NOT_STARTED 이고 도착이 남지 않는다")
+    @DisplayName("arrive - 약속 시간 10분 1초 전이면 ARRIVAL_NOT_OPEN 이고 도착이 남지 않는다")
     @Test
-    void arrive_beforeMeeting() {
+    void arrive_beforeArrivalOpens() {
 
         /*
          * settings
@@ -184,19 +184,42 @@ class PartyAttendanceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> party.arrive(HOST_ID, NEAR, MEETING_AT.minusSeconds(1)));
+        Throwable thrown = catchThrowable(() -> party.arrive(HOST_ID, NEAR, MEETING_AT.minus(Duration.ofMinutes(10)).minusSeconds(1)));
 
         /*
          * verify
          */
-        assertBusinessException(thrown, MatchingErrorCode.MEETING_NOT_STARTED);
+        assertBusinessException(thrown, MatchingErrorCode.ARRIVAL_NOT_OPEN);
         assertThat(memberOf(party, HOST_ID).isArrived()).isFalse();
         assertThat(party.getVersion()).isZero();
     }
 
-    @DisplayName("arrive - 약속 시간 전이면 출발지 밖이라는 답이어도 MEETING_NOT_STARTED 가 먼저다")
+    @DisplayName("arrive - 약속 시간 10분 전 정각이면 도착한다")
     @Test
-    void arrive_beforeMeetingAndFar() {
+    void arrive_whenArrivalOpens() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, member(HOST_ID), member(MEMBER_ID));
+        Instant opensAt = MEETING_AT.minus(Duration.ofMinutes(10));
+
+        /*
+         * test
+         */
+        boolean arrived = party.arrive(HOST_ID, NEAR, opensAt);
+
+        /*
+         * verify
+         */
+        assertThat(arrived).isTrue();
+        assertThat(memberOf(party, HOST_ID).getArrivedAt()).isEqualTo(opensAt);
+        assertThat(party.getVersion()).isEqualTo(1);
+    }
+
+    @DisplayName("arrive - 약속 시간 전이어도 10분 안이면 도착한다")
+    @Test
+    void arrive_withinTenMinutesBeforeMeeting() {
 
         /*
          * settings
@@ -206,12 +229,33 @@ class PartyAttendanceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> party.arrive(HOST_ID, FAR, MEETING_AT.minusSeconds(1)));
+        boolean arrived = party.arrive(HOST_ID, NEAR, MEETING_AT.minusSeconds(1));
 
         /*
          * verify
          */
-        assertBusinessException(thrown, MatchingErrorCode.MEETING_NOT_STARTED);
+        assertThat(arrived).isTrue();
+        assertThat(memberOf(party, HOST_ID).isArrived()).isTrue();
+    }
+
+    @DisplayName("arrive - 약속 시간 10분 전보다 이르면 출발지 밖이라는 답이어도 ARRIVAL_NOT_OPEN 이 먼저다")
+    @Test
+    void arrive_beforeArrivalOpensAndFar() {
+
+        /*
+         * settings
+         */
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, member(HOST_ID), member(MEMBER_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> party.arrive(HOST_ID, FAR, MEETING_AT.minus(Duration.ofMinutes(10)).minusSeconds(1)));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.ARRIVAL_NOT_OPEN);
     }
 
     @DisplayName("arrive - 출발지 100m 밖이라는 답이면 TOO_FAR_FROM_DEPARTURE 이고 도착이 남지 않는다")
@@ -301,9 +345,9 @@ class PartyAttendanceUnitTest {
         assertThat(party.getStatus()).isEqualTo(status);
     }
 
-    @DisplayName("arrive - 예약 방도 출발 시각 전이면 MEETING_NOT_STARTED")
+    @DisplayName("arrive - 예약 방도 출발 시각 10분 전보다 이르면 ARRIVAL_NOT_OPEN")
     @Test
-    void arrive_reservedBeforeDeparture() {
+    void arrive_reservedBeforeArrivalOpens() {
 
         /*
          * settings
@@ -313,12 +357,12 @@ class PartyAttendanceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> party.arrive(HOST_ID, NEAR, MEETING_AT.minus(Duration.ofMinutes(10))));
+        Throwable thrown = catchThrowable(() -> party.arrive(HOST_ID, NEAR, MEETING_AT.minus(Duration.ofMinutes(10)).minusSeconds(1)));
 
         /*
          * verify
          */
-        assertBusinessException(thrown, MatchingErrorCode.MEETING_NOT_STARTED);
+        assertBusinessException(thrown, MatchingErrorCode.ARRIVAL_NOT_OPEN);
     }
 
     // ───────────────────────── depart ─────────────────────────
