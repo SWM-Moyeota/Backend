@@ -17,7 +17,6 @@ import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.dto.OpenReservationCommand;
 
 import java.sql.Timestamp;
@@ -215,7 +214,7 @@ class NoShowSanctionFlowPostgresTest {
     /** members 첫 번째가 방장 */
     private Long confirmedRoom(Long... members) {
         Party party = Party.open(members[0], DEPARTURE, DESTINATION, "제주공항", "제주시청", new Capacity(3), Instant.now(),
-                Radius.DEFAULT, Radius.DEFAULT, 9000, 20, "_p~iF~ps|U_ulLnnqC");
+                9000, 20, "_p~iF~ps|U_ulLnnqC");
         for (int i = 1; i < members.length; i++) party.join(members[i]);
         Long id = parties.save(party).getId();
         rooms.add(id);
@@ -227,7 +226,7 @@ class NoShowSanctionFlowPostgresTest {
 
     private Long openRoom(Long host) {
         Party party = Party.open(host, DEPARTURE, DESTINATION, "제주공항", "제주시청", new Capacity(3), Instant.now(),
-                Radius.DEFAULT, Radius.DEFAULT, 9000, 20, "_p~iF~ps|U_ulLnnqC");
+                9000, 20, "_p~iF~ps|U_ulLnnqC");
         Long id = parties.save(party).getId();
         rooms.add(id);
         return id;

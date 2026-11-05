@@ -10,7 +10,6 @@ import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -120,7 +119,7 @@ class PartyNearDepartureQueryPostgresTest {
 
     private Long savedParty() {
         Party party = Party.open(1L, DEPARTURE, DESTINATION, "대구시청", "경북대", new Capacity(3), Instant.now(),
-                Radius.DEFAULT, Radius.DEFAULT, 9000, 20, "_p~iF~ps|U_ulLnnqC");
+                9000, 20, "_p~iF~ps|U_ulLnnqC");
         Long id = parties.save(party).getId();
         created.add(id);
         return id;

@@ -101,7 +101,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
     @Test
     void reserve() throws Exception {
         OpenReservationCommand command = new OpenReservationCommand(USER_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, DEPARTURE_AT);
-        PartyResult result = new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, 500, 500, "ACTIVE", CREATED_AT, null, null, null, "RESERVED", DEPARTURE_AT);
+        PartyResult result = new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, "ACTIVE", CREATED_AT, null, null, null, "RESERVED", DEPARTURE_AT);
         doReturn(result).when(partyService).reserve(eq(command));
 
         mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
@@ -122,7 +122,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          * settings
          */
         OpenReservationCommand command = new OpenReservationCommand(USER_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, DEPARTURE_AT);
-        PartyResult result = new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, 500, 500, "ACTIVE", CREATED_AT, null, null, null, "RESERVED", DEPARTURE_AT);
+        PartyResult result = new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, "ACTIVE", CREATED_AT, null, null, null, "RESERVED", DEPARTURE_AT);
 
         doReturn(result).when(partyService).reserve(eq(command));
 
@@ -138,6 +138,34 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasKey("taxiDriverId")))
                 .andExpect(jsonPath("$.taxiDriverId").value(nullValue()));
+    }
+
+    @DisplayName("POST /api/v1/matching/reservations - 서버는 반경을 쓰지 않지만 출시된 앱이 읽는 departureRadius·destinationRadius 키는 500 으로 남는다")
+    @Test
+    void reserve_radiusKeysKeptAsFixedValue() throws Exception {
+
+        /*
+         * settings
+         */
+        OpenReservationCommand command = new OpenReservationCommand(USER_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, DEPARTURE_AT);
+        PartyResult result = new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, "ACTIVE", CREATED_AT, null, null, null, "RESERVED", DEPARTURE_AT);
+
+        doReturn(result).when(partyService).reserve(eq(command));
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(3, ", \"departureAt\": \"2026-11-03T08:00:00Z\"")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasKey("departureRadius")))
+                .andExpect(jsonPath("$", hasKey("destinationRadius")))
+                .andExpect(jsonPath("$.departureRadius").value(500))
+                .andExpect(jsonPath("$.destinationRadius").value(500));
     }
 
     @DisplayName("POST /api/v1/matching/reservations - 출발 시각이 없으면 400")
@@ -260,6 +288,30 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasKey("taxiDriverId")))
                 .andExpect(jsonPath("$.taxiDriverId").value(nullValue()));
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms - 서버는 반경을 쓰지 않지만 출시된 앱이 읽는 departureRadius·destinationRadius 키는 500 으로 남는다")
+    @Test
+    void open_radiusKeysKeptAsFixedValue() throws Exception {
+
+        /*
+         * settings
+         */
+        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms").with(loginUser()).contentType(MediaType.APPLICATION_JSON).content(OPEN_BODY))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasKey("departureRadius")))
+                .andExpect(jsonPath("$", hasKey("destinationRadius")))
+                .andExpect(jsonPath("$.departureRadius").value(500))
+                .andExpect(jsonPath("$.destinationRadius").value(500));
     }
 
     @DisplayName("POST /api/v1/matching/rooms - 본문의 creatorId 는 무시하고 토큰의 사용자를 쓴다")
@@ -1786,6 +1838,6 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
     }
 
     private static PartyResult partyResult() {
-        return new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, 500, 500, "ACTIVE", CREATED_AT, 12000, 25, "encoded-path", "REALTIME", null);
+        return new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, "ACTIVE", CREATED_AT, 12000, 25, "encoded-path", "REALTIME", null);
     }
 }

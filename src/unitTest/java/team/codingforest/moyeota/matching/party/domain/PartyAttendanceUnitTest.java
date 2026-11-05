@@ -754,16 +754,16 @@ class PartyAttendanceUnitTest {
     }
 
     private static Party realtime(PartyStatus status, Instant departureAt, PartyMember... members) {
-        return Party.load(100L, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
+        return Party.load(100L, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3),
                 new ArrayList<>(List.of(members)), members[0].getMemberId(), MEETING_AT.minus(Duration.ofHours(1)), status,
-                12000, 25, "encoded-path", null, 0L, RoomType.REALTIME, departureAt, null);
+                12000, 25, "encoded-path", 0L, RoomType.REALTIME, departureAt, null);
     }
 
     /** 출발 시각이 MEETING_AT 인 예약 방. 첫 멤버가 방장 */
     private static Party reserved(PartyStatus status, PartyMember... members) {
-        return Party.load(100L, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
+        return Party.load(100L, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3),
                 new ArrayList<>(List.of(members)), members[0].getMemberId(), MEETING_AT.minus(Duration.ofDays(1)), status,
-                null, null, null, null, 0L, RoomType.RESERVED, MEETING_AT, null);
+                null, null, null, 0L, RoomType.RESERVED, MEETING_AT, null);
     }
 
     private static PartyMember memberOf(Party party, Long memberId) {

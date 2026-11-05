@@ -9,7 +9,6 @@ import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
@@ -125,6 +124,6 @@ class NearbyPartyQueryPostgresTest {
 
     private static Party open(int capacity) {
         return Party.open(1L, DEPARTURE, DESTINATION, "대전역", "충남대", new Capacity(capacity), Instant.now(),
-                new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
+                12000, 25, "_p~iF~ps|U_ulLnnqC");
     }
 }

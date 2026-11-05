@@ -23,13 +23,13 @@ class PartyHostUnitTest {
 
     private static Party open(int capacity) {
         return Party.open(CREATOR_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity), Instant.now(),
-                Radius.DEFAULT, Radius.DEFAULT, 12000, 25, "encoded-path");
+                12000, 25, "encoded-path");
     }
 
     /** 저장된 host_id 와 합류 시각을 그대로 복원한 모집 중인 방 */
     private static Party restored(Long hostId, PartyMember... members) {
-        return Party.load(100L, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
-                List.of(members), hostId, BASE_TIME, PartyStatus.ACTIVE, 12000, 25, "encoded-path", null, 0L,
+        return Party.load(100L, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3),
+                List.of(members), hostId, BASE_TIME, PartyStatus.ACTIVE, 12000, 25, "encoded-path", 0L,
                 RoomType.REALTIME, null, null);
     }
 
@@ -260,9 +260,9 @@ class PartyHostUnitTest {
         /*
          * test
          */
-        Party party = Party.load(100L, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
+        Party party = Party.load(100L, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3),
                 List.of(joinedAt(THIRD_ID, 20), joinedAt(MEMBER_ID, 10)), BASE_TIME, PartyStatus.ACTIVE, 12000, 25, "encoded-path",
-                null, 0L);
+                0L);
 
         /*
          * verify

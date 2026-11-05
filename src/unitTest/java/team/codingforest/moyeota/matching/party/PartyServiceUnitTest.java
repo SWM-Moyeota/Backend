@@ -31,7 +31,6 @@ import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.RoomType;
 import team.codingforest.moyeota.matching.party.dto.MatchCandidate;
 import team.codingforest.moyeota.matching.party.dto.MemberArrived;
@@ -624,7 +623,6 @@ class PartyServiceUnitTest {
          * verify
          */
         assertThat(party.getStatus()).isEqualTo(PartyStatus.ACTIVE);
-        assertThat(party.getCompletedAt()).isNull();
         capturedAfterCommitTask().run();
         verify(partyChangeNotifier).memberLeft(eq(PARTY_ID), eq(MEMBER_ID), eq(new MemberLeft(MEMBER_PUBLIC_ID, "ACTIVE", HOST_PUBLIC_ID, 1L)));
     }
@@ -2484,8 +2482,8 @@ class PartyServiceUnitTest {
             members.add(PartyMember.load(memberIds[i], BASE_TIME.plusSeconds(i)));
         }
 
-        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(capacity), members,
-                BASE_TIME, status, 12000, 25, "encoded-path", null, version);
+        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity), members,
+                BASE_TIME, status, 12000, 25, "encoded-path", version);
     }
 
     /** 방 종류와 약속(출발) 시각까지 정해 복원한 방. memberIds 앞쪽일수록 먼저 합류했고 첫 번째가 방장 */
@@ -2497,16 +2495,16 @@ class PartyServiceUnitTest {
 
         boolean realtime = roomType == RoomType.REALTIME;
 
-        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(capacity), members,
+        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity), members,
                 memberIds[0], BASE_TIME, status, realtime ? 12000 : null, realtime ? 25 : null, realtime ? "encoded-path" : null,
-                null, version, roomType, departureAt, null);
+                version, roomType, departureAt, null);
     }
 
     /** 방장이 departureAt 으로 약속을 확정한 실시간 방. members 앞쪽이 먼저 합류했고 첫 번째가 방장 */
     private static Party confirmedParty(Instant departureAt, PartyStatus status, long version, PartyMember... members) {
-        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
+        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3),
                 new ArrayList<>(List.of(members)), members[0].getMemberId(), BASE_TIME, status, 12000, 25, "encoded-path",
-                null, version, RoomType.REALTIME, departureAt, null);
+                version, RoomType.REALTIME, departureAt, null);
     }
 
     /** 아직 도착하지 않은 멤버. order 가 작을수록 먼저 합류했다 */

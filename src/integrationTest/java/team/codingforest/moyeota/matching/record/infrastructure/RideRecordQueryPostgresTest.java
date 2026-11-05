@@ -18,7 +18,6 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -57,7 +56,7 @@ class RideRecordQueryPostgresTest {
     @Test
     void 방장이_합승을_종료하면_기록이_남고_동승자의_탑승_기록으로_조회된다() {
         Party party = Party.open(나, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(2), Instant.now(),
-                new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
+                12000, 25, "_p~iF~ps|U_ulLnnqC");
         party.join(동승자);   // 정원 2 충족 → COMPLETED
         Long partyId = track(parties.save(party).getId());
 
@@ -167,8 +166,8 @@ class RideRecordQueryPostgresTest {
 
     private Long savedParty(List<PartyMember> members) {
         Instant now = Instant.now();
-        return track(parties.save(Party.load(null, DEPARTURE, DESTINATION, new Radius(100), new Radius(100), "강남역", "판교역",
-                new Capacity(3), members, now, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", now, 0L)).getId());
+        return track(parties.save(Party.load(null, DEPARTURE, DESTINATION, "강남역", "판교역",
+                new Capacity(3), members, now, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L)).getId());
     }
 
     private Long track(Long partyId) {

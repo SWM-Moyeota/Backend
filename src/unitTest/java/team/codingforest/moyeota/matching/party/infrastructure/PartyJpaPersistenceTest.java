@@ -11,7 +11,6 @@ import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
@@ -49,7 +48,7 @@ class PartyJpaPersistenceTest {
     }
 
     private Party realtime(Long creatorId) {
-        return parties.save(Party.open(creatorId, 강남, 판교, "강남역", "판교역", new Capacity(3), Instant.now(), Radius.DEFAULT, Radius.DEFAULT, 12000, 25, "encoded-path"));
+        return parties.save(Party.open(creatorId, 강남, 판교, "강남역", "판교역", new Capacity(3), Instant.now(), 12000, 25, "encoded-path"));
     }
 
     // DB 컬럼은 마이크로초까지만 저장한다. Linux 의 Instant.now() 는 나노초까지 나와서 자르지 않으면 저장한 값과 경계 비교가 어긋난다
@@ -313,10 +312,10 @@ class PartyJpaPersistenceTest {
         Instant 도착 = micros(Instant.now().minusSeconds(120));
         Instant 노쇼 = micros(Instant.now().minusSeconds(60));
         Instant 무효 = micros(Instant.now());
-        Party party = Party.load(null, 강남, 판교, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
+        Party party = Party.load(null, 강남, 판교, "강남역", "판교역", new Capacity(3),
                 List.of(PartyMember.load(1L, Instant.now().minusSeconds(600), 도착, null, null),
                         PartyMember.load(2L, Instant.now().minusSeconds(500), null, 노쇼, 무효)),
-                1L, Instant.now(), PartyStatus.FINISHED, 12000, 25, "encoded-path", null, 0L, RoomType.REALTIME, Instant.now().minusSeconds(300), null);
+                1L, Instant.now(), PartyStatus.FINISHED, 12000, 25, "encoded-path", 0L, RoomType.REALTIME, Instant.now().minusSeconds(300), null);
         Long id = parties.save(party).getId();
         clearContext();
 
@@ -449,33 +448,6 @@ class PartyJpaPersistenceTest {
         assertThat(parties.findById(saved.getId()).orElseThrow().getVersion()).isEqualTo(1);
     }
 
-    @Test
-    void 정원_충족_시각은_저장_후_다시_조회해도_유지된다() {
-        // 자동 종료 스윕이 이 값으로 TTL 을 판정한다 - update() 에서 빠지면 조용히 NULL 로 남아 스윕이 아무것도 안 한다
-        Party saved = openAndSave();
-        saved.join(2L);
-        saved.join(3L);   // capacity 3 충족 → COMPLETED
-        parties.save(saved);
-
-        Party reloaded = parties.findById(saved.getId()).orElseThrow();
-
-        assertThat(reloaded.getStatus()).isEqualTo(PartyStatus.COMPLETED);
-        assertThat(reloaded.getCompletedAt()).isNotNull();
-    }
-
-    @Test
-    void 누가_나가면_충족_시각이_NULL로_저장된다() {
-        Party saved = openAndSave();
-        saved.join(2L);
-        saved.join(3L);
-        parties.save(saved);
-        saved.leave(3L);   // COMPLETED → ACTIVE
-
-        parties.save(saved);
-
-        assertThat(parties.findById(saved.getId()).orElseThrow().getCompletedAt()).isNull();
-    }
-
     // ───────────────────────── 지도 목록(요약) 조회 ─────────────────────────
 
     @Test
@@ -536,13 +508,13 @@ class PartyJpaPersistenceTest {
 
     private Party openAt(Long creatorId, double lat, double lng) {
         return Party.open(creatorId, new Location(lat, lng), new Location(37.3948, 127.1112),
-                "강남역", "판교역", new Capacity(3), Instant.now(), new Radius(100), new Radius(100),
+                "강남역", "판교역", new Capacity(3), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC");
     }
 
     private Party openAndSave() {
         Party party = Party.open(1L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
-                "강남역", "판교역", new Capacity(3), Instant.now(), new Radius(100), new Radius(100),
+                "강남역", "판교역", new Capacity(3), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC");
         return parties.save(party);
     }

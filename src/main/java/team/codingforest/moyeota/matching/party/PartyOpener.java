@@ -12,7 +12,6 @@ import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyConflictRule;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.party.dto.OpenReservationCommand;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
@@ -38,8 +37,7 @@ public class PartyOpener {
 				new Location(command.departureLat(), command.departureLng()),
 				new Location(command.destinationLat(), command.destinationLng()),
 				command.departure(), command.destination(), new Capacity(command.capacity()),
-				Instant.now(), Radius.DEFAULT, Radius.DEFAULT,
-				estimate.estimateFare(), estimate.estimateTime(), estimate.path());
+				Instant.now(), estimate.estimateFare(), estimate.estimateTime(), estimate.path());
 
 		Party saved = parties.save(party);
 

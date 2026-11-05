@@ -12,7 +12,6 @@ import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
@@ -42,7 +41,7 @@ class ChatRoomAutoCreateIntegrationTest {
 
         // 방장은 리포지토리로 직접 넣어 이벤트를 태우지 않는다 - 채팅방 생성이 참여 이벤트만으로 일어나는지 본다
         Party party = parties.save(Party.open(base, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
-                "강남역", "판교역", new Capacity(2), Instant.now(), new Radius(100), new Radius(100),
+                "강남역", "판교역", new Capacity(2), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC"));
 
         partyService.join(party.getId(), joiner);

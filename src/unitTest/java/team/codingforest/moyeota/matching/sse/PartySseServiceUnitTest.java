@@ -18,7 +18,6 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.sse.infrastructure.PartySseRegistry;
 
@@ -175,8 +174,8 @@ class PartySseServiceUnitTest {
     }
 
     private static Party party(Long memberId) {
-        return Party.load(PARTY_ID, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역",
-                new Capacity(3), List.of(PartyMember.load(memberId, BASE_TIME)), BASE_TIME, PartyStatus.ACTIVE, 12000, 25, "encoded-path", null, 0L);
+        return Party.load(PARTY_ID, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
+                new Capacity(3), List.of(PartyMember.load(memberId, BASE_TIME)), BASE_TIME, PartyStatus.ACTIVE, 12000, 25, "encoded-path", 0L);
     }
 
     private static void assertBusinessException(Throwable thrown, ErrorCode expected) {

@@ -494,10 +494,10 @@ class PartyMeetingNotificationUnitTest {
                                PartyMember... members) {
         boolean realtime = roomType == RoomType.REALTIME;
 
-        return Party.load(100L, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
+        return Party.load(100L, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3),
                 new ArrayList<>(List.of(members)), members[0].getMemberId(), MEETING_AT.minus(Duration.ofHours(1)), status,
                 realtime ? 12000 : null, realtime ? 25 : null, realtime ? "encoded-path" : null,
-                null, VERSION, roomType, departureAt, null, meetingNotifiedAt, departureReminderCount);
+                VERSION, roomType, departureAt, null, meetingNotifiedAt, departureReminderCount);
     }
 
     /** 아직 도착하지 않은 멤버. order 가 작을수록 먼저 합류했다 */

@@ -12,7 +12,6 @@ import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.infrastructure.PartyJpa;
 
 import java.time.Instant;
@@ -197,8 +196,8 @@ class RideRecordJpaPersistenceTest {
     }
 
     private Long savedParty(List<PartyMember> members) {
-        return parties.save(Party.load(null, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), new Radius(100), new Radius(100),
-                "강남역", "판교역", new Capacity(3), members, 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 기준, 0L)).getId();
+        return parties.save(Party.load(null, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
+                "강남역", "판교역", new Capacity(3), members, 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L)).getId();
     }
 
     private Long dropOff(Long partyId, Instant dropoffTime) {

@@ -19,7 +19,6 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.RoomType;
 
 import java.time.Duration;
@@ -505,9 +504,9 @@ class MeetingNotificationServiceUnitTest {
 
     /** departureAt 으로 약속을 확정한 실시간 방(null 이면 확정 전). members 앞쪽이 먼저 합류했고 첫 번째가 방장 */
     private static Party confirmedParty(Instant departureAt, PartyStatus status, Instant meetingNotifiedAt, int departureReminderCount, PartyMember... members) {
-        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
+        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3),
                 new ArrayList<>(List.of(members)), members[0].getMemberId(), MEETING_AT.minus(Duration.ofDays(1)), status, 12000, 25, "encoded-path",
-                null, 5L, RoomType.REALTIME, departureAt, null, meetingNotifiedAt, departureReminderCount);
+                5L, RoomType.REALTIME, departureAt, null, meetingNotifiedAt, departureReminderCount);
     }
 
     private static PartyMember waiting(Long memberId, int order) {

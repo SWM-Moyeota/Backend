@@ -12,7 +12,6 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -145,7 +144,7 @@ class PartyLockQueryPostgresTest {
 
     private static Party open(int capacity) {
         return Party.open(1L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
-                "강남역", "판교역", new Capacity(capacity), Instant.now(), new Radius(100), new Radius(100),
+                "강남역", "판교역", new Capacity(capacity), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC");
     }
 

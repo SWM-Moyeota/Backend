@@ -30,10 +30,9 @@ public class PartyJpaTest implements Parties {
         Long id = party.getId() != null ? party.getId() : ++sequence;
         Party saved = Party.load(id,
                 party.getDepartureLocation(), party.getDestinationLocation(),
-                party.getDepartureRadius(), party.getDestinationRadius(),
                 party.getDeparture(), party.getDestination(), party.getCapacity(),
                 party.getMembers(), party.hostId(), party.getCreatedAt(), party.getStatus(),
-                party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getCompletedAt(), party.getVersion(),
+                party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getVersion(),
                 party.getRoomType(), party.getDepartureAt(), party.getReminderSentAt(), party.getMeetingNotifiedAt(), party.getDepartureReminderCount());
 
         store.put(id, saved);

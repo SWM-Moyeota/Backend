@@ -10,7 +10,6 @@ import team.codingforest.moyeota.matching.party.PartyJpaTest;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.sse.infrastructure.PartySseMetrics;
 import team.codingforest.moyeota.matching.sse.infrastructure.PartySseRegistry;
 
@@ -84,7 +83,7 @@ class PartySseServiceTest {
         return Party.open(creatorId,
                 new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
                 "강남역", "판교역", new Capacity(3),
-                Instant.now(), new Radius(100), new Radius(100),
+                Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC");
     }
 }

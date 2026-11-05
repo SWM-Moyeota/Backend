@@ -12,7 +12,6 @@ import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.record.RideRecordService;
 import team.codingforest.moyeota.matching.record.dto.RideRecordResponse;
 
@@ -122,7 +121,7 @@ class PartyAttendancePostgresTest {
     /** 방장·동승자·늦은사람 셋이 찬 실시간 방을 방금 지난 시각(30초 전)으로 확정한다 - 바로 도착을 누를 수 있다 */
     private Long confirmedRoomOfThree() {
         Party party = Party.open(방장, DEPARTURE, DESTINATION, "광주송정역", "전남대", new Capacity(3), Instant.now(),
-                Radius.DEFAULT, Radius.DEFAULT, 9000, 20, "_p~iF~ps|U_ulLnnqC");
+                9000, 20, "_p~iF~ps|U_ulLnnqC");
         party.join(동승자);
         party.join(늦은사람);
         Long id = parties.save(party).getId();

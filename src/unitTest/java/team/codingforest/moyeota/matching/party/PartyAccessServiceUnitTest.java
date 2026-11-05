@@ -18,7 +18,6 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -179,8 +178,8 @@ class PartyAccessServiceUnitTest {
             members.add(PartyMember.load(memberIds[i], BASE_TIME.plusSeconds(i)));
         }
 
-        return Party.load(PARTY_ID, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역",
-                new Capacity(3), members, BASE_TIME, status, 12000, 25, "encoded-path", null, 0L);
+        return Party.load(PARTY_ID, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
+                new Capacity(3), members, BASE_TIME, status, 12000, 25, "encoded-path", 0L);
     }
 
     private static void assertBusinessException(Throwable thrown, ErrorCode expected) {

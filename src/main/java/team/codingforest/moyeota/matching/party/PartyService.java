@@ -33,7 +33,6 @@ import team.codingforest.moyeota.matching.party.domain.PartyConflictRule;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.dto.RealTimeMatchingCommand;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.Coordinate;

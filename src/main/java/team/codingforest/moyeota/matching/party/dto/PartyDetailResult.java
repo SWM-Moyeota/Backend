@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.matching.party.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.user.api.MemberSummary;
 
@@ -14,7 +15,8 @@ public record PartyDetailResult(Long id,
                                 Double destinationLat, Double destinationLng,
                                 String departure, String destination,
                                 Integer capacity, Integer currentMembers,
-                                Integer departureRadius, Integer destinationRadius,
+                                @Schema(description = "출발지 반경(m). 서버가 쓰지 않아 늘 500 이다(출시 앱 호환용으로 키만 남김)", example = "500") Integer departureRadius,
+                                @Schema(description = "도착지 반경(m). 서버가 쓰지 않아 늘 500 이다(출시 앱 호환용으로 키만 남김)", example = "500") Integer destinationRadius,
                                 String status, Instant createdAt,
                                 List<MemberInfo> members, Integer estimateFare, Integer estimateTime, String route, Long taxiDriverId,
                                 long version, String roomType, Instant departureAt, boolean confirmed) {
@@ -41,7 +43,7 @@ public record PartyDetailResult(Long id,
                 party.getDepartureLocation().longitude(),
                 party.getDestinationLocation().latitude(), party.getDestinationLocation().longitude(),
                 party.getDeparture(), party.getDestination(), party.getCapacity().value(),
-                party.getMembers().size(), party.getDepartureRadius().meters(), party.getDestinationRadius().meters(),
+                party.getMembers().size(), LegacyRadius.METERS, LegacyRadius.METERS,
                 party.getStatus().name(), party.getCreatedAt(), members,
                 party.getEstimatedFare(),
                 party.getEstimatedTime(),

@@ -38,8 +38,6 @@ public class Party {
     private final String departure;
     private final String destination;
     private final Capacity capacity;
-    private final Radius departureRadius;
-    private final Radius destinationRadius;
     private final List<PartyMember> members;
     private Long hostId;
     private final Instant createdAt;
@@ -47,7 +45,6 @@ public class Party {
     private final Integer estimatedFare;
     private final Integer estimatedTime;
     private final String route;
-    private Instant completedAt;
     private long version;
     private final RoomType roomType;
     // 예약 방은 만들 때 정한 출발 시각, 실시간 방은 방장이 확정한 약속 시간(확정 전에는 null). 바꾸는 길은 confirm 하나뿐이다
@@ -61,9 +58,9 @@ public class Party {
     /**
      * 규칙 생성 -> 아무대서 Party 객체를 생성할 수 없게 하기
      */
-    private Party(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius
+    private Party(Long id, Location departureLocation, Location destinationLocation
             ,String departure, String destination, Capacity capacity, List<PartyMember> members, Long hostId, Instant createdAt, PartyStatus status,
-                  Integer estimatedFare, Integer estimatedTime, String route, Instant completedAt, long version,
+                  Integer estimatedFare, Integer estimatedTime, String route, long version,
                   RoomType roomType, Instant departureAt, Instant reminderSentAt, Instant meetingNotifiedAt, int departureReminderCount) {
         this.id = id;
         this.departureLocation = departureLocation;
@@ -71,8 +68,6 @@ public class Party {
         this.departure = departure;
         this.destination = destination;
         this.capacity = capacity;
-        this.departureRadius = departureRadius;
-        this.destinationRadius = destinationRadius;
         this.members = new ArrayList<>(members);
         this.hostId = hostId;
         this.createdAt = createdAt;
@@ -80,7 +75,6 @@ public class Party {
         this.estimatedFare = estimatedFare;
         this.estimatedTime = estimatedTime;
         this.route = route;
-        this.completedAt = completedAt;
         this.version = version;
         this.roomType = roomType;
         this.departureAt = departureAt;
@@ -93,7 +87,7 @@ public class Party {
      *  매칭방 생성
      */
     public static Party open(Long creatorId, Location departureLocation, Location destinationLocation, String departure, String destination, Capacity capacity,
-                             Instant createdAt, Radius departureRadius, Radius destinationRadius, Integer estimatedFare, Integer estimatedTime, String route) {
+                             Instant createdAt, Integer estimatedFare, Integer estimatedTime, String route) {
         if(departureLocation.equals(destinationLocation)) throw new BusinessException(MatchingErrorCode.SAME_DEPARTURE_DESTINATION);
 
         if(estimatedFare == null || estimatedFare < 0) throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
@@ -102,15 +96,12 @@ public class Party {
 
         if(route == null) throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
 
-        Party party = new Party(null, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, new ArrayList<>(), creatorId, createdAt, PartyStatus.ACTIVE,
-                estimatedFare, estimatedTime, route, null, 0L, RoomType.REALTIME, null, null, null, 0);
+        Party party = new Party(null, departureLocation, destinationLocation, departure, destination, capacity, new ArrayList<>(), creatorId, createdAt, PartyStatus.ACTIVE,
+                estimatedFare, estimatedTime, route, 0L, RoomType.REALTIME, null, null, null, 0);
 
         party.members.add(new PartyMember(creatorId, Instant.now()));
 
-        if(party.isFull()) {
-            party.status = PartyStatus.COMPLETED;
-            party.completedAt = Instant.now();
-        }
+        if(party.isFull()) party.status = PartyStatus.COMPLETED;
 
         return party;
     }
@@ -121,8 +112,8 @@ public class Party {
 
         if(!departureAt.isAfter(createdAt) || departureAt.isAfter(createdAt.plus(MAX_RESERVATION_AHEAD))) throw new BusinessException(MatchingErrorCode.INVALID_DEPARTURE_TIME);
 
-        Party party = new Party(null, departureLocation, destinationLocation, Radius.DEFAULT, Radius.DEFAULT, departure, destination, capacity, new ArrayList<>(), creatorId, createdAt, PartyStatus.ACTIVE,
-                null, null, null, null, 0L, RoomType.RESERVED, departureAt, null, null, 0);
+        Party party = new Party(null, departureLocation, destinationLocation, departure, destination, capacity, new ArrayList<>(), creatorId, createdAt, PartyStatus.ACTIVE,
+                null, null, null, 0L, RoomType.RESERVED, departureAt, null, null, 0);
 
         party.members.add(new PartyMember(creatorId, Instant.now()));
 
@@ -141,10 +132,7 @@ public class Party {
         members.add(new PartyMember(memberId, Instant.now()));
         version++;
 
-        if(isFull()) {
-            status = PartyStatus.COMPLETED;
-            completedAt = Instant.now();
-        }
+        if(isFull()) status = PartyStatus.COMPLETED;
     }
 
     /**
@@ -183,7 +171,6 @@ public class Party {
         }
 
         status = PartyStatus.ACTIVE;
-        completedAt = null;
     }
 
     /**
@@ -439,7 +426,6 @@ public class Party {
 
     private void completeRecruiting() {
         status = PartyStatus.COMPLETED;
-        completedAt = Instant.now();
     }
 
     /**
@@ -464,29 +450,29 @@ public class Party {
      *  영속 복원용. 저장된 방장이 비었거나(구버전 서버가 만든 방) 현재 멤버가 아니면(구버전 서버가 처리한 퇴장) 승계 규칙으로 다시 정한다.
      *  배포 중 구버전과 섞여 도는 동안에만 생길 수 있는 어긋남이고, 다음 저장 때 컬럼도 이 값으로 고쳐진다
      */
-    public static Party load(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Long hostId, Instant createdAt, PartyStatus status,
-                             Integer estimatedFare, Integer estimatedTime, String route, Instant completedAt, long version,
+    public static Party load(Long id, Location departureLocation, Location destinationLocation, String departure, String destination, Capacity capacity, List<PartyMember> members, Long hostId, Instant createdAt, PartyStatus status,
+                             Integer estimatedFare, Integer estimatedTime, String route, long version,
                              RoomType roomType, Instant departureAt, Instant reminderSentAt, Instant meetingNotifiedAt, int departureReminderCount) {
-        return new Party(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, restoreHostId(members, hostId), createdAt, status, estimatedFare, estimatedTime, route, completedAt, version, roomType, departureAt, reminderSentAt,
+        return new Party(id, departureLocation, destinationLocation, departure, destination, capacity, members, restoreHostId(members, hostId), createdAt, status, estimatedFare, estimatedTime, route, version, roomType, departureAt, reminderSentAt,
                 meetingNotifiedAt, departureReminderCount);
     }
 
     /**
      *  약속 시각 알림 컬럼(meeting_notified_at, departure_reminder_count)이 생기기 전 모양. 알림은 처리한 적 없는 것으로 복원한다
      */
-    public static Party load(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Long hostId, Instant createdAt, PartyStatus status,
-                             Integer estimatedFare, Integer estimatedTime, String route, Instant completedAt, long version,
+    public static Party load(Long id, Location departureLocation, Location destinationLocation, String departure, String destination, Capacity capacity, List<PartyMember> members, Long hostId, Instant createdAt, PartyStatus status,
+                             Integer estimatedFare, Integer estimatedTime, String route, long version,
                              RoomType roomType, Instant departureAt, Instant reminderSentAt) {
-        return load(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, hostId, createdAt, status, estimatedFare, estimatedTime, route, completedAt, version, roomType, departureAt, reminderSentAt,
+        return load(id, departureLocation, destinationLocation, departure, destination, capacity, members, hostId, createdAt, status, estimatedFare, estimatedTime, route, version, roomType, departureAt, reminderSentAt,
                 null, 0);
     }
 
     /**
      *  host_id 컬럼이 생기기 전 모양(실시간 방). 방장은 승계 규칙(= V25 백필 규칙)으로 멤버 목록에서 정한다
      */
-    public static Party load(Long id, Location departureLocation, Location destinationLocation, Radius departureRadius, Radius destinationRadius, String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status,
-                                    Integer estimatedFare, Integer estimatedTime, String route, Instant completedAt, long version) {
-        return load(id, departureLocation, destinationLocation, departureRadius, destinationRadius, departure, destination, capacity, members, null, createdAt, status, estimatedFare, estimatedTime, route, completedAt, version, RoomType.REALTIME, null, null);
+    public static Party load(Long id, Location departureLocation, Location destinationLocation, String departure, String destination, Capacity capacity, List<PartyMember> members, Instant createdAt, PartyStatus status,
+                                    Integer estimatedFare, Integer estimatedTime, String route, long version) {
+        return load(id, departureLocation, destinationLocation, departure, destination, capacity, members, null, createdAt, status, estimatedFare, estimatedTime, route, version, RoomType.REALTIME, null, null);
     }
 
     private static Long restoreHostId(List<PartyMember> members, Long storedHostId) {
@@ -575,14 +561,6 @@ public class Party {
 		return capacity;
 	}
 
-	public Radius getDepartureRadius() {
-		return departureRadius;
-	}
-
-	public Radius getDestinationRadius() {
-		return destinationRadius;
-	}
-
 	public List<PartyMember> getMembers() {
 		return members;
 	}
@@ -605,10 +583,6 @@ public class Party {
 
 	public String getRoute() {
 		return route;
-	}
-
-	public Instant getCompletedAt() {
-		return completedAt;
 	}
 
 	public long getVersion() {
