@@ -28,7 +28,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws-chat")
                 .setAllowedOriginPatterns(allowedOrigins);
-        registry.setPreserveReceiveOrder(true);   // CONNECT 인증이 끝나야 같은 세션의 SUBSCRIBE 를 처리함
+        // setPreserveReceiveOrder(true) 를 쓰지 않음 - 켜면 인터셉터 예외를 로그로만 남겨 ERROR 프레임이 안 나감(spring 7.0.8)
+        // SEND 를 받지 않아 저장 순서가 없고 인터셉터는 세션당 한 프레임씩 차례로 돎
         registry.setErrorHandler(socketErrorHandler);
     }
 
