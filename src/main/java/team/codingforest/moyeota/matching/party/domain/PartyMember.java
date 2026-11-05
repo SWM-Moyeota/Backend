@@ -8,11 +8,8 @@ import java.time.Instant;
 public class PartyMember {
     private final Long memberId;
     private final Instant joinedAt;
-    // 약속 시간 뒤 출발지 100m 안에서 "도착했어요"를 누른 시각. 처음 누른 시각을 그대로 둔다
     private Instant arrivedAt;
-    // 누군가 "출발했어요"를 누른 순간 도착하지 않았던 멤버에게 찍히는 시각
     private Instant noShowAt;
-    // 운영자가 이의를 받아들여 노쇼를 무효로 돌린 시각. 무효가 된 노쇼는 노쇼가 아니다
     private Instant noShowVoidedAt;
 
     PartyMember(Long memberId, Instant joinedAt) {

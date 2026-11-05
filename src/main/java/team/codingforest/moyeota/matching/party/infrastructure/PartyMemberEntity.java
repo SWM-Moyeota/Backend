@@ -45,7 +45,6 @@ public class PartyMemberEntity extends BaseTimeEntity {
         this.memberId = memberId;
     }
 
-    // 합류 시각은 행이 생긴 시각(created_at)이라 auditing 이 채운다
     public static PartyMemberEntity of(PartyEntity party, PartyMember member) {
         PartyMemberEntity entity = new PartyMemberEntity(party, member.getMemberId());
         entity.update(member);

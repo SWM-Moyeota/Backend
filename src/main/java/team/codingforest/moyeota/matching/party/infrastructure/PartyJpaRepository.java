@@ -31,7 +31,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     @Query("select p from PartyEntity p where p.id = :id")
     Optional<PartyEntity> findByForUpdate(@Param("id") Long id);
 
-    // 지도 목록은 인원수만 필요하다 - 멤버를 join fetch 하면 방 하나가 멤버 수만큼 행으로 불어나고 route(TEXT)까지 행마다 딸려 온다
+    // 지도 목록 조회 쿼리
     @Query("""
             select p.id, p.departure, p.destination,
                    (select count(m) from PartyMemberEntity m where m.party = p),
@@ -46,7 +46,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     List<PartySummary> findSummariesWithinBounds(@Param("status") PartyStatus status, @Param("swLat") double swLat, @Param("neLat") double neLat,
                                                  @Param("swLng") double swLng, @Param("neLng") double neLng, Limit limit);
 
-    // 노쇼(무효로 돌린 노쇼는 빼고)는 타지 않은 사람이라 세지 않는다
+    // 노쇼는 제외한 합승 횟수 쿼리
     @Query("""
                     select m.memberId as memberId, count(m) as count
                     from PartyMemberEntity m
@@ -56,8 +56,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
             """)
     List<MemberRideCount> countByMemberIdsAndStatus(@Param("memberIds") Collection<Long> memberIds, @Param("status") PartyStatus status);
 
-    // 자동 정리 대상 - 실시간 방은 만든 시각(created_at), 예약 방은 출발 시각(departure_at)이 cutoff 보다 이른 열린 방.
-    // 실시간 방은 약속을 확정해 departure_at 이 있어도 만든 시각으로 가른다
+    // 자동 정리 대상 - 실시간 방은 만든 시각(created_at), 예약 방은 출발 시각(departure_at)이 지정된 시간 보다 이른 열린 방.
     @Query("""
             select p.id from PartyEntity p
             where p.status in :statuses
@@ -66,6 +65,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
             """)
     List<Long> findAutoCloseTargetIds(@Param("statuses") Collection<PartyStatus> statuses, @Param("cutoff") Instant cutoff);
 
+	// 한명의 사용자가 동시 요청을 했을떄 정합성을 맞추기 위한 advisory_lock 키 락
     @Query(value = "SELECT CAST(pg_advisory_xact_lock(:memberId) AS text)", nativeQuery = true)
     String lockMember(@Param("memberId") Long memberId);
 
@@ -138,8 +138,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
             """)
     List<Long> findMeetingNoticeTargetIds(@Param("now") Instant now);
 
-    // 처리한 차례 수(departure_reminder_count)마다 기준 시각이 다르다 - dueN = now - Party.DEPARTURE_REMINDER_OFFSETS[N].
-    // 차례를 다 쓴 방(4)은 어느 조건에도 걸리지 않는다
+    // reminder 메시지를 보낼때 시간별로 지정 -> 30분 1시간 ~~
     @Query("""
             select p.id from PartyEntity p
             where p.status in (team.codingforest.moyeota.matching.party.domain.PartyStatus.ACTIVE,
@@ -178,8 +177,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
                                                @Param("destLng") double destLng,
                                                @Param("radius") int radius);
 
-    // 출발지 도착 판정. geography 라 타원체 위 m 단위로 재고, ST_DWithin 은 경계(radius 와 같은 거리)를 포함한다.
-    // ST_MakePoint 는 경도가 먼저다. EXISTS 로 감싸 없는 방이어도 행 하나(false)가 돌아온다
+    // 출발지 도착 판정. 인자로 들어오는 반경을 기준으로 안에 있는지 판정
     @Query(value = """
             SELECT EXISTS (
                 SELECT 1 FROM match_room m
