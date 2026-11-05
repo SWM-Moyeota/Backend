@@ -34,6 +34,7 @@ public class SecurityConfig implements WebMvcConfigurer {
 
 
     static final String OPERATOR_PATH = "/api/v1/operator/**";
+    static final String INTERNAL_PATH = "/internal/chat/chat-rooms/**";
 
     private final AuthService authService;
     private final JsonAuthenticationEntryPoint entryPoint;
@@ -58,6 +59,25 @@ public class SecurityConfig implements WebMvcConfigurer {
                 .build();
     }
 
+    /**
+     * 소켓 서버 전용 내부 API 체인 - 사용자 JWT 없이 부르므로 InternalTokenFilter 를 통과해야 INTERNAL 권한이 붙음
+     * 사용자 체인보다 먼저 골라지도록 순서를 앞에 둠, /internal/chat/principal 은 사용자 JWT 로 확인하므로 여기 넣지 않음
+     */
+    @Bean
+    @Order(2)
+    public SecurityFilterChain internalSecurityFilterChain(HttpSecurity http, @Value("${moyeota.internal.token:}") String internalToken) throws Exception {
+        return http
+                .securityMatcher(INTERNAL_PATH)
+                .csrf(csrf -> csrf.disable())
+                .formLogin(form -> form.disable())
+                .httpBasic(basic -> basic.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(entryPoint))
+                .authorizeHttpRequests(auth -> auth.anyRequest().hasRole(InternalTokenFilter.ROLE))
+                .addFilterBefore(new InternalTokenFilter(internalToken, entryPoint), AuthorizationFilter.class)
+                .build();
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
@@ -71,7 +91,6 @@ public class SecurityConfig implements WebMvcConfigurer {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**", "/api/v1/config","/ws-chat/**", "/health", "/prometheus", "/info").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .requestMatchers("/internal/chat/chat-rooms/**").permitAll()   // 소켓 서버 전용, 사용자 토큰 없이 부름 - ALB 에서 /internal/* 차단
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthenticationFilter(authService, entryPoint), AuthorizationFilter.class)
                 .build();

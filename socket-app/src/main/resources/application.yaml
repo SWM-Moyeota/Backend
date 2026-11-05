@@ -34,3 +34,4 @@ chat:
   api:
     base-url: http://localhost:8080   # 인증·방 멤버 확인을 묻는 API 주소
     timeout: 1s
+    internal-token: ${INTERNAL_API_TOKEN:local-only-internal-token}   # API moyeota.internal.token 과 같아야 함

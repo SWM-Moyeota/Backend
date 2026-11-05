@@ -131,6 +131,10 @@ moyeota:
     # CloudFront 오리진 응답 타임아웃(기본 30초)보다 충분히 짧아야 한다. 같은 값(30초)으로 두면
     # ping 이 도착하기 직전에 끊기는 경쟁이 생겨 30초마다 재연결이 돌고 SSE 를 쓰는 의미가 깎인다.
     heartbeat-ms: ${SSE_HEARTBEAT_MS:10000}
+  internal:
+    # 소켓 서버가 /internal/chat/chat-rooms/** 를 부를 때 X-Internal-Token 헤더와 비교하는 공유 비밀. 비어 있으면 모두 401(꺼짐)
+    # 서버는 파라미터 스토어 /moyeota/{dev|prod}/INTERNAL_API_TOKEN(SecureString)으로 넣음, prod 는 넣지 않아 닫힌 채로 둠
+    token: ${INTERNAL_API_TOKEN:}
 
 osrm:
   base-url: ${OSRM_BASE_URL:http://localhost:5000}

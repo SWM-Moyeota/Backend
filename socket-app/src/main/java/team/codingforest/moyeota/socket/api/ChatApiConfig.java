@@ -14,7 +14,8 @@ public class ChatApiConfig {
     @Bean
     public RestClient chatApiRestClient(RestClient.Builder builder,
                                         @Value("${chat.api.base-url}") String baseUrl,
-                                        @Value("${chat.api.timeout}") Duration timeout) {
+                                        @Value("${chat.api.timeout}") Duration timeout,
+                                        @Value("${chat.api.internal-token}") String internalToken) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(timeout);
         factory.setReadTimeout(timeout);
@@ -22,6 +23,7 @@ public class ChatApiConfig {
         return builder
                 .baseUrl(baseUrl)
                 .requestFactory(factory)
+                .defaultHeader("X-Internal-Token", internalToken)   // API InternalTokenFilter 가 확인함
                 .build();
     }
 }
