@@ -35,7 +35,6 @@ public class UserEntity extends BaseTimeEntity {
     @Column(nullable = false, unique = true, updatable = false)
     private UUID publicId;
 
-    // null 허용 - 소셜 가입 직후는 비어 있다. PostgreSQL/H2 모두 null 끼리는 unique 충돌 없음
     @Column(unique = true)
     private String nickname;
 
@@ -47,10 +46,8 @@ public class UserEntity extends BaseTimeEntity {
 
     private String fcmToken;
 
-    // null 이면 정상 회원. 탈퇴해도 행은 남긴다 (soft delete)
     private Instant deletedAt;
 
-    // 노쇼 제재(V27). 바꾸는 길은 NoShowSanctionJpa 하나뿐이고 update(User) 는 건드리지 않는다
     private Instant restrictedUntil;
 
     private UserEntity(UUID publicId, String nickname, String imageUrl, LoginType loginType, String fcmToken) {
