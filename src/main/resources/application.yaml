@@ -102,6 +102,12 @@ management:
         http.server.requests: 100ms, 300ms, 500ms, 1s
 
 moyeota:
+  app:
+    # 앱 버전 게이트. 비우면 기준 없음(응답에서 키가 빠지고 앱은 통과시킨다).
+    # 값은 안드로이드 versionCode(YYMMDD*100+N). 서버 계약이 깨지는 변경을 내보내는 날에만 넣는다.
+    # 잘못된 큰 값은 전원을 업데이트 화면에 잠그고 앱에서 되돌릴 수 없다 - 그래서 코드가 아니라 환경변수로 받는다
+    min-version-code: ${MIN_VERSION_CODE:}
+    recommended-version-code: ${RECOMMENDED_VERSION_CODE:}
   crypto:
     field-key: ${FIELD_ENCRYPTION_KEY:XgIsaebhS+OFGOUd4l16AnNPZgXIydBInUv5yyQvmMY=}
     hash-key: ${FIELD_HASH_KEY:local-only-field-hash-key}
