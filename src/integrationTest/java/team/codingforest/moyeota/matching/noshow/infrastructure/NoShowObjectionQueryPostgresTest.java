@@ -171,6 +171,9 @@ class NoShowObjectionQueryPostgresTest {
         Long 늦은신청 = objections.save(NoShowObjection.file(나, 첫방, "늦게 낸 신청", BASE.plus(5, ChronoUnit.DAYS))).getId();
         Long 이른신청 = objections.save(NoShowObjection.file(나, 둘째방, "먼저 낸 신청", BASE.plus(4, ChronoUnit.DAYS))).getId();
         NoShowObjection 처리된 = objections.save(NoShowObjection.file(남, 첫방, "처리된 신청", BASE.plus(3, ChronoUnit.DAYS)));
+        filedAt(늦은신청, BASE.plus(5, ChronoUnit.DAYS));
+        filedAt(이른신청, BASE.plus(4, ChronoUnit.DAYS));
+        filedAt(처리된.getId(), BASE.plus(3, ChronoUnit.DAYS));
         // 운영자 처리와 같은 길 - 잠가 읽고 바꾼 뒤 더티체킹으로 저장
         tx.executeWithoutResult(status -> {
             NoShowObjection locked = objections.findByIdForUpdate(처리된.getId()).orElseThrow();
@@ -220,6 +223,11 @@ class NoShowObjectionQueryPostgresTest {
     private void noShow(Long partyId, Long userId, Instant at, Instant voidedAt) {
         jdbc.update("UPDATE user_match_room SET no_show_at = ?, no_show_voided_at = ? WHERE match_id = ? AND user_id = ?",
                 Timestamp.from(at), voidedAt == null ? null : Timestamp.from(voidedAt), partyId, userId);
+    }
+
+    // 신청 시각(created_at)은 저장할 때 auditing 이 채운다 - 순서를 보려고 정한 시각으로 바꾼다
+    private void filedAt(Long objectionId, Instant at) {
+        jdbc.update("UPDATE no_show_objection SET created_at = ? WHERE id = ?", Timestamp.from(at), objectionId);
     }
 
     private void insertObjection(Long userId, Long partyId, String status) {

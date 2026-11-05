@@ -29,12 +29,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-// 테이블에 남아 있지만 매핑하지 않는 컬럼 - INSERT 에서 빠져 null 이나 DB 기본값으로 들어간다.
-//   택시 시절 컬럼(배정 기사 id, 매칭 시작 시각): nullable 이라 null
-//   completed_at: 모집이 끝난 시각. 읽는 곳이 없다(자동 정리는 created_at·departure_at 기준). nullable 이라 null
-//   departure_radius·destination_radius: 늘 500 이고 읽는 쿼리가 없다. NOT NULL 이라 V31 기본값 500 으로 들어간다.
-//     출시 앱이 읽는 응답 키는 dto 의 고정값으로 채운다
-// 컬럼 DROP 은 이 매핑을 지운 코드가 모든 서버와 롤백 대상에 깔린 다음 릴리스에서 한다
 @Entity
 @Getter
 @Table(name = "match_room",
@@ -43,6 +37,9 @@ public class PartyEntity extends BaseTimeEntity {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+	@Column(name = "host_id")
+	private Long hostId;
 
     @Column(nullable = false)
     private Double departureLat;
@@ -56,22 +53,18 @@ public class PartyEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private Double destinationLng;
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "departure_place")
     private String departure;
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "destination_place")
     private String destination;
 
     @Column(nullable = false)
     private Integer capacity;
 
     @OneToMany(mappedBy = "party", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("joinedAt ASC, memberId ASC")
+    @OrderBy("createdAt ASC, memberId ASC")
     private List<PartyMemberEntity> members = new ArrayList<>();
-
-    // 멤버가 없는 방(마지막 멤버가 나가 취소된 방)은 방장도 없어 NULL
-    @Column(name = "host_id")
-    private Long hostId;
 
     @Enumerated(EnumType.STRING)
     private PartyStatus status;
@@ -84,9 +77,6 @@ public class PartyEntity extends BaseTimeEntity {
 
     @Column(columnDefinition = "TEXT")
     private String route;
-
-    @Column(nullable = false)
-    private long version;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "room_type", nullable = false, length = 20)
@@ -101,9 +91,11 @@ public class PartyEntity extends BaseTimeEntity {
     @Column(name = "meeting_notified_at")
     private Instant meetingNotifiedAt;
 
-    // 컬럼이 smallint(0..4)라 short 로 맞춘다 - int 로 두면 ddl-auto=validate 가 integer 를 기대해 기동이 실패한다
     @Column(name = "departure_reminder_count", nullable = false)
     private short departureReminderCount;
+
+	@Column(nullable = false)
+	private long version;
 
     protected PartyEntity() {}
 

@@ -126,7 +126,7 @@ public class PartyJpa implements Parties {
         return partyJpaRepository.findMeetingNoticeTargetIds(now);
     }
 
-    /** 차례 n 은 departure_at <= now - DEPARTURE_REMINDER_OFFSETS[n] 이면 지났다 - 차례마다 기준 시각을 하나씩 넘긴다 */
+    /** 차례 i 은 departure_at <= now - DEPARTURE_REMINDER_OFFSETS[i] 이면 지났다 판정 */
     @Override
     public List<Long> findDepartureReminderTargets(Instant now) {
         List<Duration> offsets = Party.DEPARTURE_REMINDER_OFFSETS;

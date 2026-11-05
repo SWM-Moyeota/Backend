@@ -10,8 +10,7 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import java.time.Instant;
 
 /**
- *  약속 시각 알림·출발 재촉 스케줄러 - 1분마다 차례가 된 방을 골라 방마다 MeetingNotificationService 에 맡긴다.
- *  차례·방해 금지 시간 판단은 도메인과 서비스가 하고 여기서는 고르고 돌리기만 한다. 한 방이 실패해도 나머지 방은 계속 처리한다
+ *  약속 시각 알림·출발 재촉 스케줄러 - 1분마다 차례가 된 방을 골라 방마다 알림 보냄(출발 30분전, 도착 요청 재촉)
  */
 @Slf4j
 @Component

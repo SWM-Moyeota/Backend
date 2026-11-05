@@ -12,6 +12,7 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import team.codingforest.moyeota.common.BaseCreatedTimeEntity;
 import team.codingforest.moyeota.matching.noshow.domain.NoShowObjection;
 import team.codingforest.moyeota.matching.noshow.domain.ObjectionStatus;
 
@@ -22,7 +23,7 @@ import java.time.Instant;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "no_show_objection",
         uniqueConstraints = @UniqueConstraint(name = "uk_no_show_objection_user_match", columnNames = {"user_id", "match_id"}))
-public class NoShowObjectionEntity {
+public class NoShowObjectionEntity extends BaseCreatedTimeEntity {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -40,25 +41,20 @@ public class NoShowObjectionEntity {
     @Column(nullable = false, length = 20)
     private ObjectionStatus status;
 
-    // 신청 시각은 도메인이 정한다(감사 필드 아님)
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
-
     @Column(name = "resolved_at")
     private Instant resolvedAt;
 
-    private NoShowObjectionEntity(Long userId, Long partyId, String reason, ObjectionStatus status, Instant createdAt, Instant resolvedAt) {
+    private NoShowObjectionEntity(Long userId, Long partyId, String reason, ObjectionStatus status, Instant resolvedAt) {
         this.userId = userId;
         this.partyId = partyId;
         this.reason = reason;
         this.status = status;
-        this.createdAt = createdAt;
         this.resolvedAt = resolvedAt;
     }
 
     public static NoShowObjectionEntity from(NoShowObjection objection) {
         return new NoShowObjectionEntity(objection.getUserId(), objection.getPartyId(), objection.getReason(),
-                objection.getStatus(), objection.getCreatedAt(), objection.getResolvedAt());
+                objection.getStatus(), objection.getResolvedAt());
     }
 
     /** 처리 결과만 옮긴다 - 신청자·방·사유는 바뀌지 않는다 */
@@ -68,6 +64,6 @@ public class NoShowObjectionEntity {
     }
 
     public NoShowObjection toDomain() {
-        return NoShowObjection.load(id, userId, partyId, reason, status, createdAt, resolvedAt);
+        return NoShowObjection.load(id, userId, partyId, reason, status, getCreatedAt(), resolvedAt);
     }
 }

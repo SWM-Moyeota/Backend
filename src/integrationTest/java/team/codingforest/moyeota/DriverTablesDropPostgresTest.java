@@ -92,7 +92,7 @@ class DriverTablesDropPostgresTest {
         /*
          * test
          */
-        migrateScratchTo("latest");
+        migrateScratchTo("32");
 
         /*
          * verify
@@ -114,7 +114,7 @@ class DriverTablesDropPostgresTest {
         /*
          * test
          */
-        migrateScratchTo("latest");
+        migrateScratchTo("32");
 
         /*
          * verify
@@ -131,13 +131,13 @@ class DriverTablesDropPostgresTest {
          * settings
          */
         migrateScratchTo("31");
-        // 기본 스키마는 컨텍스트가 이미 V32 까지 올려 driver_payout_account 가 없다 - search_path 를 타고 다른 스키마의 테이블을 지울 일은 없다
+        // 기본 스키마는 컨텍스트가 이미 최신 버전까지 올려 driver_payout_account 가 없다 - search_path 를 타고 다른 스키마의 테이블을 지울 일은 없다
         jdbc.execute("DROP TABLE " + scratch + "." + DRIVER_PAYOUT_ACCOUNT);
 
         /*
          * test
          */
-        migrateScratchTo("latest");
+        migrateScratchTo("32");
 
         /*
          * verify
@@ -163,7 +163,7 @@ class DriverTablesDropPostgresTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> migrateScratchTo("latest"));
+        Throwable thrown = catchThrowable(() -> migrateScratchTo("32"));
 
         /*
          * verify
@@ -187,7 +187,7 @@ class DriverTablesDropPostgresTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> migrateScratchTo("latest"));
+        Throwable thrown = catchThrowable(() -> migrateScratchTo("32"));
 
         /*
          * verify

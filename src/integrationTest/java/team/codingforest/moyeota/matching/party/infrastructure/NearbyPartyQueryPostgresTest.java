@@ -80,7 +80,7 @@ class NearbyPartyQueryPostgresTest {
     void 예약_방에는_경로와_요금과_시간이_없어야_한다() {
         assertThatThrownBy(() -> jdbc.update("""
                 INSERT INTO match_room (capacity, departure_lat, departure_lng, departure_radius, destination_lat, destination_lng, destination_radius,
-                                        created_at, departure, destination, status, version, room_type, departure_at, estimated_fare)
+                                        created_at, departure_place, destination_place, status, version, room_type, departure_at, estimated_fare)
                 VALUES (3, 36.35, 127.38, 500, 36.33, 127.43, 500, now(), '대전역', '한밭대', 'ACTIVE', 0, 'RESERVED', now() + interval '1 day', 12000)
                 """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
@@ -89,7 +89,7 @@ class NearbyPartyQueryPostgresTest {
     void 예약_방에는_출발_시각이_있어야_한다() {
         assertThatThrownBy(() -> jdbc.update("""
                 INSERT INTO match_room (capacity, departure_lat, departure_lng, departure_radius, destination_lat, destination_lng, destination_radius,
-                                        created_at, departure, destination, status, version, room_type)
+                                        created_at, departure_place, destination_place, status, version, room_type)
                 VALUES (3, 36.35, 127.38, 500, 36.33, 127.43, 500, now(), '대전역', '한밭대', 'ACTIVE', 0, 'RESERVED')
                 """)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
@@ -99,7 +99,7 @@ class NearbyPartyQueryPostgresTest {
     void 실시간_방은_확정한_약속_시간을_가질_수_있다() {
         Long id = jdbc.queryForObject("""
                 INSERT INTO match_room (capacity, departure_lat, departure_lng, departure_radius, destination_lat, destination_lng, destination_radius,
-                                        created_at, departure, destination, status, version, room_type, departure_at, estimated_fare, estimated_time, route)
+                                        created_at, departure_place, destination_place, status, version, room_type, departure_at, estimated_fare, estimated_time, route)
                 VALUES (3, 36.35, 127.38, 500, 36.33, 127.43, 500, now(), '대전역', '한밭대', 'COMPLETED', 0, 'REALTIME', now() + interval '30 minutes', 12000, 25, 'x')
                 RETURNING id
                 """, Long.class);

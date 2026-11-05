@@ -31,7 +31,6 @@ import java.util.Map;
 @ConditionalOnExpression("!'${fcm.service-account-path:}'.isEmpty()")
 @RequiredArgsConstructor
 public class FcmReservationReminderNotifier implements ReservationReminderNotifier {
-    // 알림 본문의 출발 시각은 한국 시각으로 보여 준다
     private static final DateTimeFormatter DEPARTURE_TIME = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.of("Asia/Seoul"));
 
     private final FirebaseMessaging firebaseMessaging;
