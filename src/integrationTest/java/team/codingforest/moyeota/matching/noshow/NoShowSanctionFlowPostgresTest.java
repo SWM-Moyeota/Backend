@@ -32,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 /**
- *  출발·자동 정리로 생긴 노쇼가 같은 트랜잭션에서 users 행의 제재로 쌓이고, 제한 중엔 방 만들기·참여가 막히며,
+ *  출발·자동 정리로 생긴 노쇼가 같은 트랜잭션에서 user_no_show 와 users 행의 제한으로 남고, 제한 중엔 방 만들기·참여가 막히며,
  *  이의가 인정되면 노쇼가 무효로 돌아가고 제재가 풀리는 흐름을 실제 서비스와 Postgres 로 본다
  */
 @SpringBootTest(properties = "spring.profiles.active=dev")
@@ -74,7 +74,10 @@ class NoShowSanctionFlowPostgresTest {
             jdbc.update("DELETE FROM user_match_room WHERE match_id = ?", id);
             jdbc.update("DELETE FROM match_room WHERE id = ?", id);
         });
-        users.forEach(id -> jdbc.update("DELETE FROM users WHERE id = ?", id));
+        users.forEach(id -> {
+            jdbc.update("DELETE FROM user_no_show WHERE user_id = ?", id);
+            jdbc.update("DELETE FROM users WHERE id = ?", id);
+        });
     }
 
     @Test
@@ -85,6 +88,8 @@ class NoShowSanctionFlowPostgresTest {
         partyService.depart(id, 방장);   // 동승자·늦은사람 노쇼
 
         assertThat(count(늦은사람)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT meeting_at FROM user_no_show WHERE match_id = ? AND user_id = ?", Timestamp.class, id, 늦은사람).toInstant())
+                .as("노쇼 기록에 방의 약속 시간이 남는다").isEqualTo(meetingAt);
         assertThat(restrictedUntil(늦은사람)).as("기록 시각이 아니라 약속 시간부터 24시간").isEqualTo(meetingAt.plus(DAY));
         assertThat(count(동승자)).isEqualTo(1);
         assertThat(count(방장)).as("도착한 사람은 제재 없음").isZero();
@@ -118,7 +123,9 @@ class NoShowSanctionFlowPostgresTest {
         objectionService.accept(pending.id());
 
         assertThat(voidedAt(id, 늦은사람)).isNotNull();
+        assertThat(noShowVoidedAt(id, 늦은사람)).as("user 모듈의 노쇼도 같은 시각에 무효").isEqualTo(voidedAt(id, 늦은사람));
         assertThat(voidedAt(id, 동승자)).as("이의를 내지 않은 노쇼는 그대로").isNull();
+        assertThat(noShowVoidedAt(id, 동승자)).isNull();
         assertThat(count(늦은사람)).isZero();
         assertThat(restrictedUntil(늦은사람)).isNull();
         assertThat(count(동승자)).isEqualTo(1);
@@ -164,7 +171,7 @@ class NoShowSanctionFlowPostgresTest {
     }
 
     @Test
-    void 자동_정리의_노쇼도_약속_시간부터_제재가_매겨지고_노쇼가_쌓이면_제한이_누적_횟수만큼_길어진다() {
+    void 자동_정리의_노쇼도_약속_시간부터_제재가_매겨지고_노쇼가_쌓이면_제한이_노쇼_횟수만큼_길어진다() {
         Long first = confirmedRoomOfThree();
         Instant firstMeetingAt = parties.findById(first).orElseThrow().getDepartureAt();
         partyService.autoClose(first);   // 아무도 도착하지 않음 - 전원 노쇼, CANCELED
@@ -173,7 +180,7 @@ class NoShowSanctionFlowPostgresTest {
         assertThat(count(방장)).isEqualTo(1);
         assertThat(restrictedUntil(방장)).isEqualTo(firstMeetingAt.plus(DAY));
 
-        // 제한 전에 들어가 있던 다른 약속 방에서 또 노쇼 - 누적 2회, 그 방의 약속 시간부터 48시간
+        // 제한 전에 들어가 있던 다른 약속 방에서 또 노쇼 - 2건, 그 방의 약속 시간부터 48시간
         Long second = confirmedRoom(방장, 다른방장);
         Instant secondMeetingAt = parties.findById(second).orElseThrow().getDepartureAt();
         partyService.arrive(second, 다른방장, DEPARTURE_LAT, DEPARTURE_LNG);
@@ -250,8 +257,10 @@ class NoShowSanctionFlowPostgresTest {
                 .orElseThrow();
     }
 
+    /** 지금 세는 노쇼 수 - 무효가 아니고 약속 시간이 30일 안 */
     private int count(Long userId) {
-        return jdbc.queryForObject("SELECT no_show_count FROM users WHERE id = ?", Integer.class, userId);
+        return jdbc.queryForObject("SELECT count(*) FROM user_no_show WHERE user_id = ? AND voided_at IS NULL AND meeting_at > now() - interval '30 days'",
+                Integer.class, userId);
     }
 
     private Instant restrictedUntil(Long userId) {
@@ -260,6 +269,11 @@ class NoShowSanctionFlowPostgresTest {
 
     private Instant voidedAt(Long partyId, Long userId) {
         return instant(jdbc.queryForObject("SELECT no_show_voided_at FROM user_match_room WHERE match_id = ? AND user_id = ?",
+                Timestamp.class, partyId, userId));
+    }
+
+    private Instant noShowVoidedAt(Long partyId, Long userId) {
+        return instant(jdbc.queryForObject("SELECT voided_at FROM user_no_show WHERE match_id = ? AND user_id = ?",
                 Timestamp.class, partyId, userId));
     }
 

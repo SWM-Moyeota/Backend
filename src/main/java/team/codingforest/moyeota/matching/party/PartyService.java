@@ -281,7 +281,7 @@ public class PartyService {
 
     /**
      *  도착한 멤버가 출발을 누르면 방이 끝난다. 그 순간 도착하지 않은 멤버는 노쇼로 저장되고 탑승 기록·탑승 횟수에서 빠지며,
-     *  같은 트랜잭션에서 노쇼 제재(누적 횟수 +1, 약속 시간부터 누적 횟수 × 24시간 이용 제한)가 더해지고, 커밋 후 노쇼 멤버에게 노쇼 알림이 나간다(방해 금지 시간 제외)
+     *  같은 트랜잭션에서 노쇼 제재(노쇼 1건 기록, 약속 시간부터 노쇼 횟수 × 24시간 이용 제한)가 더해지고, 커밋 후 노쇼 멤버에게 노쇼 알림이 나간다(방해 금지 시간 제외)
      */
     @Transactional
     public void depart(Long partyId, Long memberId) {
@@ -409,7 +409,7 @@ public class PartyService {
     private void penalizeNoShows(Party party, List<Long> noShowMemberIds, Instant now) {
         noShowMemberIds.stream()
                 .sorted()
-                .forEach(userId -> noShowPenalty.record(userId, party.getDepartureAt(), now));
+                .forEach(userId -> noShowPenalty.record(userId, party.getId(), party.getDepartureAt(), now));
     }
 
     private Party getParty(Long partyId) {

@@ -21,7 +21,7 @@ import java.util.List;
 
 /**
  *  노쇼 이의 신청(멤버)과 처리(운영자). 받아들이면 같은 트랜잭션에서 멤버 행의 노쇼를 무효로 돌리고(no_show_voided_at)
- *  user 모듈의 제재를 줄인다(누적 횟수 -1, 지금 걸린 제한 해제)
+ *  user 모듈의 노쇼도 무효로 돌린다(노쇼 횟수에서 빠지고 지금 걸린 제한 해제)
  */
 @Slf4j
 @Service
@@ -84,7 +84,7 @@ public class NoShowObjectionService {
         parties.save(party);
 
         if(voided) {
-            noShowPenalty.cancel(objection.getUserId(), now);
+            noShowPenalty.cancel(objection.getUserId(), objection.getPartyId(), now);
         }
 
         objections.save(objection);

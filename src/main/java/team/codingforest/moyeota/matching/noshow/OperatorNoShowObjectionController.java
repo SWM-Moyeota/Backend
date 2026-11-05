@@ -40,7 +40,7 @@ public class OperatorNoShowObjectionController {
         return ResponseEntity.ok(ObjectionListResponse.from(noShowObjectionService.findObjections(status)));
     }
 
-    @Operation(summary = "이의 인정", description = "PENDING 인 신청만. 그 방의 노쇼를 무효로 돌리고(user_match_room.no_show_voided_at) 사용자의 노쇼 누적 횟수를 1 줄이며(0 아래로 내려가지 않음) 지금 걸린 이용 제한을 푼다. 한 트랜잭션",
+    @Operation(summary = "이의 인정", description = "PENDING 인 신청만. 그 방의 노쇼를 무효로 돌려(user_match_room.no_show_voided_at, user_no_show.voided_at) 사용자의 노쇼 횟수에서 빼고 지금 걸린 이용 제한을 푼다. 한 트랜잭션",
             parameters = @Parameter(in = ParameterIn.HEADER, name = "X-Operator-Token", required = true, schema = @Schema(type = "string")))
     @ApiResponses({@ApiResponse(responseCode = "204", description = "인정됨"), @ApiResponse(responseCode = "401", description = OPERATOR_UNAUTHORIZED), @ApiResponse(responseCode = "404", description = "OBJECTION_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "OBJECTION_ALREADY_RESOLVED - 이미 인정·거절됨")})
     @PostMapping("/{objectionId}/accept")

@@ -26,7 +26,7 @@ class LocalUserControllerUnitTest extends ControllerUnitTestSupport {
     @MockitoBean
     private LocalUserService service;
 
-    @DisplayName("GET /api/v1/local/users/info - 노쇼 누적 횟수와 제한 끝 시각(ISO-8601)을 함께 준다")
+    @DisplayName("GET /api/v1/local/users/info - 지금 노쇼 횟수와 제한 끝 시각(ISO-8601)을 함께 준다")
     @Test
     void getProfile_restricted() throws Exception {
 

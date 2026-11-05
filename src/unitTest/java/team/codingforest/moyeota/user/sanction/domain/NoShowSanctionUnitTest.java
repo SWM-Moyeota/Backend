@@ -7,180 +7,159 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 /**
- *  노쇼 제재 계산. 누적 횟수는 노쇼 없이 30일마다 1 줄고(저장하지 않고 계산), 제한은 약속 시간부터 누적 횟수 × 24시간이다
+ *  노쇼 제재 계산. 노쇼는 건마다 약속 시간부터 30일 동안 세고, 제한은 약속 시간부터 지금 세는 노쇼 수 × 24시간이다
  */
 class NoShowSanctionUnitTest {
-    private static final Instant UPDATED_AT = Instant.parse("2026-10-01T00:00:00Z");
     private static final Instant MEETING_AT = Instant.parse("2026-11-03T08:00:00Z");
     private static final Instant NOW = Instant.parse("2026-11-03T09:00:00Z");
 
-    // ───────────────────────── effectiveCount ─────────────────────────
+    private static NoShow noShowAt(Instant meetingAt) {
+        return new NoShow(meetingAt, null);
+    }
 
-    @DisplayName("effectiveCount - 마지막 변경에서 지난 30일 수만큼 줄인다(0·29일은 그대로, 30일에 1, 61일에 2)")
-    @ParameterizedTest(name = "누적 {0}회, {1}일 뒤 → {2}회")
+    // ───────────────────────── count ─────────────────────────
+
+    @DisplayName("count - 무효로 돌린 노쇼와 약속 시간에서 30일이 지난 노쇼는 빼고 센다")
+    @Test
+    void count_excludesVoidedAndExpired() {
+
+        /*
+         * settings
+         */
+        List<NoShow> noShows = List.of(
+                noShowAt(NOW.minus(Duration.ofDays(1))),
+                noShowAt(NOW.minus(Duration.ofDays(29)).minus(Duration.ofHours(23))),
+                noShowAt(NOW.minus(Duration.ofDays(30))),
+                new NoShow(NOW.minus(Duration.ofDays(2)), NOW.minus(Duration.ofDays(1))));
+
+        /*
+         * test
+         */
+        int count = NoShowSanction.count(noShows, NOW);
+
+        /*
+         * verify
+         */
+        assertThat(count).isEqualTo(2);
+    }
+
+    @DisplayName("count - 노쇼가 없으면 0")
+    @Test
+    void count_none() {
+
+        /*
+         * test
+         */
+        int count = NoShowSanction.count(List.of(), NOW);
+
+        /*
+         * verify
+         */
+        assertThat(count).isZero();
+    }
+
+    @DisplayName("count - 14일 간격 노쇼 두 건은 첫 건이 만료되기 전엔 2, 첫 건이 만료되면 1, 둘째 건까지 만료되면 0")
+    @ParameterizedTest(name = "첫 노쇼 약속 시간 + {0} → {1}건")
     @CsvSource({
-            "3, 0, 3",
-            "3, 29, 3",
-            "3, 30, 2",
-            "3, 59, 2",
-            "3, 60, 1",
-            "3, 61, 1",
-            "1, 61, 0",
-            "2, 365, 0"
+            "P14D, 2",
+            "PT719H59M59S, 2",
+            "P30D, 1",
+            "P43D, 1",
+            "P44D, 0",
+            "P60D, 0"
     })
-    void effectiveCount_decay(int count, int days, int expected) {
+    void count_twoNoShows14DaysApart(String elapsed, int expected) {
 
         /*
          * settings
          */
-        NoShowSanction sanction = new NoShowSanction(count, UPDATED_AT, null);
+        Instant first = MEETING_AT;
+        Instant second = MEETING_AT.plus(Duration.ofDays(14));
+        List<NoShow> noShows = List.of(noShowAt(first), noShowAt(second));
 
         /*
          * test
          */
-        int effective = sanction.effectiveCount(UPDATED_AT.plus(Duration.ofDays(days)));
+        int count = NoShowSanction.count(noShows, first.plus(Duration.parse(elapsed)));
 
         /*
          * verify
          */
-        assertThat(effective).isEqualTo(expected);
-    }
-
-    @DisplayName("effectiveCount - 30일에서 1초 모자라면 줄지 않는다")
-    @Test
-    void effectiveCount_justBeforePeriod() {
-
-        /*
-         * settings
-         */
-        NoShowSanction sanction = new NoShowSanction(2, UPDATED_AT, null);
-
-        /*
-         * test
-         */
-        int effective = sanction.effectiveCount(UPDATED_AT.plus(Duration.ofDays(30)).minusSeconds(1));
-
-        /*
-         * verify
-         */
-        assertThat(effective).isEqualTo(2);
-    }
-
-    @DisplayName("effectiveCount - 노쇼가 없었으면(기준 시각 null) 0 이다")
-    @Test
-    void effectiveCount_none() {
-
-        /*
-         * test
-         */
-        int effective = NoShowSanction.NONE.effectiveCount(NOW);
-
-        /*
-         * verify
-         */
-        assertThat(effective).isZero();
-    }
-
-    @DisplayName("effectiveCount - 지금이 기준 시각보다 이르면(서버 시계 어긋남) 줄이지 않는다")
-    @Test
-    void effectiveCount_clockSkew() {
-
-        /*
-         * settings
-         */
-        NoShowSanction sanction = new NoShowSanction(2, UPDATED_AT, null);
-
-        /*
-         * test
-         */
-        int effective = sanction.effectiveCount(UPDATED_AT.minus(Duration.ofDays(40)));
-
-        /*
-         * verify
-         */
-        assertThat(effective).isEqualTo(2);
-    }
-
-    @DisplayName("생성 - 누적 횟수가 음수면 IllegalArgumentException")
-    @Test
-    void create_negativeCount() {
-
-        /*
-         * test
-         */
-        Throwable thrown = catchThrowable(() -> new NoShowSanction(-1, UPDATED_AT, null));
-
-        /*
-         * verify
-         */
-        assertThat(thrown).isInstanceOf(IllegalArgumentException.class);
+        assertThat(count).isEqualTo(expected);
     }
 
     // ───────────────────────── record ─────────────────────────
 
-    @DisplayName("record - 처음 노쇼면 1회, 약속 시간부터 24시간 제한이고 기준 시각은 지금이다")
+    @DisplayName("record - 처음 노쇼면 약속 시간부터 24시간 제한")
     @Test
     void record_first() {
 
         /*
          * test
          */
-        NoShowSanction next = NoShowSanction.NONE.record(MEETING_AT, NOW);
+        NoShowSanction next = NoShowSanction.NONE.record(MEETING_AT, List.of(noShowAt(MEETING_AT)), NOW);
 
         /*
          * verify
          */
-        assertThat(next.count()).isEqualTo(1);
-        assertThat(next.countUpdatedAt()).isEqualTo(NOW);
         assertThat(next.restrictedUntil()).isEqualTo(MEETING_AT.plus(Duration.ofHours(24)));
     }
 
-    @DisplayName("record - 누적 2회에서 한 번 더면 3회, 약속 시간부터 72시간 제한")
-    @Test
-    void record_accumulates() {
+    @DisplayName("record - 이번 노쇼까지 지금 세는 노쇼가 n 건이면 약속 시간부터 n × 24시간 제한")
+    @ParameterizedTest(name = "{0}건 → {1}시간")
+    @CsvSource({
+            "1, 24",
+            "2, 48",
+            "3, 72",
+            "5, 120"
+    })
+    void record_restrictionByCount(int count, int hours) {
 
         /*
          * settings
          */
-        NoShowSanction sanction = new NoShowSanction(2, NOW.minus(Duration.ofDays(1)), null);
+        List<NoShow> noShows = new ArrayList<>();
+        for (int i = 0; i < count; i++) noShows.add(noShowAt(MEETING_AT.minus(Duration.ofDays(i))));
 
         /*
          * test
          */
-        NoShowSanction next = sanction.record(MEETING_AT, NOW);
+        NoShowSanction next = NoShowSanction.NONE.record(MEETING_AT, noShows, NOW);
 
         /*
          * verify
          */
-        assertThat(next.count()).isEqualTo(3);
-        assertThat(next.restrictedUntil()).isEqualTo(MEETING_AT.plus(Duration.ofHours(72)));
+        assertThat(next.restrictedUntil()).isEqualTo(MEETING_AT.plus(Duration.ofHours(hours)));
     }
 
-    @DisplayName("record - 감소를 반영한 횟수에 1 을 더한다(누적 3회, 61일 지남 → 1 + 1 = 2회, 48시간)")
+    @DisplayName("record - 무효로 돌린 노쇼와 30일이 지난 노쇼는 제한 길이에 들어가지 않는다")
     @Test
-    void record_afterDecay() {
+    void record_ignoresVoidedAndExpired() {
 
         /*
          * settings
          */
-        NoShowSanction sanction = new NoShowSanction(3, NOW.minus(Duration.ofDays(61)), null);
+        List<NoShow> noShows = List.of(
+                noShowAt(MEETING_AT),
+                noShowAt(NOW.minus(Duration.ofDays(30))),
+                new NoShow(NOW.minus(Duration.ofDays(3)), NOW.minus(Duration.ofDays(2))));
 
         /*
          * test
          */
-        NoShowSanction next = sanction.record(MEETING_AT, NOW);
+        NoShowSanction next = NoShowSanction.NONE.record(MEETING_AT, noShows, NOW);
 
         /*
          * verify
          */
-        assertThat(next.count()).isEqualTo(2);
-        assertThat(next.countUpdatedAt()).isEqualTo(NOW);
-        assertThat(next.restrictedUntil()).isEqualTo(MEETING_AT.plus(Duration.ofHours(48)));
+        assertThat(next.restrictedUntil()).isEqualTo(MEETING_AT.plus(Duration.ofHours(24)));
     }
 
     @DisplayName("record - 이미 더 늦게 끝나는 제한이 걸려 있으면 그쪽을 남긴다")
@@ -191,17 +170,17 @@ class NoShowSanctionUnitTest {
          * settings
          */
         Instant later = MEETING_AT.plus(Duration.ofDays(10));
-        NoShowSanction sanction = new NoShowSanction(1, NOW.minus(Duration.ofDays(1)), later);
+        NoShowSanction sanction = new NoShowSanction(later);
+        List<NoShow> noShows = List.of(noShowAt(MEETING_AT.minus(Duration.ofDays(1))), noShowAt(MEETING_AT));
 
         /*
          * test
          */
-        NoShowSanction next = sanction.record(MEETING_AT, NOW);
+        NoShowSanction next = sanction.record(MEETING_AT, noShows, NOW);
 
         /*
          * verify
          */
-        assertThat(next.count()).isEqualTo(2);
         assertThat(next.restrictedUntil()).isEqualTo(later);
     }
 
@@ -212,13 +191,13 @@ class NoShowSanctionUnitTest {
         /*
          * settings
          */
-        Instant earlier = MEETING_AT.plus(Duration.ofHours(1));
-        NoShowSanction sanction = new NoShowSanction(1, NOW.minus(Duration.ofDays(1)), earlier);
+        NoShowSanction sanction = new NoShowSanction(MEETING_AT.plus(Duration.ofHours(1)));
+        List<NoShow> noShows = List.of(noShowAt(MEETING_AT.minus(Duration.ofDays(1))), noShowAt(MEETING_AT));
 
         /*
          * test
          */
-        NoShowSanction next = sanction.record(MEETING_AT, NOW);
+        NoShowSanction next = sanction.record(MEETING_AT, noShows, NOW);
 
         /*
          * verify
@@ -233,7 +212,7 @@ class NoShowSanctionUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> NoShowSanction.NONE.record(null, NOW));
+        Throwable thrown = catchThrowable(() -> NoShowSanction.NONE.record(null, List.of(), NOW));
 
         /*
          * verify
@@ -243,63 +222,25 @@ class NoShowSanctionUnitTest {
 
     // ───────────────────────── cancel ─────────────────────────
 
-    @DisplayName("cancel - 누적 횟수를 1 줄이고 지금 걸린 제한을 푼다")
+    @DisplayName("cancel - 지금 걸린 제한을 푼다")
     @Test
     void cancel() {
 
         /*
          * settings
          */
-        NoShowSanction sanction = new NoShowSanction(2, NOW.minus(Duration.ofDays(1)), MEETING_AT.plus(Duration.ofHours(48)));
+        NoShowSanction sanction = new NoShowSanction(MEETING_AT.plus(Duration.ofHours(48)));
 
         /*
          * test
          */
-        NoShowSanction next = sanction.cancel(NOW);
+        NoShowSanction next = sanction.cancel();
 
         /*
          * verify
          */
-        assertThat(next.count()).isEqualTo(1);
-        assertThat(next.countUpdatedAt()).isEqualTo(NOW);
         assertThat(next.restrictedUntil()).isNull();
         assertThat(next.activeRestrictionUntil(NOW)).isEmpty();
-    }
-
-    @DisplayName("cancel - 0 아래로 내려가지 않는다")
-    @Test
-    void cancel_floorAtZero() {
-
-        /*
-         * test
-         */
-        NoShowSanction next = NoShowSanction.NONE.cancel(NOW);
-
-        /*
-         * verify
-         */
-        assertThat(next.count()).isZero();
-        assertThat(next.restrictedUntil()).isNull();
-    }
-
-    @DisplayName("cancel - 감소가 이미 0 까지 반영됐으면 0 이다(누적 1회, 30일 지남)")
-    @Test
-    void cancel_afterDecay() {
-
-        /*
-         * settings
-         */
-        NoShowSanction sanction = new NoShowSanction(1, NOW.minus(Duration.ofDays(30)), null);
-
-        /*
-         * test
-         */
-        NoShowSanction next = sanction.cancel(NOW);
-
-        /*
-         * verify
-         */
-        assertThat(next.count()).isZero();
     }
 
     // ───────────────────────── activeRestrictionUntil ─────────────────────────
@@ -312,7 +253,7 @@ class NoShowSanctionUnitTest {
          * settings
          */
         Instant until = NOW.plusSeconds(1);
-        NoShowSanction sanction = new NoShowSanction(1, NOW, until);
+        NoShowSanction sanction = new NoShowSanction(until);
 
         /*
          * test & verify
@@ -327,8 +268,8 @@ class NoShowSanctionUnitTest {
         /*
          * settings
          */
-        NoShowSanction ended = new NoShowSanction(1, NOW, NOW);
-        NoShowSanction past = new NoShowSanction(1, NOW, NOW.minusSeconds(1));
+        NoShowSanction ended = new NoShowSanction(NOW);
+        NoShowSanction past = new NoShowSanction(NOW.minusSeconds(1));
 
         /*
          * test & verify

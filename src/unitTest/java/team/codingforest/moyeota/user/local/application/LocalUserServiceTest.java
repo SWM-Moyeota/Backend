@@ -15,6 +15,7 @@ import team.codingforest.moyeota.user.local.dto.UserResponse;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
 import team.codingforest.moyeota.user.sanction.domain.NoShowSanctions;
+import team.codingforest.moyeota.user.sanction.domain.NoShows;
 import team.codingforest.moyeota.user.users.domain.User;
 import team.codingforest.moyeota.user.users.domain.enums.Gender;
 import team.codingforest.moyeota.user.users.domain.enums.LoginType;
@@ -57,7 +58,7 @@ class LocalUserServiceTest {
                 UUID::randomUUID,
                 smsVerificationService,
                 new ProfileImages(new ProfileImageProperties(CDN, "profile/presets/default.png", List.of("profile/presets/01.png"))),
-                mock(NoShowSanctions.class));   // 제재가 없는 사용자 - 프로필의 제재 필드는 LocalUserServiceUnitTest 가 본다
+                mock(NoShowSanctions.class), mock(NoShows.class));   // 제재가 없는 사용자 - 프로필의 제재 필드는 LocalUserServiceUnitTest 가 본다
     }
 
     private UserRegisterCommand 가입(String loginId, String nickname, String phone) {

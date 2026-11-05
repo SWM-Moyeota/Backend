@@ -16,7 +16,7 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     List<UserEntity> findAllByIdInAndFcmTokenIsNotNull(Collection<Long> ids);
     boolean existsByNickname(String nickname);
 
-    // 노쇼 제재를 바꿀 때 - 같은 사용자의 노쇼 두 건이 동시에 더해져도 누적 횟수가 빠지지 않게 행을 잠근다
+    // 노쇼 제재를 바꿀 때 - 같은 사용자의 노쇼 두 건이 동시에 기록돼도 서로를 세게 행을 잠근다
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from UserEntity u where u.id = :id")
     Optional<UserEntity> findByIdForUpdate(@Param("id") Long id);
