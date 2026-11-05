@@ -71,6 +71,7 @@ public class SecurityConfig implements WebMvcConfigurer {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/v1/auth/**", "/api/v1/config","/ws-chat/**", "/health", "/prometheus", "/info").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/internal/chat/chat-rooms/**").permitAll()   // 소켓 서버 전용, 사용자 토큰 없이 부름 - ALB 에서 /internal/* 차단
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthenticationFilter(authService, entryPoint), AuthorizationFilter.class)
                 .build();
