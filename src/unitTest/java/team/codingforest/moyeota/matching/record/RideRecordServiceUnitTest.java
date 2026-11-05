@@ -58,7 +58,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        RideRecord record = droppedOff(10L, 15000);
+        RideRecord record = droppedOff(10L);
 
         doReturn(List.of(record)).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
         doReturn(Map.of(10L, List.of(MEMBER_ID, OTHER_MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(10L)));
@@ -82,10 +82,10 @@ class RideRecordServiceUnitTest {
         assertThat(item.partyId()).isEqualTo(10L);
         assertThat(item.departure()).isEqualTo("강남역");
         assertThat(item.destination()).isEqualTo("판교역");
-        assertThat(item.pickupTime()).isEqualTo(BASE_TIME);
+        assertThat(item.pickupTime()).isNull();
         assertThat(item.dropoffTime()).isEqualTo(BASE_TIME.plusSeconds(600));
-        assertThat(item.totalFare()).isEqualTo(15000);
-        assertThat(item.farePerPerson()).isEqualTo(7500);
+        assertThat(item.totalFare()).isNull();
+        assertThat(item.farePerPerson()).isNull();
         assertThat(item.currentMembers()).isEqualTo(2);
         assertThat(item.members()).containsExactly(
                 new RideRecordResponse.RideRecordMember(MEMBER_PUBLIC_ID, "나", "me.png"),
@@ -100,9 +100,9 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        RideRecord first = droppedOff(30L, 9000);
-        RideRecord second = droppedOff(20L, 9000);
-        RideRecord beyond = droppedOff(10L, 9000);
+        RideRecord first = droppedOff(30L);
+        RideRecord second = droppedOff(20L);
+        RideRecord beyond = droppedOff(10L);
 
         doReturn(List.of(first, second, beyond)).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(3));
         doReturn(Map.of(30L, List.of(MEMBER_ID), 20L, List.of(MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(30L, 20L)));
@@ -128,7 +128,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(droppedOff(30L, 9000), droppedOff(20L, 9000))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(3));
+        doReturn(List.of(droppedOff(30L), droppedOff(20L))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(3));
         doReturn(Map.of(30L, List.of(MEMBER_ID), 20L, List.of(MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(30L, 20L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
 
@@ -153,10 +153,10 @@ class RideRecordServiceUnitTest {
          * settings
          */
         Instant cursorDropoff = BASE_TIME.plusSeconds(600);
-        RideRecord cursorRecord = RideRecord.load(CURSOR, 9L, "강남역", "판교역", BASE_TIME, cursorDropoff, 9000);
+        RideRecord cursorRecord = RideRecord.load(CURSOR, "강남역", "판교역", cursorDropoff);
 
         doReturn(Optional.of(cursorRecord)).when(rideRecords).findById(eq(CURSOR));
-        doReturn(List.of(droppedOff(10L, 9000))).when(rideRecords).findDroppedOffByMemberBefore(eq(MEMBER_ID), eq(cursorDropoff), eq(CURSOR), eq(21));
+        doReturn(List.of(droppedOff(10L))).when(rideRecords).findDroppedOffByMemberBefore(eq(MEMBER_ID), eq(cursorDropoff), eq(CURSOR), eq(21));
         doReturn(Map.of(10L, List.of(MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(10L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
 
@@ -263,7 +263,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        doReturn(Optional.of(RideRecord.load(CURSOR, 9L, "강남역", "판교역", BASE_TIME, null, null))).when(rideRecords).findById(eq(CURSOR));
+        doReturn(Optional.of(RideRecord.load(CURSOR, "강남역", "판교역", null))).when(rideRecords).findById(eq(CURSOR));
 
         /*
          * test
@@ -287,7 +287,7 @@ class RideRecordServiceUnitTest {
          */
         Instant cursorDropoff = BASE_TIME.plusSeconds(600);
 
-        doReturn(Optional.of(RideRecord.load(CURSOR, 9L, "강남역", "판교역", BASE_TIME, cursorDropoff, 9000))).when(rideRecords).findById(eq(CURSOR));
+        doReturn(Optional.of(RideRecord.load(CURSOR, "강남역", "판교역", cursorDropoff))).when(rideRecords).findById(eq(CURSOR));
         doReturn(List.of()).when(rideRecords).findDroppedOffByMemberBefore(eq(MEMBER_ID), eq(cursorDropoff), eq(CURSOR), eq(21));
 
         /*
@@ -311,7 +311,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(droppedOff(30L, 9000), droppedOff(20L, 9000))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
+        doReturn(List.of(droppedOff(30L), droppedOff(20L))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
         doReturn(Map.of(30L, List.of(MEMBER_ID), 20L, List.of(MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(30L, 20L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
 
@@ -326,16 +326,16 @@ class RideRecordServiceUnitTest {
         verify(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
     }
 
-    @DisplayName("findMyRides - 1차 모드 기록은 요금이 null 이라 1인 요금도 null 이다")
+    @DisplayName("findMyRides - 서버가 요금을 받지 않아 탑승 시각·요금·1인 요금은 키만 남고 null 이다")
     @Test
     void findMyRides_noFare() {
 
         /*
          * settings
          */
-        RideRecord withoutDriver = RideRecord.load(10L, null, "강남역", "판교역", null, BASE_TIME, null);
+        RideRecord record = RideRecord.load(10L, "강남역", "판교역", BASE_TIME);
 
-        doReturn(List.of(withoutDriver)).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
+        doReturn(List.of(record)).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
         doReturn(Map.of(10L, List.of(MEMBER_ID, OTHER_MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(10L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID, OTHER_MEMBER_ID)));
 
@@ -354,28 +354,6 @@ class RideRecordServiceUnitTest {
         assertThat(item.currentMembers()).isEqualTo(2);
     }
 
-    @DisplayName("findMyRides - 1인 요금은 정수 나눗셈으로 나머지를 버린다")
-    @Test
-    void findMyRides_farePerPersonTruncated() {
-
-        /*
-         * settings
-         */
-        doReturn(List.of(droppedOff(10L, 10000))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
-        doReturn(Map.of(10L, List.of(MEMBER_ID, OTHER_MEMBER_ID, 3L))).when(rideRecords).findMemberIds(eq(List.of(10L)));
-        doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID, OTHER_MEMBER_ID, 3L)));
-
-        /*
-         * test
-         */
-        RideRecordResponse result = rideRecordService.findMyRides(MEMBER_ID, null, 20);
-
-        /*
-         * verify
-         */
-        assertThat(result.rides().getFirst().farePerPerson()).isEqualTo(3333);
-    }
-
     @DisplayName("findMyRides - 유저 요약이 없는 멤버는 세 필드가 모두 null 로 나온다")
     @Test
     void findMyRides_noMemberSummary() {
@@ -383,7 +361,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(droppedOff(10L, 9000))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
+        doReturn(List.of(droppedOff(10L))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
         doReturn(Map.of(10L, List.of(MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(10L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
 
@@ -405,7 +383,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(droppedOff(10L, 9000))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
+        doReturn(List.of(droppedOff(10L))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
         doReturn(Map.of()).when(rideRecords).findMemberIds(eq(List.of(10L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of()));
 
@@ -420,13 +398,13 @@ class RideRecordServiceUnitTest {
         RideRecordResponse.RideRecordItem item = result.rides().getFirst();
         assertThat(item.members()).isEmpty();
         assertThat(item.currentMembers()).isZero();
-        assertThat(item.totalFare()).isEqualTo(9000);
+        assertThat(item.totalFare()).isNull();
         assertThat(item.farePerPerson()).isNull();
         verify(userAccess).findMemberSummaries(anyList());
     }
 
-    private static RideRecord droppedOff(Long matchId, Integer totalFare) {
-        return RideRecord.load(matchId, 9L, "강남역", "판교역", BASE_TIME, BASE_TIME.plusSeconds(600), totalFare);
+    private static RideRecord droppedOff(Long matchId) {
+        return RideRecord.load(matchId, "강남역", "판교역", BASE_TIME.plusSeconds(600));
     }
 
     private static void assertBusinessException(Throwable thrown, ErrorCode expected) {

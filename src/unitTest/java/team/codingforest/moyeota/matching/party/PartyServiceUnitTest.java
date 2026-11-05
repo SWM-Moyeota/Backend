@@ -31,7 +31,6 @@ import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.RoomType;
 import team.codingforest.moyeota.matching.party.dto.MatchCandidate;
 import team.codingforest.moyeota.matching.party.dto.MemberArrived;
@@ -144,7 +143,7 @@ class PartyServiceUnitTest {
          * settings
          */
         OpenPartyCommand command = openCommand(3);
-        PartyResult opened = PartyResult.from(party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID));
+        PartyResult opened = PartyResult.from(party(PartyStatus.ACTIVE, 3, 0L, HOST_ID));
 
         doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
         doReturn(ESTIMATE).when(routeService).estimate(eq(DEPARTURE_LAT), eq(DEPARTURE_LNG), eq(DESTINATION_LAT), eq(DESTINATION_LNG));
@@ -261,8 +260,8 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 3, null, 3L, HOST_ID);
-        Party saved = party(PartyStatus.ACTIVE, 3, null, 4L, HOST_ID, MEMBER_ID);
+        Party party = party(PartyStatus.ACTIVE, 3, 3L, HOST_ID);
+        Party saved = party(PartyStatus.ACTIVE, 3, 4L, HOST_ID, MEMBER_ID);
         MemberSummary summary = new MemberSummary(MEMBER_PUBLIC_ID, "참가자", "image.png");
 
         doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
@@ -299,8 +298,8 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 2, null, 0L, HOST_ID);
-        Party saved = party(PartyStatus.COMPLETED, 2, null, 1L, HOST_ID, MEMBER_ID);
+        Party party = party(PartyStatus.ACTIVE, 2, 0L, HOST_ID);
+        Party saved = party(PartyStatus.COMPLETED, 2, 1L, HOST_ID, MEMBER_ID);
 
         doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
@@ -335,8 +334,8 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID);
-        Party saved = party(PartyStatus.ACTIVE, 3, null, 1L, HOST_ID, MEMBER_ID);
+        Party party = party(PartyStatus.ACTIVE, 3, 0L, HOST_ID);
+        Party saved = party(PartyStatus.ACTIVE, 3, 1L, HOST_ID, MEMBER_ID);
 
         doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
@@ -364,8 +363,8 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID);
-        Party saved = party(PartyStatus.ACTIVE, 3, null, 1L, MEMBER_ID, HOST_ID);
+        Party party = party(PartyStatus.ACTIVE, 3, 0L, HOST_ID);
+        Party saved = party(PartyStatus.ACTIVE, 3, 1L, MEMBER_ID, HOST_ID);
 
         doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
@@ -466,7 +465,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(status, 3, null, 0L, HOST_ID);
+        Party party = party(status, 3, 0L, HOST_ID);
 
         doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
@@ -494,7 +493,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 2, null, 0L, HOST_ID, THIRD_ID);
+        Party party = party(PartyStatus.ACTIVE, 2, 0L, HOST_ID, THIRD_ID);
 
         doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
@@ -521,7 +520,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID, MEMBER_ID);
+        Party party = party(PartyStatus.ACTIVE, 3, 0L, HOST_ID, MEMBER_ID);
 
         doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(MEMBER_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
@@ -550,7 +549,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 3, null, 2L, HOST_ID, MEMBER_ID);
+        Party party = party(PartyStatus.ACTIVE, 3, 2L, HOST_ID, MEMBER_ID);
 
         doReturn(Map.of(MEMBER_ID, summary(MEMBER_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Map.of(HOST_ID, summary(HOST_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(List.of(HOST_ID)));
@@ -584,7 +583,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID, MEMBER_ID, THIRD_ID);
+        Party party = party(PartyStatus.ACTIVE, 3, 0L, HOST_ID, MEMBER_ID, THIRD_ID);
 
         doReturn(Map.of(HOST_ID, summary(HOST_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(List.of(HOST_ID)));
         doReturn(Map.of(MEMBER_ID, summary(MEMBER_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
@@ -609,7 +608,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.COMPLETED, 2, null, 0L, HOST_ID, MEMBER_ID);
+        Party party = party(PartyStatus.COMPLETED, 2, 0L, HOST_ID, MEMBER_ID);
 
         doReturn(Map.of(MEMBER_ID, summary(MEMBER_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Map.of(HOST_ID, summary(HOST_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(List.of(HOST_ID)));
@@ -624,7 +623,6 @@ class PartyServiceUnitTest {
          * verify
          */
         assertThat(party.getStatus()).isEqualTo(PartyStatus.ACTIVE);
-        assertThat(party.getCompletedAt()).isNull();
         capturedAfterCommitTask().run();
         verify(partyChangeNotifier).memberLeft(eq(PARTY_ID), eq(MEMBER_ID), eq(new MemberLeft(MEMBER_PUBLIC_ID, "ACTIVE", HOST_PUBLIC_ID, 1L)));
     }
@@ -636,7 +634,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID);
+        Party party = party(PartyStatus.ACTIVE, 3, 0L, HOST_ID);
 
         doReturn(Map.of(HOST_ID, summary(HOST_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(List.of(HOST_ID)));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -670,7 +668,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID, MEMBER_ID);
+        Party party = party(PartyStatus.ACTIVE, 3, 0L, HOST_ID, MEMBER_ID);
 
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Map.of(HOST_ID, summary(HOST_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(List.of(HOST_ID)));
@@ -695,7 +693,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID, MEMBER_ID);
+        Party party = party(PartyStatus.ACTIVE, 3, 0L, HOST_ID, MEMBER_ID);
 
         doReturn(Map.of(MEMBER_ID, summary(MEMBER_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(HOST_ID)));
@@ -743,7 +741,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID);
+        Party party = party(PartyStatus.ACTIVE, 3, 0L, HOST_ID);
 
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -769,7 +767,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(status, 2, null, 0L, HOST_ID, MEMBER_ID);
+        Party party = party(status, 2, 0L, HOST_ID, MEMBER_ID);
 
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -856,7 +854,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 3, null, 7L, HOST_ID, MEMBER_ID);
+        Party party = party(PartyStatus.ACTIVE, 3, 7L, HOST_ID, MEMBER_ID);
         List<Long> memberIds = List.of(HOST_ID, MEMBER_ID);
 
         doReturn(Optional.of(party)).when(parties).findById(eq(PARTY_ID));
@@ -894,7 +892,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID);
+        Party party = party(PartyStatus.ACTIVE, 3, 0L, HOST_ID);
 
         doReturn(Optional.of(party)).when(parties).findById(eq(PARTY_ID));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(HOST_ID)));
@@ -996,7 +994,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.parse("2026-11-03T12:00:00Z"), PartyStatus.COMPLETED, null, 3L,
+        Party party = confirmedParty(Instant.parse("2026-11-03T12:00:00Z"), PartyStatus.COMPLETED, 3L,
                 waitingMember(HOST_ID, 0), arrivedMember(MEMBER_ID, 1));
         List<Long> memberIds = List.of(HOST_ID, MEMBER_ID);
 
@@ -1026,7 +1024,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID))).when(parties).findRealtimeByStatus(eq(PartyStatus.ACTIVE));
+        doReturn(List.of(party(PartyStatus.ACTIVE, 3, 0L, HOST_ID))).when(parties).findRealtimeByStatus(eq(PartyStatus.ACTIVE));
 
         /*
          * test
@@ -1116,7 +1114,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.ACTIVE, 3, null, 2L, HOST_ID, MEMBER_ID);
+        Party party = party(PartyStatus.ACTIVE, 3, 2L, HOST_ID, MEMBER_ID);
         Instant departureAt = Instant.now().plus(Duration.ofMinutes(30));
 
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -1156,7 +1154,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.COMPLETED, 2, null, 1L, HOST_ID, MEMBER_ID);
+        Party party = party(PartyStatus.COMPLETED, 2, 1L, HOST_ID, MEMBER_ID);
         Instant departureAt = Instant.now().plus(Duration.ofMinutes(30));
 
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -1226,15 +1224,15 @@ class PartyServiceUnitTest {
     static Stream<Arguments> confirmRejections() {
         Duration ok = Duration.ofMinutes(30);
         return Stream.of(
-                Arguments.of(MatchingErrorCode.NOT_PARTY_MEMBER, party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID, MEMBER_ID), THIRD_ID, "방에 없는 사람", ok),
-                Arguments.of(MatchingErrorCode.NOT_PARTY_HOST, party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID, MEMBER_ID), MEMBER_ID, "방장이 아닌 멤버", ok),
+                Arguments.of(MatchingErrorCode.NOT_PARTY_MEMBER, party(PartyStatus.ACTIVE, 3, 0L, HOST_ID, MEMBER_ID), THIRD_ID, "방에 없는 사람", ok),
+                Arguments.of(MatchingErrorCode.NOT_PARTY_HOST, party(PartyStatus.ACTIVE, 3, 0L, HOST_ID, MEMBER_ID), MEMBER_ID, "방장이 아닌 멤버", ok),
                 Arguments.of(MatchingErrorCode.NOT_REALTIME_PARTY, party(RoomType.RESERVED, Instant.now().plus(Duration.ofDays(1)), PartyStatus.ACTIVE, 3, 0L, HOST_ID, MEMBER_ID), HOST_ID, "예약 방", ok),
                 Arguments.of(MatchingErrorCode.ALREADY_CONFIRMED, party(RoomType.REALTIME, Instant.now().plus(Duration.ofMinutes(20)), PartyStatus.COMPLETED, 3, 0L, HOST_ID, MEMBER_ID), HOST_ID, "이미 확정한 방", ok),
-                Arguments.of(MatchingErrorCode.NOT_ENOUGH_MEMBERS, party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID), HOST_ID, "방장 혼자", ok),
-                Arguments.of(MatchingErrorCode.PARTY_NOT_RECRUITING, party(PartyStatus.CANCELED, 3, null, 0L, HOST_ID, MEMBER_ID), HOST_ID, "닫힌 방", ok),
-                Arguments.of(MatchingErrorCode.PARTY_NOT_RECRUITING, party(PartyStatus.MATCHING, 2, null, 0L, HOST_ID, MEMBER_ID), HOST_ID, "매칭이 시작된 방", ok),
-                Arguments.of(MatchingErrorCode.INVALID_MEETING_TIME, party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID, MEMBER_ID), HOST_ID, "1분 넘게 지난 시각", Duration.ofMinutes(-2)),
-                Arguments.of(MatchingErrorCode.INVALID_MEETING_TIME, party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID, MEMBER_ID), HOST_ID, "1시간 넘게 뒤", Duration.ofMinutes(61)));
+                Arguments.of(MatchingErrorCode.NOT_ENOUGH_MEMBERS, party(PartyStatus.ACTIVE, 3, 0L, HOST_ID), HOST_ID, "방장 혼자", ok),
+                Arguments.of(MatchingErrorCode.PARTY_NOT_RECRUITING, party(PartyStatus.CANCELED, 3, 0L, HOST_ID, MEMBER_ID), HOST_ID, "닫힌 방", ok),
+                Arguments.of(MatchingErrorCode.PARTY_NOT_RECRUITING, party(PartyStatus.FINISHED, 2, 0L, HOST_ID, MEMBER_ID), HOST_ID, "끝난 방", ok),
+                Arguments.of(MatchingErrorCode.INVALID_MEETING_TIME, party(PartyStatus.ACTIVE, 3, 0L, HOST_ID, MEMBER_ID), HOST_ID, "1분 넘게 지난 시각", Duration.ofMinutes(-2)),
+                Arguments.of(MatchingErrorCode.INVALID_MEETING_TIME, party(PartyStatus.ACTIVE, 3, 0L, HOST_ID, MEMBER_ID), HOST_ID, "1시간 넘게 뒤", Duration.ofMinutes(61)));
     }
 
     // ───────────────────────── arrive ─────────────────────────
@@ -1246,7 +1244,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 4L,
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 4L,
                 waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1));
 
         doReturn(Map.of(MEMBER_ID, summary(MEMBER_PUBLIC_ID))).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
@@ -1289,7 +1287,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 4L,
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 4L,
                 waitingMember(HOST_ID, 0), arrivedMember(MEMBER_ID, 1));
         Instant firstArrivedAt = memberOf(party, MEMBER_ID).getArrivedAt();
 
@@ -1319,7 +1317,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 0L,
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 0L,
                 waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1));
 
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(HOST_ID)));
@@ -1408,11 +1406,11 @@ class PartyServiceUnitTest {
     static Stream<Arguments> arriveRejections() {
         Instant started = Instant.now().minus(Duration.ofMinutes(5));
         return Stream.of(
-                Arguments.of(MatchingErrorCode.NOT_PARTY_MEMBER, confirmedParty(started, PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), THIRD_ID, NEAR_LAT, true, "방에 없는 사람"),
-                Arguments.of(MatchingErrorCode.PARTY_NOT_CONFIRMED, party(PartyStatus.COMPLETED, 2, null, 0L, HOST_ID, MEMBER_ID), HOST_ID, NEAR_LAT, true, "약속 확정 전 실시간 방"),
-                Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.FINISHED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, NEAR_LAT, true, "이미 끝난 방"),
-                Arguments.of(MatchingErrorCode.MEETING_NOT_STARTED, confirmedParty(Instant.now().plus(Duration.ofMinutes(10)), PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, NEAR_LAT, true, "약속 시간 전"),
-                Arguments.of(MatchingErrorCode.TOO_FAR_FROM_DEPARTURE, confirmedParty(started, PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, FAR_LAT, false, "출발지에서 약 111m - DB 가 반경 밖이라고 답함"));
+                Arguments.of(MatchingErrorCode.NOT_PARTY_MEMBER, confirmedParty(started, PartyStatus.COMPLETED, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), THIRD_ID, NEAR_LAT, true, "방에 없는 사람"),
+                Arguments.of(MatchingErrorCode.PARTY_NOT_CONFIRMED, party(PartyStatus.COMPLETED, 2, 0L, HOST_ID, MEMBER_ID), HOST_ID, NEAR_LAT, true, "약속 확정 전 실시간 방"),
+                Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.FINISHED, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, NEAR_LAT, true, "이미 끝난 방"),
+                Arguments.of(MatchingErrorCode.MEETING_NOT_STARTED, confirmedParty(Instant.now().plus(Duration.ofMinutes(10)), PartyStatus.COMPLETED, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, NEAR_LAT, true, "약속 시간 전"),
+                Arguments.of(MatchingErrorCode.TOO_FAR_FROM_DEPARTURE, confirmedParty(started, PartyStatus.COMPLETED, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, FAR_LAT, false, "출발지에서 약 111m - DB 가 반경 밖이라고 답함"));
     }
 
     // ───────────────────────── depart ─────────────────────────
@@ -1424,7 +1422,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 6L,
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 6L,
                 arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1), arrivedMember(THIRD_ID, 2));
 
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -1457,9 +1455,6 @@ class PartyServiceUnitTest {
         assertThat(record.getMatchId()).isEqualTo(PARTY_ID);
         assertThat(record.getDeparturePlace()).isEqualTo("강남역");
         assertThat(record.getDestinationPlace()).isEqualTo("판교역");
-        assertThat(record.getTaxiDriverId()).isNull();
-        assertThat(record.getPickupTime()).isNull();
-        assertThat(record.getTotalFare()).isNull();
         assertThat(record.isDroppedOff()).isTrue();
 
         Runnable task = capturedAfterCommitTask();
@@ -1476,7 +1471,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 0L,
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 0L,
                 arrivedMember(HOST_ID, 0), arrivedMember(MEMBER_ID, 1));
 
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -1544,12 +1539,12 @@ class PartyServiceUnitTest {
     static Stream<Arguments> departRejections() {
         Instant started = Instant.now().minus(Duration.ofMinutes(5));
         return Stream.of(
-                Arguments.of(MatchingErrorCode.NOT_PARTY_MEMBER, confirmedParty(started, PartyStatus.COMPLETED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), THIRD_ID, "방에 없는 사람"),
-                Arguments.of(MatchingErrorCode.PARTY_NOT_CONFIRMED, party(PartyStatus.COMPLETED, 2, null, 0L, HOST_ID, MEMBER_ID), HOST_ID, "약속 확정 전 실시간 방"),
-                Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.FINISHED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, "이미 끝난 방"),
-                Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.CANCELED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, "취소된 방"),
-                Arguments.of(MatchingErrorCode.MEETING_NOT_STARTED, confirmedParty(Instant.now().plus(Duration.ofMinutes(10)), PartyStatus.COMPLETED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, "약속 시간 전"),
-                Arguments.of(MatchingErrorCode.NOT_ARRIVED, confirmedParty(started, PartyStatus.COMPLETED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), MEMBER_ID, "누른 사람이 도착 전"));
+                Arguments.of(MatchingErrorCode.NOT_PARTY_MEMBER, confirmedParty(started, PartyStatus.COMPLETED, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), THIRD_ID, "방에 없는 사람"),
+                Arguments.of(MatchingErrorCode.PARTY_NOT_CONFIRMED, party(PartyStatus.COMPLETED, 2, 0L, HOST_ID, MEMBER_ID), HOST_ID, "약속 확정 전 실시간 방"),
+                Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.FINISHED, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, "이미 끝난 방"),
+                Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.CANCELED, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, "취소된 방"),
+                Arguments.of(MatchingErrorCode.MEETING_NOT_STARTED, confirmedParty(Instant.now().plus(Duration.ofMinutes(10)), PartyStatus.COMPLETED, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), HOST_ID, "약속 시간 전"),
+                Arguments.of(MatchingErrorCode.NOT_ARRIVED, confirmedParty(started, PartyStatus.COMPLETED, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), MEMBER_ID, "누른 사람이 도착 전"));
     }
 
     // ───────────────────────── finish ─────────────────────────
@@ -1561,7 +1556,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.COMPLETED, 2, null, 5L, HOST_ID, MEMBER_ID);
+        Party party = party(PartyStatus.COMPLETED, 2, 5L, HOST_ID, MEMBER_ID);
 
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
@@ -1583,9 +1578,6 @@ class PartyServiceUnitTest {
         assertThat(record.getMatchId()).isEqualTo(PARTY_ID);
         assertThat(record.getDeparturePlace()).isEqualTo("강남역");
         assertThat(record.getDestinationPlace()).isEqualTo("판교역");
-        assertThat(record.getTaxiDriverId()).isNull();
-        assertThat(record.getPickupTime()).isNull();
-        assertThat(record.getTotalFare()).isNull();
         assertThat(record.isDroppedOff()).isTrue();
 
         verify(eventPublisher).publishEvent(eq(new PartyClosedEvent(PARTY_ID, "FINISHED")));
@@ -1642,9 +1634,9 @@ class PartyServiceUnitTest {
 
     static Stream<Arguments> finishRejections() {
         return Stream.of(
-                Arguments.of(MatchingErrorCode.NOT_PARTY_MEMBER, party(PartyStatus.COMPLETED, 2, null, 0L, HOST_ID, THIRD_ID), MEMBER_ID),
-                Arguments.of(MatchingErrorCode.NOT_PARTY_HOST, party(PartyStatus.COMPLETED, 2, null, 0L, HOST_ID, MEMBER_ID), MEMBER_ID),
-                Arguments.of(MatchingErrorCode.PARTY_NOT_COMPLETED, party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID, MEMBER_ID), HOST_ID),
+                Arguments.of(MatchingErrorCode.NOT_PARTY_MEMBER, party(PartyStatus.COMPLETED, 2, 0L, HOST_ID, THIRD_ID), MEMBER_ID),
+                Arguments.of(MatchingErrorCode.NOT_PARTY_HOST, party(PartyStatus.COMPLETED, 2, 0L, HOST_ID, MEMBER_ID), MEMBER_ID),
+                Arguments.of(MatchingErrorCode.PARTY_NOT_COMPLETED, party(PartyStatus.ACTIVE, 3, 0L, HOST_ID, MEMBER_ID), HOST_ID),
                 Arguments.of(MatchingErrorCode.USE_DEPART_FOR_CONFIRMED_PARTY, party(RoomType.REALTIME, Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 2, 0L, HOST_ID, MEMBER_ID), HOST_ID),
                 Arguments.of(MatchingErrorCode.USE_DEPART_FOR_CONFIRMED_PARTY, party(RoomType.RESERVED, Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 2, 0L, HOST_ID, MEMBER_ID), HOST_ID));
     }
@@ -1658,7 +1650,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.now().minus(Duration.ofDays(1)), PartyStatus.COMPLETED, null, 6L,
+        Party party = confirmedParty(Instant.now().minus(Duration.ofDays(1)), PartyStatus.COMPLETED, 6L,
                 arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1), arrivedMember(THIRD_ID, 2));
 
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -1692,7 +1684,6 @@ class PartyServiceUnitTest {
         assertThat(record.getMatchId()).isEqualTo(PARTY_ID);
         assertThat(record.getDeparturePlace()).isEqualTo("강남역");
         assertThat(record.getDestinationPlace()).isEqualTo("판교역");
-        assertThat(record.getTaxiDriverId()).isNull();
         assertThat(record.isDroppedOff()).isTrue();
 
         Runnable task = capturedAfterCommitTask();
@@ -1708,7 +1699,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.now().minus(Duration.ofDays(1)), PartyStatus.COMPLETED, null, 6L,
+        Party party = confirmedParty(Instant.now().minus(Duration.ofDays(1)), PartyStatus.COMPLETED, 6L,
                 waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1));
 
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
@@ -1742,7 +1733,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(before, 3, null, 5L, HOST_ID, MEMBER_ID);
+        Party party = party(before, 3, 5L, HOST_ID, MEMBER_ID);
 
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
@@ -1816,10 +1807,9 @@ class PartyServiceUnitTest {
     static Stream<Arguments> autoCloseRejections() {
         Instant started = Instant.now().minus(Duration.ofDays(1));
         return Stream.of(
-                Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.FINISHED, null, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), "출발로 이미 끝난 방"),
-                Arguments.of(MatchingErrorCode.PARTY_CLOSED, party(PartyStatus.CANCELED, 2, null, 0L, HOST_ID), "이미 취소된 방"),
-                Arguments.of(MatchingErrorCode.PARTY_CLOSED, party(PartyStatus.MATCHING, 2, null, 0L, HOST_ID, MEMBER_ID), "기사 호출 중인 방"),
-                Arguments.of(MatchingErrorCode.MEETING_NOT_STARTED, confirmedParty(Instant.now().plus(Duration.ofMinutes(30)), PartyStatus.COMPLETED, null, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), "약속 시간 전"));
+                Arguments.of(MatchingErrorCode.PARTY_CLOSED, confirmedParty(started, PartyStatus.FINISHED, 0L, arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), "출발로 이미 끝난 방"),
+                Arguments.of(MatchingErrorCode.PARTY_CLOSED, party(PartyStatus.CANCELED, 2, 0L, HOST_ID), "이미 취소된 방"),
+                Arguments.of(MatchingErrorCode.MEETING_NOT_STARTED, confirmedParty(Instant.now().plus(Duration.ofMinutes(30)), PartyStatus.COMPLETED, 0L, waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1)), "약속 시간 전"));
     }
 
     // ───────────────────────── realtimeMatch ─────────────────────────
@@ -2082,7 +2072,7 @@ class PartyServiceUnitTest {
          * settings
          */
         OpenPartyCommand command = openCommand(3);
-        PartyResult opened = PartyResult.from(party(PartyStatus.ACTIVE, 3, null, 0L, HOST_ID));
+        PartyResult opened = PartyResult.from(party(PartyStatus.ACTIVE, 3, 0L, HOST_ID));
         doReturn(ESTIMATE).when(routeService).estimate(eq(DEPARTURE_LAT), eq(DEPARTURE_LNG), eq(DESTINATION_LAT), eq(DESTINATION_LNG));
         doReturn(opened).when(partyOpener).open(eq(command), eq(ESTIMATE));
 
@@ -2177,7 +2167,7 @@ class PartyServiceUnitTest {
          */
         Instant meetingAt = Instant.now().minus(Duration.ofMinutes(5));
         // THIRD_ID 가 먼저 합류했지만 제재는 userId 오름차순(MEMBER_ID → THIRD_ID)으로 매겨 users 행 잠금 순서를 고정한다
-        Party party = confirmedParty(meetingAt, PartyStatus.COMPLETED, null, 6L,
+        Party party = confirmedParty(meetingAt, PartyStatus.COMPLETED, 6L,
                 arrivedMember(HOST_ID, 0), waitingMember(THIRD_ID, 1), waitingMember(MEMBER_ID, 2));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
@@ -2207,7 +2197,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 0L,
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 0L,
                 arrivedMember(HOST_ID, 0), arrivedMember(MEMBER_ID, 1));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
@@ -2229,7 +2219,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 0L,
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 0L,
                 arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
@@ -2253,7 +2243,7 @@ class PartyServiceUnitTest {
          * settings
          */
         Instant meetingAt = Instant.now().minus(Duration.ofDays(1));
-        Party party = confirmedParty(meetingAt, PartyStatus.COMPLETED, null, 6L,
+        Party party = confirmedParty(meetingAt, PartyStatus.COMPLETED, 6L,
                 arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1), waitingMember(THIRD_ID, 2));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
@@ -2306,7 +2296,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.COMPLETED, 3, null, 0L, HOST_ID, MEMBER_ID);
+        Party party = party(PartyStatus.COMPLETED, 3, 0L, HOST_ID, MEMBER_ID);
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
         /*
@@ -2329,7 +2319,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 6L,
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 6L,
                 arrivedMember(HOST_ID, 0), waitingMember(THIRD_ID, 1), waitingMember(MEMBER_ID, 2));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
@@ -2355,7 +2345,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 0L,
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 0L,
                 arrivedMember(HOST_ID, 0), arrivedMember(MEMBER_ID, 1));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
@@ -2377,7 +2367,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, null, 0L,
+        Party party = confirmedParty(Instant.now().minus(Duration.ofMinutes(5)), PartyStatus.COMPLETED, 0L,
                 arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
@@ -2400,7 +2390,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.now().minus(Duration.ofDays(1)), PartyStatus.COMPLETED, null, 6L,
+        Party party = confirmedParty(Instant.now().minus(Duration.ofDays(1)), PartyStatus.COMPLETED, 6L,
                 waitingMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
@@ -2425,7 +2415,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.COMPLETED, 3, null, 0L, HOST_ID, MEMBER_ID);
+        Party party = party(PartyStatus.COMPLETED, 3, 0L, HOST_ID, MEMBER_ID);
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
         /*
@@ -2446,7 +2436,7 @@ class PartyServiceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedParty(Instant.now().minus(Duration.ofDays(1)), PartyStatus.FINISHED, null, 6L,
+        Party party = confirmedParty(Instant.now().minus(Duration.ofDays(1)), PartyStatus.FINISHED, 6L,
                 arrivedMember(HOST_ID, 0), waitingMember(MEMBER_ID, 1));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
@@ -2486,14 +2476,14 @@ class PartyServiceUnitTest {
     }
 
     /** memberIds 앞쪽일수록 먼저 합류한 멤버다 - 첫 번째가 방장 */
-    private static Party party(PartyStatus status, int capacity, Long taxiDriverId, long version, Long... memberIds) {
+    private static Party party(PartyStatus status, int capacity, long version, Long... memberIds) {
         List<PartyMember> members = new ArrayList<>();
         for (int i = 0; i < memberIds.length; i++) {
             members.add(PartyMember.load(memberIds[i], BASE_TIME.plusSeconds(i)));
         }
 
-        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(capacity), members,
-                BASE_TIME, status, 12000, 25, "encoded-path", taxiDriverId, null, null, version);
+        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity), members,
+                BASE_TIME, status, 12000, 25, "encoded-path", version);
     }
 
     /** 방 종류와 약속(출발) 시각까지 정해 복원한 방. memberIds 앞쪽일수록 먼저 합류했고 첫 번째가 방장 */
@@ -2505,16 +2495,16 @@ class PartyServiceUnitTest {
 
         boolean realtime = roomType == RoomType.REALTIME;
 
-        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(capacity), members,
+        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity), members,
                 memberIds[0], BASE_TIME, status, realtime ? 12000 : null, realtime ? 25 : null, realtime ? "encoded-path" : null,
-                null, null, null, version, roomType, departureAt, null);
+                version, roomType, departureAt, null);
     }
 
     /** 방장이 departureAt 으로 약속을 확정한 실시간 방. members 앞쪽이 먼저 합류했고 첫 번째가 방장 */
-    private static Party confirmedParty(Instant departureAt, PartyStatus status, Long taxiDriverId, long version, PartyMember... members) {
-        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
+    private static Party confirmedParty(Instant departureAt, PartyStatus status, long version, PartyMember... members) {
+        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3),
                 new ArrayList<>(List.of(members)), members[0].getMemberId(), BASE_TIME, status, 12000, 25, "encoded-path",
-                taxiDriverId, null, null, version, RoomType.REALTIME, departureAt, null);
+                version, RoomType.REALTIME, departureAt, null);
     }
 
     /** 아직 도착하지 않은 멤버. order 가 작을수록 먼저 합류했다 */

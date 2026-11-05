@@ -18,14 +18,13 @@ class PartyTest {
     private static final Location 판교역 = new Location(37.3948, 127.1112);
     private static final String 강남역출발 = "강남역";
     private static final String 판교역도착 = "판교역";
-    private static final Radius 기본반경 = new Radius(100);
     private static final Instant 지금 = Instant.now();
     private static final Integer 예상요금 = 12000;
     private static final Integer 예상시간 = 25;
     private static final String 경로 = "_p~iF~ps|U_ulLnnqC";
 
     private Party openParty(int capacity) {
-        return Party.open(생성자, 강남역, 판교역, 강남역출발, 판교역도착, new Capacity(capacity), 지금, 기본반경, 기본반경, 예상요금, 예상시간, 경로);
+        return Party.open(생성자, 강남역, 판교역, 강남역출발, 판교역도착, new Capacity(capacity), 지금, 예상요금, 예상시간, 경로);
     }
 
     // ───────────────────────── 모집 ─────────────────────────
@@ -122,37 +121,6 @@ class PartyTest {
     }
 
 
-    // ───────────────────────── 정원 충족 시각 ─────────────────────────
-
-    @Test
-    void 정원이_차면_충족_시각이_찍힌다() {
-        Party party = openParty(2);
-        assertThat(party.getCompletedAt()).as("모집 중엔 없다").isNull();
-
-        party.join(참여자);
-
-        assertThat(party.getCompletedAt()).isNotNull();
-    }
-
-    @Test
-    void 혼자_타는_방은_생성_시점이_충족_시각이다() {
-        Party party = openParty(1);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
-        assertThat(party.getCompletedAt()).isNotNull();
-    }
-
-    @Test
-    void 누가_나가서_모집으로_돌아가면_충족_시각이_지워진다() {
-        Party party = openParty(2);
-        party.join(참여자);
-
-        party.leave(참여자);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.ACTIVE);
-        assertThat(party.getCompletedAt()).as("다시 차면 새 시각이 찍혀야 하므로 옛 값을 남기면 안 된다").isNull();
-    }
-
     // ───────────────────────── 합승 완료 ─────────────────────────
 
     @Test
@@ -163,17 +131,6 @@ class PartyTest {
         party.finishWithoutDriver(생성자);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
-    }
-
-    @Test
-    void 합승_완료해도_정원_충족_시각은_유지된다() {
-        Party party = openParty(2);
-        party.join(참여자);
-        Instant 충족시각 = party.getCompletedAt();
-
-        party.finishWithoutDriver(생성자);
-
-        assertThat(party.getCompletedAt()).as("\"정원이 찬 시각\"이지 \"끝난 시각\"이 아니다 - 덮어쓰면 기록이 사라진다").isEqualTo(충족시각);
     }
 
     @Test
@@ -224,8 +181,8 @@ class PartyTest {
 
     /** 합류 시각을 조작해 복원한 정원 충족 방 - 도메인 경로로는 joinedAt 이 항상 Instant.now() 로 찍힌다 */
     private Party completedPartyWith(PartyMember... members) {
-        return Party.load(1L, 강남역, 판교역, 기본반경, 기본반경, 강남역출발, 판교역도착, new Capacity(members.length),
-                List.of(members), 지금, PartyStatus.COMPLETED, 예상요금, 예상시간, 경로, null, null, 지금, 0L);
+        return Party.load(1L, 강남역, 판교역, 강남역출발, 판교역도착, new Capacity(members.length),
+                List.of(members), 지금, PartyStatus.COMPLETED, 예상요금, 예상시간, 경로, 0L);
     }
 
     @Test

@@ -24,7 +24,6 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
@@ -98,8 +97,6 @@ class PartyOpenerUnitTest {
         assertThat(opened.getDeparture()).isEqualTo("강남역");
         assertThat(opened.getDestination()).isEqualTo("판교역");
         assertThat(opened.getCapacity().value()).isEqualTo(3);
-        assertThat(opened.getDepartureRadius()).isEqualTo(Radius.DEFAULT);
-        assertThat(opened.getDestinationRadius()).isEqualTo(Radius.DEFAULT);
         assertThat(opened.getEstimatedFare()).isEqualTo(12000);
         assertThat(opened.getEstimatedTime()).isEqualTo(25);
         assertThat(opened.getRoute()).isEqualTo("encoded-path");
@@ -322,9 +319,9 @@ class PartyOpenerUnitTest {
     }
 
     private static Party party(PartyStatus status, int capacity) {
-        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(capacity),
+        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity),
                 List.of(PartyMember.load(HOST_ID, BASE_TIME)),
-                BASE_TIME, status, 12000, 25, "encoded-path", null, null, null, 0L);
+                BASE_TIME, status, 12000, 25, "encoded-path", 0L);
     }
 
     private static void assertBusinessException(Throwable thrown, ErrorCode expected) {

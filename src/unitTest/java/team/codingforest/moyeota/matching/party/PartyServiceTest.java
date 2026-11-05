@@ -31,7 +31,6 @@ import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
 import team.codingforest.moyeota.matching.party.domain.RoomType;
 import team.codingforest.moyeota.matching.route.RouteService;
@@ -356,16 +355,6 @@ class PartyServiceTest {
         assertThat(result.id()).isNotNull();
         assertThat(result.currentMembers()).isEqualTo(1);
         assertThat(result.status()).isEqualTo("ACTIVE");
-    }
-
-    @Test
-    void 방을_만들면_반경은_서버_고정값_500m로_저장된다() {
-        PartyResult result = service.open(createParty(host, 3));
-
-        Party saved = parties.findById(result.id()).orElseThrow();
-        assertThat(saved.getDepartureRadius()).isEqualTo(Radius.DEFAULT);
-        assertThat(saved.getDestinationRadius()).isEqualTo(Radius.DEFAULT);
-        assertThat(Radius.DEFAULT.meters()).isEqualTo(500);
     }
 
     @Test
@@ -775,7 +764,7 @@ class PartyServiceTest {
 
     // ───────────────────────── 배포 모드 (승객 모드 고정) ─────────────────────────
 
-    /** 기사 기능이 없는 1차 배포. 정원이 차도 배차 없이 COMPLETED 에 머물러야 한다 - MATCHING 으로 가면 받는 리스너가 없어 계정이 잠긴다 */
+    /** 기사 기능이 없는 배포. 정원이 차도 배차 없이 COMPLETED 에 머물러야 한다 - 방은 방장의 합승 완료나 출발로 끝난다 */
     @Nested
     class 택시_기능이_꺼진_배포_모드 {
 
@@ -823,17 +812,14 @@ class PartyServiceTest {
         }
 
         @Test
-        void 방장이_합승_완료하면_기사_탑승_시각_요금_없이_하차_기록이_남는다() {
+        void 방장이_합승_완료하면_하차_기록이_남는다() {
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
 
             service.finish(party.id(), host);
 
             RideRecord rideRecord = rideRecords.findById(party.id()).orElseThrow();
-            assertThat(rideRecord.getTaxiDriverId()).isNull();
-            assertThat(rideRecord.getPickupTime()).isNull();
             assertThat(rideRecord.getDropoffTime()).isNotNull();
-            assertThat(rideRecord.getTotalFare()).isNull();
             assertThat(rideRecord.getDeparturePlace()).isEqualTo("강남역");
             assertThat(rideRecord.getDestinationPlace()).isEqualTo("판교역");
         }
@@ -999,17 +985,17 @@ class PartyServiceTest {
                     .isEqualTo(MatchingErrorCode.PARTY_CLOSED);
         }
 
-        /** 정원 2가 찬 확정 전 실시간 방을 원하는 생성·충족 시각으로 저장 - 도메인은 Instant.now() 만 찍으므로 과거 시각은 load 로만 만들 수 있다 */
-        private Long saveCompleted(Instant completedAt) {
-            Party party = Party.load(null, 강남역(), 판교역(), new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
-                    seedMembers(completedAt), completedAt, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", null, null, completedAt, 0L);
+        /** 정원 2가 찬 확정 전 실시간 방을 원하는 생성 시각으로 저장 - 도메인은 Instant.now() 만 찍으므로 과거 시각은 load 로만 만들 수 있다 */
+        private Long saveCompleted(Instant createdAt) {
+            Party party = Party.load(null, 강남역(), 판교역(), "강남역", "판교역", new Capacity(2),
+                    seedMembers(createdAt), createdAt, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L);
             return parties.save(party).getId();
         }
 
         /** 만든 지 오래됐지만 방장이 확정한 약속 시간이 아직 1시간 뒤인 실시간 방(COMPLETED) - 자동 정리가 MEETING_NOT_STARTED 로 거절한다 */
         private Long saveConfirmedBeforeMeeting(Instant createdAt) {
-            Party party = Party.load(null, 강남역(), 판교역(), new Radius(100), new Radius(100), "강남역", "판교역", new Capacity(2),
-                    seedMembers(createdAt), anotherHost, createdAt, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", null, null, createdAt, 0L,
+            Party party = Party.load(null, 강남역(), 판교역(), "강남역", "판교역", new Capacity(2),
+                    seedMembers(createdAt), anotherHost, createdAt, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L,
                     RoomType.REALTIME, Instant.now().plus(Duration.ofHours(1)), null, null, 0);
             return parties.save(party).getId();
         }
@@ -1017,7 +1003,7 @@ class PartyServiceTest {
         /** anotherHost·guest 멤버 목록 - PartyMember 생성자는 도메인 패키지 밖에서 못 부르므로 방을 하나 만들어 멤버 목록만 빌려 쓴다 */
         private List<PartyMember> seedMembers(Instant createdAt) {
             Party seed = Party.open(anotherHost, 강남역(), 판교역(), "강남역", "판교역", new Capacity(2),
-                    createdAt, new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
+                    createdAt, 12000, 25, "_p~iF~ps|U_ulLnnqC");
             seed.join(guest);
             return seed.getMembers();
         }

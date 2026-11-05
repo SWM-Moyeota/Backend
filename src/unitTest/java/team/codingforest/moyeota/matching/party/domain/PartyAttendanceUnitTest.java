@@ -43,7 +43,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, member(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -68,7 +68,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, member(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -89,7 +89,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, member(HOST_ID), member(MEMBER_ID));
         party.arrive(MEMBER_ID, NEAR, NOW);
         long version = party.getVersion();
 
@@ -114,7 +114,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, arrivedMember(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, arrivedMember(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -136,7 +136,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, member(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -158,7 +158,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = realtime(status, null, null, member(HOST_ID), member(MEMBER_ID));
+        Party party = realtime(status, null, member(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -179,7 +179,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, member(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -201,7 +201,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, member(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -221,7 +221,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, member(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -236,15 +236,15 @@ class PartyAttendanceUnitTest {
         assertThat(party.getVersion()).isZero();
     }
 
-    @DisplayName("arrive - 닫혔거나 기사 호출 단계로 넘어간 방이면 PARTY_CLOSED")
+    @DisplayName("arrive - 이미 끝났거나 취소된 방이면 PARTY_CLOSED")
     @ParameterizedTest(name = "{0}")
-    @EnumSource(value = PartyStatus.class, names = {"MATCHING", "DRIVER_ASSIGNED", "IN_RIDE", "FINISHED", "CANCELED"})
+    @EnumSource(value = PartyStatus.class, names = {"FINISHED", "CANCELED"})
     void arrive_closed(PartyStatus status) {
 
         /*
          * settings
          */
-        Party party = confirmedRealtime(status, null, member(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(status, member(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -265,7 +265,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.FINISHED, null, arrivedMember(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.FINISHED, arrivedMember(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -330,7 +330,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, arrivedMember(HOST_ID), arrivedMember(MEMBER_ID), member(THIRD_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, arrivedMember(HOST_ID), arrivedMember(MEMBER_ID), member(THIRD_ID));
 
         /*
          * test
@@ -358,7 +358,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID), arrivedMember(THIRD_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, member(HOST_ID), member(MEMBER_ID), arrivedMember(THIRD_ID));
 
         /*
          * test
@@ -382,7 +382,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, arrivedMember(HOST_ID), arrivedMember(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, arrivedMember(HOST_ID), arrivedMember(MEMBER_ID));
 
         /*
          * test
@@ -404,7 +404,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, arrivedMember(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, arrivedMember(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -425,7 +425,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, arrivedMember(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, arrivedMember(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -446,7 +446,7 @@ class PartyAttendanceUnitTest {
          * settings
          */
         // 도착 시각이 있는 멤버로 복원해 시간 검사만 걸리게 한다
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, arrivedMember(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, arrivedMember(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -466,7 +466,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = realtime(PartyStatus.COMPLETED, null, null, member(HOST_ID), member(MEMBER_ID));
+        Party party = realtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -479,15 +479,15 @@ class PartyAttendanceUnitTest {
         assertRejected(thrown, MatchingErrorCode.PARTY_NOT_CONFIRMED, party, PartyStatus.COMPLETED);
     }
 
-    @DisplayName("depart - 닫혔거나 기사 호출 단계로 넘어간 방이면 PARTY_CLOSED - 먼저 누른 사람이 이미 끝낸 방 포함")
+    @DisplayName("depart - 이미 끝났거나 취소된 방이면 PARTY_CLOSED - 먼저 누른 사람이 이미 끝낸 방 포함")
     @ParameterizedTest(name = "{0}")
-    @EnumSource(value = PartyStatus.class, names = {"MATCHING", "DRIVER_ASSIGNED", "IN_RIDE", "FINISHED", "CANCELED"})
+    @EnumSource(value = PartyStatus.class, names = {"FINISHED", "CANCELED"})
     void depart_closed(PartyStatus status) {
 
         /*
          * settings
          */
-        Party party = confirmedRealtime(status, null, arrivedMember(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(status, arrivedMember(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -507,7 +507,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, arrivedMember(HOST_ID), arrivedMember(MEMBER_ID), member(THIRD_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, arrivedMember(HOST_ID), arrivedMember(MEMBER_ID), member(THIRD_ID));
         party.depart(HOST_ID, NOW);
 
         /*
@@ -530,7 +530,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, arrivedMember(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, arrivedMember(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -591,7 +591,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, arrivedMember(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, arrivedMember(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -614,7 +614,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, arrivedMember(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, arrivedMember(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -634,7 +634,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, member(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -674,7 +674,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = confirmedRealtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID));
+        Party party = confirmedRealtime(PartyStatus.COMPLETED, member(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -694,7 +694,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = realtime(PartyStatus.COMPLETED, null, null, member(HOST_ID), member(MEMBER_ID));
+        Party party = realtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -716,7 +716,7 @@ class PartyAttendanceUnitTest {
         /*
          * settings
          */
-        Party party = realtime(PartyStatus.COMPLETED, null, null, member(HOST_ID), member(MEMBER_ID));
+        Party party = realtime(PartyStatus.COMPLETED, null, member(HOST_ID), member(MEMBER_ID));
 
         /*
          * test
@@ -749,21 +749,21 @@ class PartyAttendanceUnitTest {
     }
 
     /** 방장이 MEETING_AT 으로 약속을 확정한 실시간 방. 첫 멤버가 방장 */
-    private static Party confirmedRealtime(PartyStatus status, Long taxiDriverId, PartyMember... members) {
-        return realtime(status, MEETING_AT, taxiDriverId, members);
+    private static Party confirmedRealtime(PartyStatus status, PartyMember... members) {
+        return realtime(status, MEETING_AT, members);
     }
 
-    private static Party realtime(PartyStatus status, Instant departureAt, Long taxiDriverId, PartyMember... members) {
-        return Party.load(100L, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
+    private static Party realtime(PartyStatus status, Instant departureAt, PartyMember... members) {
+        return Party.load(100L, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3),
                 new ArrayList<>(List.of(members)), members[0].getMemberId(), MEETING_AT.minus(Duration.ofHours(1)), status,
-                12000, 25, "encoded-path", taxiDriverId, null, null, 0L, RoomType.REALTIME, departureAt, null);
+                12000, 25, "encoded-path", 0L, RoomType.REALTIME, departureAt, null);
     }
 
     /** 출발 시각이 MEETING_AT 인 예약 방. 첫 멤버가 방장 */
     private static Party reserved(PartyStatus status, PartyMember... members) {
-        return Party.load(100L, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
+        return Party.load(100L, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3),
                 new ArrayList<>(List.of(members)), members[0].getMemberId(), MEETING_AT.minus(Duration.ofDays(1)), status,
-                null, null, null, null, null, null, 0L, RoomType.RESERVED, MEETING_AT, null);
+                null, null, null, 0L, RoomType.RESERVED, MEETING_AT, null);
     }
 
     private static PartyMember memberOf(Party party, Long memberId) {

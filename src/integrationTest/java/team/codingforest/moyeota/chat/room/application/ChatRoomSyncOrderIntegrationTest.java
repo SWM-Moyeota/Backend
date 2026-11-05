@@ -11,7 +11,6 @@ import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
@@ -38,7 +37,7 @@ class ChatRoomSyncOrderIntegrationTest {
 
         // 정원 3 - 방장 + 1명이면 모집 중이라 나갈 수 있다. 방장은 리포지토리로 직접 넣어 이벤트를 태우지 않는다
         Party party = parties.save(Party.open(base, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
-                "강남역", "판교역", new Capacity(3), Instant.now(), new Radius(100), new Radius(100),
+                "강남역", "판교역", new Capacity(3), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC"));
 
         // 1. 참여 → 리스너가 방을 만들고 넣을 때까지 기다린다

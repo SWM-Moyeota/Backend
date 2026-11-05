@@ -26,7 +26,7 @@ class PartyReservationTest {
     }
 
     private Party realtime(int capacity) {
-        return Party.open(방장, 강남역, 판교역, "강남역", "판교역", new Capacity(capacity), 지금, Radius.DEFAULT, Radius.DEFAULT, 12000, 25, "encoded-path");
+        return Party.open(방장, 강남역, 판교역, "강남역", "판교역", new Capacity(capacity), 지금, 12000, 25, "encoded-path");
     }
 
     private void assertFails(Runnable action, MatchingErrorCode code) {
@@ -117,7 +117,6 @@ class PartyReservationTest {
         party.expireRecruiting();
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
-        assertThat(party.getCompletedAt()).isNotNull();
     }
 
     @Test

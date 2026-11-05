@@ -49,7 +49,6 @@ public enum MatchingErrorCode implements ErrorCode {
     // 방 생성 입력 검증
     SAME_DEPARTURE_DESTINATION(HttpStatus.BAD_REQUEST, "출발지와 도착지가 같습니다."),
     INVALID_CAPACITY(HttpStatus.BAD_REQUEST, "방 정원은 1~3명이어야 합니다."),
-    INVALID_RADIUS(HttpStatus.BAD_REQUEST, "허용 반경이 아닙니다."),
     INVALID_DEPARTURE_TIME(HttpStatus.BAD_REQUEST, "출발 시각은 지금부터 7일 이내여야 합니다."),
     INVALID_MEETING_TIME(HttpStatus.BAD_REQUEST, "약속 시간은 지금부터 1시간 이내여야 합니다."),
     OUT_OF_SERVICE_AREA(HttpStatus.BAD_REQUEST, "서비스 지역을 벗어난 좌표입니다."),

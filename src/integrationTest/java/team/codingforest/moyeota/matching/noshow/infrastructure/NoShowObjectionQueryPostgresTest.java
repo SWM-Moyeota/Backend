@@ -16,7 +16,6 @@ import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -207,7 +206,7 @@ class NoShowObjectionQueryPostgresTest {
     /** members 첫 번째가 방장인 실시간 방 */
     private Long room(Long... members) {
         Party party = Party.open(members[0], DEPARTURE, DESTINATION, "동대구역", "반월당", new Capacity(3), Instant.now(),
-                Radius.DEFAULT, Radius.DEFAULT, 9000, 20, "_p~iF~ps|U_ulLnnqC");
+                9000, 20, "_p~iF~ps|U_ulLnnqC");
         for (int i = 1; i < members.length; i++) party.join(members[i]);
         Long id = parties.save(party).getId();
         rooms.add(id);

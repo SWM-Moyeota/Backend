@@ -18,7 +18,6 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -57,19 +56,16 @@ class RideRecordQueryPostgresTest {
     @Test
     void 방장이_합승을_종료하면_기록이_남고_동승자의_탑승_기록으로_조회된다() {
         Party party = Party.open(나, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(2), Instant.now(),
-                new Radius(100), new Radius(100), 12000, 25, "_p~iF~ps|U_ulLnnqC");
+                12000, 25, "_p~iF~ps|U_ulLnnqC");
         party.join(동승자);   // 정원 2 충족 → COMPLETED
         Long partyId = track(parties.save(party).getId());
 
         partyService.finish(partyId, 나);
 
         RideRecord rideRecord = rideRecords.findById(partyId).orElseThrow();
-        assertThat(rideRecord.getTaxiDriverId()).isNull();
         assertThat(rideRecord.getDeparturePlace()).isEqualTo("강남역");
         assertThat(rideRecord.getDestinationPlace()).isEqualTo("판교역");
-        assertThat(rideRecord.getPickupTime()).isNull();
         assertThat(rideRecord.getDropoffTime()).isNotNull();
-        assertThat(rideRecord.getTotalFare()).isNull();
 
         RideRecordResponse response = rideRecordService.findMyRides(동승자, null, 20);
         RideRecordItem ride = response.rides().getFirst();
@@ -90,7 +86,7 @@ class RideRecordQueryPostgresTest {
         Long 동률2 = droppedOff(같은시각, 동승자, 나);
         Long 이후 = droppedOff(같은시각.plusSeconds(60), 나);
         droppedOff(같은시각, 동승자, 남);
-        rideRecords.save(RideRecord.load(savedParty(members(같은시각, 나)), null, "강남역", "판교역", null, null, null));
+        rideRecords.save(RideRecord.load(savedParty(members(같은시각, 나)), "강남역", "판교역", null));
 
         List<Long> seen = new ArrayList<>();
         Long cursor = null;
@@ -156,7 +152,7 @@ class RideRecordQueryPostgresTest {
 
     private Long droppedOff(Instant dropoffTime, List<PartyMember> members) {
         Long partyId = savedParty(members);
-        rideRecords.save(RideRecord.load(partyId, null, "강남역", "판교역", null, dropoffTime, null));
+        rideRecords.save(RideRecord.load(partyId, "강남역", "판교역", dropoffTime));
         return partyId;
     }
 
@@ -170,8 +166,8 @@ class RideRecordQueryPostgresTest {
 
     private Long savedParty(List<PartyMember> members) {
         Instant now = Instant.now();
-        return track(parties.save(Party.load(null, DEPARTURE, DESTINATION, new Radius(100), new Radius(100), "강남역", "판교역",
-                new Capacity(3), members, now, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", null, null, now, 0L)).getId());
+        return track(parties.save(Party.load(null, DEPARTURE, DESTINATION, "강남역", "판교역",
+                new Capacity(3), members, now, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L)).getId());
     }
 
     private Long track(Long partyId) {

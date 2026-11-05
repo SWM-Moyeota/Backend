@@ -7,7 +7,6 @@ import team.codingforest.moyeota.matching.api.dto.PartyChatSummary;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
@@ -27,7 +26,6 @@ class PartyAccessServiceTest {
     private static final Long 없는방 = 999L;
     private static final Location 강남역 = new Location(37.4979, 127.0276);
     private static final Location 판교역 = new Location(37.3948, 127.1112);
-    private static final Radius 기본반경 = new Radius(100);
     private static final Instant 지금 = Instant.now();
 
     private PartyJpaTest parties;
@@ -156,7 +154,7 @@ class PartyAccessServiceTest {
     }
 
     private Party openParty(int capacity) {
-        return Party.open(방장, 강남역, 판교역, "강남역", "판교역", new Capacity(capacity), 지금, 기본반경, 기본반경, 12000, 25, "_p~iF~ps|U_ulLnnqC");
+        return Party.open(방장, 강남역, 판교역, "강남역", "판교역", new Capacity(capacity), 지금, 12000, 25, "_p~iF~ps|U_ulLnnqC");
     }
 
     /** 정원 2명이 찬 방 */

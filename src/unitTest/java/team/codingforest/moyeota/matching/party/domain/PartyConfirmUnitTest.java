@@ -51,12 +51,11 @@ class PartyConfirmUnitTest {
          */
         assertThat(party.getDepartureAt()).isEqualTo(MEETING_AT);
         assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
-        assertThat(party.getCompletedAt()).isNotNull();
         assertThat(party.getVersion()).isEqualTo(before + 1);
         assertThat(party.isConfirmed()).isTrue();
     }
 
-    @DisplayName("confirm - 정원이 차 이미 COMPLETED 인 방은 상태와 정원 충족 시각을 그대로 두고 약속 시간만 담는다")
+    @DisplayName("confirm - 정원이 차 이미 COMPLETED 인 방은 상태를 그대로 두고 약속 시간만 담는다")
     @Test
     void confirm_fromCompleted() {
 
@@ -64,7 +63,6 @@ class PartyConfirmUnitTest {
          * settings
          */
         Party party = open(2, MEMBER_ID);
-        Instant completedAt = party.getCompletedAt();
         long before = party.getVersion();
 
         /*
@@ -77,7 +75,6 @@ class PartyConfirmUnitTest {
          */
         assertThat(party.getDepartureAt()).isEqualTo(MEETING_AT);
         assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
-        assertThat(party.getCompletedAt()).isEqualTo(completedAt);
         assertThat(party.getVersion()).isEqualTo(before + 1);
     }
 
@@ -272,14 +269,14 @@ class PartyConfirmUnitTest {
         assertThat(party.getVersion()).isEqualTo(version);
     }
 
-    @DisplayName("confirm - 확정 뒤 매칭이 시작된 방(기사 호출 모드)에 다시 누르면 상태보다 확정 여부를 먼저 보고 ALREADY_CONFIRMED")
+    @DisplayName("confirm - 확정 뒤 이미 끝난 방에 다시 누르면 상태보다 확정 여부를 먼저 보고 ALREADY_CONFIRMED")
     @Test
-    void confirm_alreadyConfirmedAfterMatching() {
+    void confirm_alreadyConfirmedAfterFinished() {
 
         /*
          * settings
          */
-        Party party = restored(PartyStatus.MATCHING, MEETING_AT, HOST_ID, MEMBER_ID);
+        Party party = restored(PartyStatus.FINISHED, MEETING_AT, HOST_ID, MEMBER_ID);
 
         /*
          * test
@@ -530,18 +527,17 @@ class PartyConfirmUnitTest {
          */
         assertThat(party.hasMember(HOST_ID)).isFalse();
         assertThat(party.getStatus()).isEqualTo(PartyStatus.ACTIVE);
-        assertThat(party.getCompletedAt()).isNull();
         assertThat(party.isHost(MEMBER_ID)).isTrue();
     }
 
-    @DisplayName("leave - 매칭이 시작된 확정 방은 확정 여부보다 모집 상태를 먼저 보고 PARTY_NOT_RECRUITING")
+    @DisplayName("leave - 이미 끝난 확정 방은 확정 여부보다 모집 상태를 먼저 보고 PARTY_NOT_RECRUITING")
     @Test
-    void leave_confirmedAfterMatching() {
+    void leave_confirmedAfterFinished() {
 
         /*
          * settings
          */
-        Party party = restored(PartyStatus.MATCHING, MEETING_AT, HOST_ID, MEMBER_ID);
+        Party party = restored(PartyStatus.FINISHED, MEETING_AT, HOST_ID, MEMBER_ID);
 
         /*
          * test
@@ -559,7 +555,7 @@ class PartyConfirmUnitTest {
     /** HOST_ID 가 만든 실시간 방에 others 가 차례로 참여한다 */
     private static Party open(int capacity, Long... others) {
         Party party = Party.open(HOST_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity), Instant.now(),
-                Radius.DEFAULT, Radius.DEFAULT, 12000, 25, "encoded-path");
+                12000, 25, "encoded-path");
         for (Long other : others) {
             party.join(other);
         }
@@ -580,8 +576,8 @@ class PartyConfirmUnitTest {
             members.add(PartyMember.load(memberIds[i], NOW.minusSeconds(60 - i)));
         }
 
-        return Party.load(100L, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3),
-                members, memberIds[0], NOW.minus(Duration.ofMinutes(5)), status, 12000, 25, "encoded-path", null, null, null, 0L,
+        return Party.load(100L, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3),
+                members, memberIds[0], NOW.minus(Duration.ofMinutes(5)), status, 12000, 25, "encoded-path", 0L,
                 RoomType.REALTIME, departureAt, null);
     }
 

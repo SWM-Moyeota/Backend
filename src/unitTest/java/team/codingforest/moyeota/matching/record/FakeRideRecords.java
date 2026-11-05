@@ -84,7 +84,6 @@ public class FakeRideRecords implements RideRecords {
     }
 
     private static RideRecord copy(RideRecord h) {
-        return RideRecord.load(h.getMatchId(), h.getTaxiDriverId(), h.getDeparturePlace(), h.getDestinationPlace(),
-                h.getPickupTime(), h.getDropoffTime(), h.getTotalFare());
+        return RideRecord.load(h.getMatchId(), h.getDeparturePlace(), h.getDestinationPlace(), h.getDropoffTime());
     }
 }

@@ -211,9 +211,9 @@ class PartyNoShowUnitTest {
                 PartyMember.load(NO_SHOW_ID, MEETING_AT.minus(Duration.ofMinutes(20)), null, NO_SHOW_AT, null),
                 PartyMember.load(VOIDED_ID, MEETING_AT.minus(Duration.ofMinutes(10)), null, NO_SHOW_AT, VOIDED_AT)));
 
-        return Party.load(100L, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(3), members,
+        return Party.load(100L, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3), members,
                 HOST_ID, MEETING_AT.minus(Duration.ofHours(1)), PartyStatus.FINISHED, 12000, 25, "encoded-path",
-                null, null, null, 7L, RoomType.REALTIME, MEETING_AT, null);
+                7L, RoomType.REALTIME, MEETING_AT, null);
     }
 
     private static PartyMember memberOf(Party party, Long memberId) {
