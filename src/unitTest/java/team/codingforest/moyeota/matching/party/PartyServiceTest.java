@@ -76,7 +76,7 @@ class PartyServiceTest {
         noShowPenalty = new FakeNoShowPenalty();
         userAccess.등록(host, "방장");
         userAccess.등록(participant, "동승자");
-        service = serviceWith(new ChatOnlyCompletionPolicy());   // 정원이 차도 배차 없이 COMPLETED 에 머문다
+        service = serviceWith(new ChatOnlyCompletionPolicy());   // 정원이 차도 COMPLETED 에 머문다
     }
 
     /** 정원 충족 정책만 갈아끼운 서비스 */
@@ -373,11 +373,11 @@ class PartyServiceTest {
     }
 
     @Test
-    void 운행이_끝난_방_수가_탑승_횟수로_나온다() {
+    void 동승이_끝난_방_수가_탑승_횟수로_나온다() {
         // host 는 한 번 완주, participant 는 처음 - 대기 화면 "탑승 N회" 의 근거
         PartyResult 지난방 = service.open(createParty(host, 2));
         service.join(지난방.id(), guest);                       // 정원 2 → COMPLETED
-        service.finish(지난방.id(), host);                      // 방장이 합승 완료 → FINISHED
+        service.finish(지난방.id(), host);                      // 방장이 동승 완료 → FINISHED
 
         PartyResult 새방 = service.open(createParty(host, 3));
         service.join(새방.id(), participant);
@@ -582,7 +582,7 @@ class PartyServiceTest {
 
         service.join(party.id(), participant);
 
-        assertThat(signals.joined.getFirst().status()).as("정원이 차면 배차 없이 COMPLETED 가 된다").isEqualTo("COMPLETED");
+        assertThat(signals.joined.getFirst().status()).as("정원이 차면 COMPLETED 가 된다").isEqualTo("COMPLETED");
     }
 
     @Test
@@ -764,7 +764,7 @@ class PartyServiceTest {
 
     // ───────────────────────── 배포 모드 (승객 모드 고정) ─────────────────────────
 
-    /** 기사 기능이 없는 배포. 정원이 차도 배차 없이 COMPLETED 에 머물러야 한다 - 방은 방장의 합승 완료나 출발로 끝난다 */
+    /** 승객만 쓰는 배포. 정원이 차도 COMPLETED 에 머물러야 한다 - 방은 방장의 동승 완료나 출발로 끝난다 */
     @Nested
     class 택시_기능이_꺼진_배포_모드 {
 
@@ -799,10 +799,10 @@ class PartyServiceTest {
             assertThat(events.joinedFor(party.id(), participant)).isEqualTo(1);
         }
 
-        // ── 합승 완료 (방장이 직접) ──
+        // ── 동승 완료 (방장이 직접) ──
 
         @Test
-        void 방장이_합승_완료하면_FINISHED가_된다() {
+        void 방장이_동승_완료하면_FINISHED가_된다() {
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
 
@@ -812,7 +812,7 @@ class PartyServiceTest {
         }
 
         @Test
-        void 방장이_합승_완료하면_하차_기록이_남는다() {
+        void 방장이_동승_완료하면_하차_기록이_남는다() {
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
 
@@ -825,7 +825,7 @@ class PartyServiceTest {
         }
 
         @Test
-        void 방장이_아닌_참여자가_합승_완료를_시도하면_기록이_남지_않는다() {
+        void 방장이_아닌_참여자가_동승_완료를_시도하면_기록이_남지_않는다() {
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
 
@@ -835,7 +835,7 @@ class PartyServiceTest {
         }
 
         @Test
-        void 방장이_아닌_참여자는_합승_완료할_수_없다() {
+        void 방장이_아닌_참여자는_동승_완료할_수_없다() {
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
 
@@ -856,7 +856,7 @@ class PartyServiceTest {
         }
 
         @Test
-        void 합승_완료한_뒤에는_같은_사람이_새_방을_만들_수_있다() {
+        void 동승_완료한_뒤에는_같은_사람이_새_방을_만들_수_있다() {
             // 이게 안 되면 배포 모드에서 계정이 잠긴다 - 이 기능의 존재 이유
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
@@ -868,7 +868,7 @@ class PartyServiceTest {
         }
 
         @Test
-        void 모집_중인_방은_합승_완료할_수_없다() {
+        void 모집_중인_방은_동승_완료할_수_없다() {
             PartyResult party = service.open(createParty(host, 3));
 
             assertThatThrownBy(() -> service.finish(party.id(), host))
@@ -878,7 +878,7 @@ class PartyServiceTest {
         }
 
         @Test
-        void 방에_없는_사람은_합승_완료할_수_없다() {
+        void 방에_없는_사람은_동승_완료할_수_없다() {
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
 
@@ -914,7 +914,7 @@ class PartyServiceTest {
         }
 
         @Test
-        void 합승_완료하면_FINISHED_닫힘_이벤트가_발행된다() {
+        void 동승_완료하면_FINISHED_닫힘_이벤트가_발행된다() {
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
 
@@ -942,7 +942,7 @@ class PartyServiceTest {
         }
 
         @Test
-        void 합승_완료하면_closed_신호를_보낸다() {
+        void 동승_완료하면_closed_신호를_보낸다() {
             PartyResult party = service.open(createParty(host, 2));
             service.join(party.id(), participant);
             signals.sent.clear();

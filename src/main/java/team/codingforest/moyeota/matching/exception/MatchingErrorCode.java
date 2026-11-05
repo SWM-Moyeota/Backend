@@ -38,7 +38,7 @@ public enum MatchingErrorCode implements ErrorCode {
     OBJECTION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 이의 신청입니다."),
     OBJECTION_ALREADY_RESOLVED(HttpStatus.CONFLICT, "이미 처리된 이의 신청입니다."),
 
-    // 합승 종료
+    // 동승 종료
     PARTY_NOT_COMPLETED(HttpStatus.CONFLICT, "정원이 다 차지 않은 방입니다."),
 
     // 지도 영역 조회 검증

@@ -9,6 +9,6 @@ import team.codingforest.moyeota.matching.party.domain.Party;
 public class ChatOnlyCompletionPolicy implements PartyCompletionPolicy{
     @Override
     public void onCompleted(Party party) {
-        log.info("정원 충족 - 배차 없이 대기 partyId={}", party.getId());
+        log.info("정원 충족 - 채팅으로만 대기 partyId={}", party.getId());
     }
 }

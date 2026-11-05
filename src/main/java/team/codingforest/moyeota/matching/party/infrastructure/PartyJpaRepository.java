@@ -46,7 +46,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     List<PartySummary> findSummariesWithinBounds(@Param("status") PartyStatus status, @Param("swLat") double swLat, @Param("neLat") double neLat,
                                                  @Param("swLng") double swLng, @Param("neLng") double neLng, Limit limit);
 
-    // 노쇼는 제외한 합승 횟수 쿼리
+    // 노쇼는 제외한 동승 횟수 쿼리
     @Query("""
                     select m.memberId as memberId, count(m) as count
                     from PartyMemberEntity m
