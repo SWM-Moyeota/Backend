@@ -109,6 +109,16 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
                                                           @Param("swLat") double swLat, @Param("neLat") double neLat,
                                                           @Param("swLng") double swLng, @Param("neLng") double neLng, Limit limit);
 
+    // 예약 방 검색 2단계 - 1단계(native)가 고른 id 의 요약을 예약 목록과 같은 select 로 읽는다. 순서는 부르는 쪽이 1단계 순서로 되돌린다
+    @Query("""
+            select p.id, p.departure, p.destination,
+                   (select count(m) from PartyMemberEntity m where m.party = p),
+                   p.capacity, p.status, p.departureLat, p.departureLng, p.destinationLat, p.destinationLng, p.departureAt
+            from PartyEntity p
+            where p.id in :ids
+            """)
+    List<ReservationSummary> findReservationSummariesByIds(@Param("ids") Collection<Long> ids);
+
     @Query("""
             select p.id from PartyEntity p
             where p.status = :status
@@ -177,6 +187,54 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
                                                @Param("destLat") double destLat,
                                                @Param("destLng") double destLng,
                                                @Param("radius") int radius);
+
+    // 예약 방 검색 1단계(도착지 있음) - 고른 방의 id 와 도착지 근처 여부만 읽는다. 요약은 2단계(findReservationSummariesByIds)가 읽는다.
+    // 출발 시각은 [from, to) - to 는 다음 날 00:00(KST)라 뺀다. 상태·방 종류를 리터럴로 써야 부분 인덱스 조건과 맞는다
+    @Query(value = """
+            SELECT m.id,
+                   ST_DWithin(m.destination_geog,
+                              CAST(ST_SetSRID(ST_MakePoint(:destLng, :destLat), 4326) AS geography),
+                              :radius) AS destination_nearby
+            FROM match_room m
+            WHERE m.status = 'ACTIVE'
+              AND m.room_type = 'RESERVED'
+              AND m.departure_at >= :from
+              AND m.departure_at < :to
+              AND ST_DWithin(m.departure_geog,
+                             CAST(ST_SetSRID(ST_MakePoint(:depLng, :depLat), 4326) AS geography),
+                             :radius)
+            ORDER BY destination_nearby DESC, m.departure_at ASC, m.id ASC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<ReservationSearchRow> findReservationIdsNearRoute(@Param("depLat") double depLat,
+                                                           @Param("depLng") double depLng,
+                                                           @Param("destLat") double destLat,
+                                                           @Param("destLng") double destLng,
+                                                           @Param("from") Instant from,
+                                                           @Param("to") Instant to,
+                                                           @Param("radius") int radius,
+                                                           @Param("limit") int limit);
+
+    // 예약 방 검색 1단계(도착지 없음). 조건은 위와 같고 출발 시각 순이다
+    @Query(value = """
+            SELECT m.id
+            FROM match_room m
+            WHERE m.status = 'ACTIVE'
+              AND m.room_type = 'RESERVED'
+              AND m.departure_at >= :from
+              AND m.departure_at < :to
+              AND ST_DWithin(m.departure_geog,
+                             CAST(ST_SetSRID(ST_MakePoint(:depLng, :depLat), 4326) AS geography),
+                             :radius)
+            ORDER BY m.departure_at ASC, m.id ASC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Long> findReservationIdsNearDeparture(@Param("depLat") double depLat,
+                                               @Param("depLng") double depLng,
+                                               @Param("from") Instant from,
+                                               @Param("to") Instant to,
+                                               @Param("radius") int radius,
+                                               @Param("limit") int limit);
 
     // 출발지 도착 판정. geography 라 타원체 위 m 단위로 재고, ST_DWithin 은 경계(radius 와 같은 거리)를 포함한다.
     // ST_MakePoint 는 경도가 먼저다. EXISTS 로 감싸 없는 방이어도 행 하나(false)가 돌아온다

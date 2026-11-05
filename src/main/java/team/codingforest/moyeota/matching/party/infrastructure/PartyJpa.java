@@ -5,6 +5,8 @@ import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
+import team.codingforest.moyeota.matching.party.domain.Location;
+import team.codingforest.moyeota.matching.party.domain.NearbyReservation;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
@@ -20,6 +22,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor
@@ -84,6 +88,27 @@ public class PartyJpa implements Parties {
     @Override
     public List<ReservationSummary> findReservationsWithinBounds(Instant from, Instant to, double swLat, double neLat, double swLng, double neLng, int limit) {
         return partyJpaRepository.findReservationsWithinBounds(PartyStatus.ACTIVE, from, to, swLat, neLat, swLng, neLng, Limit.of(limit));
+    }
+
+    /** PostGIS 조건·순서·상한은 native 쿼리가 정해 id 를 고르고, 요약은 예약 목록과 같은 select 로 읽어 고른 순서대로 되돌린다 */
+    @Override
+    public List<NearbyReservation> findReservationsWithinRadius(Instant from, Instant to, Location departure, Location destination, int radius, int limit) {
+        List<ReservationSearchRow> rows = destination == null
+                ? partyJpaRepository.findReservationIdsNearDeparture(departure.latitude(), departure.longitude(), from, to, radius, limit).stream()
+                        .map(id -> new ReservationSearchRow(id, null))
+                        .toList()
+                : partyJpaRepository.findReservationIdsNearRoute(departure.latitude(), departure.longitude(),
+                        destination.latitude(), destination.longitude(), from, to, radius, limit);
+
+        if(rows.isEmpty()) return List.of();
+
+        Map<Long, ReservationSummary> summaries = partyJpaRepository.findReservationSummariesByIds(rows.stream().map(ReservationSearchRow::id).toList()).stream()
+                .collect(Collectors.toMap(ReservationSummary::id, Function.identity()));
+
+        return rows.stream()
+                .filter(row -> summaries.containsKey(row.id()))
+                .map(row -> new NearbyReservation(summaries.get(row.id()), row.destinationNearby()))
+                .toList();
     }
 
     @Override

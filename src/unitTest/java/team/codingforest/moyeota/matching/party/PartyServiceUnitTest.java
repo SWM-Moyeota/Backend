@@ -8,6 +8,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
@@ -25,12 +26,14 @@ import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
+import team.codingforest.moyeota.matching.party.domain.NearbyReservation;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyChangeNotifier;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
+import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
 import team.codingforest.moyeota.matching.party.domain.RoomType;
 import team.codingforest.moyeota.matching.party.dto.MatchCandidate;
 import team.codingforest.moyeota.matching.party.dto.MemberArrived;
@@ -58,6 +61,9 @@ import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -73,6 +79,7 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -1103,6 +1110,178 @@ class PartyServiceUnitTest {
          */
         assertBusinessException(thrown, MatchingErrorCode.INVALID_MAP_BOUNDS);
         verify(parties, never()).findSummariesWithinBounds(any(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyInt());
+    }
+
+    // ───────────────────────── searchReservations ─────────────────────────
+
+    @DisplayName("searchReservations - 도착지를 넣으면 출발지·도착지와 반경 1000m·상한 100 으로 조회해 그대로 돌려준다")
+    @Test
+    void searchReservations() {
+
+        /*
+         * settings
+         */
+        LocalDate date = todayKst().plusDays(1);
+        List<NearbyReservation> found = List.of(new NearbyReservation(reservationSummary(), true));
+
+        doReturn(found).when(parties).findReservationsWithinRadius(eq(kstMidnight(date)), eq(kstMidnight(date.plusDays(1))),
+                eq(DEPARTURE), eq(DESTINATION), eq(1000), eq(100));
+
+        /*
+         * test
+         */
+        List<NearbyReservation> result = partyService.searchReservations(DEPARTURE_LAT, DEPARTURE_LNG, DESTINATION_LAT, DESTINATION_LNG, date);
+
+        /*
+         * verify
+         */
+        assertThat(result).isEqualTo(found);
+    }
+
+    @DisplayName("searchReservations - 도착지 없이 검색하면 도착지를 null 로 넘긴다")
+    @Test
+    void searchReservations_withoutDestination() {
+
+        /*
+         * settings
+         */
+        LocalDate date = todayKst().plusDays(1);
+        List<NearbyReservation> found = List.of(new NearbyReservation(reservationSummary(), null));
+
+        doReturn(found).when(parties).findReservationsWithinRadius(eq(kstMidnight(date)), eq(kstMidnight(date.plusDays(1))),
+                eq(DEPARTURE), isNull(), eq(1000), eq(100));
+
+        /*
+         * test
+         */
+        List<NearbyReservation> result = partyService.searchReservations(DEPARTURE_LAT, DEPARTURE_LNG, null, null, date);
+
+        /*
+         * verify
+         */
+        assertThat(result).isEqualTo(found);
+    }
+
+    @DisplayName("searchReservations - 오늘을 검색하면 00:00 이 아니라 지금부터 조회해 이미 출발한 방을 뺀다")
+    @Test
+    void searchReservations_todayStartsNow() {
+
+        /*
+         * settings
+         */
+        LocalDate today = todayKst();
+        ArgumentCaptor<Instant> from = ArgumentCaptor.forClass(Instant.class);
+        Instant before = Instant.now();
+
+        /*
+         * test
+         */
+        partyService.searchReservations(DEPARTURE_LAT, DEPARTURE_LNG, null, null, today);
+
+        /*
+         * verify
+         */
+        Instant after = Instant.now();
+        verify(parties).findReservationsWithinRadius(from.capture(), eq(kstMidnight(today.plusDays(1))), eq(DEPARTURE), isNull(), eq(1000), eq(100));
+        assertThat(from.getValue()).isBetween(before, after);
+    }
+
+    @DisplayName("searchReservations - 오늘이 아닌 날은 그날 00:00(KST)부터 다음 날 00:00(KST) 전까지 조회한다")
+    @ParameterizedTest(name = "오늘 + {0}일")
+    @ValueSource(ints = {1, 7})
+    void searchReservations_otherDayStartsAtMidnight(int daysAhead) {
+
+        /*
+         * settings
+         */
+        LocalDate date = todayKst().plusDays(daysAhead);
+
+        /*
+         * test
+         */
+        partyService.searchReservations(DEPARTURE_LAT, DEPARTURE_LNG, null, null, date);
+
+        /*
+         * verify
+         */
+        verify(parties).findReservationsWithinRadius(eq(kstMidnight(date)), eq(kstMidnight(date.plusDays(1))), eq(DEPARTURE), isNull(), eq(1000), eq(100));
+    }
+
+    @DisplayName("searchReservations - 오늘과 7일 뒤는 경계값이라 조회한다")
+    @ParameterizedTest(name = "오늘 + {0}일")
+    @ValueSource(ints = {0, 7})
+    void searchReservations_dateEdges(int daysAhead) {
+
+        /*
+         * test
+         */
+        List<NearbyReservation> result = partyService.searchReservations(DEPARTURE_LAT, DEPARTURE_LNG, DESTINATION_LAT, DESTINATION_LNG, todayKst().plusDays(daysAhead));
+
+        /*
+         * verify
+         */
+        assertThat(result).isEmpty();
+        verify(parties).findReservationsWithinRadius(any(), any(), eq(DEPARTURE), eq(DESTINATION), eq(1000), eq(100));
+    }
+
+    @DisplayName("searchReservations - 어제나 8일 뒤면 INVALID_SEARCH_DATE 이고 조회하지 않는다")
+    @ParameterizedTest(name = "오늘 + {0}일")
+    @ValueSource(ints = {-1, 8})
+    void searchReservations_dateOutOfRange(int daysAhead) {
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> partyService.searchReservations(DEPARTURE_LAT, DEPARTURE_LNG, DESTINATION_LAT, DESTINATION_LNG,
+                todayKst().plusDays(daysAhead)));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.INVALID_SEARCH_DATE);
+        verifyNoInteractions(parties);
+    }
+
+    @DisplayName("searchReservations - 도착지 위도·경도 중 하나만 오면 INCOMPLETE_DESTINATION 이고 조회하지 않는다")
+    @ParameterizedTest(name = "destLat={0}, destLng={1}")
+    @CsvSource({
+            "37.3948, ",
+            ", 127.1112"
+    })
+    void searchReservations_incompleteDestination(Double destLat, Double destLng) {
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> partyService.searchReservations(DEPARTURE_LAT, DEPARTURE_LNG, destLat, destLng, todayKst().plusDays(1)));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.INCOMPLETE_DESTINATION);
+        verifyNoInteractions(parties);
+    }
+
+    @DisplayName("searchReservations - 출발지나 도착지가 서비스 지역 밖이면 OUT_OF_SERVICE_AREA 이고 조회하지 않는다")
+    @ParameterizedTest(name = "{0}, {1} → {2}, {3}")
+    @CsvSource({
+            "0.0, 0.0, 37.3948, 127.1112",
+            "37.4979, 127.0276, 35.6812, 139.7671",
+            "32.99, 127.0276, , ",
+            "37.4979, 132.01, , "
+    })
+    void searchReservations_outOfServiceArea(double depLat, double depLng, Double destLat, Double destLng) {
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> partyService.searchReservations(depLat, depLng, destLat, destLng, todayKst().plusDays(1)));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.OUT_OF_SERVICE_AREA);
+        verifyNoInteractions(parties);
     }
 
     // ───────────────────────── confirm ─────────────────────────
@@ -2473,6 +2652,20 @@ class PartyServiceUnitTest {
 
     private static MemberSummary summary(UUID publicId) {
         return new MemberSummary(publicId, "닉네임", "image.png");
+    }
+
+    private static ReservationSummary reservationSummary() {
+        return new ReservationSummary(PARTY_ID, "강남역", "판교역", 1L, 3, PartyStatus.ACTIVE, DEPARTURE_LAT, DEPARTURE_LNG, DESTINATION_LAT, DESTINATION_LNG,
+                BASE_TIME);
+    }
+
+    private static LocalDate todayKst() {
+        return LocalDate.now(ZoneId.of("Asia/Seoul"));
+    }
+
+    /** 그날 00:00(KST). 한국은 서머타임이 없어 늘 UTC+9 다 */
+    private static Instant kstMidnight(LocalDate date) {
+        return date.atStartOfDay().toInstant(ZoneOffset.ofHours(9));
     }
 
     /** memberIds 앞쪽일수록 먼저 합류한 멤버다 - 첫 번째가 방장 */
