@@ -359,6 +359,9 @@ class SmsVerificationServiceTest {
         public Optional<UserProfile> findByUserId(Long userId) { return Optional.empty(); }
 
         @Override
+        public List<UserProfile> findAllByUserIds(List<Long> userIds) { return List.of(); }
+
+        @Override
         public boolean existsByPhoneNumber(String normalizedPhoneNumber) { return registered.contains(normalizedPhoneNumber); }
 
         @Override

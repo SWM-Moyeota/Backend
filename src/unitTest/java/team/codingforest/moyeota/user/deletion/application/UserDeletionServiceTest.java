@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -174,6 +175,11 @@ class UserDeletionServiceTest {
 
         @Override
         public Optional<UserProfile> findByUserId(Long userId) { return Optional.ofNullable(byUserId.get(userId)); }
+
+        @Override
+        public List<UserProfile> findAllByUserIds(List<Long> userIds) {
+            return userIds.stream().map(byUserId::get).filter(Objects::nonNull).toList();
+        }
 
         @Override
         public boolean existsByPhoneNumber(String phone) {
