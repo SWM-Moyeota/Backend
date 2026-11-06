@@ -14,10 +14,10 @@ public record RideRecordResponse(@Schema(description = "탑승 기록. 하차 �
                                   @Schema(description = "다음 페이지가 있는지") boolean hasNext) {
 
     public record RideRecordItem(@Schema(description = "방 ID") Long partyId,
-                                  @Schema(description = "출발지 이름(운행 당시 방의 출발지)") String departure,
-                                  @Schema(description = "도착지 이름(운행 당시 방의 도착지)") String destination,
+                                  @Schema(description = "출발지 이름(탑승 당시 방의 출발지)") String departure,
+                                  @Schema(description = "도착지 이름(탑승 당시 방의 도착지)") String destination,
                                   @Schema(description = "탑승 시각. 서버가 채우지 않아 null 이다(출시 앱 호환용으로 키만 남김)") Instant pickupTime,
-                                  @Schema(description = "하차 시각 - 출발을 누르거나 방장이 합승 종료하거나 서버가 자동 정리한 시각") Instant dropoffTime,
+                                  @Schema(description = "하차 시각 - 출발을 누르거나 방장이 동승 종료하거나 서버가 자동 정리한 시각") Instant dropoffTime,
                                   @Schema(description = "실제 요금(원). 서버가 받지 않아 null 이다(출시 앱 호환용으로 키만 남김)") Integer totalFare,
                                   @Schema(description = "1인 부담 요금(원). 실제 요금을 받지 않아 null 이다(출시 앱 호환용으로 키만 남김)") Integer farePerPerson,
                                   @Schema(description = "함께 탄 인원(나 포함). 노쇼는 빠진다") int currentMembers,

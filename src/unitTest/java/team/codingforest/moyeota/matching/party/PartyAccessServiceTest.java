@@ -56,9 +56,9 @@ class PartyAccessServiceTest {
     // ───────────────────────── 종료되면 false ─────────────────────────
 
     @Test
-    void 합승이_끝난_방의_멤버는_false() {
+    void 동승이_끝난_방의_멤버는_false() {
         Party party = completedParty();
-        party.finishWithoutDriver(방장);
+        party.finishUnconfirmed(방장);
         Long partyId = save(party);
 
         // 멤버 명단은 그대로 남아 있지만(hasMember=true) 상태가 FINISHED 라 false - 상태 조건이 결과를 바꾸는 유일한 경우

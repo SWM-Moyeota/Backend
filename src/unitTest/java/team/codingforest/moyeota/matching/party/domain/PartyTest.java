@@ -121,35 +121,35 @@ class PartyTest {
     }
 
 
-    // ───────────────────────── 합승 완료 ─────────────────────────
+    // ───────────────────────── 동승 완료 ─────────────────────────
 
     @Test
-    void 정원이_찬_방은_방장이_합승_완료할_수_있다() {
+    void 정원이_찬_방은_방장이_동승_완료할_수_있다() {
         Party party = openParty(2);
         party.join(참여자);
 
-        party.finishWithoutDriver(생성자);
+        party.finishUnconfirmed(생성자);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
     }
 
     @Test
-    void 방에_없는_사람은_합승_완료할_수_없다() {
+    void 방에_없는_사람은_동승_완료할_수_없다() {
         Party party = openParty(2);
         party.join(참여자);
 
-        assertThatThrownBy(() -> party.finishWithoutDriver(외부인))
+        assertThatThrownBy(() -> party.finishUnconfirmed(외부인))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.NOT_PARTY_MEMBER);
     }
 
     @Test
-    void 모집_중인_방은_합승_완료할_수_없다() {
+    void 모집_중인_방은_동승_완료할_수_없다() {
         Party party = openParty(3);
         party.join(참여자);   // 2/3 - 아직 ACTIVE
 
-        assertThatThrownBy(() -> party.finishWithoutDriver(생성자))
+        assertThatThrownBy(() -> party.finishUnconfirmed(생성자))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
@@ -169,7 +169,7 @@ class PartyTest {
     void 이미_닫힌_방은_다시_닫을_수_없다() {
         Party party = openParty(2);
         party.join(참여자);
-        party.finishWithoutDriver(생성자);
+        party.finishUnconfirmed(생성자);
 
         assertThatThrownBy(() -> party.autoClose(Instant.now()))
                 .isInstanceOf(BusinessException.class)
@@ -220,11 +220,11 @@ class PartyTest {
     }
 
     @Test
-    void 방장이_아닌_멤버는_합승_완료할_수_없다() {
+    void 방장이_아닌_멤버는_동승_완료할_수_없다() {
         Party party = openParty(2);
         party.join(참여자);
 
-        assertThatThrownBy(() -> party.finishWithoutDriver(참여자))
+        assertThatThrownBy(() -> party.finishUnconfirmed(참여자))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.NOT_PARTY_HOST);
@@ -233,11 +233,11 @@ class PartyTest {
     }
 
     @Test
-    void 승계된_방장은_합승_완료할_수_있다() {
+    void 승계된_방장은_동승_완료할_수_있다() {
         // 원래 방장이 빠진 뒤 복원된 방 - 창설자가 아니라 "현재 멤버 중 가장 일찍 합류한 사람"이 권한을 가진다
         Party party = completedPartyWith(PartyMember.load(참여자, 지금), PartyMember.load(생성자, 지금.plusSeconds(60)));
 
-        party.finishWithoutDriver(참여자);
+        party.finishUnconfirmed(참여자);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
     }
@@ -250,7 +250,7 @@ class PartyTest {
     }
 
     @Test
-    void 참여_나가기_합승완료는_version_을_1씩_올린다() {
+    void 참여_나가기_동승완료는_version_을_1씩_올린다() {
         Party party = openParty(3);
 
         party.join(참여자);
@@ -263,7 +263,7 @@ class PartyTest {
         party.join(3L);
         assertThat(party.getVersion()).isEqualTo(4);
 
-        party.finishWithoutDriver(생성자);
+        party.finishUnconfirmed(생성자);
         assertThat(party.getVersion()).isEqualTo(5);
     }
 
@@ -304,7 +304,7 @@ class PartyTest {
 
         assertThatThrownBy(() -> party.join(3L)).isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> party.leave(3L)).isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> party.finishWithoutDriver(참여자)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> party.finishUnconfirmed(참여자)).isInstanceOf(BusinessException.class);
 
         assertThat(party.getVersion()).isEqualTo(1);
     }
