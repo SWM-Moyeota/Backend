@@ -33,7 +33,7 @@ public class PartySseController {
             version 규칙: 받은 version 이 내 version+1 이면 반영, 같거나 작으면 버림, 그보다 크면 GET /matching/rooms/{partyId} 로 다시 받아 통째로 교체(스트림은 유지).
             connected 와 다시 받은 상세는 내 version 이 없거나 그 이상일 때만 통째로 교체하고, 낮으면 버린다. connected 전에 온 변경분은 틈으로 보고 상세를 다시 받는다.
             version 이 없는 응답(이전 서버)이면 이미 있는 publicId 의 member-joined, 없는 publicId 의 member-left 는 목록은 그대로 두고 상태만 반영한다.
-            기본 10초마다 `:ping` 주석(연결 유지 - 중간 프록시가 조용한 연결을 끊지 않게 하는 것이 목적이라 주기는 서버 설정이고 바뀔 수 있다. 앱은 이걸 「살아있음」 판정에 쓰지 말고 읽기 타임아웃으로만 볼 것). 45초 동안 아무것도 안 오면 끊긴 것으로 보고 3초 뒤 재연결한다. 방을 나가면 서버가 그 사람의 연결을 닫는다(이벤트 없이 스트림 종료). 같은 방에 다시 연결하면 이전 연결은 닫힌다""")
+            30초마다 `:ping` 주석(연결 유지). 45초 동안 아무것도 안 오면 끊긴 것으로 보고 3초 뒤 재연결한다. 방을 나가면 서버가 그 사람의 연결을 닫는다(이벤트 없이 스트림 종료). 같은 방에 다시 연결하면 이전 연결은 닫힌다""")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "text/event-stream"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND")})
     @GetMapping(value = "/matching/rooms/{partyId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter events(@PathVariable Long partyId, @CurrentUser Long memberId) {
