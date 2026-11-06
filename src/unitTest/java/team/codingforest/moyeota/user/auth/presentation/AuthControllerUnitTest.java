@@ -103,4 +103,53 @@ class AuthControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.uuid").value(PUBLIC_ID.toString()))
                 .andExpect(jsonPath("$.name").value("길동이"));
     }
+
+    @DisplayName("POST /api/v1/auth/find-id/send - 성공하면 204 다")
+    @Test
+    void sendFindLoginIdCode_success() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/find-id/send").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phoneNumber": "010-1234-5678"}
+                                """))
+                .andExpect(status().isNoContent());
+    }
+
+    @DisplayName("POST /api/v1/auth/find-id/send - 미가입 번호면 404 USER114 다")
+    @Test
+    void sendFindLoginIdCode_notRegistered() throws Exception {
+        doThrow(new UserException(UserErrorCode.PHONE_NOT_REGISTERED))
+                .when(localUserService).sendFindLoginIdCode("010-1234-5678");
+
+        mockMvc.perform(post("/api/v1/auth/find-id/send").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phoneNumber": "010-1234-5678"}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("USER114"));
+    }
+
+    @DisplayName("POST /api/v1/auth/find-id/verify - 코드가 맞으면 아이디를 준다")
+    @Test
+    void findLoginId_success() throws Exception {
+        doReturn("hong123").when(localUserService).findLoginId("010-1234-5678", "123456");
+
+        mockMvc.perform(post("/api/v1/auth/find-id/verify").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phoneNumber": "010-1234-5678", "code": "123456"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.loginId").value("hong123"));
+    }
+
+    @DisplayName("POST /api/v1/auth/find-id/verify - 코드가 6자리 숫자가 아니면 서비스 호출 없이 400 이다")
+    @Test
+    void findLoginId_invalidCode() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/find-id/verify").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phoneNumber": "010-1234-5678", "code": "12"}
+                                """))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(localUserService);
+    }
+
 }
