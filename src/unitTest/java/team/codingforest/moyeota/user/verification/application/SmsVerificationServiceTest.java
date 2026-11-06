@@ -349,7 +349,27 @@ class SmsVerificationServiceTest {
         }
     }
 
+    @Test
+    void sendCode는_가입된_번호에도_문자를_보낸다() {
+        userProfiles.registered.add("01012345678");
+
+        service.sendCode("01012345678");
+
+        assertThat(sender.sent).hasSize(1);
+    }
+
+    @Test
+    void checkCode는_맞는_코드를_지워서_다시_쓸_수_없게_한다() {
+        service.send(PHONE);
+        service.checkCode(PHONE, CODE);
+
+        assertError(() -> service.checkCode(PHONE, CODE), UserErrorCode.SMS_CODE_EXPIRED);
+    }
+
     static class FakeUserProfiles implements UserProfiles {
+        @Override
+        public Optional<UserProfile> findByPhoneNumber(String normalizedPhoneNumber) { return Optional.empty(); }
+
         final Set<String> registered = new HashSet<>();
 
         @Override

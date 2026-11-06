@@ -105,6 +105,40 @@ public class LocalUserService {
                 NoShowSanction.count(noShows.findUnexpired(userId, now), now), sanction.activeRestrictionUntil(now).orElse(null));
     }
 
+    /*
+     ** 인증번호 보내기
+     * 1. 번호를 01012345678형식으로 정리합니다.
+     * 2. 가입된 번호인지 확인합니다. 미가입이면 여기서 에러가 나서 문자가 나가지 않습니다.
+     * 3. SmsVerificationService의 sendCode()로 문자를 보냅니다.
+     */
+    public void sendFindLoginIdCode(String rawPhoneNumber){
+        String phone=new PhoneNumber(rawPhoneNumber).value();
+        findLocalUserByPhone(phone); //미가입이면 문자 비용을 쓰기 전에 거절
+        smsVerificationService.sendCode(phone);
+    }
+
+
+    /*
+     ** 아이디 찾기
+     * 1. SmsVerificationService에서 만든 checkCode()로 인증번호를 확인합니다. 틀리면 여기서 에러가 납니다.
+     * 2. 번호로 계정을 찾아 아이디를 돌려줍니다.
+     */
+    public String findLoginId(String rawPhoneNumber, String code){
+        smsVerificationService.checkCode(rawPhoneNumber, code); //코드가 맞아야 계정을 조회
+        return findLocalUserByPhone(new PhoneNumber(rawPhoneNumber).value()).getLoginId();
+    }
+
+    /*
+     ** 번호로 계정 찾기
+     * 1. 아이디는 local_user 테이블에 있어서, 번호로 프로필을 찾은 뒤, 그 회원 번호로 계정을 한 번 더 찾습니다.
+     * 번호 -> user_profile에서 프로필 찾기 -> userId로 local_user에서 계정 찾기
+     */
+    private LocalUser findLocalUserByPhone(String phone){
+        return userProfiles.findByPhoneNumber(phone)
+                .flatMap(profile->localUsers.findByUserId(profile.getUserId()))
+                .orElseThrow(()->new UserException(UserErrorCode.PHONE_NOT_REGISTERED));
+    }
+
     @Transactional(readOnly = true)
     public boolean existsByPhoneNumber(String rawPhoneNumber) {
         return userProfiles.existsByPhoneNumber(new PhoneNumber(rawPhoneNumber).value());
