@@ -1,0 +1,110 @@
+package team.codingforest.moyeota.matching.faresplit.infrastructure;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import team.codingforest.moyeota.common.BaseTimeEntity;
+import team.codingforest.moyeota.common.crypto.EncryptedStringConverter;
+import team.codingforest.moyeota.matching.faresplit.domain.AccountNumber;
+import team.codingforest.moyeota.matching.faresplit.domain.Bank;
+import team.codingforest.moyeota.matching.faresplit.domain.FareSplit;
+import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
+import team.codingforest.moyeota.matching.faresplit.domain.FareSplitTransfer;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "fare_split")
+public class FareSplitEntity extends BaseTimeEntity {
+
+    // 방 하나에 정산 하나 - 방 번호를 그대로 키로 쓴다
+    @Id
+    @Column(name = "match_id")
+    private Long partyId;
+
+    @Column(name = "payer_id", nullable = false, updatable = false)
+    private Long payerId;
+
+    @Column(name = "total_fare", nullable = false)
+    private int totalFare;
+
+    @Column(name = "amount_per_person", nullable = false)
+    private int amountPerPerson;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "bank_code", nullable = false, length = 20)
+    private Bank bankCode;
+
+    // user_profile 의 개인정보와 같은 AES-GCM 으로 암호화해 저장한다
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(name = "account_number")
+    private String accountNumber;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private FareSplitStatus status;
+
+    @Column(name = "closed_at")
+    private Instant closedAt;
+
+    @OneToMany(mappedBy = "fareSplit", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<FareSplitTransferEntity> transfers = new ArrayList<>();
+
+    private FareSplitEntity(Long partyId, Long payerId, int totalFare, int amountPerPerson, Bank bankCode, String accountNumber,
+                            FareSplitStatus status, Instant closedAt) {
+        this.partyId = partyId;
+        this.payerId = payerId;
+        this.totalFare = totalFare;
+        this.amountPerPerson = amountPerPerson;
+        this.bankCode = bankCode;
+        this.accountNumber = accountNumber;
+        this.status = status;
+        this.closedAt = closedAt;
+    }
+
+    public static FareSplitEntity from(FareSplit split) {
+        AccountNumber account = split.getAccountNumber();
+        FareSplitEntity entity = new FareSplitEntity(split.getPartyId(), split.getPayerId(), split.getTotalFare(), split.getAmountPerPerson(),
+                split.getBank(), account == null ? null : account.value(), split.getStatus(), split.getClosedAt());
+
+        for(FareSplitTransfer transfer : split.getTransfers()) {
+            entity.transfers.add(FareSplitTransferEntity.of(entity, transfer));
+        }
+
+        return entity;
+    }
+
+    /**
+     *  @param joinOrder 방 멤버 userId 를 합류 순으로. 송금을 이 순서로 담고, 목록에 없는 사람은 맨 뒤에 userId 순으로 둔다
+     */
+    public FareSplit toDomain(List<Long> joinOrder) {
+        List<FareSplitTransfer> ordered = transfers.stream()
+                .sorted(Comparator.comparingInt((FareSplitTransferEntity t) -> orderOf(joinOrder, t.getMemberId()))
+                        .thenComparing(FareSplitTransferEntity::getMemberId))
+                .map(FareSplitTransferEntity::toDomain)
+                .toList();
+
+        return FareSplit.load(partyId, payerId, totalFare, amountPerPerson, bankCode,
+                accountNumber == null ? null : new AccountNumber(accountNumber), status, getCreatedAt(), closedAt, ordered);
+    }
+
+    private static int orderOf(List<Long> joinOrder, Long memberId) {
+        int index = joinOrder.indexOf(memberId);
+
+        return index < 0 ? Integer.MAX_VALUE : index;
+    }
+}

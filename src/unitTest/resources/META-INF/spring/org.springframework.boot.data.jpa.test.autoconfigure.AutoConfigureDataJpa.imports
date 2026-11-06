@@ -1,2 +1,2 @@
-# 모든 @DataJpaTest 에 추가로 띄울 빈. UserProfileEntity 의 EncryptedStringConverter 가 FieldCipher 를 주입받는다
+# 모든 @DataJpaTest 에 추가로 띄울 빈. UserProfileEntity·FareSplitEntity 의 EncryptedStringConverter 가 FieldCipher 를 주입받는다
 team.codingforest.moyeota.common.crypto.FieldCipher
