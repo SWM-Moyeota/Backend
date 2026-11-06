@@ -11,10 +11,10 @@ class RideRecordTest {
     private static final Long 방 = 10L;
 
     @Test
-    void 끝난_동승은_출발지_도착지와_하차_시각을_남긴다() {
+    void 끝난_합승은_출발지_도착지와_하차_시각을_남긴다() {
         Instant 직전 = Instant.now().truncatedTo(ChronoUnit.MICROS);
 
-        RideRecord rideRecord = RideRecord.droppedOffNow(방, "강남역", "판교역");
+        RideRecord rideRecord = RideRecord.withoutDriver(방, "강남역", "판교역");
 
         assertThat(rideRecord.getMatchId()).isEqualTo(방);
         assertThat(rideRecord.getDeparturePlace()).isEqualTo("강남역");
@@ -25,7 +25,7 @@ class RideRecordTest {
 
     @Test
     void 하차_시각은_마이크로초_단위로_잘린다() {
-        RideRecord rideRecord = RideRecord.droppedOffNow(방, "강남역", "판교역");
+        RideRecord rideRecord = RideRecord.withoutDriver(방, "강남역", "판교역");
 
         assertThat(rideRecord.getDropoffTime().getNano() % 1_000).isZero();
     }

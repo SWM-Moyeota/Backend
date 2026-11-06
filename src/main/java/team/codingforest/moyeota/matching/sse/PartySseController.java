@@ -22,7 +22,7 @@ public class PartySseController {
 
     @Operation(summary = "방 변화 구독(SSE)", description = """
             연결하면 `connected` 에 방 상세 전체(GET /matching/rooms/{partyId} 와 같은 모양)가 온다. 재연결 때도 같다.
-            이후 변경분만 온다. closed 를 뺀 모든 이벤트와 방 상세에 `version` 이 있다 - 참여·나가기·모집 마감·약속 확정·출발지 도착·동승 종료(출발) 때 1 오른다.
+            이후 변경분만 온다. closed 를 뺀 모든 이벤트와 방 상세에 `version` 이 있다 - 참여·나가기·모집 마감·약속 확정·출발지 도착·합승 종료(출발) 때 1 오른다.
             연결 중에 방이 바뀌면 변경분이 connected 보다 먼저 올 수 있다.
             - `member-joined`: { member, status, version }. member 는 방 상세 members 원소와 같은 모양(host·arrived 는 항상 false - 새로 들어온 사람은 방장이 아니고 아직 도착 전이다)
             - `member-left`: { publicId, status, hostPublicId, version }. hostPublicId 는 이 이벤트를 반영한 뒤의 방장 - 받을 때마다 members 의 host 표시를 이 값으로 다시 지정한다. null 이거나 목록에 없는 publicId 면 방 상세를 다시 받는다

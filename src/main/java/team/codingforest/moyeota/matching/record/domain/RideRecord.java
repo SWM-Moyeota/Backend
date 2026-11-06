@@ -16,7 +16,7 @@ public class RideRecord {
         this.dropoffTime = dropoffTime;
     }
 
-    public static RideRecord droppedOffNow(Long matchId, String departurePlace, String destinationPlace) {
+    public static RideRecord withoutDriver(Long matchId, String departurePlace, String destinationPlace) {
         return new RideRecord(matchId, departurePlace, destinationPlace, now());
     }
 

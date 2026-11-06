@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 /**
- *  출발지 도착(arrive)·출발(depart)과 노쇼 기록, 약속이 정해진 방의 이전 동승 종료 경로 차단
+ *  출발지 도착(arrive)·출발(depart)과 노쇼 기록, 약속이 정해진 방의 이전 합승 종료 경로 차단
  */
 class PartyAttendanceUnitTest {
     private static final Long HOST_ID = 1L;
@@ -649,9 +649,9 @@ class PartyAttendanceUnitTest {
         assertThat(thrown).isInstanceOf(UnsupportedOperationException.class);
     }
 
-    // ───────────────────────── finishUnconfirmed ─────────────────────────
+    // ───────────────────────── finishWithoutDriver ─────────────────────────
 
-    @DisplayName("finishUnconfirmed - 약속을 확정한 실시간 방은 방장이라도 USE_DEPART_FOR_CONFIRMED_PARTY")
+    @DisplayName("finishWithoutDriver - 약속을 확정한 실시간 방은 방장이라도 USE_DEPART_FOR_CONFIRMED_PARTY")
     @Test
     void finish_confirmedRealtime() {
 
@@ -663,7 +663,7 @@ class PartyAttendanceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> party.finishUnconfirmed(HOST_ID));
+        Throwable thrown = catchThrowable(() -> party.finishWithoutDriver(HOST_ID));
 
         /*
          * verify
@@ -671,7 +671,7 @@ class PartyAttendanceUnitTest {
         assertRejected(thrown, MatchingErrorCode.USE_DEPART_FOR_CONFIRMED_PARTY, party, PartyStatus.COMPLETED);
     }
 
-    @DisplayName("finishUnconfirmed - 약속이 정해진 방에선 방장이 아닌 멤버에게도 NOT_PARTY_HOST 대신 출발로 끝내라고 알린다")
+    @DisplayName("finishWithoutDriver - 약속이 정해진 방에선 방장이 아닌 멤버에게도 NOT_PARTY_HOST 대신 출발로 끝내라고 알린다")
     @Test
     void finish_confirmedByNonHost() {
 
@@ -683,7 +683,7 @@ class PartyAttendanceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> party.finishUnconfirmed(MEMBER_ID));
+        Throwable thrown = catchThrowable(() -> party.finishWithoutDriver(MEMBER_ID));
 
         /*
          * verify
@@ -691,7 +691,7 @@ class PartyAttendanceUnitTest {
         assertRejected(thrown, MatchingErrorCode.USE_DEPART_FOR_CONFIRMED_PARTY, party, PartyStatus.COMPLETED);
     }
 
-    @DisplayName("finishUnconfirmed - 예약 방은 출발 시각이 지나도 USE_DEPART_FOR_CONFIRMED_PARTY")
+    @DisplayName("finishWithoutDriver - 예약 방은 출발 시각이 지나도 USE_DEPART_FOR_CONFIRMED_PARTY")
     @Test
     void finish_reserved() {
 
@@ -703,7 +703,7 @@ class PartyAttendanceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> party.finishUnconfirmed(HOST_ID));
+        Throwable thrown = catchThrowable(() -> party.finishWithoutDriver(HOST_ID));
 
         /*
          * verify
@@ -711,7 +711,7 @@ class PartyAttendanceUnitTest {
         assertRejected(thrown, MatchingErrorCode.USE_DEPART_FOR_CONFIRMED_PARTY, party, PartyStatus.COMPLETED);
     }
 
-    @DisplayName("finishUnconfirmed - 방에 없는 사람은 약속이 정해진 방이어도 NOT_PARTY_MEMBER 가 먼저다")
+    @DisplayName("finishWithoutDriver - 방에 없는 사람은 약속이 정해진 방이어도 NOT_PARTY_MEMBER 가 먼저다")
     @Test
     void finish_confirmedNotMember() {
 
@@ -723,7 +723,7 @@ class PartyAttendanceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> party.finishUnconfirmed(OUTSIDER_ID));
+        Throwable thrown = catchThrowable(() -> party.finishWithoutDriver(OUTSIDER_ID));
 
         /*
          * verify
@@ -731,7 +731,7 @@ class PartyAttendanceUnitTest {
         assertBusinessException(thrown, MatchingErrorCode.NOT_PARTY_MEMBER);
     }
 
-    @DisplayName("finishUnconfirmed - 확정 전 실시간 방은 예전처럼 방장이 끝내고 노쇼 없이 모두 탄 것으로 남는다")
+    @DisplayName("finishWithoutDriver - 확정 전 실시간 방은 예전처럼 방장이 끝내고 노쇼 없이 모두 탄 것으로 남는다")
     @Test
     void finish_unconfirmed() {
 
@@ -743,7 +743,7 @@ class PartyAttendanceUnitTest {
         /*
          * test
          */
-        party.finishUnconfirmed(HOST_ID);
+        party.finishWithoutDriver(HOST_ID);
 
         /*
          * verify
@@ -753,7 +753,7 @@ class PartyAttendanceUnitTest {
         assertThat(party.getMembers()).noneMatch(PartyMember::isNoShow);
     }
 
-    @DisplayName("finishUnconfirmed - 확정 전 실시간 방에서 방장이 아니면 예전처럼 NOT_PARTY_HOST")
+    @DisplayName("finishWithoutDriver - 확정 전 실시간 방에서 방장이 아니면 예전처럼 NOT_PARTY_HOST")
     @Test
     void finish_unconfirmedByNonHost() {
 
@@ -765,7 +765,7 @@ class PartyAttendanceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> party.finishUnconfirmed(MEMBER_ID));
+        Throwable thrown = catchThrowable(() -> party.finishWithoutDriver(MEMBER_ID));
 
         /*
          * verify

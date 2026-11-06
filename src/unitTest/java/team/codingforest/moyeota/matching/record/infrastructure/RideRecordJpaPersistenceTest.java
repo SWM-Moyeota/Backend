@@ -43,10 +43,10 @@ class RideRecordJpaPersistenceTest {
     }
 
     @Test
-    void 끝난_동승_기록은_출발지_도착지_하차_시각으로_저장되고_목록에_나온다() {
+    void 끝난_합승_기록은_출발지_도착지_하차_시각으로_저장되고_목록에_나온다() {
         Long partyId = party(나, 동승자);
 
-        rideRecords.save(RideRecord.droppedOffNow(partyId, "강남역", "판교역"));
+        rideRecords.save(RideRecord.withoutDriver(partyId, "강남역", "판교역"));
         clear();
 
         RideRecord found = rideRecords.findById(partyId).orElseThrow();
@@ -60,11 +60,11 @@ class RideRecordJpaPersistenceTest {
     void 처음_저장하면_생성_시각이_찍히고_같은_방을_다시_저장해도_행이_늘지_않고_생성_시각은_그대로다() {
         // id 를 직접 넣는 엔티티라 save 는 merge(SELECT 뒤 INSERT 또는 UPDATE)로 돈다 - 같은 match_id 를 다시 저장해도 PK 위반 없이 덮어쓴다
         Long partyId = party(나);
-        rideRecords.save(RideRecord.droppedOffNow(partyId, "강남역", "판교역"));
+        rideRecords.save(RideRecord.withoutDriver(partyId, "강남역", "판교역"));
         clear();
         Instant createdAt = repository.findById(partyId).orElseThrow().getCreatedAt();
 
-        RideRecord 다시 = RideRecord.droppedOffNow(partyId, "강남역", "판교역");
+        RideRecord 다시 = RideRecord.withoutDriver(partyId, "강남역", "판교역");
         rideRecords.save(다시);
         clear();
 

@@ -1594,7 +1594,7 @@ class PartyServiceUnitTest {
 
     // ───────────────────────── depart ─────────────────────────
 
-    @DisplayName("depart - 방을 FINISHED 로 끝내 노쇼를 남겨 저장하고, 하차 기록·닫힘 이벤트를 남긴 뒤 커밋 후 closed 를 보낸다")
+    @DisplayName("depart - 방을 FINISHED 로 끝내 노쇼를 남겨 저장하고, 기사 없는 하차 기록·닫힘 이벤트를 남긴 뒤 커밋 후 closed 를 보낸다")
     @Test
     void depart() {
 
@@ -1728,7 +1728,7 @@ class PartyServiceUnitTest {
 
     // ───────────────────────── finish ─────────────────────────
 
-    @DisplayName("finish - 방장이 COMPLETED 방을 끝내면 하차 기록을 남기고 커밋 후 closed 를 보낸다")
+    @DisplayName("finish - 방장이 COMPLETED 방을 끝내면 기사 없는 하차 기록을 남기고 커밋 후 closed 를 보낸다")
     @Test
     void finish() {
 
@@ -1822,7 +1822,7 @@ class PartyServiceUnitTest {
 
     // ───────────────────────── autoClose ─────────────────────────
 
-    @DisplayName("autoClose - 도착한 멤버가 있는 확정 방은 FINISHED 로 닫고 노쇼를 남겨 저장한 뒤 하차 기록·닫힘 이벤트를 남기고 커밋 후 closed 를 보낸다")
+    @DisplayName("autoClose - 도착한 멤버가 있는 확정 방은 FINISHED 로 닫고 노쇼를 남겨 저장한 뒤 기사 없는 하차 기록·닫힘 이벤트를 남기고 커밋 후 closed 를 보낸다")
     @Test
     void autoClose_someArrived() {
 

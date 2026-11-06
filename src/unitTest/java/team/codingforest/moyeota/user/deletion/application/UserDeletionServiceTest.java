@@ -97,7 +97,7 @@ class UserDeletionServiceTest {
     }
 
     @Test
-    void 진행_중인_동승이_있으면_탈퇴할_수_없다() {
+    void 진행_중인_합승이_있으면_탈퇴할_수_없다() {
         inOngoingParty.add(user.getId());
 
         assertError(() -> service.delete(user.getId(), PASSWORD), UserErrorCode.ONGOING_PARTY_EXISTS);

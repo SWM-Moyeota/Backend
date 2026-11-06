@@ -43,7 +43,7 @@ class UserAccessServiceTest {
 
     @Test
     void 탈퇴한_유저는_탈퇴한_사용자로_보인다() {
-        // 채팅방·동승 상세에서 탈퇴자를 닉네임 미설정(null)과 구분해 보여준다
+        // 채팅방·합승 상세에서 탈퇴자를 닉네임 미설정(null)과 구분해 보여준다
         User a = users.save(User.restore(null, UUID.randomUUID(), "모여타", "img.png", LoginType.LOCAL, null, Instant.now(), null));
         a.delete(Instant.now());
         users.save(a);

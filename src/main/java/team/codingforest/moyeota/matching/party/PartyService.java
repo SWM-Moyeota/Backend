@@ -289,12 +289,12 @@ public class PartyService {
         penalizeNoShows(party, noShowMemberIds, now);
 
         meetingNotificationService.notifyNoShows(partyId, noShowMemberIds, now);
-        rideRecords.save(RideRecord.droppedOffNow(partyId, party.getDeparture(), party.getDestination()));
+        rideRecords.save(RideRecord.withoutDriver(partyId, party.getDeparture(), party.getDestination()));
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
         PartyClosed closed = PartyClosed.from(party.getStatus().name());
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
 
-        log.info("출발로 동승 종료 partyId={}, memberId={}, members={}, noShowMemberIds={}", partyId, memberId, party.getMembers().size(), noShowMemberIds);
+        log.info("출발로 합승 종료 partyId={}, memberId={}, members={}, noShowMemberIds={}", partyId, memberId, party.getMembers().size(), noShowMemberIds);
     }
 
     @Transactional
@@ -323,14 +323,14 @@ public class PartyService {
         Party party = parties.findByIdForUpdate(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
-        party.finishUnconfirmed(memberId);
+        party.finishWithoutDriver(memberId);
         parties.save(party);
-        rideRecords.save(RideRecord.droppedOffNow(partyId, party.getDeparture(), party.getDestination()));
+        rideRecords.save(RideRecord.withoutDriver(partyId, party.getDeparture(), party.getDestination()));
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));
         PartyClosed closed = PartyClosed.from(party.getStatus().name());
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.closed(partyId, closed));
 
-        log.info("동승 종료 partyId={}, memberId={}", partyId, memberId);
+        log.info("합승 종료 partyId={}, memberId={}", partyId, memberId);
     }
 
     /**
@@ -349,7 +349,7 @@ public class PartyService {
         meetingNotificationService.notifyNoShows(partyId, result.noShowMemberIds(), now);
 
         if (result.hasRiders()) {
-            rideRecords.save(RideRecord.droppedOffNow(partyId, party.getDeparture(), party.getDestination()));
+            rideRecords.save(RideRecord.withoutDriver(partyId, party.getDeparture(), party.getDestination()));
         }
 
         eventPublisher.publishEvent(new PartyClosedEvent(partyId, party.getStatus().name()));

@@ -651,12 +651,12 @@ class PartyJpaPersistenceTest {
 
     // ───────────────────────── 탑승 횟수 집계 ─────────────────────────
 
-    /** 1L·2L·3L 이 탄 방을 방장(1L)이 동승 종료해 FINISHED 로 저장한다 */
+    /** 1L·2L·3L 이 탄 방을 방장(1L)이 합승 종료해 FINISHED 로 저장한다 */
     private void finishRide() {
         Party party = openAndSave();
         party.join(2L);
         party.join(3L);   // capacity 3 충족 → COMPLETED
-        party.finishUnconfirmed(1L);
+        party.finishWithoutDriver(1L);
         parties.save(party);
     }
 

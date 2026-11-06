@@ -264,7 +264,7 @@ public class Party {
      *  언제 닫을지는 스케줄러 조회가 가르고, 여기서는 어떻게 닫을지를 정한다.
      *  약속이 정해진 방은 출발(depart)과 같은 기준으로 노쇼를 가른다
      *   - 도착한 멤버가 있으면 FINISHED, 도착하지 않은 멤버는 노쇼다. 도착한 멤버가 실제로 탄 사람이다
-     *   - 아무도 도착하지 않았으면 동승이 없었으니 CANCELED, 멤버 전원이 노쇼다. 도착 버튼을 누르지 않은 것도 본인 몫이고 이의는 운영자가 노쇼를 무효로 돌려 받는다
+     *   - 아무도 도착하지 않았으면 합승이 없었으니 CANCELED, 멤버 전원이 노쇼다. 도착 버튼을 누르지 않은 것도 본인 몫이고 이의는 운영자가 노쇼를 무효로 돌려 받는다
      *   - 함께 탈 사람이 들어오지 않은 예약 방(멤버 1명)은 모집 정리와 같이 노쇼 없이 CANCELED - 출발도 할 수 없던 방이다
      *  약속을 정하지 않은 실시간 방은 노쇼를 가릴 약속이 없다 - COMPLETED 는 이전 자동 종료처럼 FINISHED(구버전 앱), ACTIVE 는 CANCELED.
      *  조회와 행 잠금 사이에 출발·나가기로 이미 닫힌 방은 PARTY_CLOSED 로 거절한다(스케줄러는 건너뛴다)
@@ -518,7 +518,7 @@ public class Party {
      *  약속이 정해진 방(확정한 실시간 방, 모든 예약 방)은 출발(depart)로만 끝낸다 - 끝내는 길이 둘이면 노쇼 기록을 건너뛸 수 있다.
      *  예약 방은 늘 확정이라 여기까지 오지 않는다
      */
-    public void finishUnconfirmed(Long memberId) {
+    public void finishWithoutDriver(Long memberId) {
         if(!hasMember(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
 
         // 방장 검사보다 먼저 - 확정된 방에선 방장이 아니어도 출발 버튼으로 끝낼 수 있으니 그 길을 알려 준다

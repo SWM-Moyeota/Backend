@@ -222,7 +222,7 @@ class RideRecordServiceTest {
     }
 
     @Test
-    void 기록_항목은_탑승_정보와_함께_탄_인원을_담는다() {
+    void 기록_항목은_운행_정보와_함께_탄_인원을_담는다() {
         Long partyId = savedParty(members(나, 동승자, 셋째));
         Instant 하차 = 기준.plusSeconds(1800);
         rideRecords.save(RideRecord.load(partyId, "부산대학교 정문", "서면역 1번 출구", 하차));
@@ -247,7 +247,7 @@ class RideRecordServiceTest {
     }
 
     @Test
-    void 끝난_동승_기록은_탑승_시각과_요금과_1인_요금이_null_이다() {
+    void 끝난_합승_기록은_탑승_시각과_요금과_1인_요금이_null_이다() {
         Long partyId = savedParty(members(나, 동승자));
         rideRecords.save(RideRecord.load(partyId, "강남역", "판교역", 기준));
 

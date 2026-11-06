@@ -67,7 +67,7 @@ public class PartyController {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "방 상세", description = "members 에 동승자 publicId·닉네임·이미지·탑승 횟수·host(방장 여부, 합류 순 정렬). 방장 = 방을 만든 사람이고, 방장이 나가면 남은 멤버 중 가장 먼저 합류한 사람이 승계한다(나가기는 약속 확정 전에만 되므로 승계도 확정 전에만 일어난다). 멤버가 있는 방에는 항상 정확히 한 명. 본인 판별은 publicId 와 토큰 sub 비교. departureAt 은 예약 방의 출발 시각이거나 실시간 방에서 방장이 확정한 약속 시간(확정 전 null). confirmed 는 약속이 정해진 방인지 - 예약 방은 항상 true, 실시간 방은 방장이 확정한 뒤 true. true 면 아무도 나갈 수 없다. members[].arrived 는 출발지 도착(POST /matching/rooms/{partyId}/arrive)을 마친 멤버인지(약속이 정해지기 전에는 늘 false). SSE 구독(/events)의 connected 이벤트도 같은 모양이다. version 은 참여·나가기·모집 마감·약속 확정·출발지 도착·동승 종료(출발) 때 1 오르는 번호 - SSE 이벤트의 version 과 비교해 놓친 변경을 알아챈다")
+    @Operation(summary = "방 상세", description = "members 에 동승자 publicId·닉네임·이미지·탑승 횟수·host(방장 여부, 합류 순 정렬). 방장 = 방을 만든 사람이고, 방장이 나가면 남은 멤버 중 가장 먼저 합류한 사람이 승계한다(나가기는 약속 확정 전에만 되므로 승계도 확정 전에만 일어난다). 멤버가 있는 방에는 항상 정확히 한 명. 본인 판별은 publicId 와 토큰 sub 비교. departureAt 은 예약 방의 출발 시각이거나 실시간 방에서 방장이 확정한 약속 시간(확정 전 null). confirmed 는 약속이 정해진 방인지 - 예약 방은 항상 true, 실시간 방은 방장이 확정한 뒤 true. true 면 아무도 나갈 수 없다. members[].arrived 는 출발지 도착(POST /matching/rooms/{partyId}/arrive)을 마친 멤버인지(약속이 정해지기 전에는 늘 false). SSE 구독(/events)의 connected 이벤트도 같은 모양이다. version 은 참여·나가기·모집 마감·약속 확정·출발지 도착·합승 종료(출발) 때 1 오르는 번호 - SSE 이벤트의 version 과 비교해 놓친 변경을 알아챈다")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "방 상세"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND")})
     @GetMapping("/matching/rooms/{partyId}")
     public ResponseEntity<PartyDetailResult> detail(@PathVariable Long partyId) {
@@ -92,7 +92,7 @@ public class PartyController {
         return ResponseEntity.ok(PartyListResponse.fromSummaries(partyService.findActivePartiesWithin(swLat, swLng, neLat, neLng)));
     }
 
-    @Operation(summary = "동승 종료(약속 확정 전 방)", description = "약속 시간을 확정하지 않은 방을 끝내는 이전 경로(구버전 앱용). 동승을 마치면 방장이 직접 호출. 정원이 찬(COMPLETED) 방에서만 가능. 노쇼 기록 없이 멤버 전원이 탄 것으로 탑승 기록이 남는다. 약속이 확정된 방(방장이 약속 시간을 확정한 실시간 방, 모든 예약 방)은 409 USE_DEPART_FOR_CONFIRMED_PARTY - 출발(POST /matching/rooms/{partyId}/depart)로만 끝낸다")
+    @Operation(summary = "합승 종료(약속 확정 전 방)", description = "약속 시간을 확정하지 않은 방을 끝내는 이전 경로(구버전 앱용). 합승을 마치면 방장이 직접 호출. 정원이 찬(COMPLETED) 방에서만 가능. 노쇼 기록 없이 멤버 전원이 탄 것으로 탑승 기록이 남는다. 약속이 확정된 방(방장이 약속 시간을 확정한 실시간 방, 모든 예약 방)은 409 USE_DEPART_FOR_CONFIRMED_PARTY - 출발(POST /matching/rooms/{partyId}/depart)로만 끝낸다")
     @ApiResponses({@ApiResponse(responseCode = "204", description = "종료됨"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER / NOT_PARTY_HOST"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "USE_DEPART_FOR_CONFIRMED_PARTY - 약속이 확정된 방 / PARTY_NOT_COMPLETED")})
     @PostMapping("/matching/rooms/{partyId}/finish")
     public ResponseEntity<Void> finish(@PathVariable Long partyId, @CurrentUser Long memberId) {

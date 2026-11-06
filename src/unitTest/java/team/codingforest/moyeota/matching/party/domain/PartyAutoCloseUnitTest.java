@@ -88,7 +88,7 @@ class PartyAutoCloseUnitTest {
         assertThat(party.getVersion()).isEqualTo(1L);
     }
 
-    @DisplayName("autoClose - 아무도 도착하지 않은 확정 방은 동승이 없었으니 CANCELED 이고 멤버 전원이 합류 순으로 노쇼다")
+    @DisplayName("autoClose - 아무도 도착하지 않은 확정 방은 합승이 없었으니 CANCELED 이고 멤버 전원이 합류 순으로 노쇼다")
     @Test
     void autoClose_nobodyArrived() {
 
