@@ -3,7 +3,7 @@ package team.codingforest.moyeota.user.verification.application;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.RedisConnectionFailureException;
-import team.codingforest.moyeota.user.common.crypto.FieldHasher;
+import team.codingforest.moyeota.common.crypto.FieldHasher;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
 import team.codingforest.moyeota.user.deletion.domain.UserDeletions;

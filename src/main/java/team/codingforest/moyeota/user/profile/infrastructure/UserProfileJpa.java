@@ -2,7 +2,7 @@ package team.codingforest.moyeota.user.profile.infrastructure;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
-import team.codingforest.moyeota.user.common.crypto.FieldHasher;
+import team.codingforest.moyeota.common.crypto.FieldHasher;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
 

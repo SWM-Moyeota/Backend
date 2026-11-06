@@ -10,7 +10,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import team.codingforest.moyeota.user.common.crypto.EncryptedStringConverter;
+import team.codingforest.moyeota.common.crypto.EncryptedStringConverter;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.users.domain.enums.Gender;
 
