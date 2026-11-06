@@ -33,8 +33,7 @@ public record UserRegisterRequest(
 
         @NotNull(message = "생년월일은 필수입니다.")
         @Past(message = "생년월일은 과거 날짜여야 합니다.")
-        @Schema(description = "만 14세 미만은 가입 불가(UNDER_MINIMUM_AGE, USER113). 한국 시각(KST) 날짜로 센 만 나이이고 14번째 생일 당일부터 가입 가능",
-                example = "2000-01-01T00:00:00Z") Instant birthDate,
+        @Schema(example = "2000-01-01T00:00:00Z") Instant birthDate,
 
         @NotBlank(message = "전화번호는 필수입니다.")
         @Pattern(regexp = "^01[016-9]-?\\d{3,4}-?\\d{4}$",

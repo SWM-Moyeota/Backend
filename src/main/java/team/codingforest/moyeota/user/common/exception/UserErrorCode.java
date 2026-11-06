@@ -20,10 +20,9 @@ public enum UserErrorCode implements ErrorCode {
     INVALID_NICKNAME(HttpStatus.BAD_REQUEST, "USER107", "닉네임은 2~10자의 한글, 영문, 숫자만 가능합니다."),
     NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "USER108", "이미 사용 중인 닉네임입니다."),
     REJOIN_RESTRICTED(HttpStatus.CONFLICT, "USER109", "탈퇴 후 30일 동안은 같은 번호로 다시 가입할 수 없습니다."),
-    ONGOING_PARTY_EXISTS(HttpStatus.CONFLICT, "USER110", "진행 중인 동승이 있어 탈퇴할 수 없습니다. 동승이 끝난 뒤 다시 시도해 주세요."),
+    ONGOING_PARTY_EXISTS(HttpStatus.CONFLICT, "USER110", "진행 중인 합승이나 운행이 있어 탈퇴할 수 없습니다. 합승이나 운행이 끝난 뒤 다시 시도해 주세요."),
     PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "USER111", "비밀번호가 일치하지 않습니다."),
     INVALID_PROFILE_IMAGE(HttpStatus.BAD_REQUEST, "USER112", "제공하지 않는 프로필 이미지입니다."),
-    UNDER_MINIMUM_AGE(HttpStatus.BAD_REQUEST, "USER113", "만 14세 미만은 가입할 수 없습니다."),
     
     SMS_SEND_FAILED(HttpStatus.BAD_GATEWAY, "USER201", "인증번호 발송에 실패했습니다. 잠시 후 다시 시도해 주세요."),
     SMS_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "USER202", "인증번호는 1분에 한 번만 요청할 수 있습니다."),

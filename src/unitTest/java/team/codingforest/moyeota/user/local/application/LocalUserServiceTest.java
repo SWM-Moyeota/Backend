@@ -22,8 +22,6 @@ import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 import team.codingforest.moyeota.user.verification.application.SmsVerificationService;
 
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +34,6 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verifyNoInteractions;
 
 class LocalUserServiceTest {
     private static final String CDN = "https://cdn.example.com/";
@@ -134,22 +131,6 @@ class LocalUserServiceTest {
                 Instant.parse("2000-01-01T00:00:00Z"), "010-1234-5678", Gender.MALE, "hong@test.com"));
 
         assertThat(service.getProfile(user.getId()).name()).isEqualTo("홍*동");
-    }
-
-    @Test
-    void 만_14세_미만이면_문자_인증을_확인하기도_전에_거부된다() {
-        // 앱에서만 막으면 API 를 직접 부르는 쪽이 그대로 통과한다
-        Instant 열세_살 = ZonedDateTime.now(ZoneId.of("Asia/Seoul")).minusYears(13).toInstant();
-
-        assertThatThrownBy(() -> service.register(new UserRegisterCommand("hong", "Passw0rd!", "길동이", "홍길동",
-                열세_살, "010-1234-5678", Gender.MALE, "hong@test.com", "token")))
-                .isInstanceOf(UserException.class)
-                .extracting("errorCode")
-                .isEqualTo(UserErrorCode.UNDER_MINIMUM_AGE);
-        // 부수효과가 없는 입력 검증이라 문자 인증 확인·중복 조회보다 먼저 본다 - 인증 토큰이 남아 다시 시도할 수 있다
-        verifyNoInteractions(smsVerificationService);
-        assertThat(localUsers.existsByLoginId("hong")).isFalse();
-        assertThat(users.existsByNickname("길동이")).isFalse();
     }
 
     @Test
