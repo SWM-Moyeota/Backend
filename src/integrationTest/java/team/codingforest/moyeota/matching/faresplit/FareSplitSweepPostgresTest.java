@@ -1,0 +1,352 @@
+package team.codingforest.moyeota.matching.faresplit;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.support.TransactionTemplate;
+import team.codingforest.moyeota.matching.faresplit.domain.Bank;
+import team.codingforest.moyeota.matching.faresplit.domain.FareSplits;
+import team.codingforest.moyeota.matching.party.domain.Capacity;
+import team.codingforest.moyeota.matching.party.domain.Location;
+import team.codingforest.moyeota.matching.party.domain.Parties;
+import team.codingforest.moyeota.matching.party.domain.Party;
+import team.codingforest.moyeota.matching.party.domain.PartyMember;
+import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.RoomType;
+import team.codingforest.moyeota.user.api.UserDeletedEvent;
+
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+
+/**
+ *  택시비 정산 스케줄러를 실제 Postgres 에서 본다 - 재요청 대상 조회의 한국 시각 날짜 계산(timestamptz), 재요청·입금 확인 요청·만료가 컬럼에 남는지,
+ *  만료·받는 사람 탈퇴로 계좌번호 컬럼이 NULL 이 되는지, 재요청이 정산 행 잠금으로 보냈어요와 줄 서 보낸 시각을 잃지 않는지.
+ *  실제 스케줄러(1분마다 지금 시각으로 돈다)가 테스트 행을 고르지 않게 기준 시각을 30일 뒤로 잡는다
+ */
+@SpringBootTest(properties = "spring.profiles.active=dev")
+class FareSplitSweepPostgresTest {
+    private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+    // 다른 테스트가 남긴 방과 섞이지 않게 대전 좌표를 쓴다
+    private static final Location DEPARTURE = new Location(36.3504, 127.3845);
+    private static final Location DESTINATION = new Location(36.3622, 127.3568);
+    private static final String RAW_ACCOUNT = "3333-01-2345678";
+    private static final LocalDate DAY = LocalDate.now(SEOUL).plusDays(30);
+    private static final Instant NOON = at(DAY, 12, 0);
+
+    @Autowired FareSplitService service;
+    @Autowired FareSplitNotificationService notificationService;
+    @Autowired FareSplits fareSplits;
+    @Autowired Parties parties;
+    @Autowired JdbcTemplate jdbc;
+    @Autowired TransactionTemplate tx;
+    @Autowired ApplicationEventPublisher publisher;
+
+    // 다른 테스트·이전 실행과 섞이지 않게 매번 새 번호를 쓴다(users 행은 필요 없다 - 정산은 users 에 FK 를 걸지 않는다)
+    private final Long 받는사람 = ThreadLocalRandom.current().nextLong(8_000_000_000L, 9_000_000_000L);
+    private final Long 첫째 = 받는사람 + 1;
+    private final Long 둘째 = 받는사람 + 2;
+    private final List<Long> rooms = new ArrayList<>();
+    private final ExecutorService pool = Executors.newFixedThreadPool(4);
+
+    @AfterEach
+    void tearDown() {
+        pool.shutdownNow();
+        rooms.forEach(id -> {
+            jdbc.update("DELETE FROM fare_split_transfer WHERE match_id = ?", id);
+            jdbc.update("DELETE FROM fare_split WHERE match_id = ?", id);
+            jdbc.update("DELETE FROM user_match_room WHERE match_id = ?", id);
+            jdbc.update("DELETE FROM match_room WHERE id = ?", id);
+        });
+    }
+
+    // ───────────────────────── 대상 조회 ─────────────────────────
+
+    @Test
+    void 재요청_대상은_한국_시각_날짜로_차례를_가른다() {
+        Long 두번째차례 = startedSplit(NOON.minus(Duration.ofHours(2)), 1);
+        Long 두번째전 = startedSplit(NOON.minus(Duration.ofMinutes(30)), 1);
+        Long 세번째차례 = startedSplit(at(DAY.minusDays(1), 9, 0), 2);
+        // 한국 시각 0시 30분은 UTC 로 전날이다 - UTC 날짜로 세면 오늘 10시에 3번째 차례가 된다
+        Long 세번째전 = startedSplit(at(DAY, 0, 30), 2);
+        Long 네번째차례 = startedSplit(at(DAY.minusDays(2), 20, 0), 3);
+        Long 다씀 = startedSplit(at(DAY.minusDays(5), 12, 0), 4);
+
+        List<Long> targets = fareSplits.findTransferRequestTargets(NOON);
+
+        assertThat(targets).contains(두번째차례, 세번째차례, 네번째차례).doesNotContain(두번째전, 세번째전, 다씀);
+    }
+
+    @Test
+    void 입금_확인_요청과_만료_대상은_경계_시각을_포함한다() {
+        Long 확인요청 = startedSplit(NOON.minus(Duration.ofDays(2)), 2);
+        jdbc.update("UPDATE fare_split_transfer SET sent_at = ? WHERE match_id = ?", Timestamp.from(NOON.minus(Duration.ofHours(24))), 확인요청);
+        Long 확인요청전 = startedSplit(NOON.minus(Duration.ofDays(2)), 2);
+        jdbc.update("UPDATE fare_split_transfer SET sent_at = ? WHERE match_id = ?", Timestamp.from(NOON.minus(Duration.ofHours(24)).plusSeconds(1)), 확인요청전);
+        Long 만료 = startedSplit(NOON.minus(Duration.ofDays(7)), 4);
+        Long 만료전 = startedSplit(NOON.minus(Duration.ofDays(7)).plusSeconds(1), 4);
+
+        assertThat(fareSplits.findConfirmRequestTargets(NOON)).contains(확인요청).doesNotContain(확인요청전, 만료, 만료전);
+        assertThat(fareSplits.findExpireTargets(NOON)).contains(만료).doesNotContain(만료전, 확인요청, 확인요청전);
+    }
+
+    // ───────────────────────── 재요청·입금 확인 요청 ─────────────────────────
+
+    @Test
+    void 재요청은_안_보낸_사람의_요청_횟수와_시각을_남기고_보낸_사람은_차례만_넘기며_다시_불러도_그대로다() {
+        Long room = finishedRoom(받는사람, 첫째, 둘째);
+        service.create(room, 받는사람, 18_700, Bank.KAKAO, RAW_ACCOUNT);
+        Timestamp firstRequestedAt = lastRequestedAt(room, 둘째);
+        service.markSent(room, 둘째);
+        setCreatedAt(room, NOON.minus(Duration.ofHours(2)));
+
+        notificationService.remindTransfers(room, NOON);
+        notificationService.remindTransfers(room, NOON);
+
+        assertThat(requestCount(room, 첫째)).isEqualTo(2);
+        assertThat(lastRequestedAt(room, 첫째).toInstant()).isEqualTo(NOON);
+        assertThat(requestCount(room, 둘째)).as("보냈다고 누른 사람은 차례만 넘긴다").isEqualTo(2);
+        assertThat(lastRequestedAt(room, 둘째)).isEqualTo(firstRequestedAt);
+        assertThat(fareSplits.findTransferRequestTargets(NOON)).doesNotContain(room);
+    }
+
+    @Test
+    void 방해_금지_시간의_재요청은_보낸_시각을_남기지_않고_차례만_넘긴다() {
+        Long room = finishedRoom(받는사람, 첫째);
+        service.create(room, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
+        Timestamp firstRequestedAt = lastRequestedAt(room, 첫째);
+        Instant night = at(DAY, 23, 30);
+        setCreatedAt(room, night.minus(Duration.ofHours(2)));
+
+        notificationService.remindTransfers(room, night);
+
+        assertThat(requestCount(room, 첫째)).isEqualTo(2);
+        assertThat(lastRequestedAt(room, 첫째)).isEqualTo(firstRequestedAt);
+    }
+
+    @Test
+    void 입금_확인_요청은_보냄_24시간_뒤_한_번만_남고_방해_금지_시간에는_남지_않는다() {
+        Long room = finishedRoom(받는사람, 첫째);
+        service.create(room, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
+        setCreatedAt(room, NOON.minus(Duration.ofDays(2)));
+        jdbc.update("UPDATE fare_split_transfer SET sent_at = ? WHERE match_id = ?", Timestamp.from(NOON.minus(Duration.ofHours(30))), room);
+
+        notificationService.requestConfirm(room, at(DAY, 7, 0));
+        assertThat(confirmRequestedAt(room, 첫째)).as("방해 금지 시간").isNull();
+
+        notificationService.requestConfirm(room, NOON);
+        notificationService.requestConfirm(room, NOON.plus(Duration.ofHours(1)));
+
+        assertThat(confirmRequestedAt(room, 첫째).toInstant()).isEqualTo(NOON);
+        assertThat(fareSplits.findConfirmRequestTargets(NOON.plus(Duration.ofHours(1)))).doesNotContain(room);
+    }
+
+    // ───────────────────────── 스케줄러 한 바퀴 ─────────────────────────
+
+    @Test
+    void 스케줄러는_정산마다_따로_커밋해_만료하고_재요청하고_입금_확인을_요청한다() {
+        Long 만료방 = finishedRoom(받는사람, 첫째);
+        service.create(만료방, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
+        setCreatedAt(만료방, NOON.minus(Duration.ofDays(8)));
+        Long 재요청방 = finishedRoom(받는사람, 첫째);
+        service.create(재요청방, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
+        setCreatedAt(재요청방, NOON.minus(Duration.ofHours(2)));
+        Long 확인요청방 = finishedRoom(받는사람, 첫째);
+        service.create(확인요청방, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
+        setCreatedAt(확인요청방, NOON.minus(Duration.ofDays(2)));
+        jdbc.update("UPDATE fare_split_transfer SET sent_at = ?, request_count = 4 WHERE match_id = ?", Timestamp.from(NOON.minus(Duration.ofHours(25))), 확인요청방);
+        // 다른 테스트가 남긴 정산을 건드리지 않게 실제 쿼리 결과 중 이 테스트의 방만 넘긴다. 처리는 실제(프록시) 서비스가 한다
+        FareSplitSweeper sweeper = new FareSplitSweeper(onlyMyRooms(), service, notificationService);
+
+        sweeper.sweepAt(NOON);
+
+        assertThat(jdbc.queryForObject("SELECT status FROM fare_split WHERE match_id = ?", String.class, 만료방)).isEqualTo("EXPIRED");
+        assertThat(jdbc.queryForObject("SELECT closed_at FROM fare_split WHERE match_id = ?", Timestamp.class, 만료방).toInstant()).isEqualTo(NOON);
+        assertThat(jdbc.queryForObject("SELECT account_number FROM fare_split WHERE match_id = ?", String.class, 만료방)).isNull();
+        assertThat(requestCount(만료방, 첫째)).as("만료를 먼저 해 닫힌 정산은 재요청하지 않는다").isEqualTo(1);
+        assertThat(requestCount(재요청방, 첫째)).isEqualTo(2);
+        assertThat(lastRequestedAt(재요청방, 첫째).toInstant()).isEqualTo(NOON);
+        assertThat(confirmRequestedAt(확인요청방, 첫째).toInstant()).isEqualTo(NOON);
+        assertThat(jdbc.queryForObject("SELECT status FROM fare_split WHERE match_id = ?", String.class, 재요청방)).isEqualTo("OPEN");
+    }
+
+    // ───────────────────────── 받는 사람 탈퇴 ─────────────────────────
+
+    @Test
+    void 받는_사람이_탈퇴하면_그_사람의_OPEN_정산만_계좌번호_컬럼이_NULL_이_되고_정산은_열려_있다() {
+        Long 내정산 = finishedRoom(받는사람, 첫째);
+        service.create(내정산, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
+        Long 남의정산 = finishedRoom(첫째, 받는사람);
+        service.create(남의정산, 첫째, 10_000, Bank.KB, RAW_ACCOUNT);
+
+        tx.executeWithoutResult(status -> publisher.publishEvent(new UserDeletedEvent(받는사람, UUID.randomUUID())));
+
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() ->
+                assertThat(jdbc.queryForObject("SELECT account_number FROM fare_split WHERE match_id = ?", String.class, 내정산)).isNull());
+        assertThat(jdbc.queryForObject("SELECT status FROM fare_split WHERE match_id = ?", String.class, 내정산)).isEqualTo("OPEN");
+        assertThat(jdbc.queryForObject("SELECT account_number FROM fare_split WHERE match_id = ?", String.class, 남의정산))
+                .as("보내는 사람으로 있던 정산의 계좌는 남의 것이라 그대로").startsWith("v1:");
+        assertThat(service.getDetail(내정산, 첫째).accountNumber()).isNull();
+        assertThat(service.getDetail(내정산, 첫째).tossDeeplink()).isNull();
+        assertThat(service.forgetPayerAccounts(받는사람)).as("다시 불러도 된다").isZero();
+        assertThat(fareSplits.findTransferRequestTargets(NOON.plus(Duration.ofDays(3)))).as("받을 계좌가 없어 재요청하지 않는다").doesNotContain(내정산);
+    }
+
+    // ───────────────────────── 정산 행 잠금 ─────────────────────────
+
+    @Test
+    void 재요청은_정산_행_잠금을_기다렸다가_돈다() throws Exception {
+        Long room = finishedRoom(받는사람, 첫째);
+        service.create(room, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
+        setCreatedAt(room, NOON.minus(Duration.ofHours(2)));
+        CountDownLatch locked = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+
+        Future<?> holder = pool.submit(() -> tx.executeWithoutResult(status -> {
+            fareSplits.findByPartyIdForUpdate(room).orElseThrow();
+            locked.countDown();
+            awaitQuietly(release);
+        }));
+        assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
+
+        Future<?> reminder = pool.submit(() -> notificationService.remindTransfers(room, NOON));
+        await().atMost(Duration.ofSeconds(5))
+                .until(() -> jdbc.queryForObject("""
+                        select count(*) from pg_stat_activity
+                        where datname = current_database() and wait_event_type = 'Lock' and query like '%fare_split%for no key update%'
+                        """, Integer.class) > 0);
+        assertThat(reminder.isDone()).as("정산 잠금이 풀리기 전에는 바꾸지 못한다").isFalse();
+
+        release.countDown();
+        holder.get(10, TimeUnit.SECONDS);
+        reminder.get(10, TimeUnit.SECONDS);
+        assertThat(requestCount(room, 첫째)).isEqualTo(2);
+    }
+
+    @Test
+    void 재요청과_보냈어요가_동시에_와도_보낸_시각과_요청_차례를_모두_남긴다() throws Exception {
+        // 잠금이 없으면 한쪽이 앞서 읽은 송금 행 전체를 덮어써 보낸 시각이나 요청 차례를 잃는다 - 여러 방에서 되풀이해 경합을 만든다
+        for(int i = 0; i < 3; i++) {
+            Long room = finishedRoom(받는사람, 첫째);
+            service.create(room, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
+            setCreatedAt(room, NOON.minus(Duration.ofHours(2)));
+            CountDownLatch start = new CountDownLatch(1);
+
+            Future<?> sent = pool.submit(() -> {
+                start.await();
+                service.markSent(room, 첫째);
+                return null;
+            });
+            Future<?> reminder = pool.submit(() -> {
+                start.await();
+                notificationService.remindTransfers(room, NOON);
+                return null;
+            });
+            start.countDown();
+            sent.get(20, TimeUnit.SECONDS);
+            reminder.get(20, TimeUnit.SECONDS);
+
+            assertThat(jdbc.queryForObject("SELECT sent_at FROM fare_split_transfer WHERE match_id = ? AND user_id = ?", Timestamp.class, room, 첫째))
+                    .isNotNull();
+            assertThat(requestCount(room, 첫째)).isEqualTo(2);
+        }
+    }
+
+    // ───────────────────────── fixtures ─────────────────────────
+
+    /** 받는 사람·첫째가 탄 방에 startedAt 에 시작한 정산. 첫째의 송금 요청은 requestCount 번째까지 처리했다 */
+    private Long startedSplit(Instant startedAt, int requestCount) {
+        Long room = finishedRoom(받는사람, 첫째);
+        service.create(room, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
+        setCreatedAt(room, startedAt);
+        jdbc.update("UPDATE fare_split_transfer SET request_count = ? WHERE match_id = ?", requestCount, room);
+
+        return room;
+    }
+
+    /** 넘긴 순서대로 합류하고 모두 도착해 출발한(FINISHED) 방 */
+    private Long finishedRoom(Long... memberIdsInJoinOrder) {
+        Instant meetingAt = Instant.now().truncatedTo(ChronoUnit.MICROS).minus(Duration.ofHours(1));
+        List<PartyMember> members = new ArrayList<>();
+        for(Long memberId : memberIdsInJoinOrder) {
+            members.add(PartyMember.load(memberId, meetingAt, meetingAt, null, null));
+        }
+
+        Long id = parties.save(Party.load(null, DEPARTURE, DESTINATION, "대전역", "시청역", new Capacity(3), members,
+                memberIdsInJoinOrder[0], meetingAt.minus(Duration.ofHours(1)), PartyStatus.FINISHED,
+                12000, 25, "encoded-path", 0L, RoomType.REALTIME, meetingAt, null)).getId();
+        rooms.add(id);
+
+        for(int i = 0; i < memberIdsInJoinOrder.length; i++) {
+            jdbc.update("UPDATE user_match_room SET created_at = ? WHERE match_id = ? AND user_id = ?",
+                    Timestamp.from(meetingAt.minusSeconds(60 - i * 10L)), id, memberIdsInJoinOrder[i]);
+        }
+
+        return id;
+    }
+
+    /** 부를 때마다 실제 대상 조회를 돌려 그중 이 테스트가 만든 방만 돌려주는 FareSplits(스케줄러는 대상 조회만 쓴다) */
+    private FareSplits onlyMyRooms() {
+        FareSplits targets = mock(FareSplits.class);
+        doAnswer(inv -> mine(fareSplits.findExpireTargets(inv.getArgument(0)))).when(targets).findExpireTargets(any());
+        doAnswer(inv -> mine(fareSplits.findTransferRequestTargets(inv.getArgument(0)))).when(targets).findTransferRequestTargets(any());
+        doAnswer(inv -> mine(fareSplits.findConfirmRequestTargets(inv.getArgument(0)))).when(targets).findConfirmRequestTargets(any());
+
+        return targets;
+    }
+
+    private List<Long> mine(List<Long> partyIds) {
+        return partyIds.stream().filter(rooms::contains).toList();
+    }
+
+    private void setCreatedAt(Long room, Instant createdAt) {
+        jdbc.update("UPDATE fare_split SET created_at = ? WHERE match_id = ?", Timestamp.from(createdAt), room);
+    }
+
+    private int requestCount(Long room, Long userId) {
+        return jdbc.queryForObject("SELECT request_count FROM fare_split_transfer WHERE match_id = ? AND user_id = ?", Integer.class, room, userId);
+    }
+
+    private Timestamp lastRequestedAt(Long room, Long userId) {
+        return jdbc.queryForObject("SELECT last_requested_at FROM fare_split_transfer WHERE match_id = ? AND user_id = ?", Timestamp.class, room, userId);
+    }
+
+    private Timestamp confirmRequestedAt(Long room, Long userId) {
+        return jdbc.queryForObject("SELECT confirm_requested_at FROM fare_split_transfer WHERE match_id = ? AND user_id = ?", Timestamp.class, room, userId);
+    }
+
+    private static Instant at(LocalDate day, int hour, int minute) {
+        return day.atTime(LocalTime.of(hour, minute)).atZone(SEOUL).toInstant();
+    }
+
+    private static void awaitQuietly(CountDownLatch latch) {
+        try {
+            if(!latch.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("release 대기 시간 초과");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
+    }
+}

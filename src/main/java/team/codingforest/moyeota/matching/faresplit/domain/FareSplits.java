@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.matching.faresplit.domain;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,4 +24,16 @@ public interface FareSplits {
 
     /** 내가 보내는 사람인 OPEN 정산, 시작 시각 최신순 */
     List<OpenTransfer> findOpenTransfers(Long memberId);
+
+    /** now 에 송금 재요청 차례(TransferRequestSchedule 2..4번째)가 지난, 확인되지 않은 송금이 있는 OPEN 정산(받을 계좌가 있는 것만) */
+    List<Long> findTransferRequestTargets(Instant now);
+
+    /** 보냈다고 누른 지 CONFIRM_REQUEST_AFTER 가 지나도 확인되지 않았고 아직 입금 확인을 요청하지 않은 송금이 있는 OPEN 정산 */
+    List<Long> findConfirmRequestTargets(Instant now);
+
+    /** 시작하고 EXPIRES_AFTER 가 지난 OPEN 정산 */
+    List<Long> findExpireTargets(Instant now);
+
+    /** payerId 가 받는 사람인 OPEN 정산 */
+    List<Long> findOpenByPayer(Long payerId);
 }

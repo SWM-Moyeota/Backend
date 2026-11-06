@@ -11,10 +11,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.exception.ErrorCode;
+import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.faresplit.domain.AccountNumber;
 import team.codingforest.moyeota.matching.faresplit.domain.Bank;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplit;
+import team.codingforest.moyeota.matching.faresplit.domain.FareSplitNotifier;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitRole;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitTransfer;
@@ -52,6 +54,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -72,6 +75,9 @@ class FareSplitServiceUnitTest {
     private static final Instant SENT_AT = CREATED_AT.plus(Duration.ofMinutes(5));
     private static final String RAW_ACCOUNT = "3333-01-2345678";
     private static final AccountNumber ACCOUNT = new AccountNumber("3333012345678");
+    private static final String REQUEST_TASK = "fare-split.transfer-request";
+    private static final String NOT_RECEIVED_TASK = "fare-split.not-received";
+    private static final String COMPLETED_TASK = "fare-split.completed";
 
     @Mock
     private Parties parties;
@@ -81,6 +87,10 @@ class FareSplitServiceUnitTest {
     private UserAccess userAccess;
     @Mock
     private MaskedRealNames maskedRealNames;
+    @Mock
+    private AfterCommitExecutor afterCommitExecutor;
+    @Mock
+    private FareSplitNotifier notifier;
     @InjectMocks
     private FareSplitService service;
 
@@ -137,6 +147,36 @@ class FareSplitServiceUnitTest {
                 .containsExactly("김*수", "이*");
         assertThat(detail.transfers()).extracting(FareSplitDetailResponse.FareSplitTransferItem::status)
                 .containsOnly(TransferStatus.NOT_SENT);
+    }
+
+    @DisplayName("create - 저장한 뒤 커밋되면 보내는 사람 전원에게 1인당 금액으로 첫 송금 요청을 보낸다")
+    @Test
+    void create_requestsTransfer() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(finishedParty())).when(parties).findByIdForUpdate(eq(PARTY_ID));
+        doReturn(false).when(fareSplits).existsByPartyId(eq(PARTY_ID));
+        doAnswer(invocation -> invocation.getArgument(0)).when(fareSplits).create(any(FareSplit.class));
+        doReturn(summaries()).when(userAccess).findMemberSummaries(eq(List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID)));
+
+        /*
+         * test
+         */
+        service.create(PARTY_ID, PAYER_ID, 18_700, Bank.KAKAO, RAW_ACCOUNT);
+
+        /*
+         * verify
+         */
+        InOrder order = inOrder(fareSplits, afterCommitExecutor);
+        order.verify(fareSplits).create(any(FareSplit.class));
+        order.verify(afterCommitExecutor).execute(eq(REQUEST_TASK), any());
+
+        Runnable task = capturedTask(REQUEST_TASK);
+        verifyNoInteractions(notifier);
+        task.run();
+        verify(notifier).requestTransfer(eq(PARTY_ID), eq(List.of(SENDER_ID, OTHER_SENDER_ID)), eq(6_240));
     }
 
     @DisplayName("create - 계좌번호가 잘못되면 INVALID_ACCOUNT_NUMBER 이고 방을 잠그지 않는다")
@@ -219,10 +259,10 @@ class FareSplitServiceUnitTest {
          */
         assertBusinessException(thrown, MatchingErrorCode.FARE_SPLIT_ALREADY_EXISTS);
         verify(fareSplits, never()).create(any());
-        verifyNoInteractions(userAccess, maskedRealNames);
+        verifyNoInteractions(userAccess, maskedRealNames, afterCommitExecutor);
     }
 
-    @DisplayName("create - 저장 중 PK 가 겹치면(DataIntegrityViolationException) FARE_SPLIT_ALREADY_EXISTS")
+    @DisplayName("create - 저장 중 PK 가 겹치면(DataIntegrityViolationException) FARE_SPLIT_ALREADY_EXISTS 이고 송금 요청을 보내지 않는다")
     @Test
     void create_duplicateKey() {
 
@@ -242,7 +282,7 @@ class FareSplitServiceUnitTest {
          * verify
          */
         assertBusinessException(thrown, MatchingErrorCode.FARE_SPLIT_ALREADY_EXISTS);
-        verifyNoInteractions(userAccess, maskedRealNames);
+        verifyNoInteractions(userAccess, maskedRealNames, afterCommitExecutor);
     }
 
     // ───────────────────────── getDetail ─────────────────────────
@@ -385,7 +425,7 @@ class FareSplitServiceUnitTest {
 
     // ───────────────────────── markSent ─────────────────────────
 
-    @DisplayName("markSent - 정산 행을 잠근 뒤 내 송금을 SENT 로 바꿔 저장한다")
+    @DisplayName("markSent - 정산 행을 잠근 뒤 내 송금을 SENT 로 바꿔 저장한다. 알림은 보내지 않는다")
     @Test
     void markSent() {
 
@@ -410,7 +450,7 @@ class FareSplitServiceUnitTest {
         FareSplitTransfer transfer = captor.getValue().findTransfer(OTHER_SENDER_ID).orElseThrow();
         assertThat(transfer.status()).isEqualTo(TransferStatus.SENT);
         assertThat(transfer.getSentAt()).isNotNull();
-        verifyNoInteractions(parties, userAccess, maskedRealNames);
+        verifyNoInteractions(parties, userAccess, maskedRealNames, afterCommitExecutor);
     }
 
     @DisplayName("markSent - 이미 SENT 면 저장하지 않는다")
@@ -477,7 +517,7 @@ class FareSplitServiceUnitTest {
 
     // ───────────────────────── confirmReceived ─────────────────────────
 
-    @DisplayName("confirmReceived - 정산 행을 잠근 뒤 publicId 를 보내는 사람 번호로 바꿔 확인하고 저장한다. 남은 송금이 있으면 OPEN 이다")
+    @DisplayName("confirmReceived - 정산 행을 잠근 뒤 publicId 를 보내는 사람 번호로 바꿔 확인하고 저장한다. 남은 송금이 있으면 OPEN 이고 완료 알림은 없다")
     @Test
     void confirmReceived() {
 
@@ -506,9 +546,10 @@ class FareSplitServiceUnitTest {
         assertThat(saved.findTransfer(OTHER_SENDER_ID).orElseThrow().status()).isEqualTo(TransferStatus.NOT_SENT);
         assertThat(saved.getStatus()).isEqualTo(FareSplitStatus.OPEN);
         assertThat(saved.getAccountNumber()).isEqualTo(ACCOUNT);
+        verifyNoInteractions(afterCommitExecutor);
     }
 
-    @DisplayName("confirmReceived - 마지막 송금을 확인하면 COMPLETED·닫힌 시각·계좌 삭제를 함께 저장한다")
+    @DisplayName("confirmReceived - 마지막 송금을 확인하면 COMPLETED·닫힌 시각·계좌 삭제를 함께 저장하고, 커밋되면 받는 사람과 보내는 사람 전원에게 완료 알림을 보낸다")
     @Test
     void confirmReceived_completes() {
 
@@ -536,9 +577,14 @@ class FareSplitServiceUnitTest {
         assertThat(saved.getClosedAt()).isNotNull();
         assertThat(saved.getAccountNumber()).isNull();
         assertThat(saved.findTransfer(OTHER_SENDER_ID).orElseThrow().getSentAt()).as("현금 등으로 바로 확인").isNull();
+
+        Runnable task = capturedTask(COMPLETED_TASK);
+        verifyNoInteractions(notifier);
+        task.run();
+        verify(notifier).notifyCompleted(eq(PARTY_ID), eq(List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID)));
     }
 
-    @DisplayName("confirmReceived - 이미 CONFIRMED 면 저장하지 않는다")
+    @DisplayName("confirmReceived - 이미 CONFIRMED 면 저장하지 않고 알림도 없다")
     @Test
     void confirmReceived_alreadyConfirmed() {
 
@@ -560,6 +606,7 @@ class FareSplitServiceUnitTest {
          * verify
          */
         verify(fareSplits, never()).save(any());
+        verifyNoInteractions(afterCommitExecutor);
     }
 
     @DisplayName("confirmReceived - publicId 가 이 정산의 보내는 사람이 아니면(받는 사람 자신·모르는 사람) FARE_SPLIT_TRANSFER_NOT_FOUND")
@@ -631,7 +678,7 @@ class FareSplitServiceUnitTest {
 
     // ───────────────────────── markNotReceived ─────────────────────────
 
-    @DisplayName("markNotReceived - 정산 행을 잠근 뒤 SENT 송금을 NOT_SENT 로 되돌려 저장한다")
+    @DisplayName("markNotReceived - 정산 행을 잠근 뒤 SENT 송금을 NOT_SENT 로 되돌려 저장하고, 커밋되면 그 보내는 사람에게 못 받음 알림을 보낸다")
     @Test
     void markNotReceived() {
 
@@ -657,9 +704,14 @@ class FareSplitServiceUnitTest {
         FareSplitTransfer transfer = captor.getValue().findTransfer(SENDER_ID).orElseThrow();
         assertThat(transfer.status()).isEqualTo(TransferStatus.NOT_SENT);
         assertThat(transfer.getSentAt()).isNull();
+
+        Runnable task = capturedTask(NOT_RECEIVED_TASK);
+        verifyNoInteractions(notifier);
+        task.run();
+        verify(notifier).notifyNotReceived(eq(PARTY_ID), eq(SENDER_ID));
     }
 
-    @DisplayName("markNotReceived - SENT 가 아닌 송금이면 TRANSFER_NOT_SENT 이고 저장하지 않는다")
+    @DisplayName("markNotReceived - SENT 가 아닌 송금이면 TRANSFER_NOT_SENT 이고 저장하지도 알리지도 않는다")
     @Test
     void markNotReceived_notSent() {
 
@@ -679,6 +731,7 @@ class FareSplitServiceUnitTest {
          */
         assertBusinessException(thrown, MatchingErrorCode.TRANSFER_NOT_SENT);
         verify(fareSplits, never()).save(any());
+        verifyNoInteractions(afterCommitExecutor);
     }
 
     @DisplayName("markNotReceived - 받는 사람이 아니면 NOT_FARE_SPLIT_PAYER 이고 사용자 정보를 묻지 않는다")
@@ -983,6 +1036,166 @@ class FareSplitServiceUnitTest {
         verifyNoInteractions(userAccess);
     }
 
+    // ───────────────────────── expire ─────────────────────────
+
+    @DisplayName("expire - 정산 행을 잠근 뒤 시작 7일이 지났으면 EXPIRED·닫힌 시각·계좌 삭제를 저장한다")
+    @Test
+    void expire() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        Instant now = CREATED_AT.plus(Duration.ofDays(7));
+
+        /*
+         * test
+         */
+        service.expire(PARTY_ID, now);
+
+        /*
+         * verify
+         */
+        InOrder order = inOrder(fareSplits);
+        order.verify(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        ArgumentCaptor<FareSplit> captor = ArgumentCaptor.forClass(FareSplit.class);
+        order.verify(fareSplits).save(captor.capture());
+
+        FareSplit saved = captor.getValue();
+        assertThat(saved.getStatus()).isEqualTo(FareSplitStatus.EXPIRED);
+        assertThat(saved.getClosedAt()).isEqualTo(now);
+        assertThat(saved.getAccountNumber()).isNull();
+        verifyNoInteractions(afterCommitExecutor, notifier);
+    }
+
+    @DisplayName("expire - 잠가 보니 아직 7일 전이거나 이미 닫혔으면 저장하지 않는다")
+    @Test
+    void expire_notDue() {
+
+        /*
+         * settings
+         */
+        FareSplit completed = FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, null, FareSplitStatus.COMPLETED, CREATED_AT,
+                CREATED_AT.plus(Duration.ofDays(1)), List.of(FareSplitTransfer.load(SENDER_ID, SENT_AT, SENT_AT, 1, CREATED_AT, null)));
+        doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        doReturn(Optional.of(completed)).when(fareSplits).findByPartyIdForUpdate(eq(200L));
+
+        /*
+         * test
+         */
+        service.expire(PARTY_ID, CREATED_AT.plus(Duration.ofDays(7)).minusSeconds(1));
+        service.expire(200L, CREATED_AT.plus(Duration.ofDays(8)));
+
+        /*
+         * verify
+         */
+        verify(fareSplits, never()).save(any());
+    }
+
+    @DisplayName("expire - 조회와 잠금 사이에 취소된 정산이면 예외 없이 건너뛴다")
+    @Test
+    void expire_canceled() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.empty()).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.expire(PARTY_ID, CREATED_AT.plus(Duration.ofDays(8))));
+
+        /*
+         * verify
+         */
+        assertThat(thrown).isNull();
+        verify(fareSplits, never()).save(any());
+    }
+
+    // ───────────────────────── forgetPayerAccounts ─────────────────────────
+
+    @DisplayName("forgetPayerAccounts - 받는 사람의 OPEN 정산마다 정산 행을 잠근 뒤 계좌번호를 지워 저장하고 지운 수를 돌려준다")
+    @Test
+    void forgetPayerAccounts() {
+
+        /*
+         * settings
+         */
+        FareSplit first = openSplit();
+        FareSplit second = FareSplit.load(200L, PAYER_ID, 10_000, 5_000, Bank.KB, ACCOUNT, FareSplitStatus.OPEN, CREATED_AT, null,
+                List.of(FareSplitTransfer.load(SENDER_ID, null, null, 1, CREATED_AT, null)));
+        doReturn(List.of(PARTY_ID, 200L)).when(fareSplits).findOpenByPayer(eq(PAYER_ID));
+        doReturn(Optional.of(first)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        doReturn(Optional.of(second)).when(fareSplits).findByPartyIdForUpdate(eq(200L));
+
+        /*
+         * test
+         */
+        int cleared = service.forgetPayerAccounts(PAYER_ID);
+
+        /*
+         * verify
+         */
+        assertThat(cleared).isEqualTo(2);
+        InOrder order = inOrder(fareSplits);
+        order.verify(fareSplits).findOpenByPayer(eq(PAYER_ID));
+        order.verify(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        order.verify(fareSplits).save(eq(first));
+        order.verify(fareSplits).findByPartyIdForUpdate(eq(200L));
+        order.verify(fareSplits).save(eq(second));
+        assertThat(first.getAccountNumber()).isNull();
+        assertThat(second.getAccountNumber()).isNull();
+        assertThat(first.getStatus()).as("정산은 열어 둔다").isEqualTo(FareSplitStatus.OPEN);
+    }
+
+    @DisplayName("forgetPayerAccounts - 이미 지웠거나 잠그기 전에 취소된 정산은 저장하지 않는다(다시 불러도 된다)")
+    @Test
+    void forgetPayerAccounts_idempotent() {
+
+        /*
+         * settings
+         */
+        FareSplit cleared = openSplit();
+        cleared.forgetAccount();
+        doReturn(List.of(PARTY_ID, 200L)).when(fareSplits).findOpenByPayer(eq(PAYER_ID));
+        doReturn(Optional.of(cleared)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        doReturn(Optional.empty()).when(fareSplits).findByPartyIdForUpdate(eq(200L));
+
+        /*
+         * test
+         */
+        int count = service.forgetPayerAccounts(PAYER_ID);
+
+        /*
+         * verify
+         */
+        assertThat(count).isZero();
+        verify(fareSplits, times(2)).findByPartyIdForUpdate(anyLong());
+        verify(fareSplits, never()).save(any());
+    }
+
+    @DisplayName("forgetPayerAccounts - 받는 사람인 OPEN 정산이 없으면 아무것도 잠그지 않는다")
+    @Test
+    void forgetPayerAccounts_none() {
+
+        /*
+         * settings
+         */
+        doReturn(List.of()).when(fareSplits).findOpenByPayer(eq(OUTSIDER_ID));
+
+        /*
+         * test
+         */
+        int count = service.forgetPayerAccounts(OUTSIDER_ID);
+
+        /*
+         * verify
+         */
+        assertThat(count).isZero();
+        verify(fareSplits, never()).findByPartyIdForUpdate(anyLong());
+    }
+
     // ───────────────────────── fixtures ─────────────────────────
 
     private static Map<Long, MemberSummary> summaries() {
@@ -1024,6 +1237,13 @@ class FareSplitServiceUnitTest {
         return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3), members,
                 PAYER_ID, MEETING_AT.minus(Duration.ofHours(1)), status, 12000, 25, "encoded-path",
                 7L, RoomType.REALTIME, MEETING_AT, null);
+    }
+
+    private Runnable capturedTask(String name) {
+        ArgumentCaptor<Runnable> captor = ArgumentCaptor.forClass(Runnable.class);
+        verify(afterCommitExecutor).execute(eq(name), captor.capture());
+
+        return captor.getValue();
     }
 
     private static void assertBusinessException(Throwable thrown, ErrorCode expected) {

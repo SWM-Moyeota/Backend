@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.matching.faresplit.domain.OpenTransfer;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,4 +35,48 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
             order by s.createdAt desc, s.partyId desc
             """)
     List<OpenTransfer> findTransfersBySender(@Param("memberId") Long memberId, @Param("status") FareSplitStatus status);
+
+    // 차례 n 은 시작 시각이 nth 번째 기준(TransferRequestSchedule.startedBefore)보다 이르면 지났다. 1번째는 시작할 때 보낸다
+    @Query("""
+            select distinct s.partyId from FareSplitTransferEntity t
+            join t.fareSplit s
+            where s.status = team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus.OPEN
+                and s.accountNumber is not null
+                and t.confirmedAt is null
+                and ((t.requestCount < 2 and s.createdAt < :secondBefore)
+                    or (t.requestCount = 2 and s.createdAt < :thirdBefore)
+                    or (t.requestCount = 3 and s.createdAt < :fourthBefore))
+            order by s.partyId
+            """)
+    List<Long> findTransferRequestTargetIds(@Param("secondBefore") Instant secondBefore, @Param("thirdBefore") Instant thirdBefore,
+                                            @Param("fourthBefore") Instant fourthBefore);
+
+    @Query("""
+            select distinct s.partyId from FareSplitTransferEntity t
+            join t.fareSplit s
+            where s.status = team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus.OPEN
+                and t.sentAt is not null
+                and t.confirmedAt is null
+                and t.confirmRequestedAt is null
+                and t.sentAt <= :sentBefore
+            order by s.partyId
+            """)
+    List<Long> findConfirmRequestTargetIds(@Param("sentBefore") Instant sentBefore);
+
+    // idx_fare_split_status_created_at
+    @Query("""
+            select s.partyId from FareSplitEntity s
+            where s.status = team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus.OPEN
+                and s.createdAt <= :createdBefore
+            order by s.createdAt, s.partyId
+            """)
+    List<Long> findExpireTargetIds(@Param("createdBefore") Instant createdBefore);
+
+    @Query("""
+            select s.partyId from FareSplitEntity s
+            where s.payerId = :payerId
+                and s.status = team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus.OPEN
+            order by s.partyId
+            """)
+    List<Long> findOpenIdsByPayer(@Param("payerId") Long payerId);
 }
