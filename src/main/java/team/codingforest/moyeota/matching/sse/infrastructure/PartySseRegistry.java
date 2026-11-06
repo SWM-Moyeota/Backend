@@ -15,7 +15,6 @@ import java.util.function.Supplier;
 @Slf4j
 @Component
 public class PartySseRegistry {
-    private static final int HEARTBEAT_MS = 30_000;
 
     private final Map<Long, Set<Subscription>> byParty = new ConcurrentHashMap<>();
     private final PartySseMetrics metrics;
@@ -99,7 +98,12 @@ public class PartySseRegistry {
         }
     }
 
-    @Scheduled(fixedRate = HEARTBEAT_MS, scheduler = PartySseSchedulerConfig.SCHEDULER)
+    /**
+     * 중간 프록시가 조용한 연결을 끊지 않게 하는 것이 유일한 목적이다 - 앱의 SSE 라이브러리는 {@code :ping} 주석을
+     * 삼켜 이벤트로 올리지 않으므로 앱은 이걸 「살아있음」 판정에 쓰지 못한다. 그래서 주기는 프록시 타임아웃보다
+     * 충분히 짧아야만 의미가 있다. 값은 설정에서 읽는다 - {@code application.yaml} 의 {@code moyeota.sse.heartbeat-ms}.
+     */
+    @Scheduled(fixedRateString = "${moyeota.sse.heartbeat-ms}", scheduler = PartySseSchedulerConfig.SCHEDULER)
     public void heartbeat() {
         byParty.forEach((partyId, subscriptions) -> subscriptions.forEach(s -> {
             try {

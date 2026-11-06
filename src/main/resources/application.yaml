@@ -126,6 +126,11 @@ moyeota:
     # 운영자 API(/api/v1/operator/**)가 X-Operator-Token 헤더와 비교하는 공유 비밀. 비어 있으면 운영자 API 는 모두 401(꺼짐)
     # 서버는 파라미터 스토어 /moyeota/{dev|prod}/OPERATOR_TOKEN(SecureString)으로 넣는다. 값을 저장소·로그에 남기지 않는다
     token: ${OPERATOR_TOKEN:}
+  sse:
+    # 매칭방 SSE heartbeat 주기(ms). 유일한 역할은 중간 프록시가 조용한 연결을 끊지 않게 하는 것이라
+    # CloudFront 오리진 응답 타임아웃(기본 30초)보다 충분히 짧아야 한다. 같은 값(30초)으로 두면
+    # ping 이 도착하기 직전에 끊기는 경쟁이 생겨 30초마다 재연결이 돌고 SSE 를 쓰는 의미가 깎인다.
+    heartbeat-ms: ${SSE_HEARTBEAT_MS:10000}
 
 osrm:
   base-url: ${OSRM_BASE_URL:http://localhost:5000}
