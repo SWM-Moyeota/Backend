@@ -6,6 +6,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
+import team.codingforest.moyeota.matching.faresplit.domain.FareSplits;
 import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.matching.record.dto.RideRecordResponse;
 import team.codingforest.moyeota.matching.record.dto.RideRecordResponse.RideRecordItem;
@@ -29,6 +30,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 class RideRecordServiceTest {
     private static final Long 나 = 1L;
@@ -47,7 +49,8 @@ class RideRecordServiceTest {
         parties = new PartyJpaTest();
         rideRecords = new FakeRideRecords(parties);
         users = new StubUserAccess();
-        service = new RideRecordService(rideRecords, users);
+        // 정산 금액 채우기는 RideRecordServiceUnitTest 가 본다 - 여기서는 정산이 없는 방만 다룬다
+        service = new RideRecordService(rideRecords, users, mock(FareSplits.class));
     }
 
     @Test
@@ -247,7 +250,7 @@ class RideRecordServiceTest {
     }
 
     @Test
-    void 끝난_동승_기록은_탑승_시각과_요금과_1인_요금이_null_이다() {
+    void 택시비_정산이_없는_끝난_동승_기록은_탑승_시각과_요금과_1인_요금이_null_이다() {
         Long partyId = savedParty(members(나, 동승자));
         rideRecords.save(RideRecord.load(partyId, "강남역", "판교역", 기준));
 

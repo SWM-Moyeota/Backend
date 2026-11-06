@@ -11,6 +11,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.exception.ErrorCode;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
+import team.codingforest.moyeota.matching.faresplit.domain.FareSplits;
+import team.codingforest.moyeota.matching.faresplit.domain.RideFare;
 import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.matching.record.domain.RideRecords;
 import team.codingforest.moyeota.matching.record.dto.RideRecordResponse;
@@ -31,6 +33,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -38,6 +41,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 class RideRecordServiceUnitTest {
     private static final Long MEMBER_ID = 1L;
     private static final Long OTHER_MEMBER_ID = 2L;
+    private static final Long THIRD_MEMBER_ID = 3L;
     private static final Long CURSOR = 500L;
     private static final UUID MEMBER_PUBLIC_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID OTHER_PUBLIC_ID = UUID.fromString("00000000-0000-0000-0000-000000000002");
@@ -47,6 +51,8 @@ class RideRecordServiceUnitTest {
     private RideRecords rideRecords;
     @Mock
     private UserAccess userAccess;
+    @Mock
+    private FareSplits fareSplits;
 
     @InjectMocks
     private RideRecordService rideRecordService;
@@ -193,7 +199,7 @@ class RideRecordServiceUnitTest {
         assertThat(result.nextCursor()).isNull();
         assertThat(result.hasNext()).isFalse();
         verify(rideRecords, never()).findMemberIds(any());
-        verifyNoInteractions(userAccess);
+        verifyNoInteractions(userAccess, fareSplits);
     }
 
     @DisplayName("findMyRides - 경계값 size 1·50 은 허용하고 size+1 로 조회한다")
@@ -231,7 +237,7 @@ class RideRecordServiceUnitTest {
          * verify
          */
         assertBusinessException(thrown, MatchingErrorCode.INVALID_PAGE_SIZE);
-        verifyNoInteractions(rideRecords, userAccess);
+        verifyNoInteractions(rideRecords, userAccess, fareSplits);
     }
 
     @DisplayName("findMyRides - 없는 기록을 커서로 주면 INVALID_CURSOR")
@@ -253,7 +259,7 @@ class RideRecordServiceUnitTest {
          */
         assertBusinessException(thrown, MatchingErrorCode.INVALID_CURSOR);
         verify(rideRecords, never()).findDroppedOffByMemberBefore(any(), any(), any(), anyInt());
-        verifyNoInteractions(userAccess);
+        verifyNoInteractions(userAccess, fareSplits);
     }
 
     @DisplayName("findMyRides - 아직 하차 전인 기록을 커서로 주면 INVALID_CURSOR")
@@ -275,7 +281,7 @@ class RideRecordServiceUnitTest {
          */
         assertBusinessException(thrown, MatchingErrorCode.INVALID_CURSOR);
         verify(rideRecords, never()).findDroppedOffByMemberBefore(any(), any(), any(), anyInt());
-        verifyNoInteractions(userAccess);
+        verifyNoInteractions(userAccess, fareSplits);
     }
 
     @DisplayName("findMyRides - 커서 다음 페이지가 비면 빈 페이지이고 멤버·유저 조회를 하지 않는다")
@@ -301,7 +307,7 @@ class RideRecordServiceUnitTest {
         assertThat(result.rides()).isEmpty();
         assertThat(result.hasNext()).isFalse();
         verify(rideRecords, never()).findMemberIds(any());
-        verifyNoInteractions(userAccess);
+        verifyNoInteractions(userAccess, fareSplits);
     }
 
     @DisplayName("findMyRides - 여러 기록에 겹치는 멤버는 ID 를 중복 없이 모아 유저 조회한다")
@@ -326,7 +332,7 @@ class RideRecordServiceUnitTest {
         verify(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
     }
 
-    @DisplayName("findMyRides - 서버가 요금을 받지 않아 탑승 시각·요금·1인 요금은 키만 남고 null 이다")
+    @DisplayName("findMyRides - 택시비 정산이 없는(또는 내가 정산에 없는) 방은 탑승 시각·택시비·내 몫이 키만 남고 null 이다")
     @Test
     void findMyRides_noFare() {
 
@@ -338,6 +344,7 @@ class RideRecordServiceUnitTest {
         doReturn(List.of(record)).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
         doReturn(Map.of(10L, List.of(MEMBER_ID, OTHER_MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(10L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID, OTHER_MEMBER_ID)));
+        doReturn(List.of()).when(fareSplits).findRideFares(eq(MEMBER_ID), eq(List.of(10L)));
 
         /*
          * test
@@ -352,6 +359,86 @@ class RideRecordServiceUnitTest {
         assertThat(item.totalFare()).isNull();
         assertThat(item.farePerPerson()).isNull();
         assertThat(item.currentMembers()).isEqualTo(2);
+    }
+
+    @DisplayName("findMyRides - 내가 보내는 사람인 정산이 있으면 totalFare 는 택시비, farePerPerson 은 1인당 금액이다")
+    @Test
+    void findMyRides_fareSplitSender() {
+
+        /*
+         * settings
+         */
+        doReturn(List.of(droppedOff(10L))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
+        doReturn(Map.of(10L, List.of(OTHER_MEMBER_ID, MEMBER_ID, THIRD_MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(10L)));
+        doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(OTHER_MEMBER_ID, MEMBER_ID, THIRD_MEMBER_ID)));
+        doReturn(List.of(new RideFare(10L, OTHER_MEMBER_ID, 18_700, 6_240, 2))).when(fareSplits).findRideFares(eq(MEMBER_ID), eq(List.of(10L)));
+
+        /*
+         * test
+         */
+        RideRecordResponse result = rideRecordService.findMyRides(MEMBER_ID, null, 20);
+
+        /*
+         * verify
+         */
+        RideRecordResponse.RideRecordItem item = result.rides().getFirst();
+        assertThat(item.totalFare()).isEqualTo(18_700);
+        assertThat(item.farePerPerson()).isEqualTo(6_240);
+        assertThat(item.pickupTime()).as("탑승 시각은 여전히 채우지 않는다").isNull();
+    }
+
+    @DisplayName("findMyRides - 내가 받는 사람인 정산이 있으면 farePerPerson 은 택시비에서 보내는 사람 몫을 뺀 금액이다")
+    @Test
+    void findMyRides_fareSplitPayer() {
+
+        /*
+         * settings
+         */
+        doReturn(List.of(droppedOff(10L))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
+        doReturn(Map.of(10L, List.of(MEMBER_ID, OTHER_MEMBER_ID, THIRD_MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(10L)));
+        doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID, OTHER_MEMBER_ID, THIRD_MEMBER_ID)));
+        doReturn(List.of(new RideFare(10L, MEMBER_ID, 18_700, 6_240, 2))).when(fareSplits).findRideFares(eq(MEMBER_ID), eq(List.of(10L)));
+
+        /*
+         * test
+         */
+        RideRecordResponse result = rideRecordService.findMyRides(MEMBER_ID, null, 20);
+
+        /*
+         * verify
+         */
+        RideRecordResponse.RideRecordItem item = result.rides().getFirst();
+        assertThat(item.totalFare()).isEqualTo(18_700);
+        assertThat(item.farePerPerson()).isEqualTo(18_700 - 6_240 * 2);
+    }
+
+    @DisplayName("findMyRides - 정산 금액은 이 페이지 방들을 한 번에 읽고(다음 페이지 판단용 1건은 빼고), 정산이 없는 방만 null 로 남긴다")
+    @Test
+    void findMyRides_fareSplitBatch() {
+
+        /*
+         * settings
+         */
+        doReturn(List.of(droppedOff(30L), droppedOff(20L), droppedOff(10L))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(3));
+        doReturn(Map.of(30L, List.of(MEMBER_ID, OTHER_MEMBER_ID), 20L, List.of(MEMBER_ID, OTHER_MEMBER_ID)))
+                .when(rideRecords).findMemberIds(eq(List.of(30L, 20L)));
+        doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID, OTHER_MEMBER_ID)));
+        doReturn(List.of(new RideFare(30L, OTHER_MEMBER_ID, 10_001, 5_010, 1))).when(fareSplits).findRideFares(eq(MEMBER_ID), eq(List.of(30L, 20L)));
+
+        /*
+         * test
+         */
+        RideRecordResponse result = rideRecordService.findMyRides(MEMBER_ID, null, 2);
+
+        /*
+         * verify
+         */
+        assertThat(result.rides()).extracting(RideRecordResponse.RideRecordItem::partyId).containsExactly(30L, 20L);
+        assertThat(result.rides().get(0).totalFare()).isEqualTo(10_001);
+        assertThat(result.rides().get(0).farePerPerson()).isEqualTo(5_010);
+        assertThat(result.rides().get(1).totalFare()).isNull();
+        assertThat(result.rides().get(1).farePerPerson()).isNull();
+        verify(fareSplits, times(1)).findRideFares(any(), any());
     }
 
     @DisplayName("findMyRides - 유저 요약이 없는 멤버는 세 필드가 모두 null 로 나온다")

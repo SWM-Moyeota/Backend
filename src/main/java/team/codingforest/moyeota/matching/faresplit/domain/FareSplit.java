@@ -294,7 +294,11 @@ public class FareSplit {
 
     /** payer 가 실제로 부담하는 금액 = 택시비 - 1인당 금액 × 보내는 사람 수 */
     public int payerShare() {
-        return totalFare - amountPerPerson * transfers.size();
+        return payerShare(totalFare, amountPerPerson, transfers.size());
+    }
+
+    static int payerShare(int totalFare, int amountPerPerson, int senders) {
+        return totalFare - amountPerPerson * senders;
     }
 
     /** payer 도 보내는 사람도 아니면 NOT_FARE_SPLIT_PARTICIPANT */

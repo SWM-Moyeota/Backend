@@ -103,7 +103,7 @@ class RideRecordControllerUnitTest extends ControllerUnitTestSupport {
         verify(rideRecordService).findMyRides(eq(USER_ID), eq(50L), eq(10));
     }
 
-    @DisplayName("GET /api/v1/users/me/parties - 탑승 시각·요금 키는 값 없이 null 로 남는다")
+    @DisplayName("GET /api/v1/users/me/parties - 택시비 정산이 없는 방은 탑승 시각·요금 키가 값 없이 null 로 남는다")
     @Test
     void findMyRides_fareKeysKeptAsNull() throws Exception {
 
@@ -132,6 +132,32 @@ class RideRecordControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.rides[0].totalFare").value(nullValue()))
                 .andExpect(jsonPath("$.rides[0].farePerPerson").value(nullValue()))
                 .andExpect(jsonPath("$.rides[0].dropoffTime").value("2026-10-01T00:30:00Z"));
+    }
+
+    @DisplayName("GET /api/v1/users/me/parties - 택시비 정산이 있는 방은 totalFare·farePerPerson 을 원 단위 정수로 내려준다")
+    @Test
+    void findMyRides_fareFilled() throws Exception {
+
+        /*
+         * settings
+         */
+        RideRecordResponse.RideRecordItem item = new RideRecordResponse.RideRecordItem(30L, "강남역", "판교역",
+                null, Instant.parse("2026-10-01T00:30:00Z"), 18_700, 6_240, 3, List.of());
+
+        doReturn(new RideRecordResponse(List.of(item), null, false)).when(rideRecordService).findMyRides(eq(USER_ID), isNull(), eq(20));
+
+        /*
+         * test
+         */
+        mockMvc.perform(get("/api/v1/users/me/parties").with(loginUser()))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rides[0].totalFare").value(18_700))
+                .andExpect(jsonPath("$.rides[0].farePerPerson").value(6_240))
+                .andExpect(jsonPath("$.rides[0].pickupTime").value(nullValue()));
     }
 
     @DisplayName("GET /api/v1/users/me/parties - cursor 와 size 가 빈 값이면 생략과 같게 처리한다")

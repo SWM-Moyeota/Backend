@@ -7,8 +7,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.matching.faresplit.domain.OpenTransfer;
+import team.codingforest.moyeota.matching.faresplit.domain.RideFare;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,6 +37,16 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
             order by s.createdAt desc, s.partyId desc
             """)
     List<OpenTransfer> findTransfersBySender(@Param("memberId") Long memberId, @Param("status") FareSplitStatus status);
+
+    // 송금 행을 펼치지 않고 정산 한 건당 한 줄 - 보내는 사람 수와 내가 보내는 사람인지는 송금 PK(match_id, user_id)로 센다
+    @Query("""
+            select s.partyId, s.payerId, s.totalFare, s.amountPerPerson, size(s.transfers)
+            from FareSplitEntity s
+            where s.partyId in :partyIds
+                and (s.payerId = :memberId
+                    or exists (select t.memberId from FareSplitTransferEntity t where t.fareSplit.partyId = s.partyId and t.memberId = :memberId))
+            """)
+    List<RideFare> findRideFares(@Param("memberId") Long memberId, @Param("partyIds") Collection<Long> partyIds);
 
     // 차례 n 은 시작 시각이 nth 번째 기준(TransferRequestSchedule.startedBefore)보다 이르면 지났다. 1번째는 시작할 때 보낸다
     @Query("""
