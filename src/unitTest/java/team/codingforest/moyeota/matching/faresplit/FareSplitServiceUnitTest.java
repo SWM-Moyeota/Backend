@@ -19,9 +19,11 @@ import team.codingforest.moyeota.matching.faresplit.domain.FareSplitRole;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitTransfer;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplits;
+import team.codingforest.moyeota.matching.faresplit.domain.OpenTransfer;
 import team.codingforest.moyeota.matching.faresplit.domain.TossDeeplink;
 import team.codingforest.moyeota.matching.faresplit.domain.TransferStatus;
 import team.codingforest.moyeota.matching.faresplit.dto.FareSplitDetailResponse;
+import team.codingforest.moyeota.matching.faresplit.dto.MyFareSplitListResponse;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
@@ -43,6 +45,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
@@ -379,6 +382,607 @@ class FareSplitServiceUnitTest {
         verifyNoInteractions(userAccess, maskedRealNames);
     }
 
+
+    // ───────────────────────── markSent ─────────────────────────
+
+    @DisplayName("markSent - 정산 행을 잠근 뒤 내 송금을 SENT 로 바꿔 저장한다")
+    @Test
+    void markSent() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        service.markSent(PARTY_ID, OTHER_SENDER_ID);
+
+        /*
+         * verify
+         */
+        InOrder order = inOrder(fareSplits);
+        order.verify(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        ArgumentCaptor<FareSplit> captor = ArgumentCaptor.forClass(FareSplit.class);
+        order.verify(fareSplits).save(captor.capture());
+
+        FareSplitTransfer transfer = captor.getValue().findTransfer(OTHER_SENDER_ID).orElseThrow();
+        assertThat(transfer.status()).isEqualTo(TransferStatus.SENT);
+        assertThat(transfer.getSentAt()).isNotNull();
+        verifyNoInteractions(parties, userAccess, maskedRealNames);
+    }
+
+    @DisplayName("markSent - 이미 SENT 면 저장하지 않는다")
+    @Test
+    void markSent_alreadySent() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        service.markSent(PARTY_ID, SENDER_ID);
+
+        /*
+         * verify
+         */
+        verify(fareSplits, never()).save(any());
+    }
+
+    @DisplayName("markSent - 받는 사람이 누르면 NOT_FARE_SPLIT_SENDER 이고 저장하지 않는다")
+    @Test
+    void markSent_payer() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.markSent(PARTY_ID, PAYER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.NOT_FARE_SPLIT_SENDER);
+        verify(fareSplits, never()).save(any());
+    }
+
+    @DisplayName("markSent - 정산이 없으면(취소됨 포함) FARE_SPLIT_NOT_FOUND")
+    @Test
+    void markSent_notFound() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.empty()).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.markSent(PARTY_ID, SENDER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.FARE_SPLIT_NOT_FOUND);
+        verify(fareSplits, never()).save(any());
+    }
+
+    // ───────────────────────── confirmReceived ─────────────────────────
+
+    @DisplayName("confirmReceived - 정산 행을 잠근 뒤 publicId 를 보내는 사람 번호로 바꿔 확인하고 저장한다. 남은 송금이 있으면 OPEN 이다")
+    @Test
+    void confirmReceived() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        doReturn(senderSummaries()).when(userAccess).findMemberSummaries(eq(List.of(SENDER_ID, OTHER_SENDER_ID)));
+
+        /*
+         * test
+         */
+        service.confirmReceived(PARTY_ID, PAYER_ID, SENDER_PUBLIC_ID);
+
+        /*
+         * verify
+         */
+        InOrder order = inOrder(fareSplits, userAccess);
+        order.verify(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        order.verify(userAccess).findMemberSummaries(eq(List.of(SENDER_ID, OTHER_SENDER_ID)));
+        ArgumentCaptor<FareSplit> captor = ArgumentCaptor.forClass(FareSplit.class);
+        order.verify(fareSplits).save(captor.capture());
+
+        FareSplit saved = captor.getValue();
+        assertThat(saved.findTransfer(SENDER_ID).orElseThrow().status()).isEqualTo(TransferStatus.CONFIRMED);
+        assertThat(saved.findTransfer(OTHER_SENDER_ID).orElseThrow().status()).isEqualTo(TransferStatus.NOT_SENT);
+        assertThat(saved.getStatus()).isEqualTo(FareSplitStatus.OPEN);
+        assertThat(saved.getAccountNumber()).isEqualTo(ACCOUNT);
+    }
+
+    @DisplayName("confirmReceived - 마지막 송금을 확인하면 COMPLETED·닫힌 시각·계좌 삭제를 함께 저장한다")
+    @Test
+    void confirmReceived_completes() {
+
+        /*
+         * settings
+         */
+        FareSplit split = FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, ACCOUNT, FareSplitStatus.OPEN, CREATED_AT, null,
+                List.of(FareSplitTransfer.load(SENDER_ID, SENT_AT, SENT_AT.plusSeconds(60), 1, CREATED_AT, null),
+                        FareSplitTransfer.load(OTHER_SENDER_ID, null, null, 1, CREATED_AT, null)));
+        doReturn(Optional.of(split)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        doReturn(senderSummaries()).when(userAccess).findMemberSummaries(eq(List.of(SENDER_ID, OTHER_SENDER_ID)));
+
+        /*
+         * test
+         */
+        service.confirmReceived(PARTY_ID, PAYER_ID, OTHER_SENDER_PUBLIC_ID);
+
+        /*
+         * verify
+         */
+        ArgumentCaptor<FareSplit> captor = ArgumentCaptor.forClass(FareSplit.class);
+        verify(fareSplits).save(captor.capture());
+        FareSplit saved = captor.getValue();
+        assertThat(saved.getStatus()).isEqualTo(FareSplitStatus.COMPLETED);
+        assertThat(saved.getClosedAt()).isNotNull();
+        assertThat(saved.getAccountNumber()).isNull();
+        assertThat(saved.findTransfer(OTHER_SENDER_ID).orElseThrow().getSentAt()).as("현금 등으로 바로 확인").isNull();
+    }
+
+    @DisplayName("confirmReceived - 이미 CONFIRMED 면 저장하지 않는다")
+    @Test
+    void confirmReceived_alreadyConfirmed() {
+
+        /*
+         * settings
+         */
+        FareSplit split = FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, ACCOUNT, FareSplitStatus.OPEN, CREATED_AT, null,
+                List.of(FareSplitTransfer.load(SENDER_ID, SENT_AT, SENT_AT.plusSeconds(60), 1, CREATED_AT, null),
+                        FareSplitTransfer.load(OTHER_SENDER_ID, null, null, 1, CREATED_AT, null)));
+        doReturn(Optional.of(split)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        doReturn(senderSummaries()).when(userAccess).findMemberSummaries(eq(List.of(SENDER_ID, OTHER_SENDER_ID)));
+
+        /*
+         * test
+         */
+        service.confirmReceived(PARTY_ID, PAYER_ID, SENDER_PUBLIC_ID);
+
+        /*
+         * verify
+         */
+        verify(fareSplits, never()).save(any());
+    }
+
+    @DisplayName("confirmReceived - publicId 가 이 정산의 보내는 사람이 아니면(받는 사람 자신·모르는 사람) FARE_SPLIT_TRANSFER_NOT_FOUND")
+    @Test
+    void confirmReceived_unknownPublicId() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        doReturn(senderSummaries()).when(userAccess).findMemberSummaries(eq(List.of(SENDER_ID, OTHER_SENDER_ID)));
+
+        /*
+         * test
+         */
+        Throwable payerSelf = catchThrowable(() -> service.confirmReceived(PARTY_ID, PAYER_ID, PAYER_PUBLIC_ID));
+        Throwable unknown = catchThrowable(() -> service.confirmReceived(PARTY_ID, PAYER_ID, UUID.fromString("00000000-0000-0000-0000-000000000099")));
+
+        /*
+         * verify
+         */
+        assertBusinessException(payerSelf, MatchingErrorCode.FARE_SPLIT_TRANSFER_NOT_FOUND);
+        assertBusinessException(unknown, MatchingErrorCode.FARE_SPLIT_TRANSFER_NOT_FOUND);
+        verify(fareSplits, never()).save(any());
+    }
+
+    @DisplayName("confirmReceived - 받는 사람이 아니면 NOT_FARE_SPLIT_PAYER 이고 사용자 정보를 묻거나 저장하지 않는다")
+    @Test
+    void confirmReceived_notPayer() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.confirmReceived(PARTY_ID, SENDER_ID, OTHER_SENDER_PUBLIC_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.NOT_FARE_SPLIT_PAYER);
+        verifyNoInteractions(userAccess);
+        verify(fareSplits, never()).save(any());
+    }
+
+    @DisplayName("confirmReceived - 정산이 없으면 FARE_SPLIT_NOT_FOUND")
+    @Test
+    void confirmReceived_notFound() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.empty()).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.confirmReceived(PARTY_ID, PAYER_ID, SENDER_PUBLIC_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.FARE_SPLIT_NOT_FOUND);
+        verifyNoInteractions(userAccess);
+    }
+
+    // ───────────────────────── markNotReceived ─────────────────────────
+
+    @DisplayName("markNotReceived - 정산 행을 잠근 뒤 SENT 송금을 NOT_SENT 로 되돌려 저장한다")
+    @Test
+    void markNotReceived() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        doReturn(senderSummaries()).when(userAccess).findMemberSummaries(eq(List.of(SENDER_ID, OTHER_SENDER_ID)));
+
+        /*
+         * test
+         */
+        service.markNotReceived(PARTY_ID, PAYER_ID, SENDER_PUBLIC_ID);
+
+        /*
+         * verify
+         */
+        InOrder order = inOrder(fareSplits);
+        order.verify(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        ArgumentCaptor<FareSplit> captor = ArgumentCaptor.forClass(FareSplit.class);
+        order.verify(fareSplits).save(captor.capture());
+
+        FareSplitTransfer transfer = captor.getValue().findTransfer(SENDER_ID).orElseThrow();
+        assertThat(transfer.status()).isEqualTo(TransferStatus.NOT_SENT);
+        assertThat(transfer.getSentAt()).isNull();
+    }
+
+    @DisplayName("markNotReceived - SENT 가 아닌 송금이면 TRANSFER_NOT_SENT 이고 저장하지 않는다")
+    @Test
+    void markNotReceived_notSent() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        doReturn(senderSummaries()).when(userAccess).findMemberSummaries(eq(List.of(SENDER_ID, OTHER_SENDER_ID)));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.markNotReceived(PARTY_ID, PAYER_ID, OTHER_SENDER_PUBLIC_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.TRANSFER_NOT_SENT);
+        verify(fareSplits, never()).save(any());
+    }
+
+    @DisplayName("markNotReceived - 받는 사람이 아니면 NOT_FARE_SPLIT_PAYER 이고 사용자 정보를 묻지 않는다")
+    @Test
+    void markNotReceived_notPayer() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.markNotReceived(PARTY_ID, OTHER_SENDER_ID, SENDER_PUBLIC_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.NOT_FARE_SPLIT_PAYER);
+        verifyNoInteractions(userAccess);
+        verify(fareSplits, never()).save(any());
+    }
+
+    // ───────────────────────── edit ─────────────────────────
+
+    @DisplayName("edit - 정산 행을 잠근 뒤 택시비·계좌를 고쳐 저장하고 받는 사람 화면을 돌려준다")
+    @Test
+    void edit() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(notStartedSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        doReturn(summaries()).when(userAccess).findMemberSummaries(eq(List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID)));
+        doReturn(Map.of(SENDER_ID, "김*수")).when(maskedRealNames).find(eq(List.of(SENDER_ID, OTHER_SENDER_ID)));
+
+        /*
+         * test
+         */
+        FareSplitDetailResponse detail = service.edit(PARTY_ID, PAYER_ID, 20_000, Bank.SHINHAN, "110-123-456789");
+
+        /*
+         * verify
+         */
+        InOrder order = inOrder(fareSplits);
+        order.verify(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        ArgumentCaptor<FareSplit> captor = ArgumentCaptor.forClass(FareSplit.class);
+        order.verify(fareSplits).save(captor.capture());
+
+        FareSplit saved = captor.getValue();
+        assertThat(saved.getTotalFare()).isEqualTo(20_000);
+        assertThat(saved.getAmountPerPerson()).isEqualTo(6_670);
+        assertThat(saved.getBank()).isEqualTo(Bank.SHINHAN);
+        assertThat(saved.getAccountNumber()).isEqualTo(new AccountNumber("110123456789"));
+
+        assertThat(detail.myRole()).isEqualTo(FareSplitRole.PAYER);
+        assertThat(detail.totalFare()).isEqualTo(20_000);
+        assertThat(detail.amountPerPerson()).isEqualTo(6_670);
+        assertThat(detail.myAmount()).isEqualTo(6_660);
+        assertThat(detail.bank().code()).isEqualTo(Bank.SHINHAN);
+        assertThat(detail.accountNumber()).isEqualTo("110123456789");
+        assertThat(detail.transfers()).extracting(FareSplitDetailResponse.FareSplitTransferItem::maskedRealName)
+                .containsExactly("김*수", null);
+    }
+
+    @DisplayName("edit - 계좌번호가 잘못되면 INVALID_ACCOUNT_NUMBER 이고 정산을 잠그지 않는다")
+    @Test
+    void edit_invalidAccount() {
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.edit(PARTY_ID, PAYER_ID, 20_000, Bank.SHINHAN, "12345"));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.INVALID_ACCOUNT_NUMBER);
+        verifyNoInteractions(fareSplits, userAccess, maskedRealNames);
+    }
+
+    @DisplayName("edit - 누군가 보냈다고 눌렀으면 FARE_SPLIT_ALREADY_STARTED 이고 저장하지 않는다")
+    @Test
+    void edit_alreadyStarted() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.edit(PARTY_ID, PAYER_ID, 20_000, Bank.SHINHAN, RAW_ACCOUNT));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.FARE_SPLIT_ALREADY_STARTED);
+        verify(fareSplits, never()).save(any());
+        verifyNoInteractions(userAccess, maskedRealNames);
+    }
+
+    @DisplayName("edit - 정산이 없으면 FARE_SPLIT_NOT_FOUND")
+    @Test
+    void edit_notFound() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.empty()).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.edit(PARTY_ID, PAYER_ID, 20_000, Bank.SHINHAN, RAW_ACCOUNT));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.FARE_SPLIT_NOT_FOUND);
+        verify(fareSplits, never()).save(any());
+    }
+
+    // ───────────────────────── cancel ─────────────────────────
+
+    @DisplayName("cancel - 정산 행을 잠근 뒤 아무도 보내기 전이면 정산을 지운다")
+    @Test
+    void cancel() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(notStartedSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        service.cancel(PARTY_ID, PAYER_ID);
+
+        /*
+         * verify
+         */
+        InOrder order = inOrder(fareSplits);
+        order.verify(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        order.verify(fareSplits).delete(eq(PARTY_ID));
+        verify(fareSplits, never()).save(any());
+    }
+
+    @DisplayName("cancel - 누군가 보냈다고 눌렀으면 FARE_SPLIT_ALREADY_STARTED 이고 지우지 않는다")
+    @Test
+    void cancel_alreadyStarted() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.cancel(PARTY_ID, PAYER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.FARE_SPLIT_ALREADY_STARTED);
+        verify(fareSplits, never()).delete(anyLong());
+    }
+
+    @DisplayName("cancel - 보내는 사람이면 NOT_FARE_SPLIT_PAYER 이고 지우지 않는다")
+    @Test
+    void cancel_notPayer() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(notStartedSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.cancel(PARTY_ID, SENDER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.NOT_FARE_SPLIT_PAYER);
+        verify(fareSplits, never()).delete(anyLong());
+    }
+
+    @DisplayName("cancel - 정산이 없으면(이미 취소함) FARE_SPLIT_NOT_FOUND")
+    @Test
+    void cancel_notFound() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.empty()).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.cancel(PARTY_ID, PAYER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.FARE_SPLIT_NOT_FOUND);
+        verify(fareSplits, never()).delete(anyLong());
+    }
+
+    // ───────────────────────── findMine ─────────────────────────
+
+    @DisplayName("findMine - 내 송금이 요청한 상태(NOT_SENT)인 정산만 받아 온 순서(최신순) 그대로, 받는 사람 닉네임과 함께 준다")
+    @Test
+    void findMine() {
+
+        /*
+         * settings
+         */
+        Long otherPartyId = 200L;
+        Long otherPayerId = 5L;
+        UUID otherPayerPublicId = UUID.fromString("00000000-0000-0000-0000-000000000005");
+        doReturn(List.of(
+                new OpenTransfer(otherPartyId, "판교역", "강남역", otherPayerId, 9_350, null, null, CREATED_AT.plusSeconds(600)),
+                new OpenTransfer(300L, "서울역", "홍대입구역", PAYER_ID, 4_000, SENT_AT, null, CREATED_AT.plusSeconds(300)),
+                new OpenTransfer(PARTY_ID, "강남역", "판교역", PAYER_ID, 6_240, null, null, CREATED_AT)))
+                .when(fareSplits).findOpenTransfers(eq(SENDER_ID));
+        doReturn(Map.of(otherPayerId, new MemberSummary(otherPayerPublicId, "다른받는사람", null),
+                        PAYER_ID, new MemberSummary(PAYER_PUBLIC_ID, "받는사람", null)))
+                .when(userAccess).findMemberSummaries(eq(List.of(otherPayerId, PAYER_ID)));
+
+        /*
+         * test
+         */
+        MyFareSplitListResponse response = service.findMine(SENDER_ID, TransferStatus.NOT_SENT);
+
+        /*
+         * verify
+         */
+        assertThat(response.fareSplits()).hasSize(2);
+        MyFareSplitListResponse.MyFareSplitItem first = response.fareSplits().get(0);
+        assertThat(first.partyId()).isEqualTo(otherPartyId);
+        assertThat(first.departure()).isEqualTo("판교역");
+        assertThat(first.destination()).isEqualTo("강남역");
+        assertThat(first.payer().publicId()).isEqualTo(otherPayerPublicId);
+        assertThat(first.payer().nickname()).isEqualTo("다른받는사람");
+        assertThat(first.myAmount()).isEqualTo(9_350);
+        assertThat(first.status()).isEqualTo(TransferStatus.NOT_SENT);
+        assertThat(first.createdAt()).isEqualTo(CREATED_AT.plusSeconds(600));
+        assertThat(response.fareSplits().get(1).partyId()).isEqualTo(PARTY_ID);
+        assertThat(response.fareSplits().get(1).payer().nickname()).isEqualTo("받는사람");
+    }
+
+    @DisplayName("findMine - status=SENT 면 보냈다고 누른 정산만 준다")
+    @Test
+    void findMine_sent() {
+
+        /*
+         * settings
+         */
+        doReturn(List.of(
+                new OpenTransfer(300L, "서울역", "홍대입구역", PAYER_ID, 4_000, SENT_AT, null, CREATED_AT.plusSeconds(300)),
+                new OpenTransfer(PARTY_ID, "강남역", "판교역", PAYER_ID, 6_240, null, null, CREATED_AT)))
+                .when(fareSplits).findOpenTransfers(eq(SENDER_ID));
+        doReturn(Map.of(PAYER_ID, new MemberSummary(PAYER_PUBLIC_ID, "받는사람", null)))
+                .when(userAccess).findMemberSummaries(eq(List.of(PAYER_ID)));
+
+        /*
+         * test
+         */
+        MyFareSplitListResponse response = service.findMine(SENDER_ID, TransferStatus.SENT);
+
+        /*
+         * verify
+         */
+        assertThat(response.fareSplits()).extracting(MyFareSplitListResponse.MyFareSplitItem::partyId).containsExactly(300L);
+        assertThat(response.fareSplits().get(0).status()).isEqualTo(TransferStatus.SENT);
+    }
+
+    @DisplayName("findMine - 해당하는 정산이 없으면 빈 목록이고 사용자 정보를 묻지 않는다")
+    @Test
+    void findMine_empty() {
+
+        /*
+         * settings
+         */
+        doReturn(List.of(new OpenTransfer(300L, "서울역", "홍대입구역", PAYER_ID, 4_000, SENT_AT, null, CREATED_AT)))
+                .when(fareSplits).findOpenTransfers(eq(SENDER_ID));
+
+        /*
+         * test
+         */
+        MyFareSplitListResponse response = service.findMine(SENDER_ID, TransferStatus.NOT_SENT);
+
+        /*
+         * verify
+         */
+        assertThat(response.fareSplits()).isEmpty();
+        verifyNoInteractions(userAccess);
+    }
+
     // ───────────────────────── fixtures ─────────────────────────
 
     private static Map<Long, MemberSummary> summaries() {
@@ -386,6 +990,19 @@ class FareSplitServiceUnitTest {
                 PAYER_ID, new MemberSummary(PAYER_PUBLIC_ID, "받는사람", null),
                 SENDER_ID, new MemberSummary(SENDER_PUBLIC_ID, "보낸사람", null),
                 OTHER_SENDER_ID, new MemberSummary(OTHER_SENDER_PUBLIC_ID, "아직안보냄", null));
+    }
+
+    private static Map<Long, MemberSummary> senderSummaries() {
+        return Map.of(
+                SENDER_ID, new MemberSummary(SENDER_PUBLIC_ID, "보낸사람", null),
+                OTHER_SENDER_ID, new MemberSummary(OTHER_SENDER_PUBLIC_ID, "아직안보냄", null));
+    }
+
+    /** 아무도 보내기 전 */
+    private static FareSplit notStartedSplit() {
+        return FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, ACCOUNT, FareSplitStatus.OPEN, CREATED_AT, null,
+                List.of(FareSplitTransfer.load(SENDER_ID, null, null, 1, CREATED_AT, null),
+                        FareSplitTransfer.load(OTHER_SENDER_ID, null, null, 1, CREATED_AT, null)));
     }
 
     /** 첫 번째 보내는 사람은 SENT, 두 번째는 NOT_SENT */

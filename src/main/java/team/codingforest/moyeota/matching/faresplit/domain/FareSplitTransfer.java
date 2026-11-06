@@ -7,11 +7,11 @@ import java.time.Instant;
  */
 public class FareSplitTransfer {
     private final Long memberId;
-    private final Instant sentAt;
-    private final Instant confirmedAt;
+    private Instant sentAt;
+    private Instant confirmedAt;
     private final int requestCount;
     private final Instant lastRequestedAt;
-    private final Instant confirmRequestedAt;
+    private Instant confirmRequestedAt;
 
     private FareSplitTransfer(Long memberId, Instant sentAt, Instant confirmedAt, int requestCount, Instant lastRequestedAt, Instant confirmRequestedAt) {
         this.memberId = memberId;
@@ -31,10 +31,21 @@ public class FareSplitTransfer {
     }
 
     public TransferStatus status() {
-        if(confirmedAt != null) return TransferStatus.CONFIRMED;
-        if(sentAt != null) return TransferStatus.SENT;
+        return TransferStatus.of(sentAt, confirmedAt);
+    }
 
-        return TransferStatus.NOT_SENT;
+    void markSent(Instant now) {
+        sentAt = now;
+    }
+
+    void confirm(Instant now) {
+        confirmedAt = now;
+    }
+
+    /** SENT → NOT_SENT. 입금 확인 요청도 다시 할 수 있게 지운다 */
+    void markNotReceived() {
+        sentAt = null;
+        confirmRequestedAt = null;
     }
 
     public Long getMemberId() {

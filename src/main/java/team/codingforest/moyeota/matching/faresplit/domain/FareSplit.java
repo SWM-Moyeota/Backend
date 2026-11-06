@@ -25,14 +25,14 @@ public class FareSplit {
 
     private final Long partyId;
     private final Long payerId;
-    private final int totalFare;
-    private final int amountPerPerson;
-    private final Bank bank;
+    private int totalFare;
+    private int amountPerPerson;
+    private Bank bank;
     // 닫히면(COMPLETED·EXPIRED) null
-    private final AccountNumber accountNumber;
-    private final FareSplitStatus status;
+    private AccountNumber accountNumber;
+    private FareSplitStatus status;
     private final Instant createdAt;
-    private final Instant closedAt;
+    private Instant closedAt;
     // 방 합류 순. payer 의 행은 없다
     private final List<FareSplitTransfer> transfers;
 
@@ -68,7 +68,7 @@ public class FareSplit {
 
         if(riderIds.size() < MIN_RIDERS) throw new BusinessException(MatchingErrorCode.NOT_ENOUGH_RIDERS);
 
-        if(totalFare < MIN_TOTAL_FARE || totalFare > MAX_TOTAL_FARE) throw new BusinessException(MatchingErrorCode.INVALID_FARE);
+        validateFare(totalFare);
 
         List<FareSplitTransfer> transfers = riderIds.stream()
                 .filter(id -> !id.equals(payerId))
@@ -102,6 +102,119 @@ public class FareSplit {
 
         return (totalFare + unit - 1) / unit * ROUNDING_UNIT;
     }
+
+    private static void validateFare(int totalFare) {
+        if(totalFare < MIN_TOTAL_FARE || totalFare > MAX_TOTAL_FARE) throw new BusinessException(MatchingErrorCode.INVALID_FARE);
+    }
+
+    // ───────────────────────── 송금 처리 ─────────────────────────
+
+    /**
+     *  보내는 사람이 보냈다고 누른다(NOT_SENT → SENT). 이미 SENT·CONFIRMED 면 그대로 두고 false - 다시 눌러도 된다
+     */
+    public boolean markSent(Long memberId, Instant now) {
+        if(roleOf(memberId) != FareSplitRole.SENDER) throw new BusinessException(MatchingErrorCode.NOT_FARE_SPLIT_SENDER);
+
+        FareSplitTransfer transfer = transferOf(memberId);
+
+        if(transfer.status() != TransferStatus.NOT_SENT) return false;
+
+        ensureOpen();
+        transfer.markSent(now);
+
+        return true;
+    }
+
+    /**
+     *  payer 가 받았다고 확인한다(→ CONFIRMED). 보냈다고 누르기 전이어도 된다(현금 등). 이미 CONFIRMED 면 그대로 두고 false.
+     *  모든 송금이 확인되면 COMPLETED 로 닫고 계좌번호를 지운다
+     */
+    public boolean confirmReceived(Long requesterId, Long senderId, Instant now) {
+        ensurePayer(requesterId);
+
+        FareSplitTransfer transfer = transferOf(senderId);
+
+        if(transfer.status() == TransferStatus.CONFIRMED) return false;
+
+        ensureOpen();
+        transfer.confirm(now);
+
+        if(transfers.stream().allMatch(t -> t.status() == TransferStatus.CONFIRMED)) close(FareSplitStatus.COMPLETED, now);
+
+        return true;
+    }
+
+    /**
+     *  payer 가 아직 못 받았다고 되돌린다(SENT → NOT_SENT). SENT 가 아니면 TRANSFER_NOT_SENT
+     */
+    public void markNotReceived(Long requesterId, Long senderId) {
+        ensurePayer(requesterId);
+
+        FareSplitTransfer transfer = transferOf(senderId);
+
+        ensureOpen();
+
+        if(transfer.status() != TransferStatus.SENT) throw new BusinessException(MatchingErrorCode.TRANSFER_NOT_SENT);
+
+        transfer.markNotReceived();
+    }
+
+    // ───────────────────────── 수정·취소 ─────────────────────────
+
+    /**
+     *  payer 가 택시비·계좌를 고친다. 아무도 보내기 전(모든 송금 NOT_SENT)인 OPEN 정산만. 1인당 금액을 다시 계산한다
+     */
+    public void edit(Long requesterId, int totalFare, Bank bank, AccountNumber accountNumber) {
+        Objects.requireNonNull(bank, "bank");
+        Objects.requireNonNull(accountNumber, "accountNumber");
+
+        ensureNotStarted(requesterId);
+        validateFare(totalFare);
+
+        this.totalFare = totalFare;
+        this.amountPerPerson = amountPerPerson(totalFare, transfers.size() + 1);
+        this.bank = bank;
+        this.accountNumber = accountNumber;
+    }
+
+    /**
+     *  취소는 행을 지우므로 여기서는 할 수 있는지만 본다. 수정과 같은 조건이다
+     */
+    public void ensureCancelable(Long requesterId) {
+        ensureNotStarted(requesterId);
+    }
+
+    /** payer 가 아니면 NOT_FARE_SPLIT_PAYER(정산에 없는 사람은 NOT_FARE_SPLIT_PARTICIPANT) */
+    public void ensurePayer(Long memberId) {
+        if(roleOf(memberId) != FareSplitRole.PAYER) throw new BusinessException(MatchingErrorCode.NOT_FARE_SPLIT_PAYER);
+    }
+
+    private void ensureNotStarted(Long requesterId) {
+        ensurePayer(requesterId);
+        ensureOpen();
+
+        if(transfers.stream().anyMatch(t -> t.status() != TransferStatus.NOT_SENT)) {
+            throw new BusinessException(MatchingErrorCode.FARE_SPLIT_ALREADY_STARTED);
+        }
+    }
+
+    private void ensureOpen() {
+        if(status != FareSplitStatus.OPEN) throw new BusinessException(MatchingErrorCode.FARE_SPLIT_CLOSED);
+    }
+
+    private FareSplitTransfer transferOf(Long memberId) {
+        return findTransfer(memberId)
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.FARE_SPLIT_TRANSFER_NOT_FOUND));
+    }
+
+    // 닫히면 계좌번호는 남기지 않는다
+    private void close(FareSplitStatus closedStatus, Instant now) {
+        status = closedStatus;
+        closedAt = now;
+        accountNumber = null;
+    }
+
+    // ───────────────────────── 조회 ─────────────────────────
 
     /** payer 가 실제로 부담하는 금액 = 택시비 - 1인당 금액 × 보내는 사람 수 */
     public int payerShare() {

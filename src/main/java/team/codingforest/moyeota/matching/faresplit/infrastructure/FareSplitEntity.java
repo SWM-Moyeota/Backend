@@ -88,6 +88,21 @@ public class FareSplitEntity extends BaseTimeEntity {
         return entity;
     }
 
+    /** 바뀔 수 있는 값만 옮긴다 - 방·받는 사람·송금 행 구성은 그대로다 */
+    void update(FareSplit split) {
+        AccountNumber account = split.getAccountNumber();
+        this.totalFare = split.getTotalFare();
+        this.amountPerPerson = split.getAmountPerPerson();
+        this.bankCode = split.getBank();
+        this.accountNumber = account == null ? null : account.value();
+        this.status = split.getStatus();
+        this.closedAt = split.getClosedAt();
+
+        for(FareSplitTransferEntity transfer : transfers) {
+            split.findTransfer(transfer.getMemberId()).ifPresent(transfer::update);
+        }
+    }
+
     /**
      *  @param joinOrder 방 멤버 userId 를 합류 순으로. 송금을 이 순서로 담고, 목록에 없는 사람은 맨 뒤에 userId 순으로 둔다
      */
