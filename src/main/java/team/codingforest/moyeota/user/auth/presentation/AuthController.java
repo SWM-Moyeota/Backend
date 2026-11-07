@@ -35,8 +35,12 @@ public class AuthController {
     private final AuthService authService;
     private final LocalUserService localUserService;
 
-    @Operation(summary = "로컬 회원가입", description = "users / local_user / user_profile 한 트랜잭션. 전화번호는 하이픈 제거 후 저장")
-    @ApiResponses({@ApiResponse(responseCode = "201", description = "가입된 유저 publicId·닉네임"), @ApiResponse(responseCode = "400", description = "입력 검증 실패 / INVALID_PHONE_NUMBER(USER105) / INVALID_NICKNAME(USER107)"), @ApiResponse(responseCode = "409", description = "LOGIN_ID_DUPLICATED(USER101) / PHONE_NUMBER_DUPLICATED(USER104) / NICKNAME_DUPLICATED(USER108)")})
+    @Operation(summary = "로컬 회원가입", description = """
+            users / local_user / user_profile 한 트랜잭션. 전화번호는 하이픈 제거 후 저장
+            - 만 14세 미만은 가입 불가(UNDER_MINIMUM_AGE, USER113). 한국 시각(KST) 날짜로 센 만 나이이고 14번째 생일 당일부터 가입 가능
+            - 나이는 문자 인증 확인·중복 조회보다 먼저 보므로 거부되어도 인증 토큰은 남는다
+            """)
+    @ApiResponses({@ApiResponse(responseCode = "201", description = "가입된 유저 publicId·닉네임"), @ApiResponse(responseCode = "400", description = "입력 검증 실패 / UNDER_MINIMUM_AGE(USER113) - 만 14세 미만 / INVALID_PHONE_NUMBER(USER105) / INVALID_NICKNAME(USER107)"), @ApiResponse(responseCode = "409", description = "LOGIN_ID_DUPLICATED(USER101) / PHONE_NUMBER_DUPLICATED(USER104) / NICKNAME_DUPLICATED(USER108)")})
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse register(@Valid @RequestBody UserRegisterRequest request) {
@@ -65,7 +69,7 @@ public class AuthController {
         authService.logout(request.refreshToken());
     }
 
-    @Operation(summary = "전화번호 가입 여부", description = "기사 phone-first 온보딩 1단계. exists=false 면 회원가입으로, true 면 로그인으로")
+    @Operation(summary = "전화번호 가입 여부", description = "가입 전 전화번호 가입 여부 확인. exists=false 면 회원가입으로, true 면 로그인으로")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "exists"), @ApiResponse(responseCode = "400", description = "INVALID_PHONE_NUMBER(USER105)")})
     @PostMapping("/phone/check")
     public PhoneCheckResponse checkPhone(@Valid @RequestBody PhoneCheckRequest request) {

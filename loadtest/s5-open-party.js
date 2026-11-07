@@ -8,7 +8,7 @@ import { openRoom, leaveRoom, 판교역 } from './lib/api.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
 const N = Number(__ENV.OPENERS || 30);
-const OFFSET = 150;   // S1(0..19)·S3(100..149) 와 안 겹치게
+const OFFSET = 150;   // S1·S6(0..19)·S2(1..10) 와 안 겹치게
 
 export const options = {
   scenarios: { burst: { executor: 'per-vu-iterations', vus: N, iterations: 1, maxDuration: '1m' } },

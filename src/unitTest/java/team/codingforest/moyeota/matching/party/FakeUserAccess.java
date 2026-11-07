@@ -15,7 +15,7 @@ class FakeUserAccess implements UserAccess {
     private final Map<Long, MemberSummary> summaries = new HashMap<>();
 
     void 등록(Long userId, String nickname) {
-        summaries.put(userId, new MemberSummary(UUID.randomUUID(), nickname, null, null));
+        summaries.put(userId, new MemberSummary(UUID.randomUUID(), nickname, null));
     }
 
     UUID publicIdOf(Long userId) {

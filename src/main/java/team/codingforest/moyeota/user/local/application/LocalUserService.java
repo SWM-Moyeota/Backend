@@ -11,10 +11,15 @@ import team.codingforest.moyeota.user.common.masking.Masking;
 import team.codingforest.moyeota.user.local.domain.LocalUser;
 import team.codingforest.moyeota.user.local.domain.LocalUsers;
 import team.codingforest.moyeota.user.local.domain.PasswordHasher;
+import team.codingforest.moyeota.user.local.dto.MyProfileResponse;
 import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
 import team.codingforest.moyeota.user.local.dto.UserResponse;
+import team.codingforest.moyeota.user.profile.domain.AgeLimit;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
+import team.codingforest.moyeota.user.sanction.domain.NoShowSanction;
+import team.codingforest.moyeota.user.sanction.domain.NoShowSanctions;
+import team.codingforest.moyeota.user.sanction.domain.NoShows;
 import team.codingforest.moyeota.user.users.application.ProfileImages;
 import team.codingforest.moyeota.user.users.domain.IdGenerator;
 import team.codingforest.moyeota.user.users.domain.Nickname;
@@ -23,6 +28,8 @@ import team.codingforest.moyeota.user.users.domain.User;
 import team.codingforest.moyeota.user.users.domain.Users;
 import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 import team.codingforest.moyeota.user.verification.application.SmsVerificationService;
+
+import java.time.Instant;
 
 @Service
 @RequiredArgsConstructor
@@ -34,9 +41,14 @@ public class LocalUserService {
     private final IdGenerator idGenerator;
     private final SmsVerificationService smsVerificationService;
     private final ProfileImages profileImages;
+    private final NoShowSanctions noShowSanctions;
+    private final NoShows noShows;
 
     @Transactional // users / local_user / profile 3개 테이블 원자 저장
     public UserResponse register(UserRegisterCommand command) {
+        // 만 14세 미만은 가입 불가 - 부수효과가 없는 입력 검증이라 문자 인증 확인·중복 조회보다 먼저 본다
+        AgeLimit.check(command.birthDate(), Instant.now());
+
         // 인증 안 된 요청이면 중복 조회 전에 끊음
         smsVerificationService.checkVerified(command.verificationToken(), command.phoneNumber());
 
@@ -77,12 +89,20 @@ public class LocalUserService {
         return new AuthenticatedUser(user.getId(), user.getPublicId());
     }
 
-    public UserResponse getProfile(Long userId) {
+    // 같은 users 행을 두 번 읽는다 - 한 트랜잭션이라 두 번째는 영속성 컨텍스트에서 나온다
+    @Transactional(readOnly = true)
+    public MyProfileResponse getProfile(Long userId) {
         User user = users.findById(userId);
         // 닉네임 미설정(가입 직후 기본 상태)이면 가린 실명으로 폴백한다
         String name = user.getNickname() != null ? user.getNickname()
                 : userProfiles.findByUserId(userId).map(UserProfile::getName).map(Masking::name).orElse(null);
-        return new UserResponse(user.getPublicId(), name, profileImages.toUrl(user.getImageUrl()));
+
+        // 앱이 "언제까지 이용 제한"을 보여 준다. 노쇼 횟수는 약속 시간에서 30일이 지나지 않은 노쇼 수다
+        Instant now = Instant.now();
+        NoShowSanction sanction = noShowSanctions.find(userId).orElse(NoShowSanction.NONE);
+
+        return new MyProfileResponse(user.getPublicId(), name, profileImages.toUrl(user.getImageUrl()),
+                NoShowSanction.count(noShows.findUnexpired(userId, now), now), sanction.activeRestrictionUntil(now).orElse(null));
     }
 
     @Transactional(readOnly = true)

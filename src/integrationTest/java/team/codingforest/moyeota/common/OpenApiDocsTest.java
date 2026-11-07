@@ -43,11 +43,6 @@ class OpenApiDocsTest {
         join.path("parameters").forEach(p -> names.add(p.path("name").asText()));
 
         assertThat(names).as("@CurrentUser memberId 가 쿼리 파라미터로 잡히면 프론트가 헛값을 보낸다").containsExactly("partyId");
-
-        JsonNode accept = docs().at("/paths/~1api~1v1~1dispatch~1calls~1{partyId}~1accept/post");
-        List<String> driverParams = new ArrayList<>();
-        accept.path("parameters").forEach(p -> driverParams.add(p.path("name").asText()));
-        assertThat(driverParams).as("@CurrentDriver driverId 도 마찬가지").containsExactly("partyId");
     }
 
     @Test
@@ -90,6 +85,25 @@ class OpenApiDocsTest {
         assertThat(myRides.at("/parameters/1/schema/default").asInt()).isEqualTo(20);
         assertThat(myRides.at("/responses/401").isMissingNode()).isFalse();
         assertThat(myRides.at("/responses/400/content/application~1json/schema/$ref").asText()).isEqualTo("#/components/schemas/ErrorResponse");
+    }
+
+    @Test
+    void 운영자_API는_Bearer_대신_X_Operator_Token_헤더를_적고_노쇼_이의_신청은_사용자_토큰을_요구한다() throws Exception {
+        JsonNode d = docs();
+        JsonNode accept = d.at("/paths/~1api~1v1~1operator~1no-show-objections~1{objectionId}~1accept/post");
+        List<String> names = new ArrayList<>();
+        accept.path("parameters").forEach(p -> names.add(p.path("in").asText() + ":" + p.path("name").asText()));
+
+        assertThat(accept.path("security").isArray()).as("전역 Bearer 요구사항 해제").isTrue();
+        assertThat(accept.path("security")).isEmpty();
+        assertThat(names).containsExactlyInAnyOrder("header:X-Operator-Token", "path:objectionId");
+        assertThat(accept.at("/responses/401/description").asText()).contains("USER006");
+
+        JsonNode objection = d.at("/paths/~1api~1v1~1matching~1rooms~1{partyId}~1no-show-objection/post");
+        assertThat(objection.path("security").isMissingNode()).as("전역 Bearer 를 따른다").isTrue();
+        assertThat(objection.at("/responses/201").isMissingNode()).isFalse();
+        assertThat(d.at("/components/schemas/MyProfileResponse/properties/restrictedUntil").isMissingNode()).isFalse();
+        assertThat(d.at("/components/schemas/MyProfileResponse/properties/noShowCount").isMissingNode()).isFalse();
     }
 
     @Test

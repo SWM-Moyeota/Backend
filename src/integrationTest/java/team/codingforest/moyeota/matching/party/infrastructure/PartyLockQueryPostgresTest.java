@@ -12,7 +12,6 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -37,6 +36,32 @@ class PartyLockQueryPostgresTest {
     @AfterEach
     void tearDown() {
         pool.shutdownNow();
+    }
+
+    @Test
+    void 같은_사용자의_잠금은_먼저_잡은_트랜잭션이_끝날_때까지_기다린다() throws Exception {
+        java.util.concurrent.CountDownLatch locked = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        Long memberId = 987_654_321L;
+
+        Future<?> first = pool.submit(() -> tx.executeWithoutResult(status -> {
+            parties.lockMember(memberId);
+            locked.countDown();
+            try {
+                release.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }));
+        assertThat(locked.await(5, TimeUnit.SECONDS)).isTrue();
+
+        Future<?> second = pool.submit(() -> tx.executeWithoutResult(status -> parties.lockMember(memberId)));
+        Thread.sleep(300);
+        assertThat(second.isDone()).as("앞선 트랜잭션이 끝나기 전에는 잠금을 얻지 못한다").isFalse();
+
+        release.countDown();
+        first.get(5, TimeUnit.SECONDS);
+        second.get(5, TimeUnit.SECONDS);
     }
 
     @Test
@@ -119,7 +144,7 @@ class PartyLockQueryPostgresTest {
 
     private static Party open(int capacity) {
         return Party.open(1L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
-                "강남역", "판교역", new Capacity(capacity), Instant.now(), new Radius(100), new Radius(100),
+                "강남역", "판교역", new Capacity(capacity), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC");
     }
 

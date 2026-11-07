@@ -14,15 +14,20 @@ import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
 import team.codingforest.moyeota.user.local.dto.UserResponse;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
+import team.codingforest.moyeota.user.sanction.domain.NoShowSanctions;
+import team.codingforest.moyeota.user.sanction.domain.NoShows;
 import team.codingforest.moyeota.user.users.domain.User;
 import team.codingforest.moyeota.user.users.domain.enums.Gender;
 import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 import team.codingforest.moyeota.user.verification.application.SmsVerificationService;
 
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,6 +37,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 class LocalUserServiceTest {
     private static final String CDN = "https://cdn.example.com/";
@@ -55,7 +61,8 @@ class LocalUserServiceTest {
                 },
                 UUID::randomUUID,
                 smsVerificationService,
-                new ProfileImages(new ProfileImageProperties(CDN, "profile/presets/default.png", List.of("profile/presets/01.png"))));
+                new ProfileImages(new ProfileImageProperties(CDN, "profile/presets/default.png", List.of("profile/presets/01.png"))),
+                mock(NoShowSanctions.class), mock(NoShows.class));   // 제재가 없는 사용자 - 프로필의 제재 필드는 LocalUserServiceUnitTest 가 본다
     }
 
     private UserRegisterCommand 가입(String loginId, String nickname, String phone) {
@@ -131,6 +138,22 @@ class LocalUserServiceTest {
     }
 
     @Test
+    void 만_14세_미만이면_문자_인증을_확인하기도_전에_거부된다() {
+        // 앱에서만 막으면 API 를 직접 부르는 쪽이 그대로 통과한다
+        Instant 열세_살 = ZonedDateTime.now(ZoneId.of("Asia/Seoul")).minusYears(13).toInstant();
+
+        assertThatThrownBy(() -> service.register(new UserRegisterCommand("hong", "Passw0rd!", "길동이", "홍길동",
+                열세_살, "010-1234-5678", Gender.MALE, "hong@test.com", "token")))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.UNDER_MINIMUM_AGE);
+        // 부수효과가 없는 입력 검증이라 문자 인증 확인·중복 조회보다 먼저 본다 - 인증 토큰이 남아 다시 시도할 수 있다
+        verifyNoInteractions(smsVerificationService);
+        assertThat(localUsers.existsByLoginId("hong")).isFalse();
+        assertThat(users.existsByNickname("길동이")).isFalse();
+    }
+
+    @Test
     void 문자_인증이_안_됐으면_가입하지_않는다() {
         willThrow(new UserException(UserErrorCode.SMS_NOT_VERIFIED))
                 .given(smsVerificationService).checkVerified("token", "010-1234-5678");
@@ -195,6 +218,11 @@ class LocalUserServiceTest {
 
         @Override
         public Optional<UserProfile> findByUserId(Long userId) { return Optional.ofNullable(byUserId.get(userId)); }
+
+        @Override
+        public List<UserProfile> findAllByUserIds(List<Long> userIds) {
+            return userIds.stream().map(byUserId::get).filter(Objects::nonNull).toList();
+        }
 
         @Override
         public boolean existsByPhoneNumber(String phone) {

@@ -129,7 +129,7 @@ export function joinRoom(token, partyId) {
   return http.post(`${BASE}/api/v1/matching/rooms/${partyId}/join`, null, auth(token, { tags: { name: 'POST /matching/rooms/{id}/join' } }));
 }
 
-// ───────── 1차 배포(택시 꺼짐) 시나리오용 ─────────
+// ───────── 1차 배포(D) 시나리오용 ─────────
 
 export function appConfig() {
   return http.get(`${BASE}/api/v1/config`, { tags: { name: 'GET /config' } });

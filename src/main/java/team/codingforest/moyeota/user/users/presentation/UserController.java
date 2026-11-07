@@ -60,7 +60,7 @@ public class UserController {
         userService.resetImage(userId);
     }
 
-    @Operation(summary = "승객 앱 FCM 토큰 등록/갱신", description = "로그인 직후와 onTokenRefresh 때. 기사 앱 토큰(/drivers/fcm-token)과 별개")
+    @Operation(summary = "승객 앱 FCM 토큰 등록/갱신", description = "로그인 직후와 onTokenRefresh 때")
     @ApiResponses({@ApiResponse(responseCode = "204", description = "저장 완료"), @ApiResponse(responseCode = "400", description = "EMPTY_FCM_TOKEN(USER106)")})
     @PutMapping("/me/fcm-token")
     @ResponseStatus(HttpStatus.NO_CONTENT)

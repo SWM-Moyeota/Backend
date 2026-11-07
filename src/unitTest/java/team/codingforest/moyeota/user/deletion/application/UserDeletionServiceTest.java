@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -43,7 +44,6 @@ class UserDeletionServiceTest {
     private FakeRefreshTokens refreshTokens;
     private FakePrincipalCache principalCache;
     private Set<Long> inOngoingParty;
-    private List<Long> withdrawnDrivers;
     private List<Object> events;
     private UserDeletionService service;
     private User user;
@@ -57,12 +57,11 @@ class UserDeletionServiceTest {
         refreshTokens = new FakeRefreshTokens();
         principalCache = new FakePrincipalCache();
         inOngoingParty = new HashSet<>();
-        withdrawnDrivers = new ArrayList<>();
         events = new ArrayList<>();
         AfterCommitExecutor runNow = (name, task) -> task.run();   // 커밋 후 작업은 바로 실행해 결과만 본다
 
         service = new UserDeletionService(users, localUsers, userProfiles, userDeletions, refreshTokens, principalCache,
-                new PrefixPasswordHasher(), inOngoingParty::contains, (userId, at) -> withdrawnDrivers.add(userId), events::add, runNow);
+                new PrefixPasswordHasher(), inOngoingParty::contains, events::add, runNow);
 
         user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "모여타"));
         localUsers.register(user.getId(), "moyeota", "hashed:" + PASSWORD);
@@ -92,13 +91,6 @@ class UserDeletionServiceTest {
     }
 
     @Test
-    void 탈퇴하면_같은_트랜잭션에서_기사_탈퇴도_한다() {
-        service.delete(user.getId(), PASSWORD);
-
-        assertThat(withdrawnDrivers).containsExactly(user.getId());
-    }
-
-    @Test
     void 비밀번호가_틀리면_아무것도_바꾸지_않는다() {
         assertError(() -> service.delete(user.getId(), "wrong"), UserErrorCode.PASSWORD_MISMATCH);
 
@@ -106,7 +98,7 @@ class UserDeletionServiceTest {
     }
 
     @Test
-    void 진행_중인_합승이_있으면_탈퇴할_수_없다() {
+    void 진행_중인_동승이_있으면_탈퇴할_수_없다() {
         inOngoingParty.add(user.getId());
 
         assertError(() -> service.delete(user.getId(), PASSWORD), UserErrorCode.ONGOING_PARTY_EXISTS);
@@ -130,7 +122,6 @@ class UserDeletionServiceTest {
         assertThat(userDeletions.deletedAt).isEmpty();
         assertThat(refreshTokens.cancelledUserIds).isEmpty();
         assertThat(events).isEmpty();
-        assertThat(withdrawnDrivers).isEmpty();
     }
 
     private static void assertError(Runnable call, UserErrorCode expected) {
@@ -184,6 +175,11 @@ class UserDeletionServiceTest {
 
         @Override
         public Optional<UserProfile> findByUserId(Long userId) { return Optional.ofNullable(byUserId.get(userId)); }
+
+        @Override
+        public List<UserProfile> findAllByUserIds(List<Long> userIds) {
+            return userIds.stream().map(byUserId::get).filter(Objects::nonNull).toList();
+        }
 
         @Override
         public boolean existsByPhoneNumber(String phone) {

@@ -13,42 +13,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PartyTest {
     private static final Long 생성자 = 1L;
     private static final Long 참여자 = 2L;
-    private static final Long 기사 = 9L;
-    private static final Long 다른기사 = 10L;
+    private static final Long 외부인 = 10L;
     private static final Location 강남역 = new Location(37.4979, 127.0276);
     private static final Location 판교역 = new Location(37.3948, 127.1112);
     private static final String 강남역출발 = "강남역";
     private static final String 판교역도착 = "판교역";
-    private static final Radius 기본반경 = new Radius(100);
     private static final Instant 지금 = Instant.now();
     private static final Integer 예상요금 = 12000;
     private static final Integer 예상시간 = 25;
     private static final String 경로 = "_p~iF~ps|U_ulLnnqC";
 
     private Party openParty(int capacity) {
-        return Party.open(생성자, 강남역, 판교역, 강남역출발, 판교역도착, new Capacity(capacity), 지금, 기본반경, 기본반경, 예상요금, 예상시간, 경로);
-    }
-
-    /** 정원 2명을 채우고 매칭까지 시작한 방 */
-    private Party matchingParty() {
-        Party party = openParty(2);
-        party.join(참여자);
-        party.startMatching(지금);
-        return party;
-    }
-
-    /** 기사까지 배정된 방 */
-    private Party assignedParty() {
-        Party party = matchingParty();
-        party.assignDriver(기사);
-        return party;
-    }
-
-    /** 운행 중인 방 */
-    private Party ridingParty() {
-        Party party = assignedParty();
-        party.startRide(기사);
-        return party;
+        return Party.open(생성자, 강남역, 판교역, 강남역출발, 판교역도착, new Capacity(capacity), 지금, 예상요금, 예상시간, 경로);
     }
 
     // ───────────────────────── 모집 ─────────────────────────
@@ -89,15 +65,6 @@ class PartyTest {
         Party party = openParty(1);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
-    }
-
-    @Test
-    void 혼자_타는_방은_바로_매칭을_시작할_수_있다() {
-        Party party = openParty(1);
-
-        party.startMatching(지금);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.MATCHING);
     }
 
     @Test
@@ -154,342 +121,35 @@ class PartyTest {
     }
 
 
-    // ───────────────────────── 매칭 시작 ─────────────────────────
+    // ───────────────────────── 동승 완료 ─────────────────────────
 
     @Test
-    void 정원이_찬_방은_매칭을_시작할_수_있다() {
+    void 정원이_찬_방은_방장이_동승_완료할_수_있다() {
         Party party = openParty(2);
         party.join(참여자);
 
-        party.startMatching(지금);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.MATCHING);
-    }
-
-    @Test
-    void 정원이_차지_않은_방은_매칭을_시작할_수_없다() {
-        Party party = openParty(3);
-        party.join(참여자);
-
-        assertThatThrownBy(() -> party.startMatching(지금))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
-    }
-
-    @Test
-    void 이미_매칭중인_방은_다시_시작할_수_없다() {
-        Party party = matchingParty();
-
-        assertThatThrownBy(() -> party.startMatching(지금))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
-    }
-
-    @Test
-    void 매칭을_시작하면_시작_시각이_기록된다() {
-        // 스위퍼의 타임아웃·반경 계산 기준 - 기록이 안 되면 방이 즉시 해산된다
-        Party party = openParty(2);
-        party.join(참여자);
-
-        party.startMatching(지금);
-
-        assertThat(party.getMatchingStartedAt()).isEqualTo(지금);
-    }
-
-    @Test
-    void 매칭중인_방은_나갈_수_없다() {
-        Party party = matchingParty();
-
-        assertThatThrownBy(() -> party.leave(참여자))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_RECRUITING);
-    }
-
-    // ───────────────────────── 기사 배정 ─────────────────────────
-
-    @Test
-    void 매칭중인_방에_기사를_배정하면_DRIVER_ASSIGNED가_된다() {
-        Party party = matchingParty();
-
-        party.assignDriver(기사);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.DRIVER_ASSIGNED);
-        assertThat(party.getTaxiDriverId()).isEqualTo(기사);
-    }
-
-    @Test
-    void 매칭중이_아니면_기사를_배정할_수_없다() {
-        Party party = openParty(2);
-        party.join(참여자);   // COMPLETED
-
-        assertThatThrownBy(() -> party.assignDriver(기사))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_MATCHING);
-    }
-
-    @Test
-    void 이미_기사가_배정된_방에는_다시_배정할_수_없다() {
-        Party party = assignedParty();
-
-        assertThatThrownBy(() -> party.assignDriver(다른기사))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_MATCHING);
-        assertThat(party.getTaxiDriverId()).isEqualTo(기사);   // 먼저 수락한 기사가 유지된다
-    }
-
-    @Test
-    void 기사가_배정된_방은_나갈_수_없다() {
-        Party party = assignedParty();
-
-        assertThatThrownBy(() -> party.leave(참여자))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_RECRUITING);
-    }
-
-    @Test
-    void 기사가_배정된_방은_해산할_수_없다() {
-        Party party = assignedParty();
-
-        assertThatThrownBy(party::failMatching)
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_MATCHING);
-    }
-
-    // ───────────────────────── 픽업 대기 (도착 통보 가능 구간) ─────────────────────────
-
-    @Test
-    void 배정된_기사는_픽업_대기중이다() {
-        Party party = assignedParty();
-
-        assertThat(party.isAwaitingPickup(기사)).isTrue();
-    }
-
-    @Test
-    void 배정되지_않은_기사는_픽업_대기가_아니다() {
-        Party party = assignedParty();
-
-        assertThat(party.isAwaitingPickup(다른기사)).isFalse();
-    }
-
-    @Test
-    void 기사_배정_전에는_픽업_대기가_아니다() {
-        // 배정 전 taxiDriverId가 null - NPE 없이 false여야 한다
-        Party party = matchingParty();
-
-        assertThat(party.isAwaitingPickup(기사)).isFalse();
-    }
-
-    @Test
-    void 운행이_시작된_방은_픽업_대기가_아니다() {
-        // 이미 태우고 달리는 중 - "기사님 도착" 알림이 가면 안 된다
-        Party party = ridingParty();
-
-        assertThat(party.isAwaitingPickup(기사)).isFalse();
-    }
-
-    @Test
-    void 운행이_끝난_방은_픽업_대기가_아니다() {
-        // taxiDriverId는 이력으로 남지만 도착 통보는 무효여야 한다
-        Party party = ridingParty();
-        party.completeRide(기사, 15000);
-
-        assertThat(party.isAwaitingPickup(기사)).isFalse();
-    }
-
-    // ───────────────────────── 운행 ─────────────────────────
-
-    @Test
-    void 배정된_기사가_탑승을_확정하면_IN_RIDE가_된다() {
-        Party party = assignedParty();
-
-        party.startRide(기사);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.IN_RIDE);
-    }
-
-    @Test
-    void 배정되지_않은_기사는_탑승을_확정할_수_없다() {
-        Party party = assignedParty();
-
-        assertThatThrownBy(() -> party.startRide(다른기사))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.NOT_ASSIGNED_DRIVER);
-    }
-
-    @Test
-    void 기사_배정_전에는_탑승을_확정할_수_없다() {
-        // 배정 전 taxiDriverId가 null - NPE가 아니라 도메인 예외가 나야 한다
-        Party party = matchingParty();
-
-        assertThatThrownBy(() -> party.startRide(기사))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.NOT_ASSIGNED_DRIVER);
-    }
-
-    @Test
-    void 운행중인_방은_나갈_수_없다() {
-        Party party = ridingParty();
-
-        assertThatThrownBy(() -> party.leave(참여자))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_RECRUITING);
-    }
-
-    @Test
-    void 배정된_기사가_운행을_종료하면_FINISHED가_된다() {
-        Party party = ridingParty();
-
-        party.completeRide(기사, 15000);
+        party.finishUnconfirmed(생성자);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
     }
 
     @Test
-    void 배정되지_않은_기사는_운행을_종료할_수_없다() {
-        Party party = ridingParty();
-
-        assertThatThrownBy(() -> party.completeRide(다른기사, 15000))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.NOT_ASSIGNED_DRIVER);
-    }
-
-    @Test
-    void 탑승_확정_전에는_운행을_종료할_수_없다() {
-        Party party = assignedParty();
-
-        assertThatThrownBy(() -> party.completeRide(기사, 15000))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.NOT_RIDING);
-    }
-
-    @Test
-    void 종료된_방은_다시_매칭을_시작할_수_없다() {
-        // FINISHED가 COMPLETED로 오인되면 종료된 방이 재매칭되는 좀비 방이 된다
-        Party party = ridingParty();
-        party.completeRide(기사, 15000);
-
-        assertThatThrownBy(() -> party.startMatching(지금))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
-    }
-
-    // ───────────────────────── 매칭 실패 (해산) ─────────────────────────
-
-    @Test
-    void 기사를_못_구하면_방이_해산된다() {
-        Party party = matchingParty();
-
-        party.failMatching();
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.CANCELED);
-        assertThat(party.getMembers()).isNotEmpty();   // 해산 알림 수신자 명단은 남긴다
-    }
-
-    @Test
-    void 해산된_방은_다시_매칭을_시작할_수_없다() {
-        Party party = matchingParty();
-        party.failMatching();
-
-        assertThatThrownBy(() -> party.startMatching(지금))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
-    }
-
-    // ───────────────────────── 정원 충족 시각 ─────────────────────────
-
-    @Test
-    void 정원이_차면_충족_시각이_찍힌다() {
-        Party party = openParty(2);
-        assertThat(party.getCompletedAt()).as("모집 중엔 없다").isNull();
-
-        party.join(참여자);
-
-        assertThat(party.getCompletedAt()).isNotNull();
-    }
-
-    @Test
-    void 혼자_타는_방은_생성_시점이_충족_시각이다() {
-        Party party = openParty(1);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
-        assertThat(party.getCompletedAt()).isNotNull();
-    }
-
-    @Test
-    void 누가_나가서_모집으로_돌아가면_충족_시각이_지워진다() {
+    void 방에_없는_사람은_동승_완료할_수_없다() {
         Party party = openParty(2);
         party.join(참여자);
 
-        party.leave(참여자);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.ACTIVE);
-        assertThat(party.getCompletedAt()).as("다시 차면 새 시각이 찍혀야 하므로 옛 값을 남기면 안 된다").isNull();
-    }
-
-    // ───────────────────────── 기사 없는 종료 (배포 모드) ─────────────────────────
-
-    @Test
-    void 정원이_찬_방은_방장이_합승_완료할_수_있다() {
-        Party party = openParty(2);
-        party.join(참여자);
-
-        party.finishWithoutDriver(생성자);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
-    }
-
-    @Test
-    void 합승_완료해도_정원_충족_시각은_유지된다() {
-        Party party = openParty(2);
-        party.join(참여자);
-        Instant 충족시각 = party.getCompletedAt();
-
-        party.finishWithoutDriver(생성자);
-
-        assertThat(party.getCompletedAt()).as("\"정원이 찬 시각\"이지 \"끝난 시각\"이 아니다 - 덮어쓰면 기록이 사라진다").isEqualTo(충족시각);
-    }
-
-    @Test
-    void 방에_없는_사람은_합승_완료할_수_없다() {
-        Party party = openParty(2);
-        party.join(참여자);
-
-        assertThatThrownBy(() -> party.finishWithoutDriver(다른기사))
+        assertThatThrownBy(() -> party.finishUnconfirmed(외부인))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.NOT_PARTY_MEMBER);
     }
 
     @Test
-    void 모집_중인_방은_합승_완료할_수_없다() {
+    void 모집_중인_방은_동승_완료할_수_없다() {
         Party party = openParty(3);
         party.join(참여자);   // 2/3 - 아직 ACTIVE
 
-        assertThatThrownBy(() -> party.finishWithoutDriver(생성자))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
-    }
-
-    @Test
-    void 기사가_배정된_방은_기사_없는_종료를_할_수_없다() {
-        Party party = assignedParty();   // DRIVER_ASSIGNED - COMPLETED 가 아니라 여기서 먼저 걸린다
-
-        assertThatThrownBy(() -> party.finishWithoutDriver(생성자))
+        assertThatThrownBy(() -> party.finishUnconfirmed(생성자))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
@@ -500,7 +160,7 @@ class PartyTest {
         Party party = openParty(2);
         party.join(참여자);
 
-        party.expireCompleted();
+        party.autoClose(Instant.now());
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
     }
@@ -509,20 +169,20 @@ class PartyTest {
     void 이미_닫힌_방은_다시_닫을_수_없다() {
         Party party = openParty(2);
         party.join(참여자);
-        party.finishWithoutDriver(생성자);
+        party.finishUnconfirmed(생성자);
 
-        assertThatThrownBy(party::expireCompleted)
+        assertThatThrownBy(() -> party.autoClose(Instant.now()))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
+                .isEqualTo(MatchingErrorCode.PARTY_CLOSED);
     }
 
-    // ───────────────────────── 파생 방장 ─────────────────────────
+    // ───────────────────────── 방장 ─────────────────────────
 
     /** 합류 시각을 조작해 복원한 정원 충족 방 - 도메인 경로로는 joinedAt 이 항상 Instant.now() 로 찍힌다 */
     private Party completedPartyWith(PartyMember... members) {
-        return Party.load(1L, 강남역, 판교역, 기본반경, 기본반경, 강남역출발, 판교역도착, new Capacity(members.length),
-                List.of(members), 지금, PartyStatus.COMPLETED, 예상요금, 예상시간, 경로, null, null, 지금, 0L);
+        return Party.load(1L, 강남역, 판교역, 강남역출발, 판교역도착, new Capacity(members.length),
+                List.of(members), 지금, PartyStatus.COMPLETED, 예상요금, 예상시간, 경로, 0L);
     }
 
     @Test
@@ -555,15 +215,16 @@ class PartyTest {
         Party party = openParty(2);
         party.leave(생성자);   // 마지막 멤버가 나가 명단이 빈다
 
-        assertThatThrownBy(party::hostId).isInstanceOf(IllegalStateException.class);
+        assertThat(party.hostId()).isNull();
+        assertThat(party.isHost(생성자)).isFalse();
     }
 
     @Test
-    void 방장이_아닌_멤버는_합승_완료할_수_없다() {
+    void 방장이_아닌_멤버는_동승_완료할_수_없다() {
         Party party = openParty(2);
         party.join(참여자);
 
-        assertThatThrownBy(() -> party.finishWithoutDriver(참여자))
+        assertThatThrownBy(() -> party.finishUnconfirmed(참여자))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.NOT_PARTY_HOST);
@@ -572,11 +233,11 @@ class PartyTest {
     }
 
     @Test
-    void 승계된_방장은_합승_완료할_수_있다() {
+    void 승계된_방장은_동승_완료할_수_있다() {
         // 원래 방장이 빠진 뒤 복원된 방 - 창설자가 아니라 "현재 멤버 중 가장 일찍 합류한 사람"이 권한을 가진다
         Party party = completedPartyWith(PartyMember.load(참여자, 지금), PartyMember.load(생성자, 지금.plusSeconds(60)));
 
-        party.finishWithoutDriver(참여자);
+        party.finishUnconfirmed(참여자);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
     }
@@ -589,7 +250,7 @@ class PartyTest {
     }
 
     @Test
-    void 참여_나가기_합승완료는_version_을_1씩_올린다() {
+    void 참여_나가기_동승완료는_version_을_1씩_올린다() {
         Party party = openParty(3);
 
         party.join(참여자);
@@ -602,7 +263,7 @@ class PartyTest {
         party.join(3L);
         assertThat(party.getVersion()).isEqualTo(4);
 
-        party.finishWithoutDriver(생성자);
+        party.finishUnconfirmed(생성자);
         assertThat(party.getVersion()).isEqualTo(5);
     }
 
@@ -631,31 +292,9 @@ class PartyTest {
         Party party = openParty(2);
         party.join(참여자);
 
-        party.expireCompleted();
+        party.autoClose(Instant.now());
 
         assertThat(party.getVersion()).isEqualTo(2);
-    }
-
-    @Test
-    void 매칭_이후_단계는_version_을_올리지_않는다() {
-        Party party = matchingParty();
-        long before = party.getVersion();
-
-        party.assignDriver(기사);
-        party.startRide(기사);
-        party.completeRide(기사, 12000);
-
-        assertThat(party.getVersion()).isEqualTo(before);
-    }
-
-    @Test
-    void 기사를_못_구해_닫혀도_version_을_올리지_않는다() {
-        Party party = matchingParty();
-        long before = party.getVersion();
-
-        party.failMatching();
-
-        assertThat(party.getVersion()).isEqualTo(before);
     }
 
     @Test
@@ -665,7 +304,7 @@ class PartyTest {
 
         assertThatThrownBy(() -> party.join(3L)).isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> party.leave(3L)).isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> party.finishWithoutDriver(참여자)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> party.finishUnconfirmed(참여자)).isInstanceOf(BusinessException.class);
 
         assertThat(party.getVersion()).isEqualTo(1);
     }

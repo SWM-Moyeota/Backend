@@ -4,32 +4,41 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import team.codingforest.moyeota.common.ControllerUnitTestSupport;
 import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.driver.api.DriverSummary;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
+import team.codingforest.moyeota.matching.party.domain.NearbyReservation;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
+import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
 import team.codingforest.moyeota.matching.party.dto.MatchCandidate;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
+import team.codingforest.moyeota.matching.party.dto.OpenReservationCommand;
 import team.codingforest.moyeota.matching.party.dto.PartyDetailResult;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.party.dto.PartyStatusResponse;
 import team.codingforest.moyeota.matching.party.dto.RealTimeMatchingCommand;
+import team.codingforest.moyeota.user.api.MemberSummary;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -75,6 +84,372 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
     @MockitoBean
     private PartyService partyService;
 
+    // ───────────────────────── 예약 방 ─────────────────────────
+
+    private static final java.time.Instant DEPARTURE_AT = java.time.Instant.parse("2026-11-03T08:00:00Z");
+    private static final Instant CONFIRMED_AT = Instant.parse("2026-11-03T08:30:00Z");
+
+    private static String reservationBody(int capacity, String departureAtField) {
+        return """
+                {
+                  "departureLat": 37.4979,
+                  "departureLng": 127.0276,
+                  "destinationLat": 37.3948,
+                  "destinationLng": 127.1112,
+                  "departure": "강남역",
+                  "destination": "판교역",
+                  "capacity": %d%s
+                }
+                """.formatted(capacity, departureAtField);
+    }
+
+    @DisplayName("POST /api/v1/matching/reservations - 토큰의 사용자로 예약 방을 만들고 출발 시각을 돌려준다")
+    @Test
+    void reserve() throws Exception {
+        OpenReservationCommand command = new OpenReservationCommand(USER_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, DEPARTURE_AT);
+        PartyResult result = new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, "ACTIVE", CREATED_AT, null, null, null, "RESERVED", DEPARTURE_AT);
+        doReturn(result).when(partyService).reserve(eq(command));
+
+        mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(3, ", \"departureAt\": \"2026-11-03T08:00:00Z\"")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(PARTY_ID))
+                .andExpect(jsonPath("$.roomType").value("RESERVED"))
+                .andExpect(jsonPath("$.departureAt").value("2026-11-03T08:00:00Z"))
+                .andExpect(jsonPath("$.estimateFare").value(nullValue()))
+                .andExpect(jsonPath("$.route").value(nullValue()));
+    }
+
+    @DisplayName("POST /api/v1/matching/reservations - 기사 기능은 없앴지만 출시된 앱이 읽는 taxiDriverId 키는 null 로 남는다")
+    @Test
+    void reserve_taxiDriverIdKeyKeptAsNull() throws Exception {
+
+        /*
+         * settings
+         */
+        OpenReservationCommand command = new OpenReservationCommand(USER_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, DEPARTURE_AT);
+        PartyResult result = new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, "ACTIVE", CREATED_AT, null, null, null, "RESERVED", DEPARTURE_AT);
+
+        doReturn(result).when(partyService).reserve(eq(command));
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(3, ", \"departureAt\": \"2026-11-03T08:00:00Z\"")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasKey("taxiDriverId")))
+                .andExpect(jsonPath("$.taxiDriverId").value(nullValue()));
+    }
+
+    @DisplayName("POST /api/v1/matching/reservations - 서버는 반경을 쓰지 않지만 출시된 앱이 읽는 departureRadius·destinationRadius 키는 500 으로 남는다")
+    @Test
+    void reserve_radiusKeysKeptAsFixedValue() throws Exception {
+
+        /*
+         * settings
+         */
+        OpenReservationCommand command = new OpenReservationCommand(USER_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, DEPARTURE_AT);
+        PartyResult result = new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, "ACTIVE", CREATED_AT, null, null, null, "RESERVED", DEPARTURE_AT);
+
+        doReturn(result).when(partyService).reserve(eq(command));
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(3, ", \"departureAt\": \"2026-11-03T08:00:00Z\"")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasKey("departureRadius")))
+                .andExpect(jsonPath("$", hasKey("destinationRadius")))
+                .andExpect(jsonPath("$.departureRadius").value(500))
+                .andExpect(jsonPath("$.destinationRadius").value(500));
+    }
+
+    @DisplayName("POST /api/v1/matching/reservations - 출발 시각이 없으면 400")
+    @Test
+    void reserve_withoutDepartureAt() throws Exception {
+        mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(3, "")))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/reservations - 정원이 1명이면 400")
+    @Test
+    void reserve_soloCapacity() throws Exception {
+        mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(1, ", \"departureAt\": \"2026-11-03T08:00:00Z\"")))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/reservations - 시간이 겹치면 409 PARTY_TIME_CONFLICT")
+    @Test
+    void reserve_timeConflict() throws Exception {
+        doThrow(new BusinessException(MatchingErrorCode.PARTY_TIME_CONFLICT)).when(partyService).reserve(any());
+
+        mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
+                        .content(reservationBody(3, ", \"departureAt\": \"2026-11-03T08:00:00Z\"")))
+                .andExpect(status().isConflict());
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations - 기간 안의 예약 방을 돌려준다")
+    @Test
+    void listReservations() throws Exception {
+        java.time.Instant from = java.time.Instant.parse("2026-11-03T00:00:00Z");
+        java.time.Instant to = java.time.Instant.parse("2026-11-04T00:00:00Z");
+        doReturn(List.of(new ReservationSummary(PARTY_ID, "강남역", "판교역", 2L, 3, PartyStatus.ACTIVE, 37.4979, 127.0276, 37.3948, 127.1112, DEPARTURE_AT)))
+                .when(partyService).findReservations(eq(from), eq(to));
+
+        mockMvc.perform(get("/api/v1/matching/reservations").with(loginUser())
+                        .param("from", "2026-11-03T00:00:00Z").param("to", "2026-11-04T00:00:00Z"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.list", hasSize(1)))
+                .andExpect(jsonPath("$.list[0].partyId").value(PARTY_ID))
+                .andExpect(jsonPath("$.list[0].currentMembers").value(2))
+                .andExpect(jsonPath("$.list[0].destinationLat").value(37.3948))
+                .andExpect(jsonPath("$.list[0].departureAt").value("2026-11-03T08:00:00Z"));
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/soon - 영역 안의 곧 출발 방을 돌려준다")
+    @Test
+    void listSoonReservations() throws Exception {
+        doReturn(List.of(new ReservationSummary(PARTY_ID, "강남역", "판교역", 1L, 3, PartyStatus.ACTIVE, 37.4979, 127.0276, 37.3948, 127.1112, DEPARTURE_AT)))
+                .when(partyService).findSoonReservationsWithin(37.0, 126.0, 38.0, 128.0);
+
+        mockMvc.perform(get("/api/v1/matching/reservations/soon").with(loginUser())
+                        .param("swLat", "37.0").param("swLng", "126.0").param("neLat", "38.0").param("neLng", "128.0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.list[0].partyId").value(PARTY_ID));
+    }
+
+    // ───────────────────────── GET /matching/reservations/search ─────────────────────────
+
+    private static final String SEARCH_URL = "/api/v1/matching/reservations/search";
+    private static final LocalDate SEARCH_DATE = LocalDate.parse("2026-11-06");
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 출발지·도착지·날짜로 검색해 방마다 destinationNearby 를 붙여 돌려준다")
+    @Test
+    void searchReservations() throws Exception {
+
+        /*
+         * settings
+         */
+        ReservationSummary nearDestination = new ReservationSummary(PARTY_ID, "강남역", "판교역", 2L, 3, PartyStatus.ACTIVE,
+                37.4979, 127.0276, 37.3948, 127.1112, DEPARTURE_AT);
+        ReservationSummary farDestination = new ReservationSummary(PARTY_ID + 1, "강남역", "잠실역", 1L, 2, PartyStatus.ACTIVE,
+                37.4985, 127.0280, 37.5133, 127.1001, DEPARTURE_AT.plusSeconds(600));
+
+        doReturn(List.of(new NearbyReservation(nearDestination, true), new NearbyReservation(farDestination, false)))
+                .when(partyService).searchReservations(eq(37.4979), eq(127.0276), eq(37.3948), eq(127.1112), eq(SEARCH_DATE));
+
+        /*
+         * test
+         */
+        mockMvc.perform(get(SEARCH_URL).with(loginUser())
+                        .param("depLat", "37.4979").param("depLng", "127.0276")
+                        .param("destLat", "37.3948").param("destLng", "127.1112")
+                        .param("date", "2026-11-06"))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.list", hasSize(2)))
+                .andExpect(jsonPath("$.list[0].partyId").value(PARTY_ID))
+                .andExpect(jsonPath("$.list[0].departure").value("강남역"))
+                .andExpect(jsonPath("$.list[0].destination").value("판교역"))
+                .andExpect(jsonPath("$.list[0].currentMembers").value(2))
+                .andExpect(jsonPath("$.list[0].capacity").value(3))
+                .andExpect(jsonPath("$.list[0].status").value("ACTIVE"))
+                .andExpect(jsonPath("$.list[0].departureLat").value(37.4979))
+                .andExpect(jsonPath("$.list[0].departureLng").value(127.0276))
+                .andExpect(jsonPath("$.list[0].destinationLat").value(37.3948))
+                .andExpect(jsonPath("$.list[0].destinationLng").value(127.1112))
+                .andExpect(jsonPath("$.list[0].departureAt").value("2026-11-03T08:00:00Z"))
+                .andExpect(jsonPath("$.list[0].destinationNearby").value(true))
+                .andExpect(jsonPath("$.list[1].partyId").value(PARTY_ID + 1))
+                .andExpect(jsonPath("$.list[1].destination").value("잠실역"))
+                .andExpect(jsonPath("$.list[1].departureAt").value("2026-11-03T08:10:00Z"))
+                .andExpect(jsonPath("$.list[1].destinationNearby").value(false));
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 도착지 없이 검색하면 도착지를 null 로 넘기고 destinationNearby 키는 null 로 남는다")
+    @Test
+    void searchReservations_withoutDestination() throws Exception {
+
+        /*
+         * settings
+         */
+        ReservationSummary summary = new ReservationSummary(PARTY_ID, "강남역", "판교역", 1L, 3, PartyStatus.ACTIVE,
+                37.4979, 127.0276, 37.3948, 127.1112, DEPARTURE_AT);
+
+        doReturn(List.of(new NearbyReservation(summary, null)))
+                .when(partyService).searchReservations(eq(37.4979), eq(127.0276), isNull(), isNull(), eq(SEARCH_DATE));
+
+        /*
+         * test
+         */
+        mockMvc.perform(get(SEARCH_URL).with(loginUser())
+                        .param("depLat", "37.4979").param("depLng", "127.0276").param("date", "2026-11-06"))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.list", hasSize(1)))
+                .andExpect(jsonPath("$.list[0].partyId").value(PARTY_ID))
+                .andExpect(jsonPath("$.list[0]", hasKey("destinationNearby")))
+                .andExpect(jsonPath("$.list[0].destinationNearby").value(nullValue()));
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 검색 결과가 없으면 빈 목록")
+    @Test
+    void searchReservations_empty() throws Exception {
+
+        /*
+         * settings
+         */
+        doReturn(List.of()).when(partyService).searchReservations(eq(37.4979), eq(127.0276), isNull(), isNull(), eq(SEARCH_DATE));
+
+        /*
+         * test
+         */
+        mockMvc.perform(get(SEARCH_URL).with(loginUser())
+                        .param("depLat", "37.4979").param("depLng", "127.0276").param("date", "2026-11-06"))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.list", hasSize(0)));
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 토큰이 없으면 401")
+    @Test
+    void searchReservations_noToken() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(get(SEARCH_URL)
+                        .param("depLat", "37.4979").param("depLng", "127.0276").param("date", "2026-11-06"))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(UNAUTHORIZED_CODE));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 필수 파라미터(depLat·depLng·date)가 없으면 400 이고 서비스를 부르지 않는다")
+    @ParameterizedTest(name = "{0} 없음")
+    @ValueSource(strings = {"depLat", "depLng", "date"})
+    void searchReservations_missingRequired(String missing) throws Exception {
+
+        /*
+         * settings
+         */
+        MockHttpServletRequestBuilder request = get(SEARCH_URL).with(loginUser());
+        Map.of("depLat", "37.4979", "depLng", "127.0276", "date", "2026-11-06").forEach((name, value) -> {
+            if (!name.equals(missing)) request.param(name, value);
+        });
+
+        /*
+         * test
+         */
+        mockMvc.perform(request)
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 날짜가 yyyy-MM-dd 가 아니면 400 INVALID_REQUEST 이고 서비스를 부르지 않는다")
+    @ParameterizedTest(name = "date={0}")
+    @ValueSource(strings = {"2026/11/06", "20261106", "2026-11-06T00:00:00Z", "2026-13-01"})
+    void searchReservations_invalidDate(String date) throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(get(SEARCH_URL).with(loginUser())
+                        .param("depLat", "37.4979").param("depLng", "127.0276").param("date", date))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 좌표가 숫자가 아니면 400 INVALID_REQUEST 이고 서비스를 부르지 않는다")
+    @ParameterizedTest(name = "{0}=abc")
+    @ValueSource(strings = {"depLat", "depLng", "destLat", "destLng"})
+    void searchReservations_coordinateNotNumber(String name) throws Exception {
+
+        /*
+         * settings
+         */
+        MockHttpServletRequestBuilder request = get(SEARCH_URL).with(loginUser()).param("date", "2026-11-06");
+        Map.of("depLat", "37.4979", "depLng", "127.0276", "destLat", "37.3948", "destLng", "127.1112").forEach((param, value) ->
+                request.param(param, param.equals(name) ? "abc" : value));
+
+        /*
+         * test
+         */
+        mockMvc.perform(request)
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("GET /api/v1/matching/reservations/search - 서비스의 비즈니스 예외를 상태코드와 오류 코드로 바꾼다")
+    @ParameterizedTest(name = "{0} → {1}")
+    @CsvSource({
+            "INCOMPLETE_DESTINATION, 400",
+            "OUT_OF_SERVICE_AREA, 400",
+            "INVALID_SEARCH_DATE, 400"
+    })
+    void searchReservations_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
+
+        /*
+         * settings
+         */
+        doThrow(new BusinessException(errorCode)).when(partyService).searchReservations(eq(37.4979), eq(127.0276), eq(37.3948), isNull(), eq(SEARCH_DATE));
+
+        /*
+         * test
+         */
+        mockMvc.perform(get(SEARCH_URL).with(loginUser())
+                        .param("depLat", "37.4979").param("depLng", "127.0276").param("destLat", "37.3948").param("date", "2026-11-06"))
+
+        /*
+         * verify
+         */
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.code").value(errorCode.name()));
+    }
+
     // ───────────────────────── POST /matching/rooms ─────────────────────────
 
     @DisplayName("POST /api/v1/matching/rooms - 토큰의 사용자로 방을 만들고 방 정보를 돌려준다")
@@ -84,7 +459,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        doReturn(partyResult(null)).when(partyService).open(eq(OPEN_COMMAND));
+        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
 
         /*
          * test
@@ -115,6 +490,52 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         verify(partyService).open(eq(OPEN_COMMAND));
     }
 
+    @DisplayName("POST /api/v1/matching/rooms - 기사 기능은 없앴지만 출시된 앱이 읽는 taxiDriverId 키는 null 로 남는다")
+    @Test
+    void open_taxiDriverIdKeyKeptAsNull() throws Exception {
+
+        /*
+         * settings
+         */
+        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms").with(loginUser()).contentType(MediaType.APPLICATION_JSON).content(OPEN_BODY))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasKey("taxiDriverId")))
+                .andExpect(jsonPath("$.taxiDriverId").value(nullValue()));
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms - 서버는 반경을 쓰지 않지만 출시된 앱이 읽는 departureRadius·destinationRadius 키는 500 으로 남는다")
+    @Test
+    void open_radiusKeysKeptAsFixedValue() throws Exception {
+
+        /*
+         * settings
+         */
+        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms").with(loginUser()).contentType(MediaType.APPLICATION_JSON).content(OPEN_BODY))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasKey("departureRadius")))
+                .andExpect(jsonPath("$", hasKey("destinationRadius")))
+                .andExpect(jsonPath("$.departureRadius").value(500))
+                .andExpect(jsonPath("$.destinationRadius").value(500));
+    }
+
     @DisplayName("POST /api/v1/matching/rooms - 본문의 creatorId 는 무시하고 토큰의 사용자를 쓴다")
     @Test
     void open_ignoresBodyCreatorId() throws Exception {
@@ -135,7 +556,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 }
                 """;
 
-        doReturn(partyResult(null)).when(partyService).open(eq(OPEN_COMMAND));
+        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
 
         /*
          * test
@@ -170,7 +591,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 }
                 """;
 
-        doReturn(partyResult(null)).when(partyService).open(eq(OPEN_COMMAND));
+        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
 
         /*
          * test
@@ -382,7 +803,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         final String body = OPEN_BODY.replace("\"capacity\": 3", "\"capacity\": " + capacity);
         final OpenPartyCommand command = new OpenPartyCommand(USER_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", capacity);
 
-        doReturn(partyResult(null)).when(partyService).open(eq(command));
+        doReturn(partyResult()).when(partyService).open(eq(command));
 
         /*
          * test
@@ -451,7 +872,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        doReturn(new PartyStatusResponse("MATCHING", 3)).when(partyService).join(eq(PARTY_ID), eq(USER_ID));
+        doReturn(new PartyStatusResponse("COMPLETED", 3)).when(partyService).join(eq(PARTY_ID), eq(USER_ID));
 
         /*
          * test
@@ -462,7 +883,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("MATCHING"))
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.currentMembers").value(3));
         verify(partyService).join(eq(PARTY_ID), eq(USER_ID));
     }
@@ -587,7 +1008,8 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
     @CsvSource({
             "NOT_PARTY_MEMBER, 403",
             "PARTY_NOT_FOUND, 404",
-            "PARTY_NOT_RECRUITING, 409"
+            "PARTY_NOT_RECRUITING, 409",
+            "CANNOT_LEAVE_CONFIRMED_PARTY, 409"
     })
     void leave_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
 
@@ -618,9 +1040,9 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          * settings
          */
         PartyDetailResult detail = new PartyDetailResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 2, 500, 500, "ACTIVE", CREATED_AT,
-                List.of(new PartyDetailResult.MemberInfo(PUBLIC_ID, "방장", "host.png", null, 4, true),
-                        new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", null, 0, false)),
-                12000, 25, "encoded-path", 9L, 7L);
+                List.of(new PartyDetailResult.MemberInfo(PUBLIC_ID, "방장", "host.png", null, 4, true, false),
+                        new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", null, 0, false, false)),
+                12000, 25, "encoded-path", null, 7L, "REALTIME", null, false);
 
         doReturn(detail).when(partyService).getPartyDetail(eq(PARTY_ID));
 
@@ -642,17 +1064,84 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.estimateFare").value(12000))
                 .andExpect(jsonPath("$.estimateTime").value(25))
                 .andExpect(jsonPath("$.route").value("encoded-path"))
-                .andExpect(jsonPath("$.taxiDriverId").value(9))
+                .andExpect(jsonPath("$", hasKey("taxiDriverId")))
+                .andExpect(jsonPath("$.taxiDriverId").value(nullValue()))
                 .andExpect(jsonPath("$.version").value(7))
+                .andExpect(jsonPath("$.roomType").value("REALTIME"))
+                .andExpect(jsonPath("$.departureAt").value(nullValue()))
+                .andExpect(jsonPath("$.confirmed").value(false))
                 .andExpect(jsonPath("$.members", hasSize(2)))
                 .andExpect(jsonPath("$.members[0].publicId").value(PUBLIC_ID.toString()))
                 .andExpect(jsonPath("$.members[0].nickname").value("방장"))
                 .andExpect(jsonPath("$.members[0].imageUrl").value("host.png"))
                 .andExpect(jsonPath("$.members[0].rideCount").value(4))
                 .andExpect(jsonPath("$.members[0].host").value(true))
+                .andExpect(jsonPath("$.members[0].arrived").value(false))
                 .andExpect(jsonPath("$.members[1].publicId").value(MEMBER_PUBLIC_ID.toString()))
                 .andExpect(jsonPath("$.members[1].host").value(false));
         verify(partyService).getPartyDetail(eq(PARTY_ID));
+    }
+
+    @DisplayName("GET /api/v1/matching/rooms/{partyId} - 약속을 확정한 방은 약속 시간과 confirmed=true, 멤버별 도착 여부를 돌려준다")
+    @Test
+    void detail_confirmed() throws Exception {
+
+        /*
+         * settings
+         */
+        PartyDetailResult detail = new PartyDetailResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 2, 500, 500, "COMPLETED", CREATED_AT,
+                List.of(new PartyDetailResult.MemberInfo(PUBLIC_ID, "방장", "host.png", null, 4, true, false),
+                        new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", null, 0, false, true)),
+                12000, 25, "encoded-path", null, 3L, "REALTIME", CONFIRMED_AT, true);
+
+        doReturn(detail).when(partyService).getPartyDetail(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        mockMvc.perform(get("/api/v1/matching/rooms/{partyId}", PARTY_ID).with(loginUser()))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.departureAt").value("2026-11-03T08:30:00Z"))
+                .andExpect(jsonPath("$.confirmed").value(true))
+                .andExpect(jsonPath("$.members[0].badgeId").value(nullValue()))
+                .andExpect(jsonPath("$.members[0].arrived").value(false))
+                .andExpect(jsonPath("$.members[1].arrived").value(true));
+    }
+
+    @DisplayName("GET /api/v1/matching/rooms/{partyId} - 뱃지는 없앴지만 출시된 앱이 읽는 members[].badgeId 키는 null 로 남는다")
+    @Test
+    void detail_badgeIdKeyKeptAsNull() throws Exception {
+
+        /*
+         * settings
+         */
+        // 서비스가 만드는 그대로 MemberInfo.of 로 멤버를 채운다 - 사용자 요약에는 뱃지가 없다
+        PartyDetailResult detail = new PartyDetailResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 2, 500, 500, "ACTIVE", CREATED_AT,
+                List.of(PartyDetailResult.MemberInfo.of(new MemberSummary(PUBLIC_ID, "방장", "host.png"), 4, true, false),
+                        PartyDetailResult.MemberInfo.of(null, 0, false, false)),
+                12000, 25, "encoded-path", null, 7L, "REALTIME", null, false);
+
+        doReturn(detail).when(partyService).getPartyDetail(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        mockMvc.perform(get("/api/v1/matching/rooms/{partyId}", PARTY_ID).with(loginUser()))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.members", hasSize(2)))
+                .andExpect(jsonPath("$.members[0]", hasKey("badgeId")))
+                .andExpect(jsonPath("$.members[0].badgeId").value(nullValue()))
+                .andExpect(jsonPath("$.members[1]", hasKey("badgeId")))
+                .andExpect(jsonPath("$.members[1].badgeId").value(nullValue()));
     }
 
     @DisplayName("GET /api/v1/matching/rooms/{partyId} - 토큰이 없으면 401")
@@ -719,7 +1208,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        doReturn(List.of(partyResult(null))).when(partyService).findActiveParties();
+        doReturn(List.of(partyResult())).when(partyService).findActiveParties();
 
         /*
          * test
@@ -778,75 +1267,6 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(UNAUTHORIZED_CODE));
         verifyNoInteractions(partyService);
-    }
-
-    // ───────────────────────── GET /matching/rooms/{partyId}/driver ─────────────────────────
-
-    @DisplayName("GET /api/v1/matching/rooms/{partyId}/driver - 배정 기사의 차량 요약을 돌려준다")
-    @Test
-    void findDriverSummary() throws Exception {
-
-        /*
-         * settings
-         */
-        doReturn(new DriverSummary(4, "12가3456", "SEDAN")).when(partyService).getAssignDriver(eq(PARTY_ID));
-
-        /*
-         * test
-         */
-        mockMvc.perform(get("/api/v1/matching/rooms/{partyId}/driver", PARTY_ID).with(loginUser()))
-
-        /*
-         * verify
-         */
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.seats").value(4))
-                .andExpect(jsonPath("$.plateNumber").value("12가3456"))
-                .andExpect(jsonPath("$.type").value("SEDAN"));
-        verify(partyService).getAssignDriver(eq(PARTY_ID));
-    }
-
-    @DisplayName("GET /api/v1/matching/rooms/{partyId}/driver - 토큰이 없으면 401")
-    @Test
-    void findDriverSummary_noToken() throws Exception {
-
-        /*
-         * test
-         */
-        mockMvc.perform(get("/api/v1/matching/rooms/{partyId}/driver", PARTY_ID))
-
-        /*
-         * verify
-         */
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value(UNAUTHORIZED_CODE));
-        verifyNoInteractions(partyService);
-    }
-
-    @DisplayName("GET /api/v1/matching/rooms/{partyId}/driver - 서비스의 비즈니스 예외를 상태코드와 오류 코드로 바꾼다")
-    @ParameterizedTest(name = "{0} → {1}")
-    @CsvSource({
-            "PARTY_NOT_FOUND, 404",
-            "ASSIGNED_DRIVER_NOT_FOUND, 404",
-            "DRIVER_NOT_ASSIGNED, 409"
-    })
-    void findDriverSummary_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
-
-        /*
-         * settings
-         */
-        doThrow(new BusinessException(errorCode)).when(partyService).getAssignDriver(eq(PARTY_ID));
-
-        /*
-         * test
-         */
-        mockMvc.perform(get("/api/v1/matching/rooms/{partyId}/driver", PARTY_ID).with(loginUser()))
-
-        /*
-         * verify
-         */
-                .andExpect(status().is(expectedStatus))
-                .andExpect(jsonPath("$.code").value(errorCode.name()));
     }
 
     // ───────────────────────── GET /matching/rooms?swLat... ─────────────────────────
@@ -981,6 +1401,428 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.code").value("INVALID_MAP_BOUNDS"));
     }
 
+    // ───────────────────────── POST /matching/rooms/{partyId}/confirm ─────────────────────────
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 토큰의 사용자와 약속 시간으로 확정하고 본문 없이 204")
+    @Test
+    void confirm() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/confirm", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(confirmBody("\"2026-11-03T08:30:00Z\"")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+        verify(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(CONFIRMED_AT));
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 시간대가 붙은 ISO-8601 도 같은 순간으로 읽는다")
+    @Test
+    void confirm_offsetTime() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/confirm", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(confirmBody("\"2026-11-03T17:30:00+09:00\"")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isNoContent());
+        verify(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(CONFIRMED_AT));
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 토큰이 없으면 401")
+    @Test
+    void confirm_noToken() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/confirm", PARTY_ID)
+                        .contentType(MediaType.APPLICATION_JSON).content(confirmBody("\"2026-11-03T08:30:00Z\"")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(UNAUTHORIZED_CODE));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 약속 시간이 없거나 null 이면 400 이고 서비스를 부르지 않는다")
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "빈 객체 | {}",
+            "null | {\"departureAt\": null}"
+    })
+    void confirm_missingDepartureAt(String name, String body) throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/confirm", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 본문이 없으면 400 이고 서비스를 부르지 않는다")
+    @Test
+    void confirm_noBody() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/confirm", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 약속 시간 형식이 틀리면 400 이고 서비스를 부르지 않는다")
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "날짜 아님 | \"내일 저녁\"",
+            "시간대 없음 | \"2026-11-03 08:30\""
+    })
+    void confirm_invalidDepartureAt(String name, String value) throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/confirm", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(confirmBody(value)))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - partyId 가 숫자가 아니면 400")
+    @Test
+    void confirm_invalidPartyId() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/confirm", "abc").with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(confirmBody("\"2026-11-03T08:30:00Z\"")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 서비스의 비즈니스 예외를 상태코드와 오류 코드로 바꾼다")
+    @ParameterizedTest(name = "{0} → {1}")
+    @CsvSource({
+            "INVALID_MEETING_TIME, 400",
+            "NOT_PARTY_MEMBER, 403",
+            "NOT_PARTY_HOST, 403",
+            "PARTY_NOT_FOUND, 404",
+            "NOT_REALTIME_PARTY, 409",
+            "ALREADY_CONFIRMED, 409",
+            "PARTY_NOT_RECRUITING, 409",
+            "NOT_ENOUGH_MEMBERS, 409"
+    })
+    void confirm_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
+
+        /*
+         * settings
+         */
+        doThrow(new BusinessException(errorCode)).when(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(CONFIRMED_AT));
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/confirm", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(confirmBody("\"2026-11-03T08:30:00Z\"")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.code").value(errorCode.name()));
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/close - 약속 시간 확정으로 바뀌어 옛 모집 종료 경로는 없다")
+    @Test
+    void close_removed() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/close", PARTY_ID).with(loginUser()))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isNotFound());
+        verifyNoInteractions(partyService);
+    }
+
+    private static String confirmBody(String departureAtJson) {
+        return "{\"departureAt\": " + departureAtJson + "}";
+    }
+
+    // ───────────────────────── POST /matching/rooms/{partyId}/arrive ─────────────────────────
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/arrive - 토큰의 사용자와 지금 위치로 도착을 남기고 본문 없이 204")
+    @Test
+    void arrive() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/arrive", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(arriveBody("37.4983", "127.0276")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+        verify(partyService).arrive(eq(PARTY_ID), eq(USER_ID), eq(37.4983), eq(127.0276));
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/arrive - 토큰이 없으면 401")
+    @Test
+    void arrive_noToken() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/arrive", PARTY_ID)
+                        .contentType(MediaType.APPLICATION_JSON).content(arriveBody("37.4983", "127.0276")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(UNAUTHORIZED_CODE));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/arrive - 좌표가 없거나 null 이면 400 이고 서비스를 부르지 않는다")
+    @ParameterizedTest(name = "{0}")
+    @CsvSource(delimiter = '|', value = {
+            "빈 객체 | {}",
+            "위도 누락 | {\"longitude\": 127.0276}",
+            "경도 누락 | {\"latitude\": 37.4983}",
+            "위도 null | {\"latitude\": null, \"longitude\": 127.0276}",
+            "경도 null | {\"latitude\": 37.4983, \"longitude\": null}"
+    })
+    void arrive_missingCoordinate(String name, String body) throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/arrive", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/arrive - 본문이 없으면 400 이고 서비스를 부르지 않는다")
+    @Test
+    void arrive_noBody() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/arrive", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/arrive - 좌표가 숫자가 아니면 400 이고 서비스를 부르지 않는다")
+    @Test
+    void arrive_invalidCoordinate() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/arrive", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(arriveBody("\"강남역\"", "127.0276")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/arrive - partyId 가 숫자가 아니면 400")
+    @Test
+    void arrive_invalidPartyId() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/arrive", "abc").with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(arriveBody("37.4983", "127.0276")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/arrive - 서비스의 비즈니스 예외를 상태코드와 오류 코드로 바꾼다")
+    @ParameterizedTest(name = "{0} → {1}")
+    @CsvSource({
+            "OUT_OF_SERVICE_AREA, 400",
+            "TOO_FAR_FROM_DEPARTURE, 400",
+            "NOT_PARTY_MEMBER, 403",
+            "PARTY_NOT_FOUND, 404",
+            "PARTY_CLOSED, 409",
+            "PARTY_NOT_CONFIRMED, 409",
+            "ARRIVAL_NOT_OPEN, 409"
+    })
+    void arrive_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
+
+        /*
+         * settings
+         */
+        doThrow(new BusinessException(errorCode)).when(partyService).arrive(eq(PARTY_ID), eq(USER_ID), eq(37.4983), eq(127.0276));
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/arrive", PARTY_ID).with(loginUser())
+                        .contentType(MediaType.APPLICATION_JSON).content(arriveBody("37.4983", "127.0276")))
+
+        /*
+         * verify
+         */
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.code").value(errorCode.name()));
+    }
+
+    private static String arriveBody(String latitudeJson, String longitudeJson) {
+        return "{\"latitude\": " + latitudeJson + ", \"longitude\": " + longitudeJson + "}";
+    }
+
+    // ───────────────────────── POST /matching/rooms/{partyId}/depart ─────────────────────────
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/depart - 토큰의 사용자로 출발하고 본문 없이 204")
+    @Test
+    void depart() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/depart", PARTY_ID).with(loginUser()))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+        verify(partyService).depart(eq(PARTY_ID), eq(USER_ID));
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/depart - 토큰이 없으면 401")
+    @Test
+    void depart_noToken() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/depart", PARTY_ID))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(UNAUTHORIZED_CODE));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/depart - partyId 가 숫자가 아니면 400")
+    @Test
+    void depart_invalidPartyId() throws Exception {
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/depart", "abc").with(loginUser()))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
+        verifyNoInteractions(partyService);
+    }
+
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/depart - 서비스의 비즈니스 예외를 상태코드와 오류 코드로 바꾼다")
+    @ParameterizedTest(name = "{0} → {1}")
+    @CsvSource({
+            "NOT_PARTY_MEMBER, 403",
+            "PARTY_NOT_FOUND, 404",
+            "PARTY_CLOSED, 409",
+            "PARTY_NOT_CONFIRMED, 409",
+            "NOT_ENOUGH_MEMBERS, 409",
+            "MEETING_NOT_STARTED, 409",
+            "NOT_ARRIVED, 409"
+    })
+    void depart_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
+
+        /*
+         * settings
+         */
+        doThrow(new BusinessException(errorCode)).when(partyService).depart(eq(PARTY_ID), eq(USER_ID));
+
+        /*
+         * test
+         */
+        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/depart", PARTY_ID).with(loginUser()))
+
+        /*
+         * verify
+         */
+                .andExpect(status().is(expectedStatus))
+                .andExpect(jsonPath("$.code").value(errorCode.name()));
+    }
+
     // ───────────────────────── POST /matching/rooms/{partyId}/finish ─────────────────────────
 
     @DisplayName("POST /api/v1/matching/rooms/{partyId}/finish - 토큰의 사용자로 종료하고 본문 없이 204")
@@ -1024,7 +1866,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
             "NOT_PARTY_HOST, 403",
             "PARTY_NOT_FOUND, 404",
             "PARTY_NOT_COMPLETED, 409",
-            "DRIVER_ALREADY_ASSIGNED, 409"
+            "USE_DEPART_FOR_CONFIRMED_PARTY, 409"
     })
     void finish_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
 
@@ -1217,7 +2059,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.code").value(errorCode.name()));
     }
 
-    private static PartyResult partyResult(Long taxiDriverId) {
-        return new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, 500, 500, "ACTIVE", CREATED_AT, 12000, 25, "encoded-path", taxiDriverId);
+    private static PartyResult partyResult() {
+        return new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, "ACTIVE", CREATED_AT, 12000, 25, "encoded-path", "REALTIME", null);
     }
 }
