@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.matching.faresplit.domain.OpenTransfer;
-import team.codingforest.moyeota.matching.faresplit.domain.RideFare;
+import team.codingforest.moyeota.matching.faresplit.domain.FareShare;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -41,7 +41,7 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
                 and (s.payerId = :memberId
                     or exists (select t.memberId from FareSplitTransferEntity t where t.fareSplit.partyId = s.partyId and t.memberId = :memberId))
             """)
-    List<RideFare> findRideFares(@Param("memberId") Long memberId, @Param("partyIds") Collection<Long> partyIds);
+    List<FareShare> findShares(@Param("memberId") Long memberId, @Param("partyIds") Collection<Long> partyIds);
 
     // 차례 n 은 시작 시각이 nth 번째 기준(TransferRequestSchedule.startedBefore)보다 이르면 지났다. 1번째는 시작할 때 보낸다
     @Query("""

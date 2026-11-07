@@ -9,7 +9,7 @@ package team.codingforest.moyeota.matching.faresplit.domain;
  *  @param amountPerPerson 1인당 보낼 금액
  *  @param senderCount     보내는 사람 수(받는 사람 제외)
  */
-public record RideFare(Long partyId, Long payerId, int totalFare, int amountPerPerson, int senderCount) {
+public record FareShare(Long partyId, Long payerId, int totalFare, int amountPerPerson, int senderCount) {
 
     /** 내 몫 - 받는 사람은 payerShare, 보내는 사람은 1인당 금액 */
     public int amountOf(Long memberId) {

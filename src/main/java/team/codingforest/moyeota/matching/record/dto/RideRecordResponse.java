@@ -1,7 +1,7 @@
 package team.codingforest.moyeota.matching.record.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import team.codingforest.moyeota.matching.faresplit.domain.RideFare;
+import team.codingforest.moyeota.matching.api.dto.RideFare;
 import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.user.api.MemberSummary;
 
@@ -24,14 +24,14 @@ public record RideRecordResponse(@Schema(description = "탑승 기록. 하차 �
                                   @Schema(description = "함께 탄 인원(나 포함). 노쇼는 빠진다") int currentMembers,
                                   @Schema(description = "함께 탄 멤버(나 포함, 합류 순). 노쇼는 빠진다. 본인 판별은 publicId 와 토큰 sub 비교") List<RideRecordMember> members) {
 
-        static RideRecordItem of(RideRecord rideRecord, List<Long> memberIds, Map<Long, MemberSummary> summaries, RideFare fare, Long memberId) {
+        static RideRecordItem of(RideRecord rideRecord, List<Long> memberIds, Map<Long, MemberSummary> summaries, RideFare fare) {
             List<RideRecordMember> members = memberIds.stream()
                     .map(id -> RideRecordMember.of(summaries.get(id)))
                     .toList();
 
             // 출시 앱이 읽는 키라 값이 없어도 null 로 남긴다 - totalFare·farePerPerson 은 함께 채우거나 함께 비운다(둘 다 null 이면 앱이 요금 줄을 숨긴다)
             Integer totalFare = fare == null ? null : fare.totalFare();
-            Integer farePerPerson = fare == null ? null : fare.amountOf(memberId);
+            Integer farePerPerson = fare == null ? null : fare.myAmount();
 
             return new RideRecordItem(rideRecord.getMatchId(), rideRecord.getDeparturePlace(), rideRecord.getDestinationPlace(),
                     null, rideRecord.getDropoffTime(), totalFare, farePerPerson, members.size(), members);
@@ -50,13 +50,12 @@ public record RideRecordResponse(@Schema(description = "탑승 기록. 하차 �
     }
 
     /**
-     *  @param fares    방별 정산 금액. 정산이 없거나 내가 정산에 없는 방은 빠져 있다
-     *  @param memberId 기록을 보는 사람 - fares 에서 내 몫을 고른다
+     *  @param fares 방별 택시비와 기록을 보는 사람의 몫. 정산이 없거나 내가 정산에 없는 방은 빠져 있다
      */
     public static RideRecordResponse of(List<RideRecord> rideRecords, Map<Long, List<Long>> memberIds, Map<Long, MemberSummary> summaries,
-                                         Map<Long, RideFare> fares, Long memberId, Long nextCursor, boolean hasNext) {
+                                         Map<Long, RideFare> fares, Long nextCursor, boolean hasNext) {
         List<RideRecordItem> rides = rideRecords.stream()
-                .map(h -> RideRecordItem.of(h, memberIds.getOrDefault(h.getMatchId(), List.of()), summaries, fares.get(h.getMatchId()), memberId))
+                .map(h -> RideRecordItem.of(h, memberIds.getOrDefault(h.getMatchId(), List.of()), summaries, fares.get(h.getMatchId())))
                 .toList();
 
         return new RideRecordResponse(rides, nextCursor, hasNext);

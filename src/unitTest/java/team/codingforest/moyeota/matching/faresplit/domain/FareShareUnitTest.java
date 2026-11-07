@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  *  탑승 기록에 채울 내 몫 - 정산 애그리거트(FareSplit.amountOf)와 같은 값을 내는지 본다
  */
-class RideFareUnitTest {
+class FareShareUnitTest {
     private static final Long PARTY_ID = 100L;
     private static final Long PAYER_ID = 1L;
     private static final Long SENDER_ID = 2L;
@@ -26,7 +26,7 @@ class RideFareUnitTest {
         /*
          * settings
          */
-        RideFare fare = new RideFare(PARTY_ID, PAYER_ID, 18_700, 6_240, 2);
+        FareShare fare = new FareShare(PARTY_ID, PAYER_ID, 18_700, 6_240, 2);
 
         /*
          * test
@@ -55,7 +55,7 @@ class RideFareUnitTest {
                 .toList();
         FareSplit split = FareSplit.load(PARTY_ID, PAYER_ID, totalFare, perPerson, Bank.KB, null, FareSplitStatus.COMPLETED,
                 Instant.parse("2026-11-03T12:00:00Z"), Instant.parse("2026-11-03T13:00:00Z"), transfers);
-        RideFare fare = new RideFare(PARTY_ID, PAYER_ID, totalFare, perPerson, riders - 1);
+        FareShare fare = new FareShare(PARTY_ID, PAYER_ID, totalFare, perPerson, riders - 1);
 
         /*
          * test

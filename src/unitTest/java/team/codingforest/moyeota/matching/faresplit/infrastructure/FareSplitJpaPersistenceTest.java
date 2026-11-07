@@ -17,7 +17,7 @@ import team.codingforest.moyeota.matching.faresplit.domain.FareSplit;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitTransfer;
 import team.codingforest.moyeota.matching.faresplit.domain.OpenTransfer;
-import team.codingforest.moyeota.matching.faresplit.domain.RideFare;
+import team.codingforest.moyeota.matching.faresplit.domain.FareShare;
 import team.codingforest.moyeota.matching.faresplit.domain.RideRoster;
 import team.codingforest.moyeota.matching.faresplit.domain.TransferStatus;
 
@@ -598,9 +598,9 @@ class FareSplitJpaPersistenceTest {
         assertThat(fareSplits.findOpenByPayer(SECOND_ID)).isEmpty();
     }
 
-    @DisplayName("findRideFares - 받는 사람과 보내는 사람 모두에게 정산 한 건당 한 줄로 택시비·1인당 금액·보내는 사람 수를 주고, 정산에 없는 사람에게는 주지 않는다")
+    @DisplayName("findShares - 받는 사람과 보내는 사람 모두에게 정산 한 건당 한 줄로 택시비·1인당 금액·보내는 사람 수를 주고, 정산에 없는 사람에게는 주지 않는다")
     @Test
-    void findRideFares() {
+    void findShares() {
 
         /*
          * settings
@@ -612,14 +612,14 @@ class FareSplitJpaPersistenceTest {
         /*
          * test
          */
-        List<RideFare> payerView = fareSplits.findRideFares(PAYER_ID, List.of(party.partyId()));
-        List<RideFare> senderView = fareSplits.findRideFares(SECOND_ID, List.of(party.partyId()));
-        List<RideFare> outsiderView = fareSplits.findRideFares(OUTSIDER_ID, List.of(party.partyId()));
+        List<FareShare> payerView = fareSplits.findShares(PAYER_ID, List.of(party.partyId()));
+        List<FareShare> senderView = fareSplits.findShares(SECOND_ID, List.of(party.partyId()));
+        List<FareShare> outsiderView = fareSplits.findShares(OUTSIDER_ID, List.of(party.partyId()));
 
         /*
          * verify
          */
-        RideFare expected = new RideFare(party.partyId(), PAYER_ID, 18_700, 6_240, 2);
+        FareShare expected = new FareShare(party.partyId(), PAYER_ID, 18_700, 6_240, 2);
         assertThat(payerView).containsExactly(expected);
         assertThat(senderView).containsExactly(expected);
         assertThat(outsiderView).isEmpty();
@@ -627,9 +627,9 @@ class FareSplitJpaPersistenceTest {
         assertThat(senderView.getFirst().amountOf(SECOND_ID)).isEqualTo(6_240);
     }
 
-    @DisplayName("findRideFares - 넘긴 방 중 정산이 있는 방만 주고, 닫힌 정산(계좌번호 NULL)도 준다")
+    @DisplayName("findShares - 넘긴 방 중 정산이 있는 방만 주고, 닫힌 정산(계좌번호 NULL)도 준다")
     @Test
-    void findRideFares_onlyRequestedAndAnyStatus() {
+    void findShares_onlyRequestedAndAnyStatus() {
 
         /*
          * settings
@@ -650,25 +650,25 @@ class FareSplitJpaPersistenceTest {
         /*
          * test
          */
-        List<RideFare> found = fareSplits.findRideFares(PAYER_ID, List.of(open.partyId(), completed.partyId(), expired.partyId(), noSplit.partyId()));
+        List<FareShare> found = fareSplits.findShares(PAYER_ID, List.of(open.partyId(), completed.partyId(), expired.partyId(), noSplit.partyId()));
 
         /*
          * verify
          */
         assertThat(found).containsExactlyInAnyOrder(
-                new RideFare(open.partyId(), PAYER_ID, 10_000, 5_000, 1),
-                new RideFare(completed.partyId(), PAYER_ID, 10_001, 5_010, 1),
-                new RideFare(expired.partyId(), FIRST_ID, 12_000, 6_000, 1));
+                new FareShare(open.partyId(), PAYER_ID, 10_000, 5_000, 1),
+                new FareShare(completed.partyId(), PAYER_ID, 10_001, 5_010, 1),
+                new FareShare(expired.partyId(), FIRST_ID, 12_000, 6_000, 1));
     }
 
-    @DisplayName("findRideFares - 넘긴 방이 없으면 빈 목록이다")
+    @DisplayName("findShares - 넘긴 방이 없으면 빈 목록이다")
     @Test
-    void findRideFares_empty() {
+    void findShares_empty() {
 
         /*
          * test
          */
-        List<RideFare> found = fareSplits.findRideFares(PAYER_ID, List.of());
+        List<FareShare> found = fareSplits.findShares(PAYER_ID, List.of());
 
         /*
          * verify
