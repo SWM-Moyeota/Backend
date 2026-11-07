@@ -54,13 +54,17 @@ public class FareSplitTransferEntity extends BaseTimeEntity {
 
     public static FareSplitTransferEntity of(FareSplitEntity fareSplit, FareSplitTransfer transfer) {
         FareSplitTransferEntity entity = new FareSplitTransferEntity(fareSplit, transfer.getMemberId());
-        entity.sentAt = transfer.getSentAt();
-        entity.confirmedAt = transfer.getConfirmedAt();
-        entity.requestCount = (short) transfer.getRequestCount();
-        entity.lastRequestedAt = transfer.getLastRequestedAt();
-        entity.confirmRequestedAt = transfer.getConfirmRequestedAt();
+        entity.update(transfer);
 
         return entity;
+    }
+
+    void update(FareSplitTransfer transfer) {
+        this.sentAt = transfer.getSentAt();
+        this.confirmedAt = transfer.getConfirmedAt();
+        this.requestCount = (short) transfer.getRequestCount();
+        this.lastRequestedAt = transfer.getLastRequestedAt();
+        this.confirmRequestedAt = transfer.getConfirmRequestedAt();
     }
 
     public FareSplitTransfer toDomain() {

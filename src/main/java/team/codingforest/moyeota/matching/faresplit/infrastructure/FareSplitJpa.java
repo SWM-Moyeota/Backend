@@ -3,9 +3,14 @@ package team.codingforest.moyeota.matching.faresplit.infrastructure;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplit;
+import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplits;
+import team.codingforest.moyeota.matching.faresplit.domain.OpenTransfer;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -32,8 +37,34 @@ public class FareSplitJpa implements FareSplits {
                 .map(entity -> entity.toDomain(repository.findMemberIdsInJoinOrder(partyId)));
     }
 
+    // 송금(지연 로딩)은 잠근 뒤에 읽으므로 앞서 커밋된 변경을 본다
+    @Override
+    public Optional<FareSplit> findByPartyIdForUpdate(Long partyId) {
+        return repository.findByPartyIdForUpdate(partyId)
+                .map(entity -> entity.toDomain(repository.findMemberIdsInJoinOrder(partyId)));
+    }
+
     @Override
     public boolean existsByPartyId(Long partyId) {
         return repository.existsById(partyId);
+    }
+
+    @Override
+    public void save(FareSplit split) {
+        FareSplitEntity entity = repository.findById(split.getPartyId())
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.FARE_SPLIT_NOT_FOUND));
+
+        entity.update(split);   // 더티체킹
+    }
+
+    // 송금 행은 cascade 로 정산보다 먼저 지워진다
+    @Override
+    public void delete(Long partyId) {
+        repository.findById(partyId).ifPresent(repository::delete);
+    }
+
+    @Override
+    public List<OpenTransfer> findOpenTransfers(Long memberId) {
+        return repository.findTransfersBySender(memberId, FareSplitStatus.OPEN);
     }
 }

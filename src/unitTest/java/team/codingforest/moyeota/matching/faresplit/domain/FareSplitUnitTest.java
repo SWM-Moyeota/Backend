@@ -24,7 +24,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 /**
- *  정산 시작 규칙(탑승자·payer 자격, 택시비 범위), 1인당 금액(10원 단위 올림)과 payer 몫, 역할·계좌·딥링크 노출 규칙
+ *  정산 시작 규칙(탑승자·payer 자격, 택시비 범위), 1인당 금액(10원 단위 올림)과 payer 몫, 역할·계좌·딥링크 노출 규칙,
+ *  송금 처리(보냄·받음·못 받음)와 완료, 수정·취소 조건
  */
 class FareSplitUnitTest {
     private static final Long PARTY_ID = 100L;
@@ -38,7 +39,10 @@ class FareSplitUnitTest {
     private static final Location DESTINATION = new Location(37.3948, 127.1112);
     private static final Instant MEETING_AT = Instant.parse("2026-11-03T12:00:00Z");
     private static final Instant NOW = MEETING_AT.plus(Duration.ofMinutes(40));
+    private static final Instant SENT_AT = NOW.plus(Duration.ofMinutes(5));
+    private static final Instant LATER = NOW.plus(Duration.ofHours(2));
     private static final AccountNumber ACCOUNT = new AccountNumber("3333012345678");
+    private static final AccountNumber NEW_ACCOUNT = new AccountNumber("110123456789");
 
     // ───────────────────────── open ─────────────────────────
 
@@ -502,10 +506,579 @@ class FareSplitUnitTest {
         assertThat(deeplink).isEmpty();
     }
 
+
+    // ───────────────────────── markSent ─────────────────────────
+
+    @DisplayName("markSent - 아직 안 보낸 보내는 사람이 누르면 SENT 가 되고 보낸 시각을 남긴다")
+    @Test
+    void markSent() {
+
+        /*
+         * settings
+         */
+        FareSplit split = openSplit();
+
+        /*
+         * test
+         */
+        boolean changed = split.markSent(RIDER_ID, LATER);
+
+        /*
+         * verify
+         */
+        assertThat(changed).isTrue();
+        FareSplitTransfer transfer = split.findTransfer(RIDER_ID).orElseThrow();
+        assertThat(transfer.status()).isEqualTo(TransferStatus.SENT);
+        assertThat(transfer.getSentAt()).isEqualTo(LATER);
+        assertThat(split.findTransfer(LATE_RIDER_ID).orElseThrow().status()).as("다른 사람 송금은 그대로").isEqualTo(TransferStatus.NOT_SENT);
+        assertThat(split.getStatus()).isEqualTo(FareSplitStatus.OPEN);
+    }
+
+    @DisplayName("markSent - 이미 SENT·CONFIRMED 면 시각을 바꾸지 않고 false(다시 눌러도 된다). 만료된 정산이어도 마찬가지다")
+    @ParameterizedTest
+    @EnumSource(value = FareSplitStatus.class, names = {"OPEN", "EXPIRED"})
+    void markSent_alreadySent(FareSplitStatus status) {
+
+        /*
+         * settings
+         */
+        FareSplit split = split(status,
+                FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null),
+                FareSplitTransfer.load(LATE_RIDER_ID, null, SENT_AT, 1, NOW, null));
+
+        /*
+         * test
+         */
+        boolean sentAgain = split.markSent(RIDER_ID, LATER);
+        boolean confirmedAgain = split.markSent(LATE_RIDER_ID, LATER);
+
+        /*
+         * verify
+         */
+        assertThat(sentAgain).isFalse();
+        assertThat(confirmedAgain).isFalse();
+        assertThat(split.findTransfer(RIDER_ID).orElseThrow().getSentAt()).isEqualTo(SENT_AT);
+        assertThat(split.findTransfer(LATE_RIDER_ID).orElseThrow().getSentAt()).isNull();
+        assertThat(split.findTransfer(LATE_RIDER_ID).orElseThrow().status()).isEqualTo(TransferStatus.CONFIRMED);
+    }
+
+    @DisplayName("markSent - 받는 사람이 누르면 NOT_FARE_SPLIT_SENDER")
+    @Test
+    void markSent_payer() {
+
+        /*
+         * settings
+         */
+        FareSplit split = openSplit();
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> split.markSent(PAYER_ID, LATER));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.NOT_FARE_SPLIT_SENDER);
+    }
+
+    @DisplayName("markSent - 정산에 없는 사람이면 NOT_FARE_SPLIT_PARTICIPANT")
+    @Test
+    void markSent_notParticipant() {
+
+        /*
+         * settings
+         */
+        FareSplit split = openSplit();
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> split.markSent(OUTSIDER_ID, LATER));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.NOT_FARE_SPLIT_PARTICIPANT);
+    }
+
+    @DisplayName("markSent - 보내기 전에 닫힌(EXPIRED) 정산이면 FARE_SPLIT_CLOSED 이고 바꾸지 않는다")
+    @Test
+    void markSent_closed() {
+
+        /*
+         * settings
+         */
+        FareSplit split = split(FareSplitStatus.EXPIRED, FareSplitTransfer.load(RIDER_ID, null, null, 4, NOW, null));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> split.markSent(RIDER_ID, LATER));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.FARE_SPLIT_CLOSED);
+        assertThat(split.findTransfer(RIDER_ID).orElseThrow().status()).isEqualTo(TransferStatus.NOT_SENT);
+    }
+
+    // ───────────────────────── confirmReceived ─────────────────────────
+
+    @DisplayName("confirmReceived - SENT 송금을 확인하면 CONFIRMED 가 되고, 남은 송금이 있으면 정산은 OPEN 이고 계좌도 남는다")
+    @Test
+    void confirmReceived() {
+
+        /*
+         * settings
+         */
+        FareSplit split = split(FareSplitStatus.OPEN,
+                FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null),
+                FareSplitTransfer.load(LATE_RIDER_ID, null, null, 1, NOW, null));
+
+        /*
+         * test
+         */
+        boolean changed = split.confirmReceived(PAYER_ID, RIDER_ID, LATER);
+
+        /*
+         * verify
+         */
+        assertThat(changed).isTrue();
+        FareSplitTransfer transfer = split.findTransfer(RIDER_ID).orElseThrow();
+        assertThat(transfer.status()).isEqualTo(TransferStatus.CONFIRMED);
+        assertThat(transfer.getSentAt()).isEqualTo(SENT_AT);
+        assertThat(transfer.getConfirmedAt()).isEqualTo(LATER);
+        assertThat(split.getStatus()).isEqualTo(FareSplitStatus.OPEN);
+        assertThat(split.getClosedAt()).isNull();
+        assertThat(split.getAccountNumber()).isEqualTo(ACCOUNT);
+    }
+
+    @DisplayName("confirmReceived - 보냈다고 누르기 전(NOT_SENT)이어도 바로 확인할 수 있다(현금 등). 보낸 시각은 비어 있다")
+    @Test
+    void confirmReceived_fromNotSent() {
+
+        /*
+         * settings
+         */
+        FareSplit split = openSplit();
+
+        /*
+         * test
+         */
+        boolean changed = split.confirmReceived(PAYER_ID, LATE_RIDER_ID, LATER);
+
+        /*
+         * verify
+         */
+        assertThat(changed).isTrue();
+        FareSplitTransfer transfer = split.findTransfer(LATE_RIDER_ID).orElseThrow();
+        assertThat(transfer.status()).isEqualTo(TransferStatus.CONFIRMED);
+        assertThat(transfer.getSentAt()).isNull();
+        assertThat(split.getStatus()).isEqualTo(FareSplitStatus.OPEN);
+    }
+
+    @DisplayName("confirmReceived - 마지막 송금을 확인하면 COMPLETED 로 닫고 닫힌 시각을 남기며 계좌번호를 지운다")
+    @Test
+    void confirmReceived_completes() {
+
+        /*
+         * settings
+         */
+        FareSplit split = split(FareSplitStatus.OPEN,
+                FareSplitTransfer.load(RIDER_ID, SENT_AT, SENT_AT.plusSeconds(60), 1, NOW, null),
+                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, null, 1, NOW, SENT_AT.plus(Duration.ofDays(1))));
+
+        /*
+         * test
+         */
+        boolean changed = split.confirmReceived(PAYER_ID, LATE_RIDER_ID, LATER);
+
+        /*
+         * verify
+         */
+        assertThat(changed).isTrue();
+        assertThat(split.getStatus()).isEqualTo(FareSplitStatus.COMPLETED);
+        assertThat(split.getClosedAt()).isEqualTo(LATER);
+        assertThat(split.getAccountNumber()).isNull();
+        assertThat(split.receivingAccount()).isEmpty();
+        assertThat(split.tossDeeplink()).isEmpty();
+        assertThat(split.getTransfers()).extracting(FareSplitTransfer::status).containsOnly(TransferStatus.CONFIRMED);
+    }
+
+    @DisplayName("confirmReceived - 이미 CONFIRMED 면 바꾸지 않고 false. 이미 COMPLETED 인 정산에서 다시 눌러도 예외 없이 그대로다")
+    @Test
+    void confirmReceived_alreadyConfirmed() {
+
+        /*
+         * settings
+         */
+        Instant closedAt = SENT_AT.plusSeconds(60);
+        FareSplit split = FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, null, FareSplitStatus.COMPLETED, NOW, closedAt,
+                List.of(FareSplitTransfer.load(RIDER_ID, SENT_AT, closedAt, 1, NOW, null),
+                        FareSplitTransfer.load(LATE_RIDER_ID, null, closedAt, 1, NOW, null)));
+
+        /*
+         * test
+         */
+        boolean changed = split.confirmReceived(PAYER_ID, RIDER_ID, LATER);
+
+        /*
+         * verify
+         */
+        assertThat(changed).isFalse();
+        assertThat(split.findTransfer(RIDER_ID).orElseThrow().getConfirmedAt()).isEqualTo(closedAt);
+        assertThat(split.getClosedAt()).isEqualTo(closedAt);
+    }
+
+    @DisplayName("confirmReceived - 보내는 사람이 확인하면 NOT_FARE_SPLIT_PAYER, 정산에 없는 사람이면 NOT_FARE_SPLIT_PARTICIPANT")
+    @Test
+    void confirmReceived_notPayer() {
+
+        /*
+         * settings
+         */
+        FareSplit split = openSplit();
+
+        /*
+         * test
+         */
+        Throwable bySender = catchThrowable(() -> split.confirmReceived(RIDER_ID, LATE_RIDER_ID, LATER));
+        Throwable byOutsider = catchThrowable(() -> split.confirmReceived(OUTSIDER_ID, LATE_RIDER_ID, LATER));
+
+        /*
+         * verify
+         */
+        assertBusinessException(bySender, MatchingErrorCode.NOT_FARE_SPLIT_PAYER);
+        assertBusinessException(byOutsider, MatchingErrorCode.NOT_FARE_SPLIT_PARTICIPANT);
+        assertThat(split.getTransfers()).extracting(FareSplitTransfer::status).containsOnly(TransferStatus.NOT_SENT);
+    }
+
+    @DisplayName("confirmReceived - 이 정산의 보내는 사람이 아닌 사람(받는 사람 자신·방 밖)의 송금이면 FARE_SPLIT_TRANSFER_NOT_FOUND")
+    @ParameterizedTest
+    @ValueSource(longs = {1L, 99L})
+    void confirmReceived_noTransfer(Long senderId) {
+
+        /*
+         * settings
+         */
+        FareSplit split = openSplit();
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> split.confirmReceived(PAYER_ID, senderId, LATER));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.FARE_SPLIT_TRANSFER_NOT_FOUND);
+    }
+
+    @DisplayName("confirmReceived - 확인 전에 닫힌(EXPIRED) 정산이면 FARE_SPLIT_CLOSED")
+    @Test
+    void confirmReceived_closed() {
+
+        /*
+         * settings
+         */
+        FareSplit split = split(FareSplitStatus.EXPIRED, FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> split.confirmReceived(PAYER_ID, RIDER_ID, LATER));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.FARE_SPLIT_CLOSED);
+        assertThat(split.findTransfer(RIDER_ID).orElseThrow().status()).isEqualTo(TransferStatus.SENT);
+    }
+
+    // ───────────────────────── markNotReceived ─────────────────────────
+
+    @DisplayName("markNotReceived - SENT 송금을 NOT_SENT 로 되돌리고 보낸 시각·입금 확인 요청 시각을 지운다. 송금 요청 횟수는 남긴다")
+    @Test
+    void markNotReceived() {
+
+        /*
+         * settings
+         */
+        Instant confirmRequestedAt = SENT_AT.plus(Duration.ofDays(1));
+        FareSplit split = split(FareSplitStatus.OPEN,
+                FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 2, NOW, confirmRequestedAt),
+                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, null, 1, NOW, null));
+
+        /*
+         * test
+         */
+        split.markNotReceived(PAYER_ID, RIDER_ID);
+
+        /*
+         * verify
+         */
+        FareSplitTransfer transfer = split.findTransfer(RIDER_ID).orElseThrow();
+        assertThat(transfer.status()).isEqualTo(TransferStatus.NOT_SENT);
+        assertThat(transfer.getSentAt()).isNull();
+        assertThat(transfer.getConfirmRequestedAt()).isNull();
+        assertThat(transfer.getRequestCount()).isEqualTo(2);
+        assertThat(transfer.getLastRequestedAt()).isEqualTo(NOW);
+        assertThat(split.findTransfer(LATE_RIDER_ID).orElseThrow().status()).isEqualTo(TransferStatus.SENT);
+    }
+
+    @DisplayName("markNotReceived - SENT 가 아닌 송금(아직 안 보냄·이미 확인)이면 TRANSFER_NOT_SENT")
+    @Test
+    void markNotReceived_notSent() {
+
+        /*
+         * settings
+         */
+        FareSplit split = split(FareSplitStatus.OPEN,
+                FareSplitTransfer.load(RIDER_ID, null, null, 1, NOW, null),
+                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, LATER, 1, NOW, null));
+
+        /*
+         * test
+         */
+        Throwable notSent = catchThrowable(() -> split.markNotReceived(PAYER_ID, RIDER_ID));
+        Throwable confirmed = catchThrowable(() -> split.markNotReceived(PAYER_ID, LATE_RIDER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(notSent, MatchingErrorCode.TRANSFER_NOT_SENT);
+        assertBusinessException(confirmed, MatchingErrorCode.TRANSFER_NOT_SENT);
+        assertThat(split.findTransfer(LATE_RIDER_ID).orElseThrow().status()).isEqualTo(TransferStatus.CONFIRMED);
+    }
+
+    @DisplayName("markNotReceived - 보내는 사람이 누르면 NOT_FARE_SPLIT_PAYER")
+    @Test
+    void markNotReceived_notPayer() {
+
+        /*
+         * settings
+         */
+        FareSplit split = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> split.markNotReceived(RIDER_ID, RIDER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.NOT_FARE_SPLIT_PAYER);
+        assertThat(split.findTransfer(RIDER_ID).orElseThrow().status()).isEqualTo(TransferStatus.SENT);
+    }
+
+    @DisplayName("markNotReceived - 닫힌(EXPIRED) 정산이면 SENT 송금이어도 FARE_SPLIT_CLOSED")
+    @Test
+    void markNotReceived_closed() {
+
+        /*
+         * settings
+         */
+        FareSplit split = split(FareSplitStatus.EXPIRED, FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> split.markNotReceived(PAYER_ID, RIDER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.FARE_SPLIT_CLOSED);
+    }
+
+    // ───────────────────────── edit ─────────────────────────
+
+    @DisplayName("edit - 아무도 보내기 전이면 택시비·은행·계좌를 바꾸고 1인당 금액을 탑승자 수(보내는 사람 + 1)로 다시 계산한다")
+    @Test
+    void edit() {
+
+        /*
+         * settings
+         */
+        FareSplit split = openSplit();
+
+        /*
+         * test
+         */
+        split.edit(PAYER_ID, 20_000, Bank.SHINHAN, NEW_ACCOUNT);
+
+        /*
+         * verify
+         */
+        assertThat(split.getTotalFare()).isEqualTo(20_000);
+        assertThat(split.getAmountPerPerson()).as("20000 / 3 = 6666.7 → 6670").isEqualTo(6_670);
+        assertThat(split.payerShare()).isEqualTo(20_000 - 6_670 * 2);
+        assertThat(split.getBank()).isEqualTo(Bank.SHINHAN);
+        assertThat(split.getAccountNumber()).isEqualTo(NEW_ACCOUNT);
+        assertThat(split.tossDeeplink()).contains(TossDeeplink.of(6_670, Bank.SHINHAN, NEW_ACCOUNT));
+        assertThat(split.getStatus()).isEqualTo(FareSplitStatus.OPEN);
+        assertThat(split.getCreatedAt()).isEqualTo(NOW);
+    }
+
+    @DisplayName("edit - 보내는 사람이 한 명이면 둘로 나눈다(노쇼 멤버는 N 에 세지 않는다)")
+    @Test
+    void edit_twoRiders() {
+
+        /*
+         * settings
+         */
+        FareSplit split = FareSplit.open(withNoShow(), PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
+
+        /*
+         * test
+         */
+        split.edit(PAYER_ID, 10_001, Bank.KAKAO, ACCOUNT);
+
+        /*
+         * verify
+         */
+        assertThat(split.getAmountPerPerson()).isEqualTo(5_010);
+        assertThat(split.payerShare()).isEqualTo(4_991);
+    }
+
+    @DisplayName("edit / ensureCancelable - 누군가 보냈다고 눌렀거나 확인된 송금이 있으면 FARE_SPLIT_ALREADY_STARTED 이고 값을 바꾸지 않는다")
+    @ParameterizedTest(name = "sentAt={0}, confirmedAt={1}")
+    @CsvSource(value = {"2026-11-03T12:45:00Z, null", "2026-11-03T12:45:00Z, 2026-11-03T13:00:00Z", "null, 2026-11-03T13:00:00Z"}, nullValues = "null")
+    void edit_alreadyStarted(Instant sentAt, Instant confirmedAt) {
+
+        /*
+         * settings
+         */
+        FareSplit split = split(FareSplitStatus.OPEN,
+                FareSplitTransfer.load(RIDER_ID, null, null, 1, NOW, null),
+                FareSplitTransfer.load(LATE_RIDER_ID, sentAt, confirmedAt, 1, NOW, null));
+
+        /*
+         * test
+         */
+        Throwable edited = catchThrowable(() -> split.edit(PAYER_ID, 20_000, Bank.SHINHAN, NEW_ACCOUNT));
+        Throwable canceled = catchThrowable(() -> split.ensureCancelable(PAYER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(edited, MatchingErrorCode.FARE_SPLIT_ALREADY_STARTED);
+        assertBusinessException(canceled, MatchingErrorCode.FARE_SPLIT_ALREADY_STARTED);
+        assertThat(split.getTotalFare()).isEqualTo(18_700);
+        assertThat(split.getAmountPerPerson()).isEqualTo(6_240);
+        assertThat(split.getBank()).isEqualTo(Bank.KAKAO);
+        assertThat(split.getAccountNumber()).isEqualTo(ACCOUNT);
+    }
+
+    @DisplayName("edit / ensureCancelable - 닫힌 정산(COMPLETED·EXPIRED)이면 FARE_SPLIT_CLOSED")
+    @ParameterizedTest
+    @EnumSource(value = FareSplitStatus.class, names = {"COMPLETED", "EXPIRED"})
+    void edit_closed(FareSplitStatus status) {
+
+        /*
+         * settings
+         */
+        Instant confirmedAt = status == FareSplitStatus.COMPLETED ? LATER : null;
+        FareSplit split = split(status, FareSplitTransfer.load(RIDER_ID, null, confirmedAt, 4, NOW, null));
+
+        /*
+         * test
+         */
+        Throwable edited = catchThrowable(() -> split.edit(PAYER_ID, 20_000, Bank.SHINHAN, NEW_ACCOUNT));
+        Throwable canceled = catchThrowable(() -> split.ensureCancelable(PAYER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(edited, MatchingErrorCode.FARE_SPLIT_CLOSED);
+        assertBusinessException(canceled, MatchingErrorCode.FARE_SPLIT_CLOSED);
+    }
+
+    @DisplayName("edit / ensureCancelable - 보내는 사람이면 NOT_FARE_SPLIT_PAYER, 정산에 없는 사람이면 NOT_FARE_SPLIT_PARTICIPANT")
+    @Test
+    void edit_notPayer() {
+
+        /*
+         * settings
+         */
+        FareSplit split = openSplit();
+
+        /*
+         * test
+         */
+        Throwable editedBySender = catchThrowable(() -> split.edit(RIDER_ID, 20_000, Bank.SHINHAN, NEW_ACCOUNT));
+        Throwable canceledBySender = catchThrowable(() -> split.ensureCancelable(RIDER_ID));
+        Throwable editedByOutsider = catchThrowable(() -> split.edit(OUTSIDER_ID, 20_000, Bank.SHINHAN, NEW_ACCOUNT));
+        Throwable canceledByOutsider = catchThrowable(() -> split.ensureCancelable(OUTSIDER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(editedBySender, MatchingErrorCode.NOT_FARE_SPLIT_PAYER);
+        assertBusinessException(canceledBySender, MatchingErrorCode.NOT_FARE_SPLIT_PAYER);
+        assertBusinessException(editedByOutsider, MatchingErrorCode.NOT_FARE_SPLIT_PARTICIPANT);
+        assertBusinessException(canceledByOutsider, MatchingErrorCode.NOT_FARE_SPLIT_PARTICIPANT);
+        assertThat(split.getTotalFare()).isEqualTo(18_700);
+    }
+
+    @DisplayName("edit - 택시비가 1,000~500,000원 밖이면 INVALID_FARE 이고 값을 바꾸지 않는다")
+    @ParameterizedTest
+    @ValueSource(ints = {0, 999, 500_001})
+    void edit_invalidFare(int totalFare) {
+
+        /*
+         * settings
+         */
+        FareSplit split = openSplit();
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> split.edit(PAYER_ID, totalFare, Bank.SHINHAN, NEW_ACCOUNT));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.INVALID_FARE);
+        assertThat(split.getTotalFare()).isEqualTo(18_700);
+        assertThat(split.getBank()).isEqualTo(Bank.KAKAO);
+        assertThat(split.getAccountNumber()).isEqualTo(ACCOUNT);
+    }
+
+    @DisplayName("ensureCancelable - 받는 사람이고 아무도 보내기 전인 OPEN 정산이면 통과한다")
+    @Test
+    void ensureCancelable() {
+
+        /*
+         * settings
+         */
+        FareSplit split = openSplit();
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> split.ensureCancelable(PAYER_ID));
+
+        /*
+         * verify
+         */
+        assertThat(thrown).isNull();
+    }
+
     // ───────────────────────── fixtures ─────────────────────────
 
     private static FareSplit openSplit() {
         return FareSplit.open(threeRiders(), PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
+    }
+
+    /** 택시비 18,700원, 1인당 6,240원인 정산. 닫힌 정산은 계좌가 지워져 있다 */
+    private static FareSplit split(FareSplitStatus status, FareSplitTransfer... transfers) {
+        boolean open = status == FareSplitStatus.OPEN;
+
+        return FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, open ? ACCOUNT : null, status, NOW,
+                open ? null : LATER, List.of(transfers));
     }
 
     /** 셋 다 도착해 탄 방. 합류 순 payer → rider → late rider */

@@ -17,7 +17,9 @@ import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitTransfer;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplits;
 import team.codingforest.moyeota.matching.faresplit.domain.TossDeeplink;
+import team.codingforest.moyeota.matching.faresplit.domain.TransferStatus;
 import team.codingforest.moyeota.matching.faresplit.dto.FareSplitDetailResponse;
+import team.codingforest.moyeota.matching.faresplit.dto.MyFareSplitListResponse;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
@@ -31,6 +33,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -46,7 +49,8 @@ import static org.awaitility.Awaitility.await;
 
 /**
  *  V35 의 fare_split·fare_split_transfer 제약, 계좌번호 저장 암호화, 송금 합류 순 정렬,
- *  정산 시작이 방 행 잠금으로 줄 서서 방마다 하나만 만들어지는지를 실제 Postgres 에서 본다
+ *  정산 시작이 방 행 잠금으로 줄 서서 방마다 하나만 만들어지는지, 송금 처리·수정·취소가 정산 행 잠금으로 줄 서는지,
+ *  닫히면 계좌번호 컬럼이 NULL 이 되는지, 내가 보낼 정산 목록 쿼리를 실제 Postgres 에서 본다
  */
 @SpringBootTest(properties = "spring.profiles.active=dev")
 class FareSplitPostgresTest {
@@ -67,6 +71,7 @@ class FareSplitPostgresTest {
     private final Long 둘째 = 방장 + 1;
     private final Long 셋째 = 방장 + 2;
     private final List<Long> rooms = new ArrayList<>();
+    private final List<Long> users = new ArrayList<>();
     private final ExecutorService pool = Executors.newFixedThreadPool(4);
 
     @AfterEach
@@ -78,6 +83,7 @@ class FareSplitPostgresTest {
             jdbc.update("DELETE FROM user_match_room WHERE match_id = ?", id);
             jdbc.update("DELETE FROM match_room WHERE id = ?", id);
         });
+        users.forEach(id -> jdbc.update("DELETE FROM users WHERE id = ?", id));
     }
 
     // ───────────────────────── V35 제약 ─────────────────────────
@@ -229,6 +235,230 @@ class FareSplitPostgresTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM fare_split_transfer WHERE match_id = ?", Integer.class, room)).isEqualTo(2);
     }
 
+
+    // ───────────────────────── 송금 처리·완료 ─────────────────────────
+
+    @Test
+    void 보냈어요와_못_받았어요를_오가다_모두_확인되면_COMPLETED_로_닫히고_계좌번호_컬럼이_NULL_이_된다() {
+        Long 받는사람 = newUser();
+        Long 보낸사람 = newUser();
+        Long 현금낸사람 = newUser();
+        Long room = finishedRoom(받는사람, 보낸사람, 현금낸사람);
+        service.create(room, 받는사람, 18_700, Bank.KAKAO, RAW_ACCOUNT);
+
+        service.markSent(room, 보낸사람);
+        service.markSent(room, 보낸사람);
+        assertThat(transferStatus(room, 보낸사람)).isEqualTo(TransferStatus.SENT);
+
+        service.markNotReceived(room, 받는사람, publicIdOf(보낸사람));
+        assertThat(jdbc.queryForObject("SELECT sent_at FROM fare_split_transfer WHERE match_id = ? AND user_id = ?", java.sql.Timestamp.class, room, 보낸사람))
+                .isNull();
+        assertThatThrownBy(() -> service.markNotReceived(room, 받는사람, publicIdOf(보낸사람)))
+                .extracting(e -> ((BusinessException) e).getErrorCode()).isEqualTo(MatchingErrorCode.TRANSFER_NOT_SENT);
+
+        service.markSent(room, 보낸사람);
+        service.confirmReceived(room, 받는사람, publicIdOf(보낸사람));
+        assertThat(jdbc.queryForObject("SELECT status FROM fare_split WHERE match_id = ?", String.class, room)).isEqualTo("OPEN");
+        assertThat(jdbc.queryForObject("SELECT account_number FROM fare_split WHERE match_id = ?", String.class, room)).isNotNull();
+
+        service.confirmReceived(room, 받는사람, publicIdOf(현금낸사람));
+        service.confirmReceived(room, 받는사람, publicIdOf(현금낸사람));
+
+        assertThat(jdbc.queryForObject("SELECT status FROM fare_split WHERE match_id = ?", String.class, room)).isEqualTo("COMPLETED");
+        assertThat(jdbc.queryForObject("SELECT closed_at FROM fare_split WHERE match_id = ?", java.sql.Timestamp.class, room)).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT account_number FROM fare_split WHERE match_id = ?", String.class, room)).isNull();
+        assertThat(jdbc.queryForObject("SELECT sent_at FROM fare_split_transfer WHERE match_id = ? AND user_id = ?", java.sql.Timestamp.class, room, 현금낸사람))
+                .as("현금 등으로 바로 확인").isNull();
+
+        FareSplitDetailResponse detail = service.getDetail(room, 보낸사람);
+        assertThat(detail.status()).isEqualTo(FareSplitStatus.COMPLETED);
+        assertThat(detail.accountNumber()).isNull();
+        assertThat(detail.tossDeeplink()).isNull();
+        assertThat(detail.transfers()).extracting(FareSplitDetailResponse.FareSplitTransferItem::status).containsOnly(TransferStatus.CONFIRMED);
+    }
+
+    // ───────────────────────── 수정·취소 ─────────────────────────
+
+    @Test
+    void 아무도_보내기_전이면_수정이_1인당_금액을_다시_계산하고_새_계좌를_암호문으로_저장한다() {
+        Long room = finishedRoom(방장, 둘째, 셋째);
+        service.create(room, 방장, 18_700, Bank.KAKAO, RAW_ACCOUNT);
+        String before = jdbc.queryForObject("SELECT account_number FROM fare_split WHERE match_id = ?", String.class, room);
+
+        FareSplitDetailResponse edited = service.edit(room, 방장, 20_000, Bank.SHINHAN, "110-123-456789");
+
+        assertThat(edited.amountPerPerson()).isEqualTo(6_670);
+        assertThat(edited.myAmount()).isEqualTo(6_660);
+        assertThat(jdbc.queryForMap("SELECT total_fare, amount_per_person, bank_code FROM fare_split WHERE match_id = ?", room))
+                .containsEntry("total_fare", 20_000).containsEntry("amount_per_person", 6_670).containsEntry("bank_code", "SHINHAN");
+        String after = jdbc.queryForObject("SELECT account_number FROM fare_split WHERE match_id = ?", String.class, room);
+        assertThat(after).startsWith("v1:").isNotEqualTo(before).doesNotContain("110123456789");
+        assertThat(service.getDetail(room, 둘째).accountNumber()).isEqualTo("110123456789");
+    }
+
+    @Test
+    void 취소하면_정산과_송금_행이_모두_지워지고_같은_방에서_다시_시작할_수_있다() {
+        Long room = finishedRoom(방장, 둘째, 셋째);
+        service.create(room, 방장, 18_700, Bank.KAKAO, RAW_ACCOUNT);
+
+        service.cancel(room, 방장);
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fare_split WHERE match_id = ?", Integer.class, room)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fare_split_transfer WHERE match_id = ?", Integer.class, room)).isZero();
+        assertThatThrownBy(() -> service.getDetail(room, 방장))
+                .extracting(e -> ((BusinessException) e).getErrorCode()).isEqualTo(MatchingErrorCode.FARE_SPLIT_NOT_FOUND);
+
+        assertThat(service.create(room, 둘째, 12_000, Bank.TOSS, RAW_ACCOUNT).myRole()).isEqualTo(FareSplitRole.PAYER);
+    }
+
+    @Test
+    void 누군가_보냈다고_누른_뒤에는_수정도_취소도_FARE_SPLIT_ALREADY_STARTED_이고_그대로_남는다() {
+        Long room = finishedRoom(방장, 둘째, 셋째);
+        service.create(room, 방장, 18_700, Bank.KAKAO, RAW_ACCOUNT);
+        service.markSent(room, 셋째);
+
+        assertThatThrownBy(() -> service.edit(room, 방장, 20_000, Bank.SHINHAN, "110-123-456789"))
+                .extracting(e -> ((BusinessException) e).getErrorCode()).isEqualTo(MatchingErrorCode.FARE_SPLIT_ALREADY_STARTED);
+        assertThatThrownBy(() -> service.cancel(room, 방장))
+                .extracting(e -> ((BusinessException) e).getErrorCode()).isEqualTo(MatchingErrorCode.FARE_SPLIT_ALREADY_STARTED);
+
+        assertThat(jdbc.queryForObject("SELECT total_fare FROM fare_split WHERE match_id = ?", Integer.class, room)).isEqualTo(18_700);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM fare_split_transfer WHERE match_id = ?", Integer.class, room)).isEqualTo(2);
+    }
+
+    // ───────────────────────── 내가 보낼 정산 ─────────────────────────
+
+    @Test
+    void 내가_보낼_정산은_내가_보내는_사람이고_아직_안_보낸_OPEN_정산만_최신순으로_준다() {
+        Long 나 = newUser();
+        Long 받는사람 = newUser();
+        Long 보낼방 = finishedRoom(받는사람, 나);
+        Long 보낸방 = finishedRoom(받는사람, 나);
+        Long 끝난방 = finishedRoom(받는사람, 나);
+        Long 내가받는방 = finishedRoom(나, 받는사람);
+        Long 최근방 = finishedRoom(받는사람, 나);
+        service.create(보낼방, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
+        service.create(보낸방, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
+        service.create(끝난방, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
+        service.create(내가받는방, 나, 10_000, Bank.KB, RAW_ACCOUNT);
+        service.create(최근방, 받는사람, 12_000, Bank.KB, RAW_ACCOUNT);
+        jdbc.update("UPDATE fare_split SET created_at = created_at - interval '1 hour' WHERE match_id = ?", 보낼방);
+        service.markSent(보낸방, 나);
+        service.confirmReceived(끝난방, 받는사람, publicIdOf(나));
+
+        MyFareSplitListResponse response = service.findMine(나, TransferStatus.NOT_SENT);
+
+        assertThat(response.fareSplits()).extracting(MyFareSplitListResponse.MyFareSplitItem::partyId).containsExactly(최근방, 보낼방);
+        MyFareSplitListResponse.MyFareSplitItem first = response.fareSplits().get(0);
+        assertThat(first.departure()).isEqualTo("광주송정역");
+        assertThat(first.destination()).isEqualTo("전남대");
+        assertThat(first.payer().publicId()).isEqualTo(publicIdOf(받는사람));
+        assertThat(first.myAmount()).isEqualTo(6_000);
+        assertThat(service.findMine(나, TransferStatus.SENT).fareSplits())
+                .extracting(MyFareSplitListResponse.MyFareSplitItem::partyId).containsExactly(보낸방);
+    }
+
+    // ───────────────────────── 정산 행 잠금 ─────────────────────────
+
+    @Test
+    void 송금_처리는_정산_행_잠금을_기다렸다가_돈다() throws Exception {
+        Long room = finishedRoom(방장, 둘째);
+        service.create(room, 방장, 10_000, Bank.KB, RAW_ACCOUNT);
+        CountDownLatch locked = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+
+        Future<?> holder = pool.submit(() -> tx.executeWithoutResult(status -> {
+            fareSplits.findByPartyIdForUpdate(room).orElseThrow();
+            locked.countDown();
+            awaitQuietly(release);
+        }));
+        assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
+
+        Future<?> sender = pool.submit(() -> service.markSent(room, 둘째));
+        await().atMost(Duration.ofSeconds(5))
+                .until(() -> jdbc.queryForObject("""
+                        select count(*) from pg_stat_activity
+                        where datname = current_database() and wait_event_type = 'Lock' and query like '%fare_split%for no key update%'
+                        """, Integer.class) > 0);
+        assertThat(sender.isDone()).as("정산 잠금이 풀리기 전에는 바꾸지 못한다").isFalse();
+
+        release.countDown();
+        holder.get(10, TimeUnit.SECONDS);
+        sender.get(10, TimeUnit.SECONDS);
+        assertThat(transferStatus(room, 둘째)).isEqualTo(TransferStatus.SENT);
+    }
+
+    @Test
+    void 마지막_두_송금을_동시에_확인해도_정산은_COMPLETED_로_닫히고_계좌번호가_지워진다() throws Exception {
+        Long 받는사람 = newUser();
+        Long 첫째 = newUser();
+        Long 둘 = newUser();
+
+        // 잠금이 없으면 두 확인이 서로의 확인을 못 보고 OPEN 으로 남는다 - 여러 방에서 되풀이해 경합을 만든다
+        for(int i = 0; i < 3; i++) {
+            Long room = finishedRoom(받는사람, 첫째, 둘);
+            service.create(room, 받는사람, 18_700, Bank.KAKAO, RAW_ACCOUNT);
+            CountDownLatch start = new CountDownLatch(1);
+            List<Future<?>> futures = new ArrayList<>();
+
+            for(Long sender : List.of(첫째, 둘)) {
+                UUID publicId = publicIdOf(sender);
+                futures.add(pool.submit(() -> {
+                    start.await();
+                    service.confirmReceived(room, 받는사람, publicId);
+                    return null;
+                }));
+            }
+            start.countDown();
+            for(Future<?> future : futures) future.get(20, TimeUnit.SECONDS);
+
+            assertThat(jdbc.queryForObject("SELECT status FROM fare_split WHERE match_id = ?", String.class, room)).isEqualTo("COMPLETED");
+            assertThat(jdbc.queryForObject("SELECT closed_at FROM fare_split WHERE match_id = ?", java.sql.Timestamp.class, room)).isNotNull();
+            assertThat(jdbc.queryForObject("SELECT account_number FROM fare_split WHERE match_id = ?", String.class, room)).isNull();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM fare_split_transfer WHERE match_id = ? AND confirmed_at IS NOT NULL", Integer.class, room))
+                    .isEqualTo(2);
+        }
+    }
+
+    @Test
+    void 보냈어요와_취소가_동시에_와도_둘_중_하나만_이기고_어긋난_상태가_남지_않는다() throws Exception {
+        for(int i = 0; i < 3; i++) {
+            Long room = finishedRoom(방장, 둘째);
+            service.create(room, 방장, 10_000, Bank.KB, RAW_ACCOUNT);
+            CountDownLatch start = new CountDownLatch(1);
+
+            Future<?> sent = pool.submit(() -> {
+                start.await();
+                service.markSent(room, 둘째);
+                return null;
+            });
+            Future<?> cancel = pool.submit(() -> {
+                start.await();
+                service.cancel(room, 방장);
+                return null;
+            });
+            start.countDown();
+
+            MatchingErrorCode sentError = errorOf(sent);
+            MatchingErrorCode cancelError = errorOf(cancel);
+            int splits = jdbc.queryForObject("SELECT count(*) FROM fare_split WHERE match_id = ?", Integer.class, room);
+
+            if(cancelError == null) {
+                // 취소가 먼저 잠갔다 - 정산이 지워져 보냈어요는 찾지 못한다
+                assertThat(sentError).isEqualTo(MatchingErrorCode.FARE_SPLIT_NOT_FOUND);
+                assertThat(splits).isZero();
+                assertThat(jdbc.queryForObject("SELECT count(*) FROM fare_split_transfer WHERE match_id = ?", Integer.class, room)).isZero();
+            }
+            else {
+                // 보냈어요가 먼저 잠갔다 - 송금이 시작돼 취소할 수 없다
+                assertThat(cancelError).isEqualTo(MatchingErrorCode.FARE_SPLIT_ALREADY_STARTED);
+                assertThat(sentError).isNull();
+                assertThat(splits).isEqualTo(1);
+                assertThat(transferStatus(room, 둘째)).isEqualTo(TransferStatus.SENT);
+            }
+        }
+    }
+
     // ───────────────────────── fixtures ─────────────────────────
 
     /** 넘긴 순서대로 합류하고 모두 도착해 출발한(FINISHED) 방. 합류 시각(created_at)도 그 순서로 박는다 */
@@ -250,6 +480,34 @@ class FareSplitPostgresTest {
         }
 
         return id;
+    }
+
+    /** publicId 로 보내는 사람을 찾는 처리(받았어요·못 받았어요)에 쓰는 실제 users 행 */
+    private Long newUser() {
+        Long id = jdbc.queryForObject("INSERT INTO users (public_id, login_type, created_at) VALUES (?, 'LOCAL', now()) RETURNING id",
+                Long.class, UUID.randomUUID());
+        users.add(id);
+
+        return id;
+    }
+
+    private UUID publicIdOf(Long userId) {
+        return jdbc.queryForObject("SELECT public_id FROM users WHERE id = ?", UUID.class, userId);
+    }
+
+    private TransferStatus transferStatus(Long room, Long userId) {
+        return tx.execute(status -> fareSplits.findByPartyId(room).orElseThrow().findTransfer(userId).orElseThrow().status());
+    }
+
+    /** 성공했으면 null, BusinessException 이면 그 코드 */
+    private static MatchingErrorCode errorOf(Future<?> future) throws Exception {
+        try {
+            future.get(20, TimeUnit.SECONDS);
+            return null;
+        } catch (ExecutionException e) {
+            assertThat(e.getCause()).isInstanceOf(BusinessException.class);
+            return (MatchingErrorCode) ((BusinessException) e.getCause()).getErrorCode();
+        }
     }
 
     private void insertSplit(Long room, String status) {

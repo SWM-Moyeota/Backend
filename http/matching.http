@@ -128,3 +128,28 @@ Content-Type: application/json
 
 ### 16. 택시비 정산 상세 - 받는 사람·보내는 사람만. 보내는 사람에게는 tossDeeplink, 받는 사람에게는 maskedRealName
 GET {{host}}/api/v1/matching/rooms/1/fare-split
+
+### 17. 택시비 정산 수정 - 받는 사람이, 아무도 보내기 전에만. 1인당 금액을 다시 계산해 정산 상세를 준다
+PATCH {{host}}/api/v1/matching/rooms/1/fare-split
+Content-Type: application/json
+
+{
+  "totalFare": 20000,
+  "bankCode": "SHINHAN",
+  "accountNumber": "110-123-456789"
+}
+
+### 18. 택시비 정산 취소 - 받는 사람이, 아무도 보내기 전에만. 정산·송금 행을 지운다(204)
+POST {{host}}/api/v1/matching/rooms/1/fare-split/cancel
+
+### 19. 보냈어요 - 보내는 사람이 토스·은행 앱으로 보낸 뒤(204, 다시 눌러도 204)
+POST {{host}}/api/v1/matching/rooms/1/fare-split/sent
+
+### 20. 받았어요 - 받는 사람이 보내는 사람(publicId)의 송금을 확인. 모두 확인되면 정산이 COMPLETED 로 닫힌다(204)
+POST {{host}}/api/v1/matching/rooms/1/fare-split/transfers/00000000-0000-0000-0000-000000000002/received
+
+### 21. 못 받았어요 - 받는 사람이 SENT 송금을 NOT_SENT 로 되돌린다(204)
+POST {{host}}/api/v1/matching/rooms/1/fare-split/transfers/00000000-0000-0000-0000-000000000002/not-received
+
+### 22. 내가 보낼 정산(홈 배너) - 내가 보내는 사람이고 아직 안 보낸 OPEN 정산, 최신순
+GET {{host}}/api/v1/users/me/fare-splits?status=NOT_SENT

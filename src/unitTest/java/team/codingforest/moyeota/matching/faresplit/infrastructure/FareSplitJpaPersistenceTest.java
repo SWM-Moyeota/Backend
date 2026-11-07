@@ -13,6 +13,7 @@ import team.codingforest.moyeota.matching.faresplit.domain.Bank;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplit;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitTransfer;
+import team.codingforest.moyeota.matching.faresplit.domain.OpenTransfer;
 import team.codingforest.moyeota.matching.faresplit.domain.TransferStatus;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
@@ -31,7 +32,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 /**
- *  H2 에서 엔티티 매핑(암호화 컨버터, 복합키 송금 행)과 합류 순 정렬을 본다. 마이그레이션·제약은 FareSplitPostgresTest 가 본다
+ *  H2 에서 엔티티 매핑(암호화 컨버터, 복합키 송금 행)과 합류 순 정렬, 변경 저장·삭제, 내가 보낼 정산 목록 쿼리를 본다.
+ *  마이그레이션·제약·행 잠금은 FareSplitPostgresTest 가 본다
  */
 @DataJpaTest
 @Import({FareSplitJpa.class, PartyJpa.class, JpaAuditingConfig.class})
@@ -40,6 +42,7 @@ class FareSplitJpaPersistenceTest {
     private static final Long FIRST_ID = 12L;
     private static final Long SECOND_ID = 13L;
     private static final AccountNumber ACCOUNT = new AccountNumber("3333012345678");
+    private static final AccountNumber NEW_ACCOUNT = new AccountNumber("110123456789");
 
     private final FareSplitJpa fareSplits;
     private final PartyJpa parties;
@@ -202,6 +205,218 @@ class FareSplitJpaPersistenceTest {
         assertThat(exists).isTrue();
     }
 
+
+    // ───────────────────────── findByPartyIdForUpdate ─────────────────────────
+
+    @DisplayName("findByPartyIdForUpdate - 잠가 읽어도 송금을 방 합류 순으로 담고, 정산이 없으면 empty")
+    @Test
+    void findByPartyIdForUpdate() {
+
+        /*
+         * settings
+         */
+        Party party = finishedParty(SECOND_ID, PAYER_ID, FIRST_ID);
+        fareSplits.create(FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        clearContext();
+
+        /*
+         * test
+         */
+        FareSplit found = fareSplits.findByPartyIdForUpdate(party.getId()).orElseThrow();
+
+        /*
+         * verify
+         */
+        assertThat(found.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(SECOND_ID, FIRST_ID);
+        assertThat(found.getAccountNumber()).isEqualTo(ACCOUNT);
+        assertThat(fareSplits.findByPartyIdForUpdate(party.getId() + 1_000)).isEmpty();
+    }
+
+    // ───────────────────────── save ─────────────────────────
+
+    @DisplayName("save - 송금 시각을 옮기고, 모두 확인돼 닫히면 상태·닫힌 시각과 계좌번호 삭제(NULL)를 옮긴다")
+    @Test
+    void save_transfersAndCompletion() {
+
+        /*
+         * settings
+         */
+        Party party = finishedParty(PAYER_ID, FIRST_ID, SECOND_ID);
+        fareSplits.create(FareSplit.open(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, Instant.now()));
+        clearContext();
+        Instant sentAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Instant confirmedAt = sentAt.plusSeconds(60);
+
+        /*
+         * test
+         */
+        FareSplit split = fareSplits.findByPartyIdForUpdate(party.getId()).orElseThrow();
+        split.markSent(FIRST_ID, sentAt);
+        split.confirmReceived(PAYER_ID, FIRST_ID, confirmedAt);
+        split.confirmReceived(PAYER_ID, SECOND_ID, confirmedAt);
+        fareSplits.save(split);
+        clearContext();
+
+        /*
+         * verify
+         */
+        FareSplit found = fareSplits.findByPartyId(party.getId()).orElseThrow();
+        assertThat(found.getStatus()).isEqualTo(FareSplitStatus.COMPLETED);
+        assertThat(found.getClosedAt()).isEqualTo(confirmedAt);
+        assertThat(found.getAccountNumber()).isNull();
+        FareSplitTransfer first = found.findTransfer(FIRST_ID).orElseThrow();
+        assertThat(first.getSentAt()).isEqualTo(sentAt);
+        assertThat(first.getConfirmedAt()).isEqualTo(confirmedAt);
+        FareSplitTransfer second = found.findTransfer(SECOND_ID).orElseThrow();
+        assertThat(second.getSentAt()).isNull();
+        assertThat(second.getConfirmedAt()).isEqualTo(confirmedAt);
+        assertThat(rawAccountNumber(party.getId())).isNull();
+    }
+
+    @DisplayName("save - 못 받음으로 되돌리면 보낸 시각이 지워진다")
+    @Test
+    void save_notReceived() {
+
+        /*
+         * settings
+         */
+        Party party = finishedParty(PAYER_ID, FIRST_ID);
+        fareSplits.create(FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        clearContext();
+        FareSplit sent = fareSplits.findByPartyIdForUpdate(party.getId()).orElseThrow();
+        sent.markSent(FIRST_ID, Instant.now());
+        fareSplits.save(sent);
+        clearContext();
+
+        /*
+         * test
+         */
+        FareSplit split = fareSplits.findByPartyIdForUpdate(party.getId()).orElseThrow();
+        split.markNotReceived(PAYER_ID, FIRST_ID);
+        fareSplits.save(split);
+        clearContext();
+
+        /*
+         * verify
+         */
+        FareSplitTransfer transfer = fareSplits.findByPartyId(party.getId()).orElseThrow().findTransfer(FIRST_ID).orElseThrow();
+        assertThat(transfer.status()).isEqualTo(TransferStatus.NOT_SENT);
+        assertThat(transfer.getSentAt()).isNull();
+    }
+
+    @DisplayName("save - 고친 택시비·1인당 금액·은행·계좌번호를 옮기고 계좌번호는 다시 암호문으로 저장된다")
+    @Test
+    void save_edit() {
+
+        /*
+         * settings
+         */
+        Party party = finishedParty(PAYER_ID, FIRST_ID, SECOND_ID);
+        fareSplits.create(FareSplit.open(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, Instant.now()));
+        clearContext();
+
+        /*
+         * test
+         */
+        FareSplit split = fareSplits.findByPartyIdForUpdate(party.getId()).orElseThrow();
+        split.edit(PAYER_ID, 20_000, Bank.SHINHAN, NEW_ACCOUNT);
+        fareSplits.save(split);
+        clearContext();
+
+        /*
+         * verify
+         */
+        FareSplit found = fareSplits.findByPartyId(party.getId()).orElseThrow();
+        assertThat(found.getTotalFare()).isEqualTo(20_000);
+        assertThat(found.getAmountPerPerson()).isEqualTo(6_670);
+        assertThat(found.getBank()).isEqualTo(Bank.SHINHAN);
+        assertThat(found.getAccountNumber()).isEqualTo(NEW_ACCOUNT);
+        assertThat(found.getStatus()).isEqualTo(FareSplitStatus.OPEN);
+        assertThat(rawAccountNumber(party.getId())).startsWith("v1:").doesNotContain(NEW_ACCOUNT.value());
+    }
+
+    // ───────────────────────── delete ─────────────────────────
+
+    @DisplayName("delete - 정산과 송금 행을 모두 지우고, 같은 방에 다시 만들 수 있다")
+    @Test
+    void delete() {
+
+        /*
+         * settings
+         */
+        Party party = finishedParty(PAYER_ID, FIRST_ID, SECOND_ID);
+        fareSplits.create(FareSplit.open(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, Instant.now()));
+        clearContext();
+        fareSplits.findByPartyIdForUpdate(party.getId()).orElseThrow();
+
+        /*
+         * test
+         */
+        fareSplits.delete(party.getId());
+        clearContext();
+
+        /*
+         * verify
+         */
+        assertThat(fareSplits.existsByPartyId(party.getId())).isFalse();
+        assertThat(count("SELECT count(*) FROM fare_split_transfer WHERE match_id = :id", party.getId())).isZero();
+        fareSplits.create(FareSplit.open(party, FIRST_ID, 12_000, Bank.KB, ACCOUNT, Instant.now()));
+        clearContext();
+        assertThat(fareSplits.findByPartyId(party.getId()).orElseThrow().getPayerId()).isEqualTo(FIRST_ID);
+    }
+
+    // ───────────────────────── findOpenTransfers ─────────────────────────
+
+    @DisplayName("findOpenTransfers - 내가 보내는 사람인 OPEN 정산만 방 이름·받는 사람·내 송금 시각과 함께 시작 최신순으로 준다")
+    @Test
+    void findOpenTransfers() {
+
+        /*
+         * settings
+         */
+        Instant base = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Party older = finishedParty(PAYER_ID, FIRST_ID);
+        Party newer = finishedParty(SECOND_ID, FIRST_ID);
+        Party completed = finishedParty(PAYER_ID, FIRST_ID);
+        Party mine = finishedParty(FIRST_ID, SECOND_ID);
+        fareSplits.create(FareSplit.open(older, PAYER_ID, 10_000, Bank.KB, ACCOUNT, base));
+        fareSplits.create(FareSplit.open(newer, SECOND_ID, 12_000, Bank.KB, ACCOUNT, base));
+        fareSplits.create(FareSplit.open(completed, PAYER_ID, 10_000, Bank.KB, ACCOUNT, base));
+        fareSplits.create(FareSplit.open(mine, FIRST_ID, 10_000, Bank.KB, ACCOUNT, base));
+        clearContext();
+        setCreatedAt(older.getId(), base.minus(Duration.ofHours(2)));
+        setCreatedAt(newer.getId(), base.minus(Duration.ofHours(1)));
+        FareSplit sent = fareSplits.findByPartyIdForUpdate(newer.getId()).orElseThrow();
+        sent.markSent(FIRST_ID, base);
+        fareSplits.save(sent);
+        FareSplit done = fareSplits.findByPartyIdForUpdate(completed.getId()).orElseThrow();
+        done.confirmReceived(PAYER_ID, FIRST_ID, base);
+        fareSplits.save(done);
+        clearContext();
+
+        /*
+         * test
+         */
+        List<OpenTransfer> transfers = fareSplits.findOpenTransfers(FIRST_ID);
+
+        /*
+         * verify
+         */
+        assertThat(transfers).extracting(OpenTransfer::partyId).containsExactly(newer.getId(), older.getId());
+        OpenTransfer first = transfers.get(0);
+        assertThat(first.departure()).isEqualTo("강남역");
+        assertThat(first.destination()).isEqualTo("판교역");
+        assertThat(first.payerId()).isEqualTo(SECOND_ID);
+        assertThat(first.amountPerPerson()).isEqualTo(6_000);
+        assertThat(first.sentAt()).isEqualTo(base);
+        assertThat(first.confirmedAt()).isNull();
+        assertThat(first.status()).isEqualTo(TransferStatus.SENT);
+        assertThat(first.createdAt()).isEqualTo(base.minus(Duration.ofHours(1)));
+        assertThat(transfers.get(1).status()).isEqualTo(TransferStatus.NOT_SENT);
+        assertThat(transfers.get(1).payerId()).isEqualTo(PAYER_ID);
+        assertThat(fareSplits.findOpenTransfers(PAYER_ID)).as("받는 사람으로만 있는 정산은 나오지 않는다").isEmpty();
+    }
+
     // ───────────────────────── fixtures ─────────────────────────
 
     /** 넘긴 순서대로 합류하고 모두 도착해 탄 방 */
@@ -228,6 +443,24 @@ class FareSplitJpaPersistenceTest {
         clearContext();
 
         return parties.findById(saved.getId()).orElseThrow();
+    }
+
+    private String rawAccountNumber(Long partyId) {
+        return (String) em.getEntityManager()
+                .createNativeQuery("SELECT account_number FROM fare_split WHERE match_id = :id")
+                .setParameter("id", partyId)
+                .getSingleResult();
+    }
+
+    private long count(String sql, Long partyId) {
+        return ((Number) em.getEntityManager().createNativeQuery(sql).setParameter("id", partyId).getSingleResult()).longValue();
+    }
+
+    private void setCreatedAt(Long partyId, Instant createdAt) {
+        em.getEntityManager().createNativeQuery("UPDATE fare_split SET created_at = :createdAt WHERE match_id = :id")
+                .setParameter("createdAt", createdAt)
+                .setParameter("id", partyId)
+                .executeUpdate();
     }
 
     private void clearContext() {
