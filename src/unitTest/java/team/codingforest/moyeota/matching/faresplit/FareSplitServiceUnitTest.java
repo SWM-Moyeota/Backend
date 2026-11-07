@@ -12,6 +12,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.exception.ErrorCode;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
+import team.codingforest.moyeota.matching.api.PartyAccess;
+import team.codingforest.moyeota.matching.api.dto.PartyPlaces;
+import team.codingforest.moyeota.matching.api.dto.PartyRiders;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.faresplit.domain.AccountNumber;
 import team.codingforest.moyeota.matching.faresplit.domain.Bank;
@@ -82,6 +85,8 @@ class FareSplitServiceUnitTest {
     @Mock
     private Parties parties;
     @Mock
+    private PartyAccess partyAccess;
+    @Mock
     private FareSplits fareSplits;
     @Mock
     private UserAccess userAccess;
@@ -104,6 +109,7 @@ class FareSplitServiceUnitTest {
          * settings
          */
         doReturn(Optional.of(finishedParty())).when(parties).findByIdForUpdate(eq(PARTY_ID));
+        doReturn(Optional.of(finishedRiders())).when(partyAccess).findRiders(eq(PARTY_ID));
         doReturn(false).when(fareSplits).existsByPartyId(eq(PARTY_ID));
         doAnswer(invocation -> invocation.getArgument(0)).when(fareSplits).create(any(FareSplit.class));
         doReturn(summaries()).when(userAccess).findMemberSummaries(eq(List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID)));
@@ -117,8 +123,9 @@ class FareSplitServiceUnitTest {
         /*
          * verify
          */
-        InOrder order = inOrder(parties, fareSplits);
+        InOrder order = inOrder(parties, partyAccess, fareSplits);
         order.verify(parties).findByIdForUpdate(eq(PARTY_ID));
+        order.verify(partyAccess).findRiders(eq(PARTY_ID));
         order.verify(fareSplits).existsByPartyId(eq(PARTY_ID));
         ArgumentCaptor<FareSplit> captor = ArgumentCaptor.forClass(FareSplit.class);
         order.verify(fareSplits).create(captor.capture());
@@ -157,6 +164,7 @@ class FareSplitServiceUnitTest {
          * settings
          */
         doReturn(Optional.of(finishedParty())).when(parties).findByIdForUpdate(eq(PARTY_ID));
+        doReturn(Optional.of(finishedRiders())).when(partyAccess).findRiders(eq(PARTY_ID));
         doReturn(false).when(fareSplits).existsByPartyId(eq(PARTY_ID));
         doAnswer(invocation -> invocation.getArgument(0)).when(fareSplits).create(any(FareSplit.class));
         doReturn(summaries()).when(userAccess).findMemberSummaries(eq(List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID)));
@@ -192,7 +200,7 @@ class FareSplitServiceUnitTest {
          * verify
          */
         assertBusinessException(thrown, MatchingErrorCode.INVALID_ACCOUNT_NUMBER);
-        verifyNoInteractions(parties, fareSplits, userAccess, maskedRealNames);
+        verifyNoInteractions(parties, partyAccess, fareSplits, userAccess, maskedRealNames);
     }
 
     @DisplayName("create - 없는 방이면 PARTY_NOT_FOUND")
@@ -216,6 +224,29 @@ class FareSplitServiceUnitTest {
         verifyNoInteractions(fareSplits);
     }
 
+    @DisplayName("create - 동승이 끝나지 않은 방이면 도메인이 PARTY_NOT_FINISHED 로 막고 정산 여부를 묻거나 저장하지 않는다")
+    @Test
+    void create_notFinished() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(finishedParty())).when(parties).findByIdForUpdate(eq(PARTY_ID));
+        doReturn(Optional.of(new PartyRiders(PARTY_ID, false, List.of(PAYER_ID, SENDER_ID), List.of(PAYER_ID, SENDER_ID))))
+                .when(partyAccess).findRiders(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.create(PARTY_ID, PAYER_ID, 18_700, Bank.KAKAO, RAW_ACCOUNT));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, MatchingErrorCode.PARTY_NOT_FINISHED);
+        verifyNoInteractions(fareSplits);
+    }
+
     @DisplayName("create - 탑승자가 아니면 도메인이 NOT_A_RIDER 로 막고 정산 여부를 묻거나 저장하지 않는다")
     @Test
     void create_notRider() {
@@ -223,9 +254,9 @@ class FareSplitServiceUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.FINISHED, List.of(
-                arrived(PAYER_ID, 0), arrived(SENDER_ID, 1), PartyMember.load(OTHER_SENDER_ID, MEETING_AT.minusSeconds(40), null, CREATED_AT, null)));
-        doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
+        doReturn(Optional.of(finishedParty())).when(parties).findByIdForUpdate(eq(PARTY_ID));
+        doReturn(Optional.of(new PartyRiders(PARTY_ID, true, List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID), List.of(PAYER_ID, SENDER_ID))))
+                .when(partyAccess).findRiders(eq(PARTY_ID));
 
         /*
          * test
@@ -247,6 +278,7 @@ class FareSplitServiceUnitTest {
          * settings
          */
         doReturn(Optional.of(finishedParty())).when(parties).findByIdForUpdate(eq(PARTY_ID));
+        doReturn(Optional.of(finishedRiders())).when(partyAccess).findRiders(eq(PARTY_ID));
         doReturn(true).when(fareSplits).existsByPartyId(eq(PARTY_ID));
 
         /*
@@ -270,6 +302,7 @@ class FareSplitServiceUnitTest {
          * settings
          */
         doReturn(Optional.of(finishedParty())).when(parties).findByIdForUpdate(eq(PARTY_ID));
+        doReturn(Optional.of(finishedRiders())).when(partyAccess).findRiders(eq(PARTY_ID));
         doReturn(false).when(fareSplits).existsByPartyId(eq(PARTY_ID));
         doThrow(new DataIntegrityViolationException("duplicate key")).when(fareSplits).create(any(FareSplit.class));
 
@@ -450,7 +483,7 @@ class FareSplitServiceUnitTest {
         FareSplitTransfer transfer = captor.getValue().findTransfer(OTHER_SENDER_ID).orElseThrow();
         assertThat(transfer.status()).isEqualTo(TransferStatus.SENT);
         assertThat(transfer.getSentAt()).isNotNull();
-        verifyNoInteractions(parties, userAccess, maskedRealNames, afterCommitExecutor);
+        verifyNoInteractions(parties, partyAccess, userAccess, maskedRealNames, afterCommitExecutor);
     }
 
     @DisplayName("markSent - 이미 SENT 면 저장하지 않는다")
@@ -958,10 +991,12 @@ class FareSplitServiceUnitTest {
         Long otherPayerId = 5L;
         UUID otherPayerPublicId = UUID.fromString("00000000-0000-0000-0000-000000000005");
         doReturn(List.of(
-                new OpenTransfer(otherPartyId, "판교역", "강남역", otherPayerId, 9_350, null, null, CREATED_AT.plusSeconds(600)),
-                new OpenTransfer(300L, "서울역", "홍대입구역", PAYER_ID, 4_000, SENT_AT, null, CREATED_AT.plusSeconds(300)),
-                new OpenTransfer(PARTY_ID, "강남역", "판교역", PAYER_ID, 6_240, null, null, CREATED_AT)))
+                new OpenTransfer(otherPartyId, otherPayerId, 9_350, null, null, CREATED_AT.plusSeconds(600)),
+                new OpenTransfer(300L, PAYER_ID, 4_000, SENT_AT, null, CREATED_AT.plusSeconds(300)),
+                new OpenTransfer(PARTY_ID, PAYER_ID, 6_240, null, null, CREATED_AT)))
                 .when(fareSplits).findOpenTransfers(eq(SENDER_ID));
+        doReturn(Map.of(otherPartyId, new PartyPlaces("판교역", "강남역"), PARTY_ID, new PartyPlaces("강남역", "판교역")))
+                .when(partyAccess).findPlaces(eq(List.of(otherPartyId, PARTY_ID)));
         doReturn(Map.of(otherPayerId, new MemberSummary(otherPayerPublicId, "다른받는사람", null),
                         PAYER_ID, new MemberSummary(PAYER_PUBLIC_ID, "받는사람", null)))
                 .when(userAccess).findMemberSummaries(eq(List.of(otherPayerId, PAYER_ID)));
@@ -985,6 +1020,8 @@ class FareSplitServiceUnitTest {
         assertThat(first.status()).isEqualTo(TransferStatus.NOT_SENT);
         assertThat(first.createdAt()).isEqualTo(CREATED_AT.plusSeconds(600));
         assertThat(response.fareSplits().get(1).partyId()).isEqualTo(PARTY_ID);
+        assertThat(response.fareSplits().get(1).departure()).isEqualTo("강남역");
+        assertThat(response.fareSplits().get(1).destination()).isEqualTo("판교역");
         assertThat(response.fareSplits().get(1).payer().nickname()).isEqualTo("받는사람");
     }
 
@@ -996,9 +1033,10 @@ class FareSplitServiceUnitTest {
          * settings
          */
         doReturn(List.of(
-                new OpenTransfer(300L, "서울역", "홍대입구역", PAYER_ID, 4_000, SENT_AT, null, CREATED_AT.plusSeconds(300)),
-                new OpenTransfer(PARTY_ID, "강남역", "판교역", PAYER_ID, 6_240, null, null, CREATED_AT)))
+                new OpenTransfer(300L, PAYER_ID, 4_000, SENT_AT, null, CREATED_AT.plusSeconds(300)),
+                new OpenTransfer(PARTY_ID, PAYER_ID, 6_240, null, null, CREATED_AT)))
                 .when(fareSplits).findOpenTransfers(eq(SENDER_ID));
+        doReturn(Map.of(300L, new PartyPlaces("서울역", "홍대입구역"))).when(partyAccess).findPlaces(eq(List.of(300L)));
         doReturn(Map.of(PAYER_ID, new MemberSummary(PAYER_PUBLIC_ID, "받는사람", null)))
                 .when(userAccess).findMemberSummaries(eq(List.of(PAYER_ID)));
 
@@ -1012,16 +1050,47 @@ class FareSplitServiceUnitTest {
          */
         assertThat(response.fareSplits()).extracting(MyFareSplitListResponse.MyFareSplitItem::partyId).containsExactly(300L);
         assertThat(response.fareSplits().get(0).status()).isEqualTo(TransferStatus.SENT);
+        assertThat(response.fareSplits().get(0).departure()).isEqualTo("서울역");
+        assertThat(response.fareSplits().get(0).destination()).isEqualTo("홍대입구역");
     }
 
-    @DisplayName("findMine - 해당하는 정산이 없으면 빈 목록이고 사용자 정보를 묻지 않는다")
+    @DisplayName("findMine - 방 이름을 찾지 못한 방은 출발지·도착지가 null 이고 나머지는 그대로 준다")
+    @Test
+    void findMine_noPlaces() {
+
+        /*
+         * settings
+         */
+        doReturn(List.of(new OpenTransfer(PARTY_ID, PAYER_ID, 6_240, null, null, CREATED_AT)))
+                .when(fareSplits).findOpenTransfers(eq(SENDER_ID));
+        doReturn(Map.of()).when(partyAccess).findPlaces(eq(List.of(PARTY_ID)));
+        doReturn(Map.of(PAYER_ID, new MemberSummary(PAYER_PUBLIC_ID, "받는사람", null)))
+                .when(userAccess).findMemberSummaries(eq(List.of(PAYER_ID)));
+
+        /*
+         * test
+         */
+        MyFareSplitListResponse response = service.findMine(SENDER_ID, TransferStatus.NOT_SENT);
+
+        /*
+         * verify
+         */
+        MyFareSplitListResponse.MyFareSplitItem item = response.fareSplits().getFirst();
+        assertThat(item.partyId()).isEqualTo(PARTY_ID);
+        assertThat(item.departure()).isNull();
+        assertThat(item.destination()).isNull();
+        assertThat(item.payer().nickname()).isEqualTo("받는사람");
+        assertThat(item.myAmount()).isEqualTo(6_240);
+    }
+
+    @DisplayName("findMine - 해당하는 정산이 없으면 빈 목록이고 사용자 정보·방 이름을 묻지 않는다")
     @Test
     void findMine_empty() {
 
         /*
          * settings
          */
-        doReturn(List.of(new OpenTransfer(300L, "서울역", "홍대입구역", PAYER_ID, 4_000, SENT_AT, null, CREATED_AT)))
+        doReturn(List.of(new OpenTransfer(300L, PAYER_ID, 4_000, SENT_AT, null, CREATED_AT)))
                 .when(fareSplits).findOpenTransfers(eq(SENDER_ID));
 
         /*
@@ -1033,7 +1102,7 @@ class FareSplitServiceUnitTest {
          * verify
          */
         assertThat(response.fareSplits()).isEmpty();
-        verifyNoInteractions(userAccess);
+        verifyNoInteractions(userAccess, partyAccess);
     }
 
     // ───────────────────────── expire ─────────────────────────
@@ -1227,6 +1296,11 @@ class FareSplitServiceUnitTest {
 
     private static Party finishedParty() {
         return party(PartyStatus.FINISHED, List.of(arrived(PAYER_ID, 0), arrived(SENDER_ID, 1), arrived(OTHER_SENDER_ID, 2)));
+    }
+
+    /** 셋 다 도착해 탄 끝난 방. 합류 순 payer → sender → other sender */
+    private static PartyRiders finishedRiders() {
+        return new PartyRiders(PARTY_ID, true, List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID), List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID));
     }
 
     private static PartyMember arrived(Long memberId, int joinOrder) {

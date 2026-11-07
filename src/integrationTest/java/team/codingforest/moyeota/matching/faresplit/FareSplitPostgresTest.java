@@ -16,6 +16,7 @@ import team.codingforest.moyeota.matching.faresplit.domain.FareSplitRole;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitTransfer;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplits;
+import team.codingforest.moyeota.matching.faresplit.domain.RideRoster;
 import team.codingforest.moyeota.matching.faresplit.domain.TossDeeplink;
 import team.codingforest.moyeota.matching.faresplit.domain.TransferStatus;
 import team.codingforest.moyeota.matching.faresplit.dto.FareSplitDetailResponse;
@@ -122,7 +123,7 @@ class FareSplitPostgresTest {
     @Test
     void 같은_방에_정산을_두_번_INSERT_하면_덮어쓰지_않고_PK_위반이다() {
         Long room = finishedRoom(방장, 둘째);
-        Party party = parties.findById(room).orElseThrow();
+        RideRoster party = new RideRoster(room, true, List.of(방장, 둘째), List.of(방장, 둘째));
         tx.executeWithoutResult(status -> fareSplits.create(FareSplit.open(party, 방장, 10_000, Bank.KB, AccountNumber.of(RAW_ACCOUNT), Instant.now())));
 
         assertThatThrownBy(() -> tx.executeWithoutResult(status ->

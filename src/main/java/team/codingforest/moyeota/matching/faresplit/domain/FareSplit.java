@@ -3,9 +3,6 @@ package team.codingforest.moyeota.matching.faresplit.domain;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.time.QuietHours;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
-import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -57,18 +54,18 @@ public class FareSplit {
     }
 
     /**
-     *  정산 시작. 동승이 끝난(FINISHED) 방의 탑승자만 payer 가 될 수 있고, payer 를 포함한 탑승자가 2명 이상이어야 한다.
+     *  정산 시작. 동승이 끝난(FINISHED) 방의 탑승자만 payer 가 될 수 있고, payer 를 포함한 탑승자가 2명 이상이어야 한다. 탑승자가 누구인지는 matching 이 정한다.
      *  payer 를 뺀 탑승자마다 NOT_SENT 송금을 만들고, 이때 보내는 첫 송금 요청을 1번째 차례로 센다. 같은 방에 이미 정산이 있는지는 서비스가 본다
      */
-    public static FareSplit open(Party party, Long payerId, int totalFare, Bank bank, AccountNumber accountNumber, Instant now) {
+    public static FareSplit open(RideRoster party, Long payerId, int totalFare, Bank bank, AccountNumber accountNumber, Instant now) {
         Objects.requireNonNull(bank, "bank");
         Objects.requireNonNull(accountNumber, "accountNumber");
 
-        if(!party.hasMember(payerId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
+        if(!party.memberIds().contains(payerId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
 
-        if(party.getStatus() != PartyStatus.FINISHED) throw new BusinessException(MatchingErrorCode.PARTY_NOT_FINISHED);
+        if(!party.finished()) throw new BusinessException(MatchingErrorCode.PARTY_NOT_FINISHED);
 
-        List<Long> riderIds = riderIds(party);
+        List<Long> riderIds = party.riderIds();
 
         if(!riderIds.contains(payerId)) throw new BusinessException(MatchingErrorCode.NOT_A_RIDER);
 
@@ -81,23 +78,13 @@ public class FareSplit {
                 .map(id -> FareSplitTransfer.requested(id, now))
                 .toList();
 
-        return new FareSplit(party.getId(), payerId, totalFare, amountPerPerson(totalFare, riderIds.size()), bank, accountNumber,
+        return new FareSplit(party.partyId(), payerId, totalFare, amountPerPerson(totalFare, riderIds.size()), bank, accountNumber,
                 FareSplitStatus.OPEN, now, null, transfers);
     }
 
     public static FareSplit load(Long partyId, Long payerId, int totalFare, int amountPerPerson, Bank bank, AccountNumber accountNumber,
                                  FareSplitStatus status, Instant createdAt, Instant closedAt, List<FareSplitTransfer> transfers) {
         return new FareSplit(partyId, payerId, totalFare, amountPerPerson, bank, accountNumber, status, createdAt, closedAt, transfers);
-    }
-
-    /**
-     *  탑승자 - 출발지에 도착했고 노쇼가 아닌 멤버(합류 순). 도착 없이 끝난 방(약속을 정하지 않은 구버전 종료)은 탑승자가 없다
-     */
-    static List<Long> riderIds(Party party) {
-        return party.getMembers().stream()
-                .filter(m -> m.isArrived() && !m.isNoShow())
-                .map(PartyMember::getMemberId)
-                .toList();
     }
 
     /**

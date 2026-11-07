@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.matching.faresplit.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import team.codingforest.moyeota.matching.api.dto.PartyPlaces;
 import team.codingforest.moyeota.matching.faresplit.domain.OpenTransfer;
 import team.codingforest.moyeota.matching.faresplit.domain.TransferStatus;
 import team.codingforest.moyeota.matching.faresplit.dto.FareSplitDetailResponse.FareSplitPayer;
@@ -20,17 +21,20 @@ public record MyFareSplitListResponse(@Schema(description = "내가 보내는 �
                                   @Schema(description = "내 송금 상태") TransferStatus status,
                                   @Schema(description = "정산을 시작한 시각") Instant createdAt) {
 
-        static MyFareSplitItem of(OpenTransfer transfer, MemberSummary payer) {
-            return new MyFareSplitItem(transfer.partyId(), transfer.departure(), transfer.destination(),
+        static MyFareSplitItem of(OpenTransfer transfer, PartyPlaces places, MemberSummary payer) {
+            return new MyFareSplitItem(transfer.partyId(), places == null ? null : places.departure(), places == null ? null : places.destination(),
                     new FareSplitPayer(payer == null ? null : payer.publicId(), payer == null ? null : payer.nickname()),
                     transfer.amountPerPerson(), transfer.status(), transfer.createdAt());
         }
     }
 
-    /** @param payers payerId → 닉네임 등. 없는 사람은 publicId·nickname 이 null */
-    public static MyFareSplitListResponse of(List<OpenTransfer> transfers, Map<Long, MemberSummary> payers) {
+    /**
+     *  @param places partyId → 출발지·도착지 이름. 없는 방은 departure·destination 이 null
+     *  @param payers payerId → 닉네임 등. 없는 사람은 publicId·nickname 이 null
+     */
+    public static MyFareSplitListResponse of(List<OpenTransfer> transfers, Map<Long, PartyPlaces> places, Map<Long, MemberSummary> payers) {
         return new MyFareSplitListResponse(transfers.stream()
-                .map(t -> MyFareSplitItem.of(t, payers.get(t.payerId())))
+                .map(t -> MyFareSplitItem.of(t, places.get(t.partyId()), payers.get(t.payerId())))
                 .toList());
     }
 }

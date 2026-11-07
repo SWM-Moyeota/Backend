@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
+import team.codingforest.moyeota.matching.api.PartyAccess;
+import team.codingforest.moyeota.matching.api.dto.PartyPlaces;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.faresplit.domain.AccountNumber;
 import team.codingforest.moyeota.matching.faresplit.domain.Bank;
@@ -16,11 +18,11 @@ import team.codingforest.moyeota.matching.faresplit.domain.FareSplitRole;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplits;
 import team.codingforest.moyeota.matching.faresplit.domain.OpenTransfer;
+import team.codingforest.moyeota.matching.faresplit.domain.RideRoster;
 import team.codingforest.moyeota.matching.faresplit.domain.TransferStatus;
 import team.codingforest.moyeota.matching.faresplit.dto.FareSplitDetailResponse;
 import team.codingforest.moyeota.matching.faresplit.dto.MyFareSplitListResponse;
 import team.codingforest.moyeota.matching.party.domain.Parties;
-import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.user.api.MaskedRealNames;
 import team.codingforest.moyeota.user.api.MemberSummary;
 import team.codingforest.moyeota.user.api.UserAccess;
@@ -41,6 +43,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class FareSplitService {
     private final Parties parties;
+    private final PartyAccess partyAccess;
     private final FareSplits fareSplits;
     private final UserAccess userAccess;
     private final MaskedRealNames maskedRealNames;
@@ -55,7 +58,12 @@ public class FareSplitService {
     public FareSplitDetailResponse create(Long partyId, Long payerId, int totalFare, Bank bank, String accountNumber) {
         AccountNumber account = AccountNumber.of(accountNumber);
 
-        Party party = parties.findByIdForUpdate(partyId)
+        // 방 행을 잠가 같은 방의 정산 시작을 줄 세운다
+        parties.findByIdForUpdate(partyId)
+                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+
+        RideRoster party = partyAccess.findRiders(partyId)
+                .map(riders -> new RideRoster(riders.partyId(), riders.finished(), riders.memberIds(), riders.riderIds()))
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
         FareSplit split = FareSplit.open(party, payerId, totalFare, bank, account, Instant.now());
@@ -180,11 +188,12 @@ public class FareSplitService {
                 .filter(t -> t.status() == status)
                 .toList();
 
-        if(transfers.isEmpty()) return MyFareSplitListResponse.of(List.of(), Map.of());
+        if(transfers.isEmpty()) return MyFareSplitListResponse.of(List.of(), Map.of(), Map.of());
 
+        Map<Long, PartyPlaces> places = partyAccess.findPlaces(transfers.stream().map(OpenTransfer::partyId).toList());
         Map<Long, MemberSummary> payers = userAccess.findMemberSummaries(transfers.stream().map(OpenTransfer::payerId).distinct().toList());
 
-        return MyFareSplitListResponse.of(transfers, payers);
+        return MyFareSplitListResponse.of(transfers, places, payers);
     }
 
     /**

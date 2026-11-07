@@ -4,6 +4,8 @@ import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.api.PartyAccess;
+import team.codingforest.moyeota.matching.api.dto.PartyRiders;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplit;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
@@ -22,6 +24,7 @@ import java.util.Optional;
 public class FareSplitJpa implements FareSplits {
     private final FareSplitJpaRepository repository;
     private final EntityManager em;
+    private final PartyAccess partyAccess;
 
     @Override
     public FareSplit create(FareSplit split) {
@@ -38,14 +41,14 @@ public class FareSplitJpa implements FareSplits {
     @Override
     public Optional<FareSplit> findByPartyId(Long partyId) {
         return repository.findWithTransfersByPartyId(partyId)
-                .map(entity -> entity.toDomain(repository.findMemberIdsInJoinOrder(partyId)));
+                .map(entity -> entity.toDomain(joinOrder(partyId)));
     }
 
     // 송금(지연 로딩)은 잠근 뒤에 읽으므로 앞서 커밋된 변경을 본다
     @Override
     public Optional<FareSplit> findByPartyIdForUpdate(Long partyId) {
         return repository.findByPartyIdForUpdate(partyId)
-                .map(entity -> entity.toDomain(repository.findMemberIdsInJoinOrder(partyId)));
+                .map(entity -> entity.toDomain(joinOrder(partyId)));
     }
 
     @Override
@@ -98,5 +101,10 @@ public class FareSplitJpa implements FareSplits {
     @Override
     public List<Long> findOpenByPayer(Long payerId) {
         return repository.findOpenIdsByPayer(payerId);
+    }
+
+    // 송금을 방 합류 순으로 담는다 - 합류 순은 matching 이 정한다(방 상세 멤버 정렬과 같은 기준)
+    private List<Long> joinOrder(Long partyId) {
+        return partyAccess.findRiders(partyId).map(PartyRiders::memberIds).orElse(List.of());
     }
 }

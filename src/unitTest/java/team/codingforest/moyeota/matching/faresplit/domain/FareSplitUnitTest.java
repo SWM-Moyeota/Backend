@@ -9,12 +9,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.exception.ErrorCode;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
-import team.codingforest.moyeota.matching.party.domain.Capacity;
-import team.codingforest.moyeota.matching.party.domain.Location;
-import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.RoomType;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -37,8 +31,6 @@ class FareSplitUnitTest {
     private static final Long CASH_RIDER_ID = 6L;
     private static final Long IDLE_RIDER_ID = 7L;
     private static final Long OUTSIDER_ID = 99L;
-    private static final Location DEPARTURE = new Location(37.4979, 127.0276);
-    private static final Location DESTINATION = new Location(37.3948, 127.1112);
     private static final Instant MEETING_AT = Instant.parse("2026-11-03T12:00:00Z");
     private static final Instant NOW = MEETING_AT.plus(Duration.ofMinutes(40));
     private static final Instant SENT_AT = NOW.plus(Duration.ofMinutes(5));
@@ -61,7 +53,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        Party party = threeRiders();
+        RideRoster party = threeRiders();
 
         /*
          * test
@@ -97,7 +89,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        Party party = withNoShow();
+        RideRoster party = withNoShow();
 
         /*
          * test
@@ -119,7 +111,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        Party party = withVoidedNoShow();
+        RideRoster party = withVoidedNoShow();
 
         /*
          * test
@@ -139,7 +131,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        Party party = threeRiders();
+        RideRoster party = threeRiders();
 
         /*
          * test
@@ -160,7 +152,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        Party party = threeRiders();
+        RideRoster party = threeRiders();
 
         /*
          * test
@@ -174,15 +166,13 @@ class FareSplitUnitTest {
     }
 
     @DisplayName("open - 동승이 끝나지 않은(FINISHED 가 아닌) 방이면 PARTY_NOT_FINISHED")
-    @ParameterizedTest
-    @EnumSource(value = PartyStatus.class, names = {"ACTIVE", "COMPLETED", "CANCELED"})
-    void open_notFinished(PartyStatus status) {
+    @Test
+    void open_notFinished() {
 
         /*
          * settings
          */
-        Party party = party(status, List.of(
-                arrived(PAYER_ID, 0), arrived(RIDER_ID, 1)));
+        RideRoster party = new RideRoster(PARTY_ID, false, List.of(PAYER_ID, RIDER_ID), List.of(PAYER_ID, RIDER_ID));
 
         /*
          * test
@@ -202,7 +192,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        Party party = withNoShow();
+        RideRoster party = withNoShow();
 
         /*
          * test
@@ -222,7 +212,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        Party party = withVoidedNoShow();
+        RideRoster party = withVoidedNoShow();
 
         /*
          * test
@@ -242,9 +232,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.FINISHED, List.of(
-                PartyMember.load(PAYER_ID, MEETING_AT.minusSeconds(60)),
-                PartyMember.load(RIDER_ID, MEETING_AT.minusSeconds(30))));
+        RideRoster party = finished(List.of(PAYER_ID, RIDER_ID), List.of());
 
         /*
          * test
@@ -264,9 +252,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        Party party = party(PartyStatus.FINISHED, List.of(
-                arrived(PAYER_ID, 0),
-                PartyMember.load(NO_SHOW_ID, MEETING_AT.minusSeconds(30), null, NOW, null)));
+        RideRoster party = finished(List.of(PAYER_ID, NO_SHOW_ID), List.of(PAYER_ID));
 
         /*
          * test
@@ -287,7 +273,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        Party party = threeRiders();
+        RideRoster party = threeRiders();
 
         /*
          * test
@@ -308,7 +294,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        Party party = threeRiders();
+        RideRoster party = threeRiders();
 
         /*
          * test
@@ -1529,34 +1515,23 @@ class FareSplitUnitTest {
     }
 
     /** 셋 다 도착해 탄 방. 합류 순 payer → rider → late rider */
-    private static Party threeRiders() {
-        return party(PartyStatus.FINISHED, List.of(arrived(PAYER_ID, 0), arrived(RIDER_ID, 1), arrived(LATE_RIDER_ID, 2)));
+    private static RideRoster threeRiders() {
+        return finished(List.of(PAYER_ID, RIDER_ID, LATE_RIDER_ID), List.of(PAYER_ID, RIDER_ID, LATE_RIDER_ID));
     }
 
-    /** 합류 순 payer(도착) → 노쇼 → rider(도착) */
-    private static Party withNoShow() {
-        return party(PartyStatus.FINISHED, List.of(
-                arrived(PAYER_ID, 0),
-                PartyMember.load(NO_SHOW_ID, MEETING_AT.minusSeconds(50), null, NOW, null),
-                arrived(RIDER_ID, 2)));
+    /** 합류 순 payer(도착) → 노쇼 → rider(도착). 노쇼는 탑승자가 아니다(matching 이 정한다) */
+    private static RideRoster withNoShow() {
+        return finished(List.of(PAYER_ID, NO_SHOW_ID, RIDER_ID), List.of(PAYER_ID, RIDER_ID));
     }
 
-    /** 합류 순 payer(도착) → 도착하지 않아 노쇼였다가 무효로 돌아간 멤버 → rider(도착) */
-    private static Party withVoidedNoShow() {
-        return party(PartyStatus.FINISHED, List.of(
-                arrived(PAYER_ID, 0),
-                PartyMember.load(VOIDED_NO_SHOW_ID, MEETING_AT.minusSeconds(50), null, NOW, NOW.plusSeconds(3600)),
-                arrived(RIDER_ID, 2)));
+    /** 합류 순 payer(도착) → 도착하지 않아 노쇼였다가 무효로 돌아간 멤버 → rider(도착). 무효 노쇼도 도착하지 않았으면 탑승자가 아니다 */
+    private static RideRoster withVoidedNoShow() {
+        return finished(List.of(PAYER_ID, VOIDED_NO_SHOW_ID, RIDER_ID), List.of(PAYER_ID, RIDER_ID));
     }
 
-    private static PartyMember arrived(Long memberId, int joinOrder) {
-        return PartyMember.load(memberId, MEETING_AT.minusSeconds(60 - joinOrder * 10L), MEETING_AT.minusSeconds(30), null, null);
-    }
-
-    private static Party party(PartyStatus status, List<PartyMember> members) {
-        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3), members,
-                PAYER_ID, MEETING_AT.minus(Duration.ofHours(1)), status, 12000, 25, "encoded-path",
-                7L, RoomType.REALTIME, MEETING_AT, null);
+    /** 동승이 끝난 방. 멤버·탑승자 모두 합류 순 */
+    private static RideRoster finished(List<Long> memberIds, List<Long> riderIds) {
+        return new RideRoster(PARTY_ID, true, memberIds, riderIds);
     }
 
     private static void assertBusinessException(Throwable thrown, ErrorCode expected) {
