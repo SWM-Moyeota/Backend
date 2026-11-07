@@ -1,8 +1,10 @@
 package team.codingforest.moyeota.matching.party.domain;
 
+import team.codingforest.moyeota.matching.api.dto.PartyPlaces;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,4 +31,6 @@ public interface Parties {
     List<Long> findReservationsToRemind(Instant from, Instant to);
     List<Long> findMeetingNoticeTargets(Instant now);
     List<Long> findDepartureReminderTargets(Instant now);
+    /** 방 id → 출발지·도착지 이름. 없는 방은 빠진다 */
+    Map<Long, PartyPlaces> findPlaces(Collection<Long> ids);
 }

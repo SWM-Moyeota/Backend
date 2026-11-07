@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
-import team.codingforest.moyeota.matching.faresplit.FareSplitSweeper;
+import team.codingforest.moyeota.faresplit.FareSplitSweeper;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
 import team.codingforest.moyeota.matching.party.MeetingNotificationSweeper;
 import team.codingforest.moyeota.matching.party.PartyRecruitingSweeper;

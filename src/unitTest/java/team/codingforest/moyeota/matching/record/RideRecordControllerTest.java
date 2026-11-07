@@ -11,7 +11,7 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import team.codingforest.moyeota.common.exception.GlobalExceptionHandler;
-import team.codingforest.moyeota.matching.faresplit.domain.FareSplits;
+import team.codingforest.moyeota.matching.api.RideFares;
 import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.matching.party.PartyJpaTest;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
@@ -51,7 +51,7 @@ class RideRecordControllerTest {
         rideRecords = new FakeRideRecords(parties);
         users = new RideRecordServiceTest.StubUserAccess();
 
-        mvc = MockMvcBuilders.standaloneSetup(new RideRecordController(new RideRecordService(rideRecords, users, mock(FareSplits.class))))
+        mvc = MockMvcBuilders.standaloneSetup(new RideRecordController(new RideRecordService(rideRecords, users, mock(RideFares.class))))
                 .setCustomArgumentResolvers(new StubCurrentUserResolver())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();

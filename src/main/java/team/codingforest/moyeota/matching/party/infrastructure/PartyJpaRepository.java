@@ -119,6 +119,9 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
             """)
     List<ReservationSummary> findReservationSummariesByIds(@Param("ids") Collection<Long> ids);
 
+    @Query("select p.id, p.departure, p.destination from PartyEntity p where p.id in :ids")
+    List<PartyPlaceRow> findPlacesByIds(@Param("ids") Collection<Long> ids);
+
     @Query("""
             select p.id from PartyEntity p
             where p.status = :status

@@ -439,6 +439,16 @@ public class Party {
     }
 
     /**
+     *  탑승자 - 출발지에 도착했고 노쇼가 아닌 멤버(합류 순). 도착 없이 끝난 방(약속을 정하지 않은 구버전 종료)은 탑승자가 없다
+     */
+    public List<Long> riderIds() {
+        return members.stream()
+                .filter(m -> m.isArrived() && !m.isNoShow())
+                .map(PartyMember::getMemberId)
+                .toList();
+    }
+
+    /**
      *  이미 꽉찬 방인지 확인
      */
     public boolean isFull() {

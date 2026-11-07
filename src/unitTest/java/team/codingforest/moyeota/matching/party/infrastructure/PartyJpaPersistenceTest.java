@@ -7,6 +7,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import team.codingforest.moyeota.common.JpaAuditingConfig;
+import team.codingforest.moyeota.matching.api.dto.PartyPlaces;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
@@ -674,5 +675,18 @@ class PartyJpaPersistenceTest {
     @Test
     void 빈_목록이면_쿼리_없이_빈_결과를_돌려준다() {
         assertThat(parties.countFinishedRides(java.util.List.of())).isEmpty();
+    }
+
+    // ───────────────────────── 출발지·도착지 이름 ─────────────────────────
+
+    @Test
+    void 방별_출발지와_도착지_이름을_한_번에_읽고_없는_방은_빠진다() {
+        Long 강남방 = realtime(1L).getId();
+        Long 서울방 = parties.save(Party.open(2L, 강남, 판교, "서울역", "홍대입구역", new Capacity(3), Instant.now(), 9000, 20, "encoded-path")).getId();
+        clearContext();
+
+        assertThat(parties.findPlaces(List.of(강남방, 서울방, 서울방 + 1_000)))
+                .containsOnly(entry(강남방, new PartyPlaces("강남역", "판교역")), entry(서울방, new PartyPlaces("서울역", "홍대입구역")));
+        assertThat(parties.findPlaces(List.of())).isEmpty();
     }
 }

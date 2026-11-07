@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.api.dto.PartyPlaces;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.NearbyReservation;
@@ -18,6 +19,7 @@ import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -184,5 +186,13 @@ public class PartyJpa implements Parties {
     @Override
     public boolean isNearDeparture(Long partyId, double latitude, double longitude, double radiusMeters) {
         return partyJpaRepository.isNearDeparture(partyId, latitude, longitude, radiusMeters);
+    }
+
+    @Override
+    public Map<Long, PartyPlaces> findPlaces(Collection<Long> ids) {
+        if(ids.isEmpty()) return Map.of();
+
+        return partyJpaRepository.findPlacesByIds(ids).stream()
+                .collect(Collectors.toMap(PartyPlaceRow::id, row -> new PartyPlaces(row.departure(), row.destination())));
     }
 }

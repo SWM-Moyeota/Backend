@@ -5,8 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.api.RideFares;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
-import team.codingforest.moyeota.matching.faresplit.domain.FareSplits;
 import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.matching.record.dto.RideRecordResponse;
 import team.codingforest.moyeota.matching.record.dto.RideRecordResponse.RideRecordItem;
@@ -50,7 +50,7 @@ class RideRecordServiceTest {
         rideRecords = new FakeRideRecords(parties);
         users = new StubUserAccess();
         // 정산 금액 채우기는 RideRecordServiceUnitTest 가 본다 - 여기서는 정산이 없는 방만 다룬다
-        service = new RideRecordService(rideRecords, users, mock(FareSplits.class));
+        service = new RideRecordService(rideRecords, users, mock(RideFares.class));
     }
 
     @Test

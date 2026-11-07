@@ -1,5 +1,6 @@
 package team.codingforest.moyeota.matching.party;
 
+import team.codingforest.moyeota.matching.api.dto.PartyPlaces;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.NearbyReservation;
 import team.codingforest.moyeota.matching.party.domain.Parties;
@@ -11,6 +12,7 @@ import team.codingforest.moyeota.matching.party.domain.RoomType;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -194,5 +196,16 @@ public class PartyJpaTest implements Parties {
         // 거리 공식을 여기서 다시 짜면 걷어낸 하버사인이 테스트 쪽에 되살아나고, 늘 true/false 로 답하면 도착 결과가 조용히 틀어진다.
         // 그래서 답하지 않고 바로 실패한다 - 도착 흐름은 서비스 유닛 테스트(mock)와 Postgres 통합 테스트가 본다
         throw new UnsupportedOperationException("출발지 반경 판정은 PostGIS 몫이라 메모리 가짜로 흉내 내지 않는다");
+    }
+
+    @Override
+    public Map<Long, PartyPlaces> findPlaces(Collection<Long> ids) {
+        Map<Long, PartyPlaces> places = new HashMap<>();
+        for(Long id : ids) {
+            Party party = store.get(id);
+            if(party != null) places.put(id, new PartyPlaces(party.getDeparture(), party.getDestination()));
+        }
+
+        return places;
     }
 }

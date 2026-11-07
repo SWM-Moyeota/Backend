@@ -4,7 +4,7 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.junit.jupiter.api.Test;
 import org.springframework.scheduling.annotation.Scheduled;
 import team.codingforest.moyeota.common.event.EventResubmitter;
-import team.codingforest.moyeota.matching.faresplit.FareSplitSweeper;
+import team.codingforest.moyeota.faresplit.FareSplitSweeper;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
 import team.codingforest.moyeota.matching.party.MeetingNotificationSweeper;
 import team.codingforest.moyeota.matching.party.PartyRecruitingSweeper;
