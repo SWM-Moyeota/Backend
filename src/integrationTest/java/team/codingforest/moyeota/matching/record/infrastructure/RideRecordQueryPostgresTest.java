@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import team.codingforest.moyeota.matching.faresplit.FareSplitService;
+import team.codingforest.moyeota.matching.faresplit.domain.Bank;
 import team.codingforest.moyeota.matching.party.PartyService;
 import team.codingforest.moyeota.matching.record.RideRecordService;
 import team.codingforest.moyeota.matching.record.domain.RideRecords;
@@ -39,16 +41,20 @@ class RideRecordQueryPostgresTest {
     @Autowired PartyService partyService;
     @Autowired RideRecords rideRecords;
     @Autowired RideRecordService rideRecordService;
+    @Autowired FareSplitService fareSplitService;
     @Autowired JdbcTemplate jdbc;
 
     private final Long 나 = ThreadLocalRandom.current().nextLong(1_000_000_000L, 2_000_000_000L);
     private final Long 동승자 = 나 + 1;
     private final Long 남 = 나 + 2;
+    private final Long 넷째 = 나 + 3;
     private final List<Long> created = new ArrayList<>();
 
     @AfterEach
     void tearDown() {
         created.forEach(id -> {
+            jdbc.update("DELETE FROM fare_split_transfer WHERE match_id = ?", id);
+            jdbc.update("DELETE FROM fare_split WHERE match_id = ?", id);
             jdbc.update("DELETE FROM ride_record WHERE match_id = ?", id);
             jdbc.update("DELETE FROM user_match_room WHERE match_id = ?", id);
             jdbc.update("DELETE FROM match_room WHERE id = ?", id);
@@ -139,6 +145,52 @@ class RideRecordQueryPostgresTest {
     }
 
     @Test
+    void 택시비_정산이_있는_방은_받는_사람과_보내는_사람에게_각자_몫이_채워지고_정산에_없는_멤버와_정산이_없는_방은_null_이다() {
+        Instant 기준 = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Instant 합류 = 기준.minusSeconds(3600);
+        Instant 도착 = 합류.plusSeconds(600);
+        // 남은 노쇼였다가 정산 시작 전에 무효로 돌아갔지만 도착을 누르지 않아 탑승자가 아니다 - 기록에는 나오고 정산에는 없다
+        Long 정산방 = droppedOff(기준, List.of(PartyMember.load(동승자, 합류, 도착, null, null), PartyMember.load(나, 합류.plusSeconds(1), 도착, null, null),
+                PartyMember.load(넷째, 합류.plusSeconds(2), 도착, null, null), PartyMember.load(남, 합류.plusSeconds(3), null, 기준.minusSeconds(600), 기준.minusSeconds(300))));
+        Long 정산없는방 = droppedOff(기준.minusSeconds(60), 나, 동승자);
+        fareSplitService.create(정산방, 나, 18_700, Bank.KB, "3333-01-2345678");
+
+        assertThat(rideOf(나, 정산방).totalFare()).isEqualTo(18_700);
+        assertThat(rideOf(나, 정산방).farePerPerson()).as("받는 사람 몫 = 18,700 - 6,240 × 2").isEqualTo(6_220);
+        assertThat(rideOf(동승자, 정산방).totalFare()).isEqualTo(18_700);
+        assertThat(rideOf(동승자, 정산방).farePerPerson()).as("보내는 사람 몫 = 1인당 금액").isEqualTo(6_240);
+        assertThat(rideOf(넷째, 정산방).farePerPerson()).isEqualTo(6_240);
+        assertThat(rideOf(남, 정산방).totalFare()).isNull();
+        assertThat(rideOf(남, 정산방).farePerPerson()).isNull();
+        assertThat(rideOf(나, 정산없는방).totalFare()).isNull();
+        assertThat(rideOf(나, 정산없는방).farePerPerson()).isNull();
+
+        // 닫힌 정산은 계좌번호가 지워져도 금액은 남는다
+        jdbc.update("UPDATE fare_split SET status = 'COMPLETED', account_number = NULL, closed_at = now() WHERE match_id = ?", 정산방);
+
+        assertThat(rideOf(나, 정산방).totalFare()).isEqualTo(18_700);
+        assertThat(rideOf(나, 정산방).farePerPerson()).isEqualTo(6_220);
+        assertThat(rideOf(동승자, 정산방).farePerPerson()).isEqualTo(6_240);
+    }
+
+    @Test
+    void 택시비_정산을_취소하면_탑승_기록의_요금이_다시_null_이다() {
+        Instant 기준 = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Instant 합류 = 기준.minusSeconds(3600);
+        Long 정산방 = droppedOff(기준, List.of(PartyMember.load(나, 합류, 합류.plusSeconds(600), null, null),
+                PartyMember.load(동승자, 합류.plusSeconds(1), 합류.plusSeconds(600), null, null)));
+        fareSplitService.create(정산방, 나, 10_001, Bank.KAKAO, "3333-01-2345678");
+        assertThat(rideOf(동승자, 정산방).farePerPerson()).isEqualTo(5_010);
+
+        fareSplitService.cancel(정산방, 나);
+
+        assertThat(rideOf(나, 정산방).totalFare()).isNull();
+        assertThat(rideOf(나, 정산방).farePerPerson()).isNull();
+        assertThat(rideOf(동승자, 정산방).totalFare()).isNull();
+        assertThat(rideOf(동승자, 정산방).farePerPerson()).isNull();
+    }
+
+    @Test
     void 없는_방을_가리키는_기록은_저장되지_않는다() {
         Long 없는방 = track(Long.MAX_VALUE);
 
@@ -146,6 +198,12 @@ class RideRecordQueryPostgresTest {
                 INSERT INTO ride_record (match_id, departure_place, destination_place, created_at) VALUES (?, ?, ?, now())
                 """, 없는방, "강남역", "판교역"))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private RideRecordItem rideOf(Long memberId, Long partyId) {
+        return rideRecordService.findMyRides(memberId, null, 50).rides().stream()
+                .filter(r -> r.partyId().equals(partyId))
+                .findFirst().orElseThrow();
     }
 
     private Long droppedOff(Instant dropoffTime, Long... memberIds) {

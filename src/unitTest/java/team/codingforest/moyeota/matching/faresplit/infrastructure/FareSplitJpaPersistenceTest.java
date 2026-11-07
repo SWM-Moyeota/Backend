@@ -14,6 +14,7 @@ import team.codingforest.moyeota.matching.faresplit.domain.FareSplit;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitTransfer;
 import team.codingforest.moyeota.matching.faresplit.domain.OpenTransfer;
+import team.codingforest.moyeota.matching.faresplit.domain.RideFare;
 import team.codingforest.moyeota.matching.faresplit.domain.TransferStatus;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
@@ -33,7 +34,7 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 
 /**
  *  H2 에서 엔티티 매핑(암호화 컨버터, 복합키 송금 행)과 합류 순 정렬, 변경 저장·삭제, 내가 보낼 정산 목록 쿼리,
- *  스케줄러 대상 조회(재요청·입금 확인 요청·만료)와 받는 사람별 OPEN 정산 조회를 본다.
+ *  스케줄러 대상 조회(재요청·입금 확인 요청·만료)와 받는 사람별 OPEN 정산 조회, 탑승 기록용 정산 금액 조회를 본다.
  *  마이그레이션·제약·행 잠금은 FareSplitPostgresTest·FareSplitSweepPostgresTest 가 본다
  */
 @DataJpaTest
@@ -42,6 +43,7 @@ class FareSplitJpaPersistenceTest {
     private static final Long PAYER_ID = 11L;
     private static final Long FIRST_ID = 12L;
     private static final Long SECOND_ID = 13L;
+    private static final Long OUTSIDER_ID = 99L;
     private static final AccountNumber ACCOUNT = new AccountNumber("3333012345678");
     private static final AccountNumber NEW_ACCOUNT = new AccountNumber("110123456789");
     // 한국 시각 11-05 12:00
@@ -593,6 +595,84 @@ class FareSplitJpaPersistenceTest {
          */
         assertThat(found).containsExactly(open.getId());
         assertThat(fareSplits.findOpenByPayer(SECOND_ID)).isEmpty();
+    }
+
+    @DisplayName("findRideFares - 받는 사람과 보내는 사람 모두에게 정산 한 건당 한 줄로 택시비·1인당 금액·보내는 사람 수를 주고, 정산에 없는 사람에게는 주지 않는다")
+    @Test
+    void findRideFares() {
+
+        /*
+         * settings
+         */
+        Party party = finishedParty(FIRST_ID, PAYER_ID, SECOND_ID);
+        fareSplits.create(FareSplit.open(party, PAYER_ID, 18_700, Bank.KB, ACCOUNT, Instant.now()));
+        clearContext();
+
+        /*
+         * test
+         */
+        List<RideFare> payerView = fareSplits.findRideFares(PAYER_ID, List.of(party.getId()));
+        List<RideFare> senderView = fareSplits.findRideFares(SECOND_ID, List.of(party.getId()));
+        List<RideFare> outsiderView = fareSplits.findRideFares(OUTSIDER_ID, List.of(party.getId()));
+
+        /*
+         * verify
+         */
+        RideFare expected = new RideFare(party.getId(), PAYER_ID, 18_700, 6_240, 2);
+        assertThat(payerView).containsExactly(expected);
+        assertThat(senderView).containsExactly(expected);
+        assertThat(outsiderView).isEmpty();
+        assertThat(payerView.getFirst().amountOf(PAYER_ID)).isEqualTo(6_220);
+        assertThat(senderView.getFirst().amountOf(SECOND_ID)).isEqualTo(6_240);
+    }
+
+    @DisplayName("findRideFares - 넘긴 방 중 정산이 있는 방만 주고, 닫힌 정산(계좌번호 NULL)도 준다")
+    @Test
+    void findRideFares_onlyRequestedAndAnyStatus() {
+
+        /*
+         * settings
+         */
+        Party open = finishedParty(PAYER_ID, FIRST_ID);
+        Party completed = finishedParty(PAYER_ID, FIRST_ID);
+        Party expired = finishedParty(FIRST_ID, PAYER_ID);
+        Party notRequested = finishedParty(PAYER_ID, FIRST_ID);
+        Party noSplit = finishedParty(PAYER_ID, FIRST_ID);
+        fareSplits.create(FareSplit.open(open, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.open(completed, PAYER_ID, 10_001, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.open(expired, FIRST_ID, 12_000, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.open(notRequested, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        execute("UPDATE fare_split SET status = 'COMPLETED', account_number = NULL, closed_at = now() WHERE match_id = ?1", completed.getId());
+        execute("UPDATE fare_split SET status = 'EXPIRED', account_number = NULL, closed_at = now() WHERE match_id = ?1", expired.getId());
+        clearContext();
+
+        /*
+         * test
+         */
+        List<RideFare> found = fareSplits.findRideFares(PAYER_ID, List.of(open.getId(), completed.getId(), expired.getId(), noSplit.getId()));
+
+        /*
+         * verify
+         */
+        assertThat(found).containsExactlyInAnyOrder(
+                new RideFare(open.getId(), PAYER_ID, 10_000, 5_000, 1),
+                new RideFare(completed.getId(), PAYER_ID, 10_001, 5_010, 1),
+                new RideFare(expired.getId(), FIRST_ID, 12_000, 6_000, 1));
+    }
+
+    @DisplayName("findRideFares - 넘긴 방이 없으면 빈 목록이다")
+    @Test
+    void findRideFares_empty() {
+
+        /*
+         * test
+         */
+        List<RideFare> found = fareSplits.findRideFares(PAYER_ID, List.of());
+
+        /*
+         * verify
+         */
+        assertThat(found).isEmpty();
     }
 
     // ───────────────────────── fixtures ─────────────────────────

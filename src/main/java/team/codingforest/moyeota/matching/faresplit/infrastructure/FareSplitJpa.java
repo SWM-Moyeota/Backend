@@ -9,9 +9,11 @@ import team.codingforest.moyeota.matching.faresplit.domain.FareSplit;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplits;
 import team.codingforest.moyeota.matching.faresplit.domain.OpenTransfer;
+import team.codingforest.moyeota.matching.faresplit.domain.RideFare;
 import team.codingforest.moyeota.matching.faresplit.domain.TransferRequestSchedule;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -68,6 +70,13 @@ public class FareSplitJpa implements FareSplits {
     @Override
     public List<OpenTransfer> findOpenTransfers(Long memberId) {
         return repository.findTransfersBySender(memberId, FareSplitStatus.OPEN);
+    }
+
+    @Override
+    public List<RideFare> findRideFares(Long memberId, Collection<Long> partyIds) {
+        if(partyIds.isEmpty()) return List.of();
+
+        return repository.findRideFares(memberId, partyIds);
     }
 
     @Override
