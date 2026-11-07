@@ -4,6 +4,7 @@
 # 어느 환경인지는 EC2 태그 SocketEnv 로 정함 - Env 태그를 쓰면 API 배포 그룹(Env=dev)이 이 서버에도 API 를 배포함
 #   태그를 못 읽거나 dev/prod 가 아니면 멈춤, 파라미터가 하나라도 없으면 멈춤
 set -euo pipefail
+umask 077
 REGION=ap-northeast-2
 ENV_FILE=/etc/moyeota-socket/socket.env
 NAMES=(REDIS_HOST REDIS_SSL_ENABLED WS_ALLOWED_ORIGINS CHAT_API_BASE_URL INTERNAL_API_TOKEN)

@@ -66,14 +66,14 @@ jobs:
           cd socket-app/deploy && zip -r "$GITHUB_WORKSPACE/moyeota-socket-${{ github.sha }}.zip" .
 
       - name: Upload to S3
-        run: aws s3 cp moyeota-socket-${{ github.sha }}.zip s3://$S3_BUCKET/socket/
+        run: aws s3 cp "moyeota-socket-${{ github.sha }}.zip" "s3://$S3_BUCKET/socket/"
 
       - name: Deploy
         run: |
           DEPLOY_ID=$(aws deploy create-deployment \
-            --application-name $CD_APP \
-            --deployment-group-name $CD_GROUP \
-            --s3-location bucket=$S3_BUCKET,key=socket/moyeota-socket-${{ github.sha }}.zip,bundleType=zip \
+            --application-name "$CD_APP" \
+            --deployment-group-name "$CD_GROUP" \
+            --s3-location "bucket=$S3_BUCKET,key=socket/moyeota-socket-${{ github.sha }}.zip,bundleType=zip" \
             --query deploymentId --output text)
           echo "Deployment: $DEPLOY_ID"
-          aws deploy wait deployment-successful --deployment-id $DEPLOY_ID
+          aws deploy wait deployment-successful --deployment-id "$DEPLOY_ID"
