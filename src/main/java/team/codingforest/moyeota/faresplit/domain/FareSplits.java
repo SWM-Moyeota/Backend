@@ -9,7 +9,7 @@ public interface FareSplits {
     /** 새 정산과 송금 행을 바로 INSERT 한다 - 같은 방에 이미 있으면(PK 중복) DuplicateKeyException, 다른 무결성 위반은 DataIntegrityViolationException */
     FareSplit create(FareSplit split);
 
-    /** 송금은 방 합류 순으로 담는다 */
+    /** 송금은 userId 순으로 담는다(create·findByPartyIdForUpdate 도 같다) - 방 합류 순은 응답을 만들 때 맞춘다(FareSplit.transfersInJoinOrder) */
     Optional<FareSplit> findByPartyId(Long partyId);
 
     /** 정산 행을 잠그고(PESSIMISTIC_WRITE) 읽는다 - 정산을 바꾸는 일은 모두 이걸로 시작해 같은 정산의 변경을 줄 세운다 */

@@ -7,6 +7,7 @@ import team.codingforest.moyeota.faresplit.exception.FareSplitErrorCode;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -36,7 +37,7 @@ public class FareSplit {
     private FareSplitStatus status;
     private final Instant createdAt;
     private Instant closedAt;
-    // 방 합류 순. payer 의 행은 없다
+    // payer 의 행은 없다. 저장소에서 읽으면 userId 순이다 - 화면의 방 합류 순은 transfersInJoinOrder 로 맞춘다
     private final List<FareSplitTransfer> transfers;
 
     private FareSplit(Long partyId, Long payerId, int totalFare, int amountPerPerson, Bank bank, AccountNumber accountNumber,
@@ -312,6 +313,23 @@ public class FareSplit {
     /** 1인당 금액을 받을 계좌로 보내는 토스 딥링크. 받을 계좌를 보여 줄 수 없으면 없다 */
     public Optional<String> tossDeeplink() {
         return receivingAccount().map(account -> TossDeeplink.of(amountPerPerson, bank, account));
+    }
+
+    /**
+     *  송금을 joinOrder(방 멤버 userId, 합류 순)대로 담는다. 목록에 없는 사람은 맨 뒤에 userId 순으로 둔다 - 합류 순을 모르면(빈 목록) userId 순이다.
+     *  합류 순은 matching 이 정하고 서비스가 넘긴다. 정산이 담은 송금 순서는 바꾸지 않는다
+     */
+    public List<FareSplitTransfer> transfersInJoinOrder(List<Long> joinOrder) {
+        return transfers.stream()
+                .sorted(Comparator.comparingInt((FareSplitTransfer t) -> orderOf(joinOrder, t.getMemberId()))
+                        .thenComparing(FareSplitTransfer::getMemberId))
+                .toList();
+    }
+
+    private static int orderOf(List<Long> joinOrder, Long memberId) {
+        int index = joinOrder.indexOf(memberId);
+
+        return index < 0 ? Integer.MAX_VALUE : index;
     }
 
     public List<Long> senderIds() {

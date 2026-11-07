@@ -36,6 +36,7 @@ import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,6 +55,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class FareSplitServiceUnitTest {
@@ -172,6 +174,32 @@ class FareSplitServiceUnitTest {
         verifyNoInteractions(notifier);
         task.run();
         verify(notifier).requestTransfer(eq(PARTY_ID), eq(List.of(SENDER_ID, OTHER_SENDER_ID)), eq(6_240));
+    }
+
+    @DisplayName("create - 저장소가 송금을 userId 순으로 돌려줘도 transfers 는 정산을 시작할 때 읽은 방 합류 순이다. 방은 한 번만 읽는다")
+    @Test
+    void create_joinOrder() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(crossedRiders())).when(partyAccess).findRiders(eq(PARTY_ID));
+        doReturn(false).when(fareSplits).existsByPartyId(eq(PARTY_ID));
+        doAnswer(invocation -> inUserIdOrder(invocation.getArgument(0))).when(fareSplits).create(any(FareSplit.class));
+        doReturn(summaries()).when(userAccess).findMemberSummaries(eq(List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID)));
+
+        /*
+         * test
+         */
+        FareSplitDetailResponse detail = service.create(PARTY_ID, PAYER_ID, 18_700, Bank.KAKAO, RAW_ACCOUNT);
+
+        /*
+         * verify
+         */
+        assertThat(detail.transfers()).extracting(FareSplitDetailResponse.FareSplitTransferItem::publicId)
+                .containsExactly(OTHER_SENDER_PUBLIC_ID, SENDER_PUBLIC_ID);
+        verify(partyAccess, times(1)).findRiders(eq(PARTY_ID));
+        verifyNoMoreInteractions(partyAccess);
     }
 
     @DisplayName("create - 계좌번호가 잘못되면 INVALID_ACCOUNT_NUMBER 이고 방을 읽지 않는다")
@@ -420,6 +448,62 @@ class FareSplitServiceUnitTest {
                 .containsOnly(TransferStatus.CONFIRMED);
     }
 
+    @DisplayName("getDetail - 저장소가 송금을 userId 순으로 돌려줘도 transfers 는 방 창구가 알려 준 합류 순이다. 방은 한 번만 읽는다")
+    @Test
+    void getDetail_joinOrder() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyId(eq(PARTY_ID));
+        doReturn(Optional.of(crossedRiders())).when(partyAccess).findRiders(eq(PARTY_ID));
+        doReturn(summaries()).when(userAccess).findMemberSummaries(eq(List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID)));
+        doReturn(Map.of(SENDER_ID, "김*수", OTHER_SENDER_ID, "이*")).when(maskedRealNames).find(eq(List.of(SENDER_ID, OTHER_SENDER_ID)));
+
+        /*
+         * test
+         */
+        FareSplitDetailResponse detail = service.getDetail(PARTY_ID, PAYER_ID);
+
+        /*
+         * verify
+         */
+        assertThat(detail.transfers()).extracting(FareSplitDetailResponse.FareSplitTransferItem::publicId)
+                .containsExactly(OTHER_SENDER_PUBLIC_ID, SENDER_PUBLIC_ID);
+        assertThat(detail.transfers()).extracting(FareSplitDetailResponse.FareSplitTransferItem::status)
+                .containsExactly(TransferStatus.NOT_SENT, TransferStatus.SENT);
+        assertThat(detail.transfers()).extracting(FareSplitDetailResponse.FareSplitTransferItem::maskedRealName)
+                .containsExactly("이*", "김*수");
+        verify(partyAccess, times(1)).findRiders(eq(PARTY_ID));
+        verifyNoMoreInteractions(partyAccess);
+    }
+
+    @DisplayName("getDetail - 방을 읽지 못하면(empty) 오류 없이 transfers 를 userId 순으로 담는다")
+    @Test
+    void getDetail_partyGone() {
+
+        /*
+         * settings
+         */
+        FareSplit split = FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, ACCOUNT, FareSplitStatus.OPEN, CREATED_AT, null,
+                List.of(FareSplitTransfer.load(OTHER_SENDER_ID, null, null, 1, CREATED_AT, null),
+                        FareSplitTransfer.load(SENDER_ID, SENT_AT, null, 1, CREATED_AT, null)));
+        doReturn(Optional.of(split)).when(fareSplits).findByPartyId(eq(PARTY_ID));
+        doReturn(Optional.empty()).when(partyAccess).findRiders(eq(PARTY_ID));
+        doReturn(summaries()).when(userAccess).findMemberSummaries(eq(List.of(PAYER_ID, OTHER_SENDER_ID, SENDER_ID)));
+
+        /*
+         * test
+         */
+        FareSplitDetailResponse detail = service.getDetail(PARTY_ID, SENDER_ID);
+
+        /*
+         * verify
+         */
+        assertThat(detail.transfers()).extracting(FareSplitDetailResponse.FareSplitTransferItem::publicId)
+                .containsExactly(SENDER_PUBLIC_ID, OTHER_SENDER_PUBLIC_ID);
+    }
+
     @DisplayName("getDetail - 정산이 없으면 FARE_SPLIT_NOT_FOUND")
     @Test
     void getDetail_notFound() {
@@ -441,7 +525,7 @@ class FareSplitServiceUnitTest {
         verifyNoInteractions(userAccess, maskedRealNames);
     }
 
-    @DisplayName("getDetail - 받는 사람도 보내는 사람도 아니면 NOT_FARE_SPLIT_PARTICIPANT 이고 사용자 정보를 묻지 않는다")
+    @DisplayName("getDetail - 받는 사람도 보내는 사람도 아니면 NOT_FARE_SPLIT_PARTICIPANT 이고 방·사용자 정보를 묻지 않는다")
     @Test
     void getDetail_notParticipant() {
 
@@ -459,7 +543,7 @@ class FareSplitServiceUnitTest {
          * verify
          */
         assertBusinessException(thrown, FareSplitErrorCode.NOT_FARE_SPLIT_PARTICIPANT);
-        verifyNoInteractions(userAccess, maskedRealNames);
+        verifyNoInteractions(partyAccess, userAccess, maskedRealNames);
     }
 
 
@@ -586,7 +670,7 @@ class FareSplitServiceUnitTest {
         assertThat(saved.findTransfer(OTHER_SENDER_ID).orElseThrow().status()).isEqualTo(TransferStatus.NOT_SENT);
         assertThat(saved.getStatus()).isEqualTo(FareSplitStatus.OPEN);
         assertThat(saved.getAccountNumber()).isEqualTo(ACCOUNT);
-        verifyNoInteractions(afterCommitExecutor);
+        verifyNoInteractions(partyAccess, afterCommitExecutor);
     }
 
     @DisplayName("confirmReceived - 마지막 송금을 확인하면 COMPLETED·닫힌 시각·계좌 삭제를 함께 저장하고, 커밋되면 받는 사람과 보내는 사람 전원에게 완료 알림을 보낸다")
@@ -622,6 +706,7 @@ class FareSplitServiceUnitTest {
         verifyNoInteractions(notifier);
         task.run();
         verify(notifier).notifyCompleted(eq(PARTY_ID), eq(List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID)));
+        verifyNoInteractions(partyAccess);
     }
 
     @DisplayName("confirmReceived - 이미 CONFIRMED 면 저장하지 않고 알림도 없다")
@@ -749,6 +834,7 @@ class FareSplitServiceUnitTest {
         verifyNoInteractions(notifier);
         task.run();
         verify(notifier).notifyNotReceived(eq(PARTY_ID), eq(SENDER_ID));
+        verifyNoInteractions(partyAccess);
     }
 
     @DisplayName("markNotReceived - SENT 가 아닌 송금이면 TRANSFER_NOT_SENT 이고 저장하지도 알리지도 않는다")
@@ -838,6 +924,34 @@ class FareSplitServiceUnitTest {
                 .containsExactly("김*수", null);
     }
 
+    @DisplayName("edit - 저장소가 송금을 userId 순으로 돌려줘도 응답의 transfers 는 방 창구가 알려 준 합류 순이다. 방은 한 번만 읽는다")
+    @Test
+    void edit_joinOrder() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(notStartedSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
+        doReturn(Optional.of(crossedRiders())).when(partyAccess).findRiders(eq(PARTY_ID));
+        doReturn(summaries()).when(userAccess).findMemberSummaries(eq(List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID)));
+        doReturn(Map.of(SENDER_ID, "김*수")).when(maskedRealNames).find(eq(List.of(SENDER_ID, OTHER_SENDER_ID)));
+
+        /*
+         * test
+         */
+        FareSplitDetailResponse detail = service.edit(PARTY_ID, PAYER_ID, 20_000, Bank.SHINHAN, "110-123-456789");
+
+        /*
+         * verify
+         */
+        assertThat(detail.transfers()).extracting(FareSplitDetailResponse.FareSplitTransferItem::publicId)
+                .containsExactly(OTHER_SENDER_PUBLIC_ID, SENDER_PUBLIC_ID);
+        assertThat(detail.transfers()).extracting(FareSplitDetailResponse.FareSplitTransferItem::maskedRealName)
+                .containsExactly(null, "김*수");
+        verify(partyAccess, times(1)).findRiders(eq(PARTY_ID));
+        verifyNoMoreInteractions(partyAccess);
+    }
+
     @DisplayName("edit - 계좌번호가 잘못되면 INVALID_ACCOUNT_NUMBER 이고 정산을 잠그지 않는다")
     @Test
     void edit_invalidAccount() {
@@ -873,7 +987,7 @@ class FareSplitServiceUnitTest {
          */
         assertBusinessException(thrown, FareSplitErrorCode.FARE_SPLIT_ALREADY_STARTED);
         verify(fareSplits, never()).save(any());
-        verifyNoInteractions(userAccess, maskedRealNames);
+        verifyNoInteractions(partyAccess, userAccess, maskedRealNames);
     }
 
     @DisplayName("edit - 정산이 없으면 FARE_SPLIT_NOT_FOUND")
@@ -920,6 +1034,7 @@ class FareSplitServiceUnitTest {
         order.verify(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
         order.verify(fareSplits).delete(eq(PARTY_ID));
         verify(fareSplits, never()).save(any());
+        verifyNoInteractions(partyAccess);
     }
 
     @DisplayName("cancel - 누군가 보냈다고 눌렀으면 FARE_SPLIT_ALREADY_STARTED 이고 지우지 않는다")
@@ -1141,7 +1256,7 @@ class FareSplitServiceUnitTest {
         assertThat(saved.getStatus()).isEqualTo(FareSplitStatus.EXPIRED);
         assertThat(saved.getClosedAt()).isEqualTo(now);
         assertThat(saved.getAccountNumber()).isNull();
-        verifyNoInteractions(afterCommitExecutor, notifier);
+        verifyNoInteractions(partyAccess, afterCommitExecutor, notifier);
     }
 
     @DisplayName("expire - 잠가 보니 아직 7일 전이거나 이미 닫혔으면 저장하지 않는다")
@@ -1223,6 +1338,7 @@ class FareSplitServiceUnitTest {
         assertThat(first.getAccountNumber()).isNull();
         assertThat(second.getAccountNumber()).isNull();
         assertThat(first.getStatus()).as("정산은 열어 둔다").isEqualTo(FareSplitStatus.OPEN);
+        verifyNoInteractions(partyAccess);
     }
 
     @DisplayName("forgetPayerAccounts - 이미 지웠거나 잠그기 전에 취소된 정산은 저장하지 않는다(다시 불러도 된다)")
@@ -1304,6 +1420,20 @@ class FareSplitServiceUnitTest {
     /** 셋 다 도착해 탄 끝난 방. 합류 순 payer → sender → other sender */
     private static PartyRiders finishedRiders() {
         return new PartyRiders(PARTY_ID, true, List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID), List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID));
+    }
+
+    /** 셋 다 도착해 탄 끝난 방. 합류 순 other sender → payer → sender 로 userId 순과 다르다 */
+    private static PartyRiders crossedRiders() {
+        List<Long> joinOrder = List.of(OTHER_SENDER_ID, PAYER_ID, SENDER_ID);
+
+        return new PartyRiders(PARTY_ID, true, joinOrder, joinOrder);
+    }
+
+    /** 저장소(FareSplitJpa)처럼 송금을 userId 순으로 담아 돌려준다 */
+    private static FareSplit inUserIdOrder(FareSplit split) {
+        return FareSplit.load(split.getPartyId(), split.getPayerId(), split.getTotalFare(), split.getAmountPerPerson(), split.getBank(),
+                split.getAccountNumber(), split.getStatus(), split.getCreatedAt(), split.getClosedAt(),
+                split.getTransfers().stream().sorted(Comparator.comparing(FareSplitTransfer::getMemberId)).toList());
     }
 
     private Runnable capturedTask(String name) {

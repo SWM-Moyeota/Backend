@@ -50,7 +50,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 /**
- *  V35 의 fare_split·fare_split_transfer 제약, 계좌번호 저장 암호화, 송금 합류 순 정렬,
+ *  V35 의 fare_split·fare_split_transfer 제약, 계좌번호 저장 암호화, 응답의 송금 합류 순 정렬(저장소는 userId 순),
  *  정산 시작이 방 행을 잠그지 않고도 PK 로 방마다 하나만 만들어지는지, 송금 처리·수정·취소가 정산 행 잠금으로 줄 서는지,
  *  닫히면 계좌번호 컬럼이 NULL 이 되는지, 내가 보낼 정산 목록 쿼리를 실제 Postgres 에서 본다
  */
@@ -154,23 +154,35 @@ class FareSplitPostgresTest {
     // ───────────────────────── 시작·조회 ─────────────────────────
 
     @Test
-    void 정산을_시작하면_보내는_사람마다_송금_행이_생기고_조회는_방_합류_순으로_준다() {
-        // userId 순(방장 < 둘째 < 셋째)과 다르게 셋째가 둘째보다 먼저 들어왔다
-        Long room = finishedRoom(방장, 셋째, 둘째);
+    void 정산을_시작하면_보내는_사람마다_송금_행이_생기고_시작_상세_수정_응답은_송금을_방_합류_순으로_준다() {
+        // userId 순(받는사람 < 앞번호 < 뒷번호)과 다르게 뒷번호가 앞번호보다 먼저 들어왔다
+        Long 받는사람 = newUser();
+        Long 앞번호 = newUser();
+        Long 뒷번호 = newUser();
+        Long room = finishedRoom(받는사람, 뒷번호, 앞번호);
+        List<UUID> 합류순 = List.of(publicIdOf(뒷번호), publicIdOf(앞번호));
 
-        FareSplitDetailResponse created = service.create(room, 방장, 18_700, Bank.KAKAO, RAW_ACCOUNT);
+        FareSplitDetailResponse created = service.create(room, 받는사람, 18_700, Bank.KAKAO, RAW_ACCOUNT);
 
         assertThat(created.myRole()).isEqualTo(FareSplitRole.PAYER);
         assertThat(created.status()).isEqualTo(FareSplitStatus.OPEN);
         assertThat(created.amountPerPerson()).isEqualTo(6_240);
         assertThat(created.myAmount()).isEqualTo(6_220);
+        assertThat(created.transfers()).extracting(FareSplitDetailResponse.FareSplitTransferItem::publicId).containsExactlyElementsOf(합류순);
         assertThat(jdbc.queryForList("SELECT user_id FROM fare_split_transfer WHERE match_id = ? ORDER BY user_id", Long.class, room))
-                .containsExactly(둘째, 셋째);
+                .containsExactly(앞번호, 뒷번호);
 
         FareSplit found = tx.execute(status -> fareSplits.findByPartyId(room).orElseThrow());
-        assertThat(found.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(셋째, 둘째);
+        assertThat(found.getTransfers()).extracting(FareSplitTransfer::getMemberId).as("저장소는 방을 읽지 않고 userId 순으로 준다")
+                .containsExactly(앞번호, 뒷번호);
 
-        assertThatThrownBy(() -> service.getDetail(room, 방장 + 100))
+        assertThat(service.getDetail(room, 앞번호).transfers()).extracting(FareSplitDetailResponse.FareSplitTransferItem::publicId)
+                .containsExactlyElementsOf(합류순);
+        assertThat(service.edit(room, 받는사람, 20_000, Bank.SHINHAN, "110-123-456789").transfers())
+                .extracting(FareSplitDetailResponse.FareSplitTransferItem::publicId).containsExactlyElementsOf(합류순);
+
+        // 필드의 방장 번호는 이 방(실제 users 로 만들었다)의 멤버가 아니다
+        assertThatThrownBy(() -> service.getDetail(room, 방장))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode()).isEqualTo(FareSplitErrorCode.NOT_FARE_SPLIT_PARTICIPANT);
     }
@@ -492,7 +504,7 @@ class FareSplitPostgresTest {
         return id;
     }
 
-    /** publicId 로 보내는 사람을 찾는 처리(받았어요·못 받았어요)에 쓰는 실제 users 행 */
+    /** publicId 로 보내는 사람을 찾는 처리(받았어요·못 받았어요)와 응답 송금의 publicId(합류 순) 확인에 쓰는 실제 users 행 */
     private Long newUser() {
         Long id = jdbc.queryForObject("INSERT INTO users (public_id, login_type, created_at) VALUES (?, 'LOCAL', now()) RETURNING id",
                 Long.class, UUID.randomUUID());

@@ -18,20 +18,23 @@ import team.codingforest.moyeota.faresplit.domain.Bank;
 import team.codingforest.moyeota.faresplit.domain.FareSplit;
 import team.codingforest.moyeota.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.faresplit.domain.FareSplitTransfer;
-import team.codingforest.moyeota.matching.api.PartyAccess;
 
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 
 /**
  *  정산 INSERT 가 실패했을 때 중복 키(같은 방에 이미 있는 정산)만 DuplicateKeyException 으로 바꾸고, 다른 무결성 위반은 그대로 올리는지 본다.
+ *  돌려주는 정산의 송금은 담긴 순서와 상관없이 userId 순인지도 본다 - 방 합류 순은 서비스가 응답을 만들 때 맞춘다(FareSplitServiceUnitTest).
  *  실제 DB 의 중복 키는 FareSplitJpaPersistenceTest(H2)·FareSplitPostgresTest 가 본다
  */
 @ExtendWith(MockitoExtension.class)
@@ -43,8 +46,6 @@ class FareSplitJpaUnitTest {
     private FareSplitJpaRepository repository;
     @Mock
     private EntityManager em;
-    @Mock
-    private PartyAccess partyAccess;
     @InjectMocks
     private FareSplitJpa fareSplits;
 
@@ -116,8 +117,35 @@ class FareSplitJpaUnitTest {
         assertThat(thrown).isSameAs(violation);
     }
 
+    @DisplayName("create / findByPartyId / findByPartyIdForUpdate - 송금을 담긴 순서(userId 역순)와 상관없이 userId 순으로 돌려준다")
+    @Test
+    void transfersInUserIdOrder() {
+
+        /*
+         * settings
+         */
+        FareSplitEntity entity = FareSplitEntity.from(split());
+        doReturn(Optional.of(entity)).when(repository).findWithTransfersByPartyId(eq(PARTY_ID));
+        doReturn(Optional.of(entity)).when(repository).findByPartyIdForUpdate(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        FareSplit created = fareSplits.create(split());
+        FareSplit found = fareSplits.findByPartyId(PARTY_ID).orElseThrow();
+        FareSplit locked = fareSplits.findByPartyIdForUpdate(PARTY_ID).orElseThrow();
+
+        /*
+         * verify
+         */
+        assertThat(created.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(2L, 3L);
+        assertThat(found.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(2L, 3L);
+        assertThat(locked.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(2L, 3L);
+    }
+
+    /** 보내는 사람을 userId 역순(3 → 2)으로 담았다 */
     private static FareSplit split() {
         return FareSplit.load(PARTY_ID, 1L, 18_700, 6_240, Bank.KAKAO, new AccountNumber("3333012345678"), FareSplitStatus.OPEN, CREATED_AT, null,
-                List.of(FareSplitTransfer.load(2L, null, null, 1, CREATED_AT, null), FareSplitTransfer.load(3L, null, null, 1, CREATED_AT, null)));
+                List.of(FareSplitTransfer.load(3L, null, null, 1, CREATED_AT, null), FareSplitTransfer.load(2L, null, null, 1, CREATED_AT, null)));
     }
 }

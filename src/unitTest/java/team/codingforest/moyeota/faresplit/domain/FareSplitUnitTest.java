@@ -500,6 +500,48 @@ class FareSplitUnitTest {
         assertThat(deeplink).isEmpty();
     }
 
+    // ───────────────────────── 송금 순서 ─────────────────────────
+
+    @DisplayName("transfersInJoinOrder - 송금을 넘긴 합류 순으로 담고, 합류 순에 없는 사람은 맨 뒤에 userId 순으로 둔다. 정산이 담은 순서는 그대로다")
+    @Test
+    void transfersInJoinOrder() {
+
+        /*
+         * settings
+         */
+        FareSplit split = split(FareSplitStatus.OPEN, notSent(IDLE_RIDER_ID), notSent(LATE_RIDER_ID), notSent(CASH_RIDER_ID), notSent(RIDER_ID));
+
+        /*
+         * test
+         */
+        List<FareSplitTransfer> ordered = split.transfersInJoinOrder(List.of(CASH_RIDER_ID, PAYER_ID, RIDER_ID));
+
+        /*
+         * verify
+         */
+        assertThat(ordered).extracting(FareSplitTransfer::getMemberId).containsExactly(CASH_RIDER_ID, RIDER_ID, LATE_RIDER_ID, IDLE_RIDER_ID);
+        assertThat(split.senderIds()).containsExactly(IDLE_RIDER_ID, LATE_RIDER_ID, CASH_RIDER_ID, RIDER_ID);
+    }
+
+    @DisplayName("transfersInJoinOrder - 합류 순을 모르면(빈 목록 - 방이 없음) userId 순이다")
+    @Test
+    void transfersInJoinOrder_unknown() {
+
+        /*
+         * settings
+         */
+        FareSplit split = split(FareSplitStatus.OPEN, notSent(LATE_RIDER_ID), notSent(IDLE_RIDER_ID), notSent(RIDER_ID));
+
+        /*
+         * test
+         */
+        List<FareSplitTransfer> ordered = split.transfersInJoinOrder(List.of());
+
+        /*
+         * verify
+         */
+        assertThat(ordered).extracting(FareSplitTransfer::getMemberId).containsExactly(RIDER_ID, LATE_RIDER_ID, IDLE_RIDER_ID);
+    }
 
     // ───────────────────────── markSent ─────────────────────────
 
@@ -1512,6 +1554,11 @@ class FareSplitUnitTest {
 
         return FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, open ? ACCOUNT : null, status, NOW,
                 open ? null : LATER, List.of(transfers));
+    }
+
+    /** 시작할 때 첫 송금 요청만 받고 아직 안 보낸 송금 */
+    private static FareSplitTransfer notSent(Long memberId) {
+        return FareSplitTransfer.load(memberId, null, null, 1, NOW, null);
     }
 
     /** 셋 다 도착해 탄 방. 합류 순 payer → rider → late rider */

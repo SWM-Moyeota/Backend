@@ -22,6 +22,7 @@ import team.codingforest.moyeota.faresplit.dto.MyFareSplitListResponse;
 import team.codingforest.moyeota.faresplit.exception.FareSplitErrorCode;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.dto.PartyPlaces;
+import team.codingforest.moyeota.matching.api.dto.PartyRiders;
 import team.codingforest.moyeota.user.api.MaskedRealNames;
 import team.codingforest.moyeota.user.api.MemberSummary;
 import team.codingforest.moyeota.user.api.UserAccess;
@@ -35,7 +36,7 @@ import java.util.UUID;
 /**
  *  택시비 정산 시작·조회·송금 처리·수정·취소·만료와 받는 사람 탈퇴 정리. 정산 시작은 잠그지 않고 PK(방 번호)로 방마다 하나만 남기고,
  *  만든 뒤의 변경은 모두 정산 행을 먼저 잠가 줄 세운다 - 마지막 두 송금을 동시에 확인해도 COMPLETED 로 한 번 닫힌다.
- *  푸시(송금 요청·못 받음·완료)는 커밋된 뒤에만 나간다
+ *  푸시(송금 요청·못 받음·완료)는 커밋된 뒤에만 나간다. 송금 목록의 방 합류 순은 그 목록을 응답에 담을 때(시작·상세·수정)만 방 창구에서 읽는다
  */
 @Slf4j
 @Service
@@ -80,7 +81,8 @@ public class FareSplitService {
 
         log.info("택시비 정산 시작 partyId={}, payerId={}, totalFare={}, senders={}", partyId, payerId, totalFare, senderIds.size());
 
-        return toDetail(saved, payerId);
+        // 송금 목록의 합류 순은 위에서 읽은 방 멤버 순서를 다시 쓴다
+        return toDetail(saved, payerId, party.memberIds());
     }
 
     /**
@@ -91,7 +93,10 @@ public class FareSplitService {
         FareSplit split = fareSplits.findByPartyId(partyId)
                 .orElseThrow(() -> new BusinessException(FareSplitErrorCode.FARE_SPLIT_NOT_FOUND));
 
-        return toDetail(split, memberId);
+        // 정산에 없는 사람(NOT_FARE_SPLIT_PARTICIPANT)은 방을 읽기 전에 막는다
+        split.roleOf(memberId);
+
+        return toDetail(split, memberId, joinOrder(partyId));
     }
 
     /**
@@ -160,7 +165,7 @@ public class FareSplitService {
 
         log.info("택시비 정산 수정 partyId={}, totalFare={}", partyId, totalFare);
 
-        return toDetail(split, payerId);
+        return toDetail(split, payerId, joinOrder(partyId));
     }
 
     /**
@@ -242,11 +247,16 @@ public class FareSplitService {
                 .orElseThrow(() -> new BusinessException(FareSplitErrorCode.FARE_SPLIT_TRANSFER_NOT_FOUND));
     }
 
-    private FareSplitDetailResponse toDetail(FareSplit split, Long viewerId) {
+    // 송금 목록을 보여 줄 방 합류 순 - matching 이 정한다(방 상세 멤버 정렬과 같은 기준). 방이 없으면 빈 목록이라 userId 순이 된다
+    private List<Long> joinOrder(Long partyId) {
+        return partyAccess.findRiders(partyId).map(PartyRiders::memberIds).orElse(List.of());
+    }
+
+    private FareSplitDetailResponse toDetail(FareSplit split, Long viewerId, List<Long> joinOrder) {
         FareSplitRole role = split.roleOf(viewerId);
 
         Map<Long, String> maskedNames = role == FareSplitRole.PAYER ? maskedRealNames.find(split.senderIds()) : Map.of();
 
-        return FareSplitDetailResponse.of(split, viewerId, userAccess.findMemberSummaries(split.participantIds()), maskedNames);
+        return FareSplitDetailResponse.of(split, viewerId, joinOrder, userAccess.findMemberSummaries(split.participantIds()), maskedNames);
     }
 }

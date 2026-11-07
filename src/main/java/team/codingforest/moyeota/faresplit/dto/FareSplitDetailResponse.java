@@ -47,14 +47,16 @@ public record FareSplitDetailResponse(
     }
 
     /**
+     *  @param joinOrder      방 멤버 userId, 합류 순. transfers 를 이 순서로 싣는다(FareSplit.transfersInJoinOrder)
      *  @param summaries      userId → 닉네임 등. 없는 사람은 publicId·nickname 이 null
      *  @param maskedRealNames userId → 가린 실명. PAYER 가 볼 때만 채워서 넘긴다
      */
-    public static FareSplitDetailResponse of(FareSplit split, Long viewerId, Map<Long, MemberSummary> summaries, Map<Long, String> maskedRealNames) {
+    public static FareSplitDetailResponse of(FareSplit split, Long viewerId, List<Long> joinOrder, Map<Long, MemberSummary> summaries,
+                                             Map<Long, String> maskedRealNames) {
         FareSplitRole role = split.roleOf(viewerId);
         MemberSummary payer = summaries.get(split.getPayerId());
 
-        List<FareSplitTransferItem> transfers = split.getTransfers().stream()
+        List<FareSplitTransferItem> transfers = split.transfersInJoinOrder(joinOrder).stream()
                 .map(t -> transferItem(t, summaries.get(t.getMemberId()), role == FareSplitRole.PAYER ? maskedRealNames.get(t.getMemberId()) : null))
                 .toList();
 

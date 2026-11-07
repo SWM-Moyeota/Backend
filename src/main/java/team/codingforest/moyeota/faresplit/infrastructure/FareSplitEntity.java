@@ -103,23 +103,14 @@ public class FareSplitEntity extends BaseTimeEntity {
         }
     }
 
-    /**
-     *  @param joinOrder 방 멤버 userId 를 합류 순으로. 송금을 이 순서로 담고, 목록에 없는 사람은 맨 뒤에 userId 순으로 둔다
-     */
-    public FareSplit toDomain(List<Long> joinOrder) {
+    /** 송금은 userId 순으로 담는다 - 방 합류 순은 응답을 만들 때 맞춘다(FareSplit.transfersInJoinOrder) */
+    public FareSplit toDomain() {
         List<FareSplitTransfer> ordered = transfers.stream()
-                .sorted(Comparator.comparingInt((FareSplitTransferEntity t) -> orderOf(joinOrder, t.getMemberId()))
-                        .thenComparing(FareSplitTransferEntity::getMemberId))
+                .sorted(Comparator.comparing(FareSplitTransferEntity::getMemberId))
                 .map(FareSplitTransferEntity::toDomain)
                 .toList();
 
         return FareSplit.load(partyId, payerId, totalFare, amountPerPerson, bankCode,
                 accountNumber == null ? null : new AccountNumber(accountNumber), status, getCreatedAt(), closedAt, ordered);
-    }
-
-    private static int orderOf(List<Long> joinOrder, Long memberId) {
-        int index = joinOrder.indexOf(memberId);
-
-        return index < 0 ? Integer.MAX_VALUE : index;
     }
 }

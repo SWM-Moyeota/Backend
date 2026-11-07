@@ -7,7 +7,6 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import team.codingforest.moyeota.common.JpaAuditingConfig;
 import team.codingforest.moyeota.faresplit.domain.AccountNumber;
 import team.codingforest.moyeota.faresplit.domain.Bank;
@@ -18,24 +17,19 @@ import team.codingforest.moyeota.faresplit.domain.FareSplitTransfer;
 import team.codingforest.moyeota.faresplit.domain.OpenTransfer;
 import team.codingforest.moyeota.faresplit.domain.RideRoster;
 import team.codingforest.moyeota.faresplit.domain.TransferStatus;
-import team.codingforest.moyeota.matching.api.PartyAccess;
-import team.codingforest.moyeota.matching.api.dto.PartyRiders;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
 
 /**
- *  H2 에서 엔티티 매핑(암호화 컨버터, 복합키 송금 행)과 합류 순 정렬, 변경 저장·삭제, 내가 보낼 정산 목록 쿼리,
+ *  H2 에서 엔티티 매핑(암호화 컨버터, 복합키 송금 행)과 송금 순서(userId 순), 변경 저장·삭제, 내가 보낼 정산 목록 쿼리,
  *  스케줄러 대상 조회(재요청·입금 확인 요청·만료)와 받는 사람별 OPEN 정산 조회, 탑승 기록용 정산 금액 조회를 본다.
- *  합류 순은 matching 창구(PartyAccess)가 알려 준 대로 담는지만 본다 - 실제 합류 순은 PartyAccessPostgresTest 가 본다.
+ *  저장소는 방을 읽지 않아(PartyAccess 빈 없이 뜬다) 송금을 방 합류 순이 아니라 userId 순으로 돌려준다 - 응답의 합류 순은 FareSplitServiceUnitTest·FareSplitPostgresTest 가 본다.
  *  마이그레이션·제약·행 잠금은 FareSplitPostgresTest·FareSplitSweepPostgresTest 가 본다
  */
 @DataJpaTest
@@ -53,9 +47,6 @@ class FareSplitJpaPersistenceTest {
     private final FareSplitJpa fareSplits;
     private final TestEntityManager em;
     private long nextPartyId = 1_000L;
-
-    @MockitoBean
-    private PartyAccess partyAccess;
 
     @Autowired
     FareSplitJpaPersistenceTest(FareSplitJpa fareSplits, TestEntityManager em) {
@@ -125,26 +116,27 @@ class FareSplitJpaPersistenceTest {
         assertThat(stored).startsWith("v1:").doesNotContain(ACCOUNT.value());
     }
 
-    @DisplayName("findByPartyId - 송금은 userId 순이 아니라 방 합류 순으로 담는다")
+    @DisplayName("create / findByPartyId - 송금은 방 합류 순이 아니라 userId 순으로 담는다(방을 읽지 않는다)")
     @Test
-    void findByPartyId_joinOrder() {
+    void findByPartyId_userIdOrder() {
 
         /*
          * settings
          */
         RideRoster party = finishedParty(SECOND_ID, PAYER_ID, FIRST_ID);
-        fareSplits.create(FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
-        clearContext();
 
         /*
          * test
          */
+        FareSplit created = fareSplits.create(FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        clearContext();
         FareSplit found = fareSplits.findByPartyId(party.partyId()).orElseThrow();
 
         /*
          * verify
          */
-        assertThat(found.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(SECOND_ID, FIRST_ID);
+        assertThat(created.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(FIRST_ID, SECOND_ID);
+        assertThat(found.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(FIRST_ID, SECOND_ID);
     }
 
     @DisplayName("findByPartyId / existsByPartyId - 정산이 없는 방이면 empty / false")
@@ -217,7 +209,7 @@ class FareSplitJpaPersistenceTest {
 
     // ───────────────────────── findByPartyIdForUpdate ─────────────────────────
 
-    @DisplayName("findByPartyIdForUpdate - 잠가 읽어도 송금을 방 합류 순으로 담고, 정산이 없으면 empty")
+    @DisplayName("findByPartyIdForUpdate - 잠가 읽어도 송금을 userId 순으로 담고, 정산이 없으면 empty")
     @Test
     void findByPartyIdForUpdate() {
 
@@ -236,7 +228,7 @@ class FareSplitJpaPersistenceTest {
         /*
          * verify
          */
-        assertThat(found.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(SECOND_ID, FIRST_ID);
+        assertThat(found.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(FIRST_ID, SECOND_ID);
         assertThat(found.getAccountNumber()).isEqualTo(ACCOUNT);
         assertThat(fareSplits.findByPartyIdForUpdate(party.partyId() + 1_000)).isEmpty();
     }
@@ -678,13 +670,11 @@ class FareSplitJpaPersistenceTest {
 
     // ───────────────────────── fixtures ─────────────────────────
 
-    /** 넘긴 순서대로 합류하고 모두 도착해 탄 끝난 방. 합류 순은 matching 창구가 알려 준다 */
+    /** 넘긴 순서대로 합류하고 모두 도착해 탄 끝난 방 */
     private RideRoster finishedParty(Long... memberIdsInJoinOrder) {
-        Long partyId = nextPartyId++;
         List<Long> members = List.of(memberIdsInJoinOrder);
-        doReturn(Optional.of(new PartyRiders(partyId, true, members, members))).when(partyAccess).findRiders(eq(partyId));
 
-        return new RideRoster(partyId, true, members, members);
+        return new RideRoster(nextPartyId++, true, members, members);
     }
 
     private String rawAccountNumber(Long partyId) {
