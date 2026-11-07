@@ -1,11 +1,11 @@
 package team.codingforest.moyeota.matching.faresplit.domain;
 
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.common.time.QuietHours;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.QuietHours;
 
 import java.time.Duration;
 import java.time.Instant;

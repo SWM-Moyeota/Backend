@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.matching.party.domain;
+package team.codingforest.moyeota.common.time;
 
 import java.time.Instant;
 import java.time.LocalTime;

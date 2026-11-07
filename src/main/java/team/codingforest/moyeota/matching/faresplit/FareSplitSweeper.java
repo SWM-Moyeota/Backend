@@ -5,8 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import team.codingforest.moyeota.common.time.QuietHours;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplits;
-import team.codingforest.moyeota.matching.party.domain.QuietHours;
 
 import java.time.Instant;
 
