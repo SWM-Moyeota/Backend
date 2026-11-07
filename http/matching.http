@@ -115,3 +115,16 @@ X-Operator-Token: {{operatorToken}}
 ### 14. (운영자) 이의 거절
 POST {{host}}/api/v1/operator/no-show-objections/1/reject
 X-Operator-Token: {{operatorToken}}
+
+### 15. 택시비 정산 시작 - 동승이 끝난 방의 탑승자(도착·노쇼 아님)가 받는 사람이 된다. 201 + 정산 상세
+POST {{host}}/api/v1/matching/rooms/1/fare-split
+Content-Type: application/json
+
+{
+  "totalFare": 18700,
+  "bankCode": "KAKAO",
+  "accountNumber": "3333-01-2345678"
+}
+
+### 16. 택시비 정산 상세 - 받는 사람·보내는 사람만. 보내는 사람에게는 tossDeeplink, 받는 사람에게는 maskedRealName
+GET {{host}}/api/v1/matching/rooms/1/fare-split

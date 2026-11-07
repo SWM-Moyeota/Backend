@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.user.common.crypto;
+package team.codingforest.moyeota.common.crypto;
 
 import org.junit.jupiter.api.Test;
 

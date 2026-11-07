@@ -6,7 +6,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
-import team.codingforest.moyeota.user.common.crypto.FieldHasher;
+import team.codingforest.moyeota.common.crypto.FieldHasher;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
 import team.codingforest.moyeota.user.deletion.domain.UserDeletions;
