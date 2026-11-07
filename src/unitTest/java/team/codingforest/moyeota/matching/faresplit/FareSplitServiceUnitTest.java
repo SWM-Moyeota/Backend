@@ -9,6 +9,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.exception.ErrorCode;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
@@ -29,13 +30,6 @@ import team.codingforest.moyeota.matching.faresplit.domain.TossDeeplink;
 import team.codingforest.moyeota.matching.faresplit.domain.TransferStatus;
 import team.codingforest.moyeota.matching.faresplit.dto.FareSplitDetailResponse;
 import team.codingforest.moyeota.matching.faresplit.dto.MyFareSplitListResponse;
-import team.codingforest.moyeota.matching.party.domain.Capacity;
-import team.codingforest.moyeota.matching.party.domain.Location;
-import team.codingforest.moyeota.matching.party.domain.Parties;
-import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.RoomType;
 import team.codingforest.moyeota.user.api.MaskedRealNames;
 import team.codingforest.moyeota.user.api.MemberSummary;
 import team.codingforest.moyeota.user.api.UserAccess;
@@ -71,8 +65,6 @@ class FareSplitServiceUnitTest {
     private static final UUID PAYER_PUBLIC_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
     private static final UUID SENDER_PUBLIC_ID = UUID.fromString("00000000-0000-0000-0000-000000000002");
     private static final UUID OTHER_SENDER_PUBLIC_ID = UUID.fromString("00000000-0000-0000-0000-000000000003");
-    private static final Location DEPARTURE = new Location(37.4979, 127.0276);
-    private static final Location DESTINATION = new Location(37.3948, 127.1112);
     private static final Instant MEETING_AT = Instant.parse("2026-11-03T12:00:00Z");
     private static final Instant CREATED_AT = MEETING_AT.plus(Duration.ofMinutes(40));
     private static final Instant SENT_AT = CREATED_AT.plus(Duration.ofMinutes(5));
@@ -82,8 +74,6 @@ class FareSplitServiceUnitTest {
     private static final String NOT_RECEIVED_TASK = "fare-split.not-received";
     private static final String COMPLETED_TASK = "fare-split.completed";
 
-    @Mock
-    private Parties parties;
     @Mock
     private PartyAccess partyAccess;
     @Mock
@@ -101,14 +91,13 @@ class FareSplitServiceUnitTest {
 
     // ───────────────────────── create ─────────────────────────
 
-    @DisplayName("create - 방을 잠근 뒤 정산이 없으면 저장하고 받는 사람 화면(가린 실명 포함)을 돌려준다")
+    @DisplayName("create - 방을 잠그지 않고 탑승자를 읽어 정산이 없으면 저장하고 받는 사람 화면(가린 실명 포함)을 돌려준다")
     @Test
     void create() {
 
         /*
          * settings
          */
-        doReturn(Optional.of(finishedParty())).when(parties).findByIdForUpdate(eq(PARTY_ID));
         doReturn(Optional.of(finishedRiders())).when(partyAccess).findRiders(eq(PARTY_ID));
         doReturn(false).when(fareSplits).existsByPartyId(eq(PARTY_ID));
         doAnswer(invocation -> invocation.getArgument(0)).when(fareSplits).create(any(FareSplit.class));
@@ -123,8 +112,7 @@ class FareSplitServiceUnitTest {
         /*
          * verify
          */
-        InOrder order = inOrder(parties, partyAccess, fareSplits);
-        order.verify(parties).findByIdForUpdate(eq(PARTY_ID));
+        InOrder order = inOrder(partyAccess, fareSplits);
         order.verify(partyAccess).findRiders(eq(PARTY_ID));
         order.verify(fareSplits).existsByPartyId(eq(PARTY_ID));
         ArgumentCaptor<FareSplit> captor = ArgumentCaptor.forClass(FareSplit.class);
@@ -163,7 +151,6 @@ class FareSplitServiceUnitTest {
         /*
          * settings
          */
-        doReturn(Optional.of(finishedParty())).when(parties).findByIdForUpdate(eq(PARTY_ID));
         doReturn(Optional.of(finishedRiders())).when(partyAccess).findRiders(eq(PARTY_ID));
         doReturn(false).when(fareSplits).existsByPartyId(eq(PARTY_ID));
         doAnswer(invocation -> invocation.getArgument(0)).when(fareSplits).create(any(FareSplit.class));
@@ -187,7 +174,7 @@ class FareSplitServiceUnitTest {
         verify(notifier).requestTransfer(eq(PARTY_ID), eq(List.of(SENDER_ID, OTHER_SENDER_ID)), eq(6_240));
     }
 
-    @DisplayName("create - 계좌번호가 잘못되면 INVALID_ACCOUNT_NUMBER 이고 방을 잠그지 않는다")
+    @DisplayName("create - 계좌번호가 잘못되면 INVALID_ACCOUNT_NUMBER 이고 방을 읽지 않는다")
     @Test
     void create_invalidAccount() {
 
@@ -200,7 +187,7 @@ class FareSplitServiceUnitTest {
          * verify
          */
         assertBusinessException(thrown, MatchingErrorCode.INVALID_ACCOUNT_NUMBER);
-        verifyNoInteractions(parties, partyAccess, fareSplits, userAccess, maskedRealNames);
+        verifyNoInteractions(partyAccess, fareSplits, userAccess, maskedRealNames);
     }
 
     @DisplayName("create - 없는 방이면 PARTY_NOT_FOUND")
@@ -210,7 +197,7 @@ class FareSplitServiceUnitTest {
         /*
          * settings
          */
-        doReturn(Optional.empty()).when(parties).findByIdForUpdate(eq(PARTY_ID));
+        doReturn(Optional.empty()).when(partyAccess).findRiders(eq(PARTY_ID));
 
         /*
          * test
@@ -231,7 +218,6 @@ class FareSplitServiceUnitTest {
         /*
          * settings
          */
-        doReturn(Optional.of(finishedParty())).when(parties).findByIdForUpdate(eq(PARTY_ID));
         doReturn(Optional.of(new PartyRiders(PARTY_ID, false, List.of(PAYER_ID, SENDER_ID), List.of(PAYER_ID, SENDER_ID))))
                 .when(partyAccess).findRiders(eq(PARTY_ID));
 
@@ -254,7 +240,6 @@ class FareSplitServiceUnitTest {
         /*
          * settings
          */
-        doReturn(Optional.of(finishedParty())).when(parties).findByIdForUpdate(eq(PARTY_ID));
         doReturn(Optional.of(new PartyRiders(PARTY_ID, true, List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID), List.of(PAYER_ID, SENDER_ID))))
                 .when(partyAccess).findRiders(eq(PARTY_ID));
 
@@ -277,7 +262,6 @@ class FareSplitServiceUnitTest {
         /*
          * settings
          */
-        doReturn(Optional.of(finishedParty())).when(parties).findByIdForUpdate(eq(PARTY_ID));
         doReturn(Optional.of(finishedRiders())).when(partyAccess).findRiders(eq(PARTY_ID));
         doReturn(true).when(fareSplits).existsByPartyId(eq(PARTY_ID));
 
@@ -294,17 +278,16 @@ class FareSplitServiceUnitTest {
         verifyNoInteractions(userAccess, maskedRealNames, afterCommitExecutor);
     }
 
-    @DisplayName("create - 저장 중 PK 가 겹치면(DataIntegrityViolationException) FARE_SPLIT_ALREADY_EXISTS 이고 송금 요청을 보내지 않는다")
+    @DisplayName("create - 선검사 뒤 다른 탑승자가 먼저 만들어 저장 중 PK 가 겹치면(DuplicateKeyException) FARE_SPLIT_ALREADY_EXISTS 이고 송금 요청을 보내지 않는다")
     @Test
     void create_duplicateKey() {
 
         /*
          * settings
          */
-        doReturn(Optional.of(finishedParty())).when(parties).findByIdForUpdate(eq(PARTY_ID));
         doReturn(Optional.of(finishedRiders())).when(partyAccess).findRiders(eq(PARTY_ID));
         doReturn(false).when(fareSplits).existsByPartyId(eq(PARTY_ID));
-        doThrow(new DataIntegrityViolationException("duplicate key")).when(fareSplits).create(any(FareSplit.class));
+        doThrow(new DuplicateKeyException("duplicate key")).when(fareSplits).create(any(FareSplit.class));
 
         /*
          * test
@@ -315,6 +298,30 @@ class FareSplitServiceUnitTest {
          * verify
          */
         assertBusinessException(thrown, MatchingErrorCode.FARE_SPLIT_ALREADY_EXISTS);
+        verifyNoInteractions(userAccess, maskedRealNames, afterCommitExecutor);
+    }
+
+    @DisplayName("create - 중복 키가 아닌 무결성 위반(FK 등)은 FARE_SPLIT_ALREADY_EXISTS 로 감추지 않고 그대로 올리며 송금 요청을 보내지 않는다")
+    @Test
+    void create_otherIntegrityViolation() {
+
+        /*
+         * settings
+         */
+        DataIntegrityViolationException violation = new DataIntegrityViolationException("violates foreign key constraint");
+        doReturn(Optional.of(finishedRiders())).when(partyAccess).findRiders(eq(PARTY_ID));
+        doReturn(false).when(fareSplits).existsByPartyId(eq(PARTY_ID));
+        doThrow(violation).when(fareSplits).create(any(FareSplit.class));
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> service.create(PARTY_ID, PAYER_ID, 18_700, Bank.KAKAO, RAW_ACCOUNT));
+
+        /*
+         * verify
+         */
+        assertThat(thrown).isSameAs(violation);
         verifyNoInteractions(userAccess, maskedRealNames, afterCommitExecutor);
     }
 
@@ -483,7 +490,7 @@ class FareSplitServiceUnitTest {
         FareSplitTransfer transfer = captor.getValue().findTransfer(OTHER_SENDER_ID).orElseThrow();
         assertThat(transfer.status()).isEqualTo(TransferStatus.SENT);
         assertThat(transfer.getSentAt()).isNotNull();
-        verifyNoInteractions(parties, partyAccess, userAccess, maskedRealNames, afterCommitExecutor);
+        verifyNoInteractions(partyAccess, userAccess, maskedRealNames, afterCommitExecutor);
     }
 
     @DisplayName("markSent - 이미 SENT 면 저장하지 않는다")
@@ -1294,23 +1301,9 @@ class FareSplitServiceUnitTest {
                         FareSplitTransfer.load(OTHER_SENDER_ID, null, null, 1, CREATED_AT, null)));
     }
 
-    private static Party finishedParty() {
-        return party(PartyStatus.FINISHED, List.of(arrived(PAYER_ID, 0), arrived(SENDER_ID, 1), arrived(OTHER_SENDER_ID, 2)));
-    }
-
     /** 셋 다 도착해 탄 끝난 방. 합류 순 payer → sender → other sender */
     private static PartyRiders finishedRiders() {
         return new PartyRiders(PARTY_ID, true, List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID), List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID));
-    }
-
-    private static PartyMember arrived(Long memberId, int joinOrder) {
-        return PartyMember.load(memberId, MEETING_AT.minusSeconds(60 - joinOrder * 10L), MEETING_AT.minusSeconds(30), null, null);
-    }
-
-    private static Party party(PartyStatus status, List<PartyMember> members) {
-        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3), members,
-                PAYER_ID, MEETING_AT.minus(Duration.ofHours(1)), status, 12000, 25, "encoded-path",
-                7L, RoomType.REALTIME, MEETING_AT, null);
     }
 
     private Runnable capturedTask(String name) {

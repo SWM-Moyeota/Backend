@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface FareSplits {
-    /** 새 정산과 송금 행을 바로 INSERT 한다 - 같은 방에 이미 있으면 DataIntegrityViolationException */
+    /** 새 정산과 송금 행을 바로 INSERT 한다 - 같은 방에 이미 있으면(PK 중복) DuplicateKeyException, 다른 무결성 위반은 DataIntegrityViolationException */
     FareSplit create(FareSplit split);
 
     /** 송금은 방 합류 순으로 담는다 */

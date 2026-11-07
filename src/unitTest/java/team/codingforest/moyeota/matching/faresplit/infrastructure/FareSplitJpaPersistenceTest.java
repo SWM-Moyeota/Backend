@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import team.codingforest.moyeota.common.JpaAuditingConfig;
 import team.codingforest.moyeota.matching.api.PartyAccess;
@@ -168,7 +168,7 @@ class FareSplitJpaPersistenceTest {
         assertThat(fareSplits.findByPartyId(party.partyId())).isEmpty();
     }
 
-    @DisplayName("create - 같은 방에 두 번 만들면 덮어쓰지 않고 DataIntegrityViolationException")
+    @DisplayName("create - 같은 방에 두 번 만들면 덮어쓰지 않고 중복 키(DuplicateKeyException)로 알린다")
     @Test
     void create_duplicate() {
 
@@ -187,7 +187,7 @@ class FareSplitJpaPersistenceTest {
         /*
          * verify
          */
-        assertThat(thrown).isInstanceOfAny(DataIntegrityViolationException.class, org.hibernate.exception.ConstraintViolationException.class);
+        assertThat(thrown).isInstanceOf(DuplicateKeyException.class);
         clearContextQuietly();
         assertThat(fareSplits.findByPartyId(party.partyId()).orElseThrow().getPayerId()).as("처음 만든 정산이 남는다").isEqualTo(PAYER_ID);
     }

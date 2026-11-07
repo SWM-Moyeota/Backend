@@ -1,7 +1,10 @@
 package team.codingforest.moyeota.matching.faresplit.infrastructure;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceException;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.api.PartyAccess;
@@ -14,6 +17,7 @@ import team.codingforest.moyeota.matching.faresplit.domain.OpenTransfer;
 import team.codingforest.moyeota.matching.faresplit.domain.FareShare;
 import team.codingforest.moyeota.matching.faresplit.domain.TransferRequestSchedule;
 
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -22,6 +26,9 @@ import java.util.Optional;
 @Repository
 @RequiredArgsConstructor
 public class FareSplitJpa implements FareSplits {
+    // unique_violation - Postgres 와 H2 가 같은 값을 쓴다
+    private static final String UNIQUE_VIOLATION = "23505";
+
     private final FareSplitJpaRepository repository;
     private final EntityManager em;
     private final PartyAccess partyAccess;
@@ -32,8 +39,14 @@ public class FareSplitJpa implements FareSplits {
 
         // 키(방 번호)를 직접 넣는 엔티티라 save 는 merge 로 돌아 같은 방의 행을 덮어쓸 수 있다.
         // persist 로 INSERT 만 하고 바로 flush 해 PK 중복을 이 자리에서 드러낸다
-        em.persist(entity);
-        em.flush();
+        try {
+            em.persist(entity);
+            em.flush();
+        } catch (PersistenceException e) {
+            if(isDuplicateKey(e)) throw new DuplicateKeyException("이미 정산이 있는 방 partyId=" + split.getPartyId(), e);
+
+            throw e;
+        }
 
         return entity.toDomain(split.senderIds());
     }
@@ -101,6 +114,17 @@ public class FareSplitJpa implements FareSplits {
     @Override
     public List<Long> findOpenByPayer(Long payerId) {
         return repository.findOpenIdsByPayer(payerId);
+    }
+
+    // 원인을 따라가 중복 키(PK·unique 위반)만 고른다 - FK·NOT NULL·CHECK 위반은 중복이 아니다
+    private static boolean isDuplicateKey(Throwable e) {
+        for(Throwable cause = e; cause != null; cause = cause.getCause()) {
+            if(cause instanceof ConstraintViolationException violation && violation.getKind() == ConstraintViolationException.ConstraintKind.UNIQUE) return true;
+
+            if(cause instanceof SQLException sql && UNIQUE_VIOLATION.equals(sql.getSQLState())) return true;
+        }
+
+        return false;
     }
 
     // 송금을 방 합류 순으로 담는다 - 합류 순은 matching 이 정한다(방 상세 멤버 정렬과 같은 기준)

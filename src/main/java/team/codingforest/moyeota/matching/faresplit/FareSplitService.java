@@ -2,7 +2,7 @@ package team.codingforest.moyeota.matching.faresplit;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
@@ -22,7 +22,6 @@ import team.codingforest.moyeota.matching.faresplit.domain.RideRoster;
 import team.codingforest.moyeota.matching.faresplit.domain.TransferStatus;
 import team.codingforest.moyeota.matching.faresplit.dto.FareSplitDetailResponse;
 import team.codingforest.moyeota.matching.faresplit.dto.MyFareSplitListResponse;
-import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.user.api.MaskedRealNames;
 import team.codingforest.moyeota.user.api.MemberSummary;
 import team.codingforest.moyeota.user.api.UserAccess;
@@ -34,7 +33,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- *  택시비 정산 시작·조회·송금 처리·수정·취소·만료와 받는 사람 탈퇴 정리. 정산 시작은 방 행을 잠가 같은 방의 시작을 줄 세우고,
+ *  택시비 정산 시작·조회·송금 처리·수정·취소·만료와 받는 사람 탈퇴 정리. 정산 시작은 잠그지 않고 PK(방 번호)로 방마다 하나만 남기고,
  *  만든 뒤의 변경은 모두 정산 행을 먼저 잠가 줄 세운다 - 마지막 두 송금을 동시에 확인해도 COMPLETED 로 한 번 닫힌다.
  *  푸시(송금 요청·못 받음·완료)는 커밋된 뒤에만 나간다
  */
@@ -42,7 +41,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class FareSplitService {
-    private final Parties parties;
     private final PartyAccess partyAccess;
     private final FareSplits fareSplits;
     private final UserAccess userAccess;
@@ -52,15 +50,12 @@ public class FareSplitService {
 
     /**
      *  payerId 가 택시비를 다 낸 사람이다. 동승이 끝난 방의 탑승자만, 방마다 한 번 시작할 수 있다.
+     *  방 행은 잠그지 않는다 - 끝난 방의 탑승자는 더 바뀌지 않고, 방마다 하나는 PK(fare_split.match_id)가 지킨다.
      *  보내는 사람 전원에게 첫 송금 요청을 보낸다 - 사용자가 누른 일이라 방해 금지 시간에도 보낸다
      */
     @Transactional
     public FareSplitDetailResponse create(Long partyId, Long payerId, int totalFare, Bank bank, String accountNumber) {
         AccountNumber account = AccountNumber.of(accountNumber);
-
-        // 방 행을 잠가 같은 방의 정산 시작을 줄 세운다
-        parties.findByIdForUpdate(partyId)
-                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
         RideRoster party = partyAccess.findRiders(partyId)
                 .map(riders -> new RideRoster(riders.partyId(), riders.finished(), riders.memberIds(), riders.riderIds()))
@@ -68,13 +63,14 @@ public class FareSplitService {
 
         FareSplit split = FareSplit.open(party, payerId, totalFare, bank, account, Instant.now());
 
+        // 흔한 경우(이미 시작한 방)는 INSERT 없이 막는다
         if(fareSplits.existsByPartyId(partyId)) throw new BusinessException(MatchingErrorCode.FARE_SPLIT_ALREADY_EXISTS);
 
         FareSplit saved;
         try {
             saved = fareSplits.create(split);
-        } catch (DataIntegrityViolationException e) {
-            // 방 잠금으로 줄을 세우므로 오지 않아야 하는 길 - PK 가 마지막으로 막는다
+        } catch (DuplicateKeyException e) {
+            // 탑승자 여럿이 동시에 시작하면 PK 가 먼저 커밋한 한 건만 남기고 나머지는 여기로 온다. 다른 무결성 위반은 그대로 올린다
             throw new BusinessException(MatchingErrorCode.FARE_SPLIT_ALREADY_EXISTS);
         }
 

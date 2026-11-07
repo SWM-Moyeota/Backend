@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 import team.codingforest.moyeota.common.exception.BusinessException;
@@ -50,7 +51,7 @@ import static org.awaitility.Awaitility.await;
 
 /**
  *  V35 의 fare_split·fare_split_transfer 제약, 계좌번호 저장 암호화, 송금 합류 순 정렬,
- *  정산 시작이 방 행 잠금으로 줄 서서 방마다 하나만 만들어지는지, 송금 처리·수정·취소가 정산 행 잠금으로 줄 서는지,
+ *  정산 시작이 방 행을 잠그지 않고도 PK 로 방마다 하나만 만들어지는지, 송금 처리·수정·취소가 정산 행 잠금으로 줄 서는지,
  *  닫히면 계좌번호 컬럼이 NULL 이 되는지, 내가 보낼 정산 목록 쿼리를 실제 Postgres 에서 본다
  */
 @SpringBootTest(properties = "spring.profiles.active=dev")
@@ -121,14 +122,14 @@ class FareSplitPostgresTest {
     }
 
     @Test
-    void 같은_방에_정산을_두_번_INSERT_하면_덮어쓰지_않고_PK_위반이다() {
+    void 같은_방에_정산을_두_번_INSERT_하면_덮어쓰지_않고_PK_위반을_중복_키로_알린다() {
         Long room = finishedRoom(방장, 둘째);
         RideRoster party = new RideRoster(room, true, List.of(방장, 둘째), List.of(방장, 둘째));
         tx.executeWithoutResult(status -> fareSplits.create(FareSplit.open(party, 방장, 10_000, Bank.KB, AccountNumber.of(RAW_ACCOUNT), Instant.now())));
 
         assertThatThrownBy(() -> tx.executeWithoutResult(status ->
                 fareSplits.create(FareSplit.open(party, 둘째, 20_000, Bank.KB, AccountNumber.of(RAW_ACCOUNT), Instant.now()))))
-                .isInstanceOf(DataIntegrityViolationException.class);
+                .isInstanceOf(DuplicateKeyException.class);
         assertThat(jdbc.queryForObject("SELECT payer_id FROM fare_split WHERE match_id = ?", Long.class, room)).isEqualTo(방장);
     }
 
@@ -177,11 +178,12 @@ class FareSplitPostgresTest {
     // ───────────────────────── 동시성 ─────────────────────────
 
     @Test
-    void 정산_시작은_방_행_잠금을_기다렸다가_돈다() throws Exception {
+    void 정산_시작은_방_행을_잠그지_않아_방_행_잠금을_기다리지_않는다() throws Exception {
         Long room = finishedRoom(방장, 둘째);
         CountDownLatch locked = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
 
+        // 같은 방의 다른 흐름(노쇼 무효 처리 등)이 방 행을 잠그고 있다
         Future<?> holder = pool.submit(() -> tx.executeWithoutResult(status -> {
             parties.findByIdForUpdate(room).orElseThrow();
             locked.countDown();
@@ -189,51 +191,58 @@ class FareSplitPostgresTest {
         }));
         assertThat(locked.await(10, TimeUnit.SECONDS)).isTrue();
 
-        Future<FareSplitDetailResponse> creator = pool.submit(() -> service.create(room, 방장, 10_000, Bank.KB, RAW_ACCOUNT));
-        await().atMost(Duration.ofSeconds(5))
-                .until(() -> jdbc.queryForObject("""
-                        select count(*) from pg_stat_activity
-                        where datname = current_database() and wait_event_type = 'Lock' and query like '%match_room%for no key update%'
-                        """, Integer.class) > 0);
-        assertThat(creator.isDone()).as("방 잠금이 풀리기 전에는 만들지 못한다").isFalse();
+        try {
+            FareSplitDetailResponse created = pool.submit(() -> service.create(room, 방장, 10_000, Bank.KB, RAW_ACCOUNT)).get(10, TimeUnit.SECONDS);
 
-        release.countDown();
+            assertThat(created.partyId()).as("방 잠금이 풀리기 전에 만들어진다").isEqualTo(room);
+            assertThat(holder.isDone()).as("방 잠금은 아직 잡혀 있다").isFalse();
+        } finally {
+            release.countDown();
+        }
         holder.get(10, TimeUnit.SECONDS);
-        assertThat(creator.get(10, TimeUnit.SECONDS).partyId()).isEqualTo(room);
+        assertThat(jdbc.queryForObject("SELECT payer_id FROM fare_split WHERE match_id = ?", Long.class, room)).isEqualTo(방장);
     }
 
     @Test
-    void 탑승자들이_동시에_정산을_시작해도_하나만_만들어지고_나머지는_FARE_SPLIT_ALREADY_EXISTS() throws Exception {
-        Long room = finishedRoom(방장, 둘째, 셋째);
-        CountDownLatch start = new CountDownLatch(1);
-        List<Future<FareSplitDetailResponse>> futures = new ArrayList<>();
+    void 탑승자들이_동시에_정산을_시작해도_PK_로_하나만_만들어지고_나머지는_FARE_SPLIT_ALREADY_EXISTS() throws Exception {
+        List<Long> riders = List.of(방장, 둘째, 셋째);
 
-        for(Long payer : List.of(방장, 둘째, 셋째, 방장)) {
-            Callable<FareSplitDetailResponse> create = () -> {
-                start.await();
-                return service.create(room, payer, 12_000, Bank.TOSS, RAW_ACCOUNT);
-            };
-            futures.add(pool.submit(create));
-        }
-        start.countDown();
+        // 방 잠금 없이 PK 만으로 막으므로 선검사를 함께 통과한 INSERT 끼리 부딪히게 여러 방에서 되풀이한다
+        for(int i = 0; i < 3; i++) {
+            Long room = finishedRoom(방장, 둘째, 셋째);
+            CountDownLatch start = new CountDownLatch(1);
+            List<Future<Long>> futures = new ArrayList<>();
 
-        int succeeded = 0;
-        int conflicted = 0;
-        for(Future<FareSplitDetailResponse> future : futures) {
-            try {
-                future.get(20, TimeUnit.SECONDS);
-                succeeded++;
-            } catch (ExecutionException e) {
-                assertThat(e.getCause()).isInstanceOf(BusinessException.class);
-                assertThat(((BusinessException) e.getCause()).getErrorCode()).isEqualTo(MatchingErrorCode.FARE_SPLIT_ALREADY_EXISTS);
-                conflicted++;
+            for(Long payer : List.of(방장, 둘째, 셋째, 방장)) {
+                Callable<Long> create = () -> {
+                    start.await();
+                    service.create(room, payer, 12_000, Bank.TOSS, RAW_ACCOUNT);
+                    return payer;
+                };
+                futures.add(pool.submit(create));
             }
-        }
+            start.countDown();
 
-        assertThat(succeeded).isEqualTo(1);
-        assertThat(conflicted).isEqualTo(3);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM fare_split WHERE match_id = ?", Integer.class, room)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM fare_split_transfer WHERE match_id = ?", Integer.class, room)).isEqualTo(2);
+            List<Long> winners = new ArrayList<>();
+            int conflicted = 0;
+            for(Future<Long> future : futures) {
+                try {
+                    winners.add(future.get(20, TimeUnit.SECONDS));
+                } catch (ExecutionException e) {
+                    assertThat(e.getCause()).isInstanceOf(BusinessException.class);
+                    assertThat(((BusinessException) e.getCause()).getErrorCode()).isEqualTo(MatchingErrorCode.FARE_SPLIT_ALREADY_EXISTS);
+                    conflicted++;
+                }
+            }
+
+            assertThat(winners).hasSize(1);
+            assertThat(conflicted).isEqualTo(3);
+            Long winner = winners.getFirst();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM fare_split WHERE match_id = ?", Integer.class, room)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT payer_id FROM fare_split WHERE match_id = ?", Long.class, room)).isEqualTo(winner);
+            assertThat(jdbc.queryForList("SELECT user_id FROM fare_split_transfer WHERE match_id = ?", Long.class, room))
+                    .as("이긴 정산의 보내는 사람만 남는다").containsExactlyInAnyOrderElementsOf(riders.stream().filter(id -> !id.equals(winner)).toList());
+        }
     }
 
 
