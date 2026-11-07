@@ -9,7 +9,9 @@ import team.codingforest.moyeota.matching.faresplit.domain.FareSplit;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.matching.faresplit.domain.FareSplits;
 import team.codingforest.moyeota.matching.faresplit.domain.OpenTransfer;
+import team.codingforest.moyeota.matching.faresplit.domain.TransferRequestSchedule;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -66,5 +68,26 @@ public class FareSplitJpa implements FareSplits {
     @Override
     public List<OpenTransfer> findOpenTransfers(Long memberId) {
         return repository.findTransfersBySender(memberId, FareSplitStatus.OPEN);
+    }
+
+    @Override
+    public List<Long> findTransferRequestTargets(Instant now) {
+        return repository.findTransferRequestTargetIds(TransferRequestSchedule.startedBefore(2, now),
+                TransferRequestSchedule.startedBefore(3, now), TransferRequestSchedule.startedBefore(4, now));
+    }
+
+    @Override
+    public List<Long> findConfirmRequestTargets(Instant now) {
+        return repository.findConfirmRequestTargetIds(now.minus(FareSplit.CONFIRM_REQUEST_AFTER));
+    }
+
+    @Override
+    public List<Long> findExpireTargets(Instant now) {
+        return repository.findExpireTargetIds(now.minus(FareSplit.EXPIRES_AFTER));
+    }
+
+    @Override
+    public List<Long> findOpenByPayer(Long payerId) {
+        return repository.findOpenIdsByPayer(payerId);
     }
 }

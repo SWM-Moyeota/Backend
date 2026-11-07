@@ -4,6 +4,7 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.junit.jupiter.api.Test;
 import org.springframework.scheduling.annotation.Scheduled;
 import team.codingforest.moyeota.common.event.EventResubmitter;
+import team.codingforest.moyeota.matching.faresplit.FareSplitSweeper;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
 import team.codingforest.moyeota.matching.party.MeetingNotificationSweeper;
 import team.codingforest.moyeota.matching.party.PartyRecruitingSweeper;
@@ -30,6 +31,7 @@ class SchedulerLockAnnotationTest {
         assertLocked(PartyRecruitingSweeper.class, "sweep", "party-recruiting-sweep");
         assertLocked(PartyRecruitingSweeper.class, "remind", "reservation-reminder");
         assertLocked(MeetingNotificationSweeper.class, "sweep", "meeting-notification-sweep");
+        assertLocked(FareSplitSweeper.class, "sweep", "fare-split-sweep");
     }
 
     @Test
@@ -47,7 +49,8 @@ class SchedulerLockAnnotationTest {
         for (Method m : List.of(scheduled(EventResubmitter.class, "run"),
                 scheduled(CompletedPartySweeper.class, "sweep"),
                 scheduled(PartyRecruitingSweeper.class, "sweep"), scheduled(PartyRecruitingSweeper.class, "remind"),
-                scheduled(MeetingNotificationSweeper.class, "sweep"))) {
+                scheduled(MeetingNotificationSweeper.class, "sweep"),
+                scheduled(FareSplitSweeper.class, "sweep"))) {
             Duration period = Duration.ofMillis(m.getAnnotation(Scheduled.class).fixedDelay());
             SchedulerLock lock = m.getAnnotation(SchedulerLock.class);
 
@@ -62,6 +65,7 @@ class SchedulerLockAnnotationTest {
                 lockName(CompletedPartySweeper.class, "sweep"),
                 lockName(PartyRecruitingSweeper.class, "sweep"), lockName(PartyRecruitingSweeper.class, "remind"),
                 lockName(MeetingNotificationSweeper.class, "sweep"),
+                lockName(FareSplitSweeper.class, "sweep"),
                 lockName(UserDeletionSweeper.class, "sweep"));
 
         assertThat(names).doesNotHaveDuplicates();
