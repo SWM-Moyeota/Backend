@@ -198,7 +198,7 @@ public class FareSplitService {
     }
 
     /**
-     *  시작하고 2일이 지난 OPEN 정산을 EXPIRED 로 닫고 계좌번호를 지운다(스케줄러). 조회와 잠금 사이에 닫히거나 취소된 정산은 그대로 둔다
+     *  시작하고 1일이 지난 OPEN 정산을 EXPIRED 로 닫고 계좌번호를 지운다(스케줄러). 조회와 잠금 사이에 닫히거나 취소된 정산은 그대로 둔다
      */
     @Transactional
     public void expire(Long partyId, Instant now) {

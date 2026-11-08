@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import team.codingforest.moyeota.faresplit.domain.FareShare;
 import team.codingforest.moyeota.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.faresplit.domain.OpenTransfer;
+import team.codingforest.moyeota.faresplit.domain.RequestTurn;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -43,18 +44,16 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
             """)
     List<FareShare> findShares(@Param("memberId") Long memberId, @Param("partyIds") Collection<Long> partyIds);
 
-    // 차례 n 은 시작 시각이 nth 번째 기준(TransferRequestSchedule.startedBefore)보다 이르면 지났다. 1번째는 시작할 때 보낸다
+    // 재요청 대상 후보 - 차례가 지났는지는 RequestTurn.isDue 가 정산 시작 시각으로 가른다. 열린 정산은 하루 안에 닫혀 후보가 많지 않다
     @Query("""
-            select distinct s.partyId from FareSplitTransferEntity t
+            select s.partyId, s.createdAt, cast(t.requestCount as Integer) from FareSplitTransferEntity t
             join t.fareSplit s
             where s.status = team.codingforest.moyeota.faresplit.domain.FareSplitStatus.OPEN
                 and s.accountNumber is not null
                 and t.confirmedAt is null
-                and ((t.requestCount < 2 and s.createdAt < :secondBefore)
-                    or (t.requestCount = 2 and s.createdAt < :thirdBefore))
             order by s.partyId
             """)
-    List<Long> findTransferRequestTargetIds(@Param("secondBefore") Instant secondBefore, @Param("thirdBefore") Instant thirdBefore);
+    List<RequestTurn> findRequestTurns();
 
     @Query("""
             select distinct s.partyId from FareSplitTransferEntity t

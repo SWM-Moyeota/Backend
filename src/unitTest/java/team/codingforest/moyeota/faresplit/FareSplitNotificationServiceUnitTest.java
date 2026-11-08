@@ -38,11 +38,11 @@ class FareSplitNotificationServiceUnitTest {
     private static final Long PAYER_ID = 1L;
     private static final Long SENDER_ID = 2L;
     private static final Long OTHER_SENDER_ID = 3L;
-    // 한국 시각 11-03 21:40 에 시작했다
-    private static final Instant CREATED_AT = Instant.parse("2026-11-03T12:40:00Z");
+    // 한국 시각 11-03 12:00 에 시작했다 - 재요청 차례는 4시간마다 16:00·20:00·00:00·04:00·08:00
+    private static final Instant CREATED_AT = Instant.parse("2026-11-03T03:00:00Z");
     private static final Instant SENT_AT = CREATED_AT.plus(Duration.ofMinutes(5));
-    // 한국 시각 11-03 23:30 - 방해 금지 시간
-    private static final Instant QUIET = Instant.parse("2026-11-03T14:30:00Z");
+    // 한국 시각 11-04 00:00 - 방해 금지 시간
+    private static final Instant QUIET = CREATED_AT.plus(Duration.ofHours(12));
     private static final AccountNumber ACCOUNT = new AccountNumber("3333012345678");
     private static final String REMINDER_TASK = "fare-split.transfer-reminder";
     private static final String CONFIRM_TASK = "fare-split.confirm-request";
@@ -69,7 +69,7 @@ class FareSplitNotificationServiceUnitTest {
         FareSplit split = split(FareSplitTransfer.load(SENDER_ID, SENT_AT, null, 1, CREATED_AT, null),
                 FareSplitTransfer.load(OTHER_SENDER_ID, null, null, 1, CREATED_AT, null));
         doReturn(Optional.of(split)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
-        Instant now = CREATED_AT.plus(Duration.ofHours(1));
+        Instant now = CREATED_AT.plus(Duration.ofHours(4));
 
         /*
          * test
@@ -99,7 +99,7 @@ class FareSplitNotificationServiceUnitTest {
         /*
          * settings
          */
-        FareSplit split = split(FareSplitTransfer.load(SENDER_ID, null, null, 1, CREATED_AT, null));
+        FareSplit split = split(FareSplitTransfer.load(SENDER_ID, null, null, 3, CREATED_AT, null));
         doReturn(Optional.of(split)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
 
         /*
@@ -111,7 +111,7 @@ class FareSplitNotificationServiceUnitTest {
          * verify
          */
         verify(fareSplits).save(eq(split));
-        assertThat(split.findTransfer(SENDER_ID).orElseThrow().getRequestCount()).isEqualTo(2);
+        assertThat(split.findTransfer(SENDER_ID).orElseThrow().getRequestCount()).isEqualTo(4);
         verifyNoInteractions(afterCommitExecutor, notifier);
     }
 
@@ -128,7 +128,8 @@ class FareSplitNotificationServiceUnitTest {
         /*
          * test
          */
-        service.remindTransfers(PARTY_ID, CREATED_AT.plus(Duration.ofHours(2)));
+        // 2번째 차례(16:00)를 다른 서버가 이미 넘겼다
+        service.remindTransfers(PARTY_ID, CREATED_AT.plus(Duration.ofHours(4)));
 
         /*
          * verify
@@ -170,7 +171,7 @@ class FareSplitNotificationServiceUnitTest {
          */
         FareSplit split = split(FareSplitTransfer.load(SENDER_ID, SENT_AT, null, 2, CREATED_AT, null));
         doReturn(Optional.of(split)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
-        Instant now = SENT_AT.plus(Duration.ofHours(24));
+        Instant now = SENT_AT.plus(Duration.ofHours(4));
 
         /*
          * test
@@ -205,7 +206,7 @@ class FareSplitNotificationServiceUnitTest {
         /*
          * test
          */
-        service.requestConfirm(PARTY_ID, QUIET.plus(Duration.ofDays(1)));
+        service.requestConfirm(PARTY_ID, QUIET);
 
         /*
          * verify
@@ -222,14 +223,14 @@ class FareSplitNotificationServiceUnitTest {
         /*
          * settings
          */
-        FareSplit split = split(FareSplitTransfer.load(SENDER_ID, SENT_AT, null, 2, CREATED_AT, SENT_AT.plus(Duration.ofHours(24))),
+        FareSplit split = split(FareSplitTransfer.load(SENDER_ID, SENT_AT, null, 2, CREATED_AT, SENT_AT.plus(Duration.ofHours(4))),
                 FareSplitTransfer.load(OTHER_SENDER_ID, SENT_AT, SENT_AT.plus(Duration.ofHours(1)), 2, CREATED_AT, null));
         doReturn(Optional.of(split)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
 
         /*
          * test
          */
-        service.requestConfirm(PARTY_ID, SENT_AT.plus(Duration.ofHours(25)));
+        service.requestConfirm(PARTY_ID, SENT_AT.plus(Duration.ofHours(5)));
 
         /*
          * verify
@@ -250,7 +251,7 @@ class FareSplitNotificationServiceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> service.requestConfirm(PARTY_ID, SENT_AT.plus(Duration.ofHours(24))));
+        Throwable thrown = catchThrowable(() -> service.requestConfirm(PARTY_ID, SENT_AT.plus(Duration.ofHours(4))));
 
         /*
          * verify

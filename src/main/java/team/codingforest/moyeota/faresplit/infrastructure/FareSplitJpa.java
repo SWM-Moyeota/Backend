@@ -12,7 +12,7 @@ import team.codingforest.moyeota.faresplit.domain.FareSplit;
 import team.codingforest.moyeota.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.faresplit.domain.FareSplits;
 import team.codingforest.moyeota.faresplit.domain.OpenTransfer;
-import team.codingforest.moyeota.faresplit.domain.TransferRequestSchedule;
+import team.codingforest.moyeota.faresplit.domain.RequestTurn;
 import team.codingforest.moyeota.faresplit.exception.FareSplitErrorCode;
 
 import java.sql.SQLException;
@@ -94,7 +94,11 @@ public class FareSplitJpa implements FareSplits {
 
     @Override
     public List<Long> findTransferRequestTargets(Instant now) {
-        return repository.findTransferRequestTargetIds(TransferRequestSchedule.startedBefore(2, now), TransferRequestSchedule.startedBefore(3, now));
+        return repository.findRequestTurns().stream()
+                .filter(turn -> turn.isDue(now))
+                .map(RequestTurn::partyId)
+                .distinct()
+                .toList();
     }
 
     @Override

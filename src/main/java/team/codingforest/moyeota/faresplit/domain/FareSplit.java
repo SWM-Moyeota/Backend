@@ -23,9 +23,9 @@ public class FareSplit {
     static final int MIN_RIDERS = 2;
     static final int ROUNDING_UNIT = 10;
     // 시작하고 이만큼 지나도 열려 있으면 EXPIRED 로 닫는다
-    public static final Duration EXPIRES_AFTER = Duration.ofDays(2);
+    public static final Duration EXPIRES_AFTER = Duration.ofDays(1);
     // 보냈다고 누르고 이만큼 지나도 확인되지 않으면 받는 사람에게 입금 확인을 한 번 요청한다
-    public static final Duration CONFIRM_REQUEST_AFTER = Duration.ofHours(24);
+    public static final Duration CONFIRM_REQUEST_AFTER = Duration.ofHours(4);
 
     private final Long partyId;
     private final Long payerId;
@@ -211,7 +211,7 @@ public class FareSplit {
     // ───────────────────────── 알림·만료·탈퇴 ─────────────────────────
 
     /**
-     *  송금 재요청 차례(2·3번째)를 처리한다. 확인되지 않은 송금 중 차례가 지난 것의 차례를 넘기고, 그중 아직 안 보낸(NOT_SENT) 사람에게 보낸다.
+     *  송금 재요청 차례(시작부터 4시간마다)를 처리한다. 확인되지 않은 송금 중 차례가 지난 것의 차례를 넘기고, 그중 아직 안 보낸(NOT_SENT) 사람에게 보낸다.
      *  보냈다고 누른(SENT) 사람은 차례만 넘긴다 - 나중에 못 받았어요로 되돌아와도 지난 차례를 몰아 받지 않는다.
      *  서버가 멈춰 여러 차례가 밀렸으면 한 번만 보낸다. 방해 금지 시간에는 보내지 않고 차례만 넘긴다(출발 재촉과 같다).
      *  받을 계좌가 지워졌으면(받는 사람 탈퇴) 보낼 곳이 없어 재요청하지 않는다
@@ -238,7 +238,7 @@ public class FareSplit {
     }
 
     /**
-     *  입금 확인 요청 - 보냈다고 누르고 24시간이 지나도 확인되지 않은 송금마다 한 번, 받는 사람에게 묶어서 보낸다.
+     *  입금 확인 요청 - 보냈다고 누르고 4시간이 지나도 확인되지 않은 송금마다 한 번, 받는 사람에게 묶어서 보낸다.
      *  방해 금지 시간에는 아무것도 바꾸지 않고 끝날 때까지 기다린다. 못 받았어요로 되돌아갔다가 다시 보내면 그때부터 다시 센다
      */
     public FareSplitNotice requestConfirm(Instant now) {
@@ -257,7 +257,7 @@ public class FareSplit {
     }
 
     /**
-     *  시작하고 2일이 지나도 열려 있으면 EXPIRED 로 닫고 계좌번호를 지운다. 닫았으면 true
+     *  시작하고 1일이 지나도 열려 있으면 EXPIRED 로 닫고 계좌번호를 지운다. 닫았으면 true
      */
     public boolean expire(Instant now) {
         if(status != FareSplitStatus.OPEN || now.isBefore(createdAt.plus(EXPIRES_AFTER))) return false;
