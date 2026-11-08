@@ -1229,7 +1229,7 @@ class FareSplitServiceUnitTest {
 
     // ───────────────────────── expire ─────────────────────────
 
-    @DisplayName("expire - 정산 행을 잠근 뒤 시작 7일이 지났으면 EXPIRED·닫힌 시각·계좌 삭제를 저장한다")
+    @DisplayName("expire - 정산 행을 잠근 뒤 시작 2일이 지났으면 EXPIRED·닫힌 시각·계좌 삭제를 저장한다")
     @Test
     void expire() {
 
@@ -1237,7 +1237,7 @@ class FareSplitServiceUnitTest {
          * settings
          */
         doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
-        Instant now = CREATED_AT.plus(Duration.ofDays(7));
+        Instant now = CREATED_AT.plus(Duration.ofDays(2));
 
         /*
          * test
@@ -1259,7 +1259,7 @@ class FareSplitServiceUnitTest {
         verifyNoInteractions(partyAccess, afterCommitExecutor, notifier);
     }
 
-    @DisplayName("expire - 잠가 보니 아직 7일 전이거나 이미 닫혔으면 저장하지 않는다")
+    @DisplayName("expire - 잠가 보니 아직 2일 전이거나 이미 닫혔으면 저장하지 않는다")
     @Test
     void expire_notDue() {
 
@@ -1274,8 +1274,8 @@ class FareSplitServiceUnitTest {
         /*
          * test
          */
-        service.expire(PARTY_ID, CREATED_AT.plus(Duration.ofDays(7)).minusSeconds(1));
-        service.expire(200L, CREATED_AT.plus(Duration.ofDays(8)));
+        service.expire(PARTY_ID, CREATED_AT.plus(Duration.ofDays(2)).minusSeconds(1));
+        service.expire(200L, CREATED_AT.plus(Duration.ofDays(3)));
 
         /*
          * verify
@@ -1295,7 +1295,7 @@ class FareSplitServiceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> service.expire(PARTY_ID, CREATED_AT.plus(Duration.ofDays(8))));
+        Throwable thrown = catchThrowable(() -> service.expire(PARTY_ID, CREATED_AT.plus(Duration.ofDays(3))));
 
         /*
          * verify

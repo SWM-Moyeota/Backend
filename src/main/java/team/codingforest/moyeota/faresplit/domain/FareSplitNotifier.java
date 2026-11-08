@@ -10,7 +10,7 @@ public interface FareSplitNotifier {
     /** 송금 요청(1번째) - 정산을 시작할 때 보내는 사람 전원. amount 는 1인당 금액 */
     void requestTransfer(Long partyId, List<Long> senderIds, int amount);
 
-    /** 송금 재요청(2~4번째) - 아직 안 보낸 보내는 사람 */
+    /** 송금 재요청(2·3번째) - 아직 안 보낸 보내는 사람 */
     void remindTransfer(Long partyId, List<Long> senderIds, int amount);
 
     /** 입금 확인 요청 - 보냈다고 누른 지 하루가 지나도 확인하지 않은 받는 사람 */

@@ -51,12 +51,10 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
                 and s.accountNumber is not null
                 and t.confirmedAt is null
                 and ((t.requestCount < 2 and s.createdAt < :secondBefore)
-                    or (t.requestCount = 2 and s.createdAt < :thirdBefore)
-                    or (t.requestCount = 3 and s.createdAt < :fourthBefore))
+                    or (t.requestCount = 2 and s.createdAt < :thirdBefore))
             order by s.partyId
             """)
-    List<Long> findTransferRequestTargetIds(@Param("secondBefore") Instant secondBefore, @Param("thirdBefore") Instant thirdBefore,
-                                            @Param("fourthBefore") Instant fourthBefore);
+    List<Long> findTransferRequestTargetIds(@Param("secondBefore") Instant secondBefore, @Param("thirdBefore") Instant thirdBefore);
 
     @Query("""
             select distinct s.partyId from FareSplitTransferEntity t

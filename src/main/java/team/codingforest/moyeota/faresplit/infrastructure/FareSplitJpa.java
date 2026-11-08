@@ -94,8 +94,7 @@ public class FareSplitJpa implements FareSplits {
 
     @Override
     public List<Long> findTransferRequestTargets(Instant now) {
-        return repository.findTransferRequestTargetIds(TransferRequestSchedule.startedBefore(2, now),
-                TransferRequestSchedule.startedBefore(3, now), TransferRequestSchedule.startedBefore(4, now));
+        return repository.findTransferRequestTargetIds(TransferRequestSchedule.startedBefore(2, now), TransferRequestSchedule.startedBefore(3, now));
     }
 
     @Override

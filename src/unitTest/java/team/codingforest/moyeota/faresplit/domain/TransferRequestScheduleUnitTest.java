@@ -17,12 +17,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 /**
- *  송금 요청 차례 시각(1시간 뒤, 다음 날·그다음 날 10시 한국 시각)과, 대상 조회 쿼리가 쓰는 기준 시각이 그 차례와 맞는지
+ *  송금 요청 차례 시각(1시간 뒤, 다음 날 10시 한국 시각)과, 대상 조회 쿼리가 쓰는 기준 시각이 그 차례와 맞는지
  */
 class TransferRequestScheduleUnitTest {
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
-    @DisplayName("dueOf - 1번째는 시작 시각, 2번째는 1시간 뒤, 3·4번째는 시작한 날(한국 시각) 다음 날·그다음 날 10시")
+    @DisplayName("dueOf - 1번째는 시작 시각, 2번째는 1시간 뒤, 3번째는 시작한 날(한국 시각) 다음 날 10시")
     @Test
     void dueOf() {
 
@@ -35,22 +35,22 @@ class TransferRequestScheduleUnitTest {
          * test
          */
         List<Instant> dues = List.of(TransferRequestSchedule.dueOf(createdAt, 1), TransferRequestSchedule.dueOf(createdAt, 2),
-                TransferRequestSchedule.dueOf(createdAt, 3), TransferRequestSchedule.dueOf(createdAt, 4));
+                TransferRequestSchedule.dueOf(createdAt, 3));
 
         /*
          * verify
          */
-        assertThat(dues).containsExactly(createdAt, seoul("2026-11-03T22:40:00"), seoul("2026-11-04T10:00:00"), seoul("2026-11-05T10:00:00"));
+        assertThat(dues).containsExactly(createdAt, seoul("2026-11-03T22:40:00"), seoul("2026-11-04T10:00:00"));
     }
 
     @DisplayName("dueOf - 날짜는 UTC 가 아니라 한국 시각으로 센다(한국 시각 00:30 은 UTC 로 전날이다)")
-    @ParameterizedTest(name = "시작 {0} KST → 3번째 {1}, 4번째 {2}")
+    @ParameterizedTest(name = "시작 {0} KST → 3번째 {1}")
     @CsvSource({
-            "2026-11-04T00:30:00, 2026-11-05T10:00:00, 2026-11-06T10:00:00",
-            "2026-11-04T08:59:00, 2026-11-05T10:00:00, 2026-11-06T10:00:00",
-            "2026-11-04T09:30:00, 2026-11-05T10:00:00, 2026-11-06T10:00:00",
-            "2026-11-04T23:59:59, 2026-11-05T10:00:00, 2026-11-06T10:00:00"})
-    void dueOf_seoulDate(LocalDateTime createdAt, LocalDateTime third, LocalDateTime fourth) {
+            "2026-11-04T00:30:00, 2026-11-05T10:00:00",
+            "2026-11-04T08:59:00, 2026-11-05T10:00:00",
+            "2026-11-04T09:30:00, 2026-11-05T10:00:00",
+            "2026-11-04T23:59:59, 2026-11-05T10:00:00"})
+    void dueOf_seoulDate(LocalDateTime createdAt, LocalDateTime third) {
 
         /*
          * settings
@@ -61,18 +61,35 @@ class TransferRequestScheduleUnitTest {
          * test
          */
         Instant thirdDue = TransferRequestSchedule.dueOf(created, 3);
-        Instant fourthDue = TransferRequestSchedule.dueOf(created, 4);
 
         /*
          * verify
          */
         assertThat(thirdDue).isEqualTo(third.atZone(SEOUL).toInstant());
-        assertThat(fourthDue).isEqualTo(fourth.atZone(SEOUL).toInstant());
     }
 
-    @DisplayName("dueOf - 1..4 번째 밖이면 IllegalArgumentException")
+    @DisplayName("dueOf - 하루 중 언제 시작해도 마지막 차례가 정산 만료(시작 2일 뒤) 전이다")
+    @Test
+    void dueOf_beforeExpiry() {
+
+        /*
+         * settings
+         */
+        List<Instant> createdAts = grid(seoul("2026-11-03T00:00:00"), Duration.ofMinutes(7), 2 * 24 * 60 / 7);
+
+        /*
+         * test / verify
+         */
+        for(Instant createdAt : createdAts) {
+            Instant lastDue = TransferRequestSchedule.dueOf(createdAt, TransferRequestSchedule.LIMIT);
+
+            assertThat(lastDue).as("created=%s", createdAt).isBefore(createdAt.plus(FareSplit.EXPIRES_AFTER));
+        }
+    }
+
+    @DisplayName("dueOf - 1..3 번째 밖이면 IllegalArgumentException")
     @ParameterizedTest
-    @ValueSource(ints = {0, 5})
+    @ValueSource(ints = {0, 4})
     void dueOf_outOfRange(int nth) {
 
         /*
@@ -95,8 +112,8 @@ class TransferRequestScheduleUnitTest {
             "2026-11-03T22:40:00, 2",
             "2026-11-04T09:59:59, 2",
             "2026-11-04T10:00:00, 3",
-            "2026-11-05T10:00:00, 4",
-            "2026-11-20T10:00:00, 4"})
+            "2026-11-05T10:00:00, 3",
+            "2026-11-20T10:00:00, 3"})
     void passedCount(LocalDateTime now, int expected) {
 
         /*
@@ -117,7 +134,7 @@ class TransferRequestScheduleUnitTest {
 
     @DisplayName("startedBefore - 대상 조회 기준(시작 < 기준)이 차례 시각과 맞는다. 2번째만 차례 시각이 now 와 똑같은 정산을 다음 회차로 미룬다")
     @ParameterizedTest(name = "{0} 번째")
-    @ValueSource(ints = {2, 3, 4})
+    @ValueSource(ints = {2, 3})
     void startedBefore(int nth) {
 
         /*
@@ -148,13 +165,13 @@ class TransferRequestScheduleUnitTest {
         }
     }
 
-    @DisplayName("startedBefore - 3·4번째는 now 까지 지난 마지막 10시(한국 시각)의 날짜에서 센 0시다")
-    @ParameterizedTest(name = "now {0} KST → 3번째 {1}, 4번째 {2}")
+    @DisplayName("startedBefore - 3번째는 now 까지 지난 마지막 10시(한국 시각)의 날짜 0시다")
+    @ParameterizedTest(name = "now {0} KST → 3번째 {1}")
     @CsvSource({
-            "2026-11-05T09:59:59, 2026-11-04T00:00:00, 2026-11-03T00:00:00",
-            "2026-11-05T10:00:00, 2026-11-05T00:00:00, 2026-11-04T00:00:00",
-            "2026-11-05T23:30:00, 2026-11-05T00:00:00, 2026-11-04T00:00:00"})
-    void startedBefore_daily(LocalDateTime now, LocalDateTime third, LocalDateTime fourth) {
+            "2026-11-05T09:59:59, 2026-11-04T00:00:00",
+            "2026-11-05T10:00:00, 2026-11-05T00:00:00",
+            "2026-11-05T23:30:00, 2026-11-05T00:00:00"})
+    void startedBefore_daily(LocalDateTime now, LocalDateTime third) {
 
         /*
          * settings
@@ -165,18 +182,16 @@ class TransferRequestScheduleUnitTest {
          * test
          */
         Instant thirdBefore = TransferRequestSchedule.startedBefore(3, at);
-        Instant fourthBefore = TransferRequestSchedule.startedBefore(4, at);
 
         /*
          * verify
          */
         assertThat(thirdBefore).isEqualTo(third.atZone(SEOUL).toInstant());
-        assertThat(fourthBefore).isEqualTo(fourth.atZone(SEOUL).toInstant());
     }
 
-    @DisplayName("startedBefore - 2..4 번째 밖이면 IllegalArgumentException(1번째는 시작할 때 보낸다)")
+    @DisplayName("startedBefore - 2·3 번째 밖이면 IllegalArgumentException(1번째는 시작할 때 보낸다)")
     @ParameterizedTest
-    @ValueSource(ints = {1, 5})
+    @ValueSource(ints = {1, 4})
     void startedBefore_outOfRange(int nth) {
 
         /*

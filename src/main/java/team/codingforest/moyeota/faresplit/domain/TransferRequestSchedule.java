@@ -9,11 +9,12 @@ import java.time.ZonedDateTime;
 
 /**
  *  송금 요청 알림 차례 - 모두 LIMIT 번. 1번째는 정산을 시작할 때 보내고, 아직 안 보낸 사람에게
- *  시작 1시간 뒤(2번째), 시작 다음 날 10시(3번째), 그다음 날 10시(4번째)에 다시 보낸다. 날짜와 10시는 한국 시각이다.
+ *  시작 1시간 뒤(2번째), 시작 다음 날 10시(3번째)에 다시 보낸다. 날짜와 10시는 한국 시각이다.
+ *  마지막 차례도 정산이 만료(FareSplit.EXPIRES_AFTER)되기 전이어야 한다.
  *  재요청 대상 조회(FareSplitJpaRepository.findTransferRequestTargetIds)가 차례마다 기준 시각을 하나씩 받으므로 차례를 바꾸면 쿼리도 함께 바꾼다
  */
 public final class TransferRequestSchedule {
-    public static final int LIMIT = 4;
+    public static final int LIMIT = 3;
     static final Duration SECOND_AFTER = Duration.ofHours(1);
     static final LocalTime DAILY_AT = LocalTime.of(10, 0);
     private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
@@ -26,7 +27,7 @@ public final class TransferRequestSchedule {
         return switch(nth) {
             case 1 -> createdAt;
             case 2 -> createdAt.plus(SECOND_AFTER);
-            case 3, 4 -> createdAt.atZone(ZONE).toLocalDate().plusDays(nth - 2L).atTime(DAILY_AT).atZone(ZONE).toInstant();
+            case 3 -> createdAt.atZone(ZONE).toLocalDate().plusDays(1).atTime(DAILY_AT).atZone(ZONE).toInstant();
             default -> throw new IllegalArgumentException("송금 요청은 1.." + LIMIT + " 번째까지다: " + nth);
         };
     }
@@ -47,8 +48,8 @@ public final class TransferRequestSchedule {
     public static Instant startedBefore(int nth, Instant now) {
         return switch(nth) {
             case 2 -> now.minus(SECOND_AFTER);
-            // now 까지 지난 마지막 10시가 d 일이면 (시작일 + k) 10시 <= now ⇔ 시작일 <= d - k ⇔ 시작 < (d - k + 1) 0시
-            case 3, 4 -> lastDailyDate(now).minusDays(nth - 3L).atStartOfDay(ZONE).toInstant();
+            // now 까지 지난 마지막 10시가 d 일이면 (시작일 + 1) 10시 <= now ⇔ 시작일 <= d - 1 ⇔ 시작 < d 0시
+            case 3 -> lastDailyDate(now).atStartOfDay(ZONE).toInstant();
             default -> throw new IllegalArgumentException("재요청은 2.." + LIMIT + " 번째다: " + nth);
         };
     }

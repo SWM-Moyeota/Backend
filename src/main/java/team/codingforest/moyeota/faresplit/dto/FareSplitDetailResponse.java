@@ -17,7 +17,7 @@ import java.util.UUID;
 
 public record FareSplitDetailResponse(
         @Schema(description = "방 ID") Long partyId,
-        @Schema(description = "OPEN(진행 중) / COMPLETED(모든 송금 확인) / EXPIRED(만든 지 7일 지남)") FareSplitStatus status,
+        @Schema(description = "OPEN(진행 중) / COMPLETED(모든 송금 확인) / EXPIRED(만든 지 2일 지남)") FareSplitStatus status,
         @Schema(description = "실제로 낸 택시비(원)", example = "18700") int totalFare,
         @Schema(description = "보내는 사람 1인당 금액(원). 택시비 / 탑승자 수를 10원 단위로 올린 값", example = "6240") int amountPerPerson,
         @Schema(description = "택시비를 다 내고 받는 사람") FareSplitPayer payer,
