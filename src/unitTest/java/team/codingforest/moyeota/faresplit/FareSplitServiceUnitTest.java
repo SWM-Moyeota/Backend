@@ -427,8 +427,8 @@ class FareSplitServiceUnitTest {
          */
         Instant closedAt = CREATED_AT.plus(Duration.ofDays(1));
         FareSplit completed = FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, null, FareSplitStatus.COMPLETED, CREATED_AT, closedAt,
-                List.of(FareSplitTransfer.load(SENDER_ID, SENT_AT, closedAt, 1, CREATED_AT, null),
-                        FareSplitTransfer.load(OTHER_SENDER_ID, null, closedAt, 1, CREATED_AT, null)));
+                List.of(FareSplitTransfer.load(SENDER_ID, SENT_AT, closedAt, CREATED_AT, null),
+                        FareSplitTransfer.load(OTHER_SENDER_ID, null, closedAt, CREATED_AT, null)));
         doReturn(Optional.of(completed)).when(fareSplits).findByPartyId(eq(PARTY_ID));
         doReturn(summaries()).when(userAccess).findMemberSummaries(eq(List.of(PAYER_ID, SENDER_ID, OTHER_SENDER_ID)));
 
@@ -486,8 +486,8 @@ class FareSplitServiceUnitTest {
          * settings
          */
         FareSplit split = FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, ACCOUNT, FareSplitStatus.OPEN, CREATED_AT, null,
-                List.of(FareSplitTransfer.load(OTHER_SENDER_ID, null, null, 1, CREATED_AT, null),
-                        FareSplitTransfer.load(SENDER_ID, SENT_AT, null, 1, CREATED_AT, null)));
+                List.of(FareSplitTransfer.load(OTHER_SENDER_ID, null, null, CREATED_AT, null),
+                        FareSplitTransfer.load(SENDER_ID, SENT_AT, null, CREATED_AT, null)));
         doReturn(Optional.of(split)).when(fareSplits).findByPartyId(eq(PARTY_ID));
         doReturn(Optional.empty()).when(partyAccess).findRiders(eq(PARTY_ID));
         doReturn(summaries()).when(userAccess).findMemberSummaries(eq(List.of(PAYER_ID, OTHER_SENDER_ID, SENDER_ID)));
@@ -681,8 +681,8 @@ class FareSplitServiceUnitTest {
          * settings
          */
         FareSplit split = FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, ACCOUNT, FareSplitStatus.OPEN, CREATED_AT, null,
-                List.of(FareSplitTransfer.load(SENDER_ID, SENT_AT, SENT_AT.plusSeconds(60), 1, CREATED_AT, null),
-                        FareSplitTransfer.load(OTHER_SENDER_ID, null, null, 1, CREATED_AT, null)));
+                List.of(FareSplitTransfer.load(SENDER_ID, SENT_AT, SENT_AT.plusSeconds(60), CREATED_AT, null),
+                        FareSplitTransfer.load(OTHER_SENDER_ID, null, null, CREATED_AT, null)));
         doReturn(Optional.of(split)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
         doReturn(senderSummaries()).when(userAccess).findMemberSummaries(eq(List.of(SENDER_ID, OTHER_SENDER_ID)));
 
@@ -717,8 +717,8 @@ class FareSplitServiceUnitTest {
          * settings
          */
         FareSplit split = FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, ACCOUNT, FareSplitStatus.OPEN, CREATED_AT, null,
-                List.of(FareSplitTransfer.load(SENDER_ID, SENT_AT, SENT_AT.plusSeconds(60), 1, CREATED_AT, null),
-                        FareSplitTransfer.load(OTHER_SENDER_ID, null, null, 1, CREATED_AT, null)));
+                List.of(FareSplitTransfer.load(SENDER_ID, SENT_AT, SENT_AT.plusSeconds(60), CREATED_AT, null),
+                        FareSplitTransfer.load(OTHER_SENDER_ID, null, null, CREATED_AT, null)));
         doReturn(Optional.of(split)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
         doReturn(senderSummaries()).when(userAccess).findMemberSummaries(eq(List.of(SENDER_ID, OTHER_SENDER_ID)));
 
@@ -803,7 +803,7 @@ class FareSplitServiceUnitTest {
 
     // ───────────────────────── markNotReceived ─────────────────────────
 
-    @DisplayName("markNotReceived - 정산 행을 잠근 뒤 SENT 송금을 NOT_SENT 로 되돌려 저장하고, 커밋되면 그 보내는 사람에게 못 받음 알림을 보낸다")
+    @DisplayName("markNotReceived - 정산 행을 잠근 뒤 SENT 송금을 NOT_SENT 로 되돌리고 지금을 마지막 송금 요청으로 남겨 저장하고, 커밋되면 그 보내는 사람에게 못 받음 알림을 보낸다")
     @Test
     void markNotReceived() {
 
@@ -816,6 +816,7 @@ class FareSplitServiceUnitTest {
         /*
          * test
          */
+        Instant before = Instant.now();
         service.markNotReceived(PARTY_ID, PAYER_ID, SENDER_PUBLIC_ID);
 
         /*
@@ -829,6 +830,7 @@ class FareSplitServiceUnitTest {
         FareSplitTransfer transfer = captor.getValue().findTransfer(SENDER_ID).orElseThrow();
         assertThat(transfer.status()).isEqualTo(TransferStatus.NOT_SENT);
         assertThat(transfer.getSentAt()).isNull();
+        assertThat(transfer.getLastRequestedAt()).as("못 받았어요 알림을 송금 요청으로 친다").isBetween(before, Instant.now());
 
         Runnable task = capturedTask(NOT_RECEIVED_TASK);
         verifyNoInteractions(notifier);
@@ -1267,7 +1269,7 @@ class FareSplitServiceUnitTest {
          * settings
          */
         FareSplit completed = FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, null, FareSplitStatus.COMPLETED, CREATED_AT,
-                CREATED_AT.plus(Duration.ofDays(1)), List.of(FareSplitTransfer.load(SENDER_ID, SENT_AT, SENT_AT, 1, CREATED_AT, null)));
+                CREATED_AT.plus(Duration.ofDays(1)), List.of(FareSplitTransfer.load(SENDER_ID, SENT_AT, SENT_AT, CREATED_AT, null)));
         doReturn(Optional.of(openSplit())).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
         doReturn(Optional.of(completed)).when(fareSplits).findByPartyIdForUpdate(eq(200L));
 
@@ -1315,7 +1317,7 @@ class FareSplitServiceUnitTest {
          */
         FareSplit first = openSplit();
         FareSplit second = FareSplit.load(200L, PAYER_ID, 10_000, 5_000, Bank.KB, ACCOUNT, FareSplitStatus.OPEN, CREATED_AT, null,
-                List.of(FareSplitTransfer.load(SENDER_ID, null, null, 1, CREATED_AT, null)));
+                List.of(FareSplitTransfer.load(SENDER_ID, null, null, CREATED_AT, null)));
         doReturn(List.of(PARTY_ID, 200L)).when(fareSplits).findOpenByPayer(eq(PAYER_ID));
         doReturn(Optional.of(first)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
         doReturn(Optional.of(second)).when(fareSplits).findByPartyIdForUpdate(eq(200L));
@@ -1406,15 +1408,15 @@ class FareSplitServiceUnitTest {
     /** 아무도 보내기 전 */
     private static FareSplit notStartedSplit() {
         return FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, ACCOUNT, FareSplitStatus.OPEN, CREATED_AT, null,
-                List.of(FareSplitTransfer.load(SENDER_ID, null, null, 1, CREATED_AT, null),
-                        FareSplitTransfer.load(OTHER_SENDER_ID, null, null, 1, CREATED_AT, null)));
+                List.of(FareSplitTransfer.load(SENDER_ID, null, null, CREATED_AT, null),
+                        FareSplitTransfer.load(OTHER_SENDER_ID, null, null, CREATED_AT, null)));
     }
 
     /** 첫 번째 보내는 사람은 SENT, 두 번째는 NOT_SENT */
     private static FareSplit openSplit() {
         return FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, ACCOUNT, FareSplitStatus.OPEN, CREATED_AT, null,
-                List.of(FareSplitTransfer.load(SENDER_ID, SENT_AT, null, 1, CREATED_AT, null),
-                        FareSplitTransfer.load(OTHER_SENDER_ID, null, null, 1, CREATED_AT, null)));
+                List.of(FareSplitTransfer.load(SENDER_ID, SENT_AT, null, CREATED_AT, null),
+                        FareSplitTransfer.load(OTHER_SENDER_ID, null, null, CREATED_AT, null)));
     }
 
     /** 셋 다 도착해 탄 끝난 방. 합류 순 payer → sender → other sender */

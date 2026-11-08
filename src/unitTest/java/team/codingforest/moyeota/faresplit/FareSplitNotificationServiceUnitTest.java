@@ -38,11 +38,9 @@ class FareSplitNotificationServiceUnitTest {
     private static final Long PAYER_ID = 1L;
     private static final Long SENDER_ID = 2L;
     private static final Long OTHER_SENDER_ID = 3L;
-    // 한국 시각 11-03 12:00 에 시작했다 - 재요청 차례는 4시간마다 16:00·20:00·00:00·04:00·08:00
+    // 정산을 시작하며 첫 송금 요청을 보낸 시각
     private static final Instant CREATED_AT = Instant.parse("2026-11-03T03:00:00Z");
     private static final Instant SENT_AT = CREATED_AT.plus(Duration.ofMinutes(5));
-    // 한국 시각 11-04 00:00 - 방해 금지 시간
-    private static final Instant QUIET = CREATED_AT.plus(Duration.ofHours(12));
     private static final AccountNumber ACCOUNT = new AccountNumber("3333012345678");
     private static final String REMINDER_TASK = "fare-split.transfer-reminder";
     private static final String CONFIRM_TASK = "fare-split.confirm-request";
@@ -59,15 +57,15 @@ class FareSplitNotificationServiceUnitTest {
 
     // ───────────────────────── remindTransfers ─────────────────────────
 
-    @DisplayName("remindTransfers - 정산 행을 잠근 뒤 차례를 넘겨 저장하고, 커밋되면 아직 안 보낸 사람에게 1인당 금액으로 재요청을 보낸다")
+    @DisplayName("remindTransfers - 정산 행을 잠근 뒤 재요청 시각을 남겨 저장하고, 커밋되면 아직 안 보낸 사람에게 1인당 금액으로 재요청을 보낸다")
     @Test
     void remindTransfers() {
 
         /*
          * settings
          */
-        FareSplit split = split(FareSplitTransfer.load(SENDER_ID, SENT_AT, null, 1, CREATED_AT, null),
-                FareSplitTransfer.load(OTHER_SENDER_ID, null, null, 1, CREATED_AT, null));
+        FareSplit split = split(FareSplitTransfer.load(SENDER_ID, SENT_AT, null, CREATED_AT, null),
+                FareSplitTransfer.load(OTHER_SENDER_ID, null, null, CREATED_AT, null));
         doReturn(Optional.of(split)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
         Instant now = CREATED_AT.plus(Duration.ofHours(4));
 
@@ -83,36 +81,12 @@ class FareSplitNotificationServiceUnitTest {
         order.verify(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
         order.verify(fareSplits).save(eq(split));
         order.verify(afterCommitExecutor).execute(eq(REMINDER_TASK), any());
-        assertThat(split.findTransfer(OTHER_SENDER_ID).orElseThrow().getRequestCount()).isEqualTo(2);
         assertThat(split.findTransfer(OTHER_SENDER_ID).orElseThrow().getLastRequestedAt()).isEqualTo(now);
 
         Runnable task = capturedTask(REMINDER_TASK);
         verifyNoInteractions(notifier);
         task.run();
         verify(notifier).remindTransfer(eq(PARTY_ID), eq(List.of(OTHER_SENDER_ID)), eq(6_240));
-    }
-
-    @DisplayName("remindTransfers - 방해 금지 시간이면 차례만 넘겨 저장하고 보내지 않는다")
-    @Test
-    void remindTransfers_quietHours() {
-
-        /*
-         * settings
-         */
-        FareSplit split = split(FareSplitTransfer.load(SENDER_ID, null, null, 3, CREATED_AT, null));
-        doReturn(Optional.of(split)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
-
-        /*
-         * test
-         */
-        service.remindTransfers(PARTY_ID, QUIET);
-
-        /*
-         * verify
-         */
-        verify(fareSplits).save(eq(split));
-        assertThat(split.findTransfer(SENDER_ID).orElseThrow().getRequestCount()).isEqualTo(4);
-        verifyNoInteractions(afterCommitExecutor, notifier);
     }
 
     @DisplayName("remindTransfers - 잠가 보니 차례가 아니면(다른 서버가 먼저 처리함) 저장하지도 보내지도 않는다")
@@ -122,14 +96,15 @@ class FareSplitNotificationServiceUnitTest {
         /*
          * settings
          */
-        FareSplit split = split(FareSplitTransfer.load(SENDER_ID, null, null, 2, CREATED_AT, null));
+        // 다른 서버가 방금 재요청을 보냈다
+        Instant now = CREATED_AT.plus(Duration.ofHours(4));
+        FareSplit split = split(FareSplitTransfer.load(SENDER_ID, null, null, now, null));
         doReturn(Optional.of(split)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
 
         /*
          * test
          */
-        // 2번째 차례(16:00)를 다른 서버가 이미 넘겼다
-        service.remindTransfers(PARTY_ID, CREATED_AT.plus(Duration.ofHours(4)));
+        service.remindTransfers(PARTY_ID, now);
 
         /*
          * verify
@@ -169,7 +144,7 @@ class FareSplitNotificationServiceUnitTest {
         /*
          * settings
          */
-        FareSplit split = split(FareSplitTransfer.load(SENDER_ID, SENT_AT, null, 2, CREATED_AT, null));
+        FareSplit split = split(FareSplitTransfer.load(SENDER_ID, SENT_AT, null, CREATED_AT, null));
         doReturn(Optional.of(split)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
         Instant now = SENT_AT.plus(Duration.ofHours(4));
 
@@ -193,29 +168,6 @@ class FareSplitNotificationServiceUnitTest {
         verify(notifier).requestConfirm(eq(PARTY_ID), eq(PAYER_ID));
     }
 
-    @DisplayName("requestConfirm - 방해 금지 시간이면 저장하지도 보내지도 않는다(끝난 뒤 다시 고른다)")
-    @Test
-    void requestConfirm_quietHours() {
-
-        /*
-         * settings
-         */
-        FareSplit split = split(FareSplitTransfer.load(SENDER_ID, SENT_AT, null, 2, CREATED_AT, null));
-        doReturn(Optional.of(split)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
-
-        /*
-         * test
-         */
-        service.requestConfirm(PARTY_ID, QUIET);
-
-        /*
-         * verify
-         */
-        verify(fareSplits, never()).save(any());
-        assertThat(split.findTransfer(SENDER_ID).orElseThrow().getConfirmRequestedAt()).isNull();
-        verifyNoInteractions(afterCommitExecutor, notifier);
-    }
-
     @DisplayName("requestConfirm - 잠가 보니 이미 요청했거나 확인됐으면 저장하지도 보내지도 않는다")
     @Test
     void requestConfirm_notDue() {
@@ -223,8 +175,8 @@ class FareSplitNotificationServiceUnitTest {
         /*
          * settings
          */
-        FareSplit split = split(FareSplitTransfer.load(SENDER_ID, SENT_AT, null, 2, CREATED_AT, SENT_AT.plus(Duration.ofHours(4))),
-                FareSplitTransfer.load(OTHER_SENDER_ID, SENT_AT, SENT_AT.plus(Duration.ofHours(1)), 2, CREATED_AT, null));
+        FareSplit split = split(FareSplitTransfer.load(SENDER_ID, SENT_AT, null, CREATED_AT, SENT_AT.plus(Duration.ofHours(4))),
+                FareSplitTransfer.load(OTHER_SENDER_ID, SENT_AT, SENT_AT.plus(Duration.ofHours(1)), CREATED_AT, null));
         doReturn(Optional.of(split)).when(fareSplits).findByPartyIdForUpdate(eq(PARTY_ID));
 
         /*

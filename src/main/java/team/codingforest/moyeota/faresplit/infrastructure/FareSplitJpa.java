@@ -9,10 +9,8 @@ import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.faresplit.domain.FareShare;
 import team.codingforest.moyeota.faresplit.domain.FareSplit;
-import team.codingforest.moyeota.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.faresplit.domain.FareSplits;
 import team.codingforest.moyeota.faresplit.domain.OpenTransfer;
-import team.codingforest.moyeota.faresplit.domain.RequestTurn;
 import team.codingforest.moyeota.faresplit.exception.FareSplitErrorCode;
 
 import java.sql.SQLException;
@@ -82,7 +80,7 @@ public class FareSplitJpa implements FareSplits {
 
     @Override
     public List<OpenTransfer> findOpenTransfers(Long memberId) {
-        return repository.findTransfersBySender(memberId, FareSplitStatus.OPEN);
+        return repository.findOpenTransfersBySender(memberId);
     }
 
     @Override
@@ -94,11 +92,7 @@ public class FareSplitJpa implements FareSplits {
 
     @Override
     public List<Long> findTransferRequestTargets(Instant now) {
-        return repository.findRequestTurns().stream()
-                .filter(turn -> turn.isDue(now))
-                .map(RequestTurn::partyId)
-                .distinct()
-                .toList();
+        return repository.findTransferRequestTargetIds(now.minus(FareSplit.REMIND_AFTER));
     }
 
     @Override

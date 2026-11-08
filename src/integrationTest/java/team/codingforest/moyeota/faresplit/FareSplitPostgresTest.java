@@ -50,7 +50,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 /**
- *  V35 의 fare_split·fare_split_transfer 제약, 계좌번호 저장 암호화, 응답의 송금 합류 순 정렬(저장소는 userId 순),
+ *  V35·V36 의 fare_split·fare_split_transfer 제약, 계좌번호 저장 암호화, 응답의 송금 합류 순 정렬(저장소는 userId 순),
  *  정산 시작이 방 행을 잠그지 않고도 PK 로 방마다 하나만 만들어지는지, 송금 처리·수정·취소가 정산 행 잠금으로 줄 서는지,
  *  닫히면 계좌번호 컬럼이 NULL 이 되는지, 내가 보낼 정산 목록 쿼리를 실제 Postgres 에서 본다
  */
@@ -88,7 +88,7 @@ class FareSplitPostgresTest {
         users.forEach(id -> jdbc.update("DELETE FROM users WHERE id = ?", id));
     }
 
-    // ───────────────────────── V35 제약 ─────────────────────────
+    // ───────────────────────── V35·V36 제약 ─────────────────────────
 
     @Test
     void 상태는_OPEN_COMPLETED_EXPIRED_만_받는다() {
@@ -106,19 +106,19 @@ class FareSplitPostgresTest {
     }
 
     @Test
-    void 송금_행은_있는_정산에만_붙고_한_정산에_한_사람은_한_행이며_요청_횟수는_0으로_시작한다() {
+    void 송금_행은_있는_정산에만_붙고_한_정산에_한_사람은_한_행이며_마지막_송금_요청_시각을_비울_수_없다() {
         Long room = finishedRoom(방장, 둘째);
 
         assertThatThrownBy(() -> insertTransfer(room, 둘째))
                 .as("정산이 없으면 FK 위반").isInstanceOf(DataIntegrityViolationException.class);
 
         insertSplit(room, "OPEN");
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO fare_split_transfer (match_id, user_id, created_at) VALUES (?, ?, now())", room, 둘째))
+                .as("첫 송금 요청부터 늘 채운다(NOT NULL)").isInstanceOf(DataIntegrityViolationException.class);
         insertTransfer(room, 둘째);
 
         assertThatThrownBy(() -> insertTransfer(room, 둘째))
                 .as("(match_id, user_id) PK").isInstanceOf(DataIntegrityViolationException.class);
-        assertThat(jdbc.queryForObject("SELECT request_count FROM fare_split_transfer WHERE match_id = ? AND user_id = ?", Integer.class, room, 둘째))
-                .isZero();
     }
 
     @Test
@@ -272,9 +272,13 @@ class FareSplitPostgresTest {
         service.markSent(room, 보낸사람);
         assertThat(transferStatus(room, 보낸사람)).isEqualTo(TransferStatus.SENT);
 
+        java.sql.Timestamp firstRequestedAt = jdbc.queryForObject("SELECT last_requested_at FROM fare_split_transfer WHERE match_id = ? AND user_id = ?",
+                java.sql.Timestamp.class, room, 보낸사람);
         service.markNotReceived(room, 받는사람, publicIdOf(보낸사람));
         assertThat(jdbc.queryForObject("SELECT sent_at FROM fare_split_transfer WHERE match_id = ? AND user_id = ?", java.sql.Timestamp.class, room, 보낸사람))
                 .isNull();
+        assertThat(jdbc.queryForObject("SELECT last_requested_at FROM fare_split_transfer WHERE match_id = ? AND user_id = ?", java.sql.Timestamp.class, room, 보낸사람)
+                .toInstant()).as("못 받았어요 알림을 송금 요청으로 친다").isAfter(firstRequestedAt.toInstant());
         assertThatThrownBy(() -> service.markNotReceived(room, 받는사람, publicIdOf(보낸사람)))
                 .extracting(e -> ((BusinessException) e).getErrorCode()).isEqualTo(FareSplitErrorCode.TRANSFER_NOT_SENT);
 
@@ -540,7 +544,7 @@ class FareSplitPostgresTest {
     }
 
     private void insertTransfer(Long room, Long userId) {
-        jdbc.update("INSERT INTO fare_split_transfer (match_id, user_id, created_at) VALUES (?, ?, now())", room, userId);
+        jdbc.update("INSERT INTO fare_split_transfer (match_id, user_id, last_requested_at, created_at) VALUES (?, ?, now(), now())", room, userId);
     }
 
     private static void awaitQuietly(CountDownLatch latch) {

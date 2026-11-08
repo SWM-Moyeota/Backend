@@ -9,11 +9,6 @@ public class FareSplitTransferId implements Serializable {
 
     protected FareSplitTransferId() {}
 
-    public FareSplitTransferId(Long fareSplit, Long memberId) {
-        this.fareSplit = fareSplit;
-        this.memberId = memberId;
-    }
-
     @Override
     public boolean equals(Object o) {
         if(this == o) return true;

@@ -38,10 +38,7 @@ public class FareSplitTransferEntity extends BaseTimeEntity {
     @Column(name = "confirmed_at")
     private Instant confirmedAt;
 
-    @Column(name = "request_count", nullable = false)
-    private short requestCount;
-
-    @Column(name = "last_requested_at")
+    @Column(name = "last_requested_at", nullable = false)
     private Instant lastRequestedAt;
 
     @Column(name = "confirm_requested_at")
@@ -62,12 +59,11 @@ public class FareSplitTransferEntity extends BaseTimeEntity {
     void update(FareSplitTransfer transfer) {
         this.sentAt = transfer.getSentAt();
         this.confirmedAt = transfer.getConfirmedAt();
-        this.requestCount = (short) transfer.getRequestCount();
         this.lastRequestedAt = transfer.getLastRequestedAt();
         this.confirmRequestedAt = transfer.getConfirmRequestedAt();
     }
 
     public FareSplitTransfer toDomain() {
-        return FareSplitTransfer.load(memberId, sentAt, confirmedAt, requestCount, lastRequestedAt, confirmRequestedAt);
+        return FareSplitTransfer.load(memberId, sentAt, confirmedAt, lastRequestedAt, confirmRequestedAt);
     }
 }

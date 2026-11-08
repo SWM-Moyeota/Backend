@@ -52,7 +52,7 @@ public class FareSplitService {
     /**
      *  payerId 가 택시비를 다 낸 사람이다. 동승이 끝난 방의 탑승자만, 방마다 한 번 시작할 수 있다.
      *  방 행은 잠그지 않는다 - 끝난 방의 탑승자는 더 바뀌지 않고, 방마다 하나는 PK(fare_split.match_id)가 지킨다.
-     *  보내는 사람 전원에게 첫 송금 요청을 보낸다 - 사용자가 누른 일이라 방해 금지 시간에도 보낸다
+     *  보내는 사람 전원에게 첫 송금 요청을 보낸다
      */
     @Transactional
     public FareSplitDetailResponse create(Long partyId, Long payerId, int totalFare, Bank bank, String accountNumber) {
@@ -144,7 +144,7 @@ public class FareSplitService {
         split.ensurePayer(payerId);
         Long senderId = senderIdOf(split, senderPublicId);
 
-        split.markNotReceived(payerId, senderId);
+        split.markNotReceived(payerId, senderId, Instant.now());
         fareSplits.save(split);
 
         afterCommitExecutor.execute("fare-split.not-received", () -> notifier.notifyNotReceived(partyId, senderId));

@@ -86,8 +86,7 @@ class FareSplitJpaPersistenceTest {
         assertThat(found.getCreatedAt()).isNotNull();
         assertThat(found.getTransfers()).allSatisfy(t -> {
             assertThat(t.status()).isEqualTo(TransferStatus.NOT_SENT);
-            assertThat(t.getRequestCount()).as("시작할 때 보낸 첫 송금 요청").isEqualTo(1);
-            assertThat(t.getLastRequestedAt()).isNotNull();
+            assertThat(t.getLastRequestedAt()).as("시작할 때 보낸 첫 송금 요청").isNotNull();
         });
     }
 
@@ -274,7 +273,7 @@ class FareSplitJpaPersistenceTest {
         assertThat(rawAccountNumber(party.partyId())).isNull();
     }
 
-    @DisplayName("save - 못 받음으로 되돌리면 보낸 시각이 지워진다")
+    @DisplayName("save - 못 받음으로 되돌리면 보낸 시각이 지워지고 마지막 송금 요청 시각이 바뀐다")
     @Test
     void save_notReceived() {
 
@@ -292,8 +291,9 @@ class FareSplitJpaPersistenceTest {
         /*
          * test
          */
+        Instant notReceivedAt = Instant.parse("2026-11-03T05:00:00Z");
         FareSplit split = fareSplits.findByPartyIdForUpdate(party.partyId()).orElseThrow();
-        split.markNotReceived(PAYER_ID, FIRST_ID);
+        split.markNotReceived(PAYER_ID, FIRST_ID, notReceivedAt);
         fareSplits.save(split);
         clearContext();
 
@@ -303,6 +303,7 @@ class FareSplitJpaPersistenceTest {
         FareSplitTransfer transfer = fareSplits.findByPartyId(party.partyId()).orElseThrow().findTransfer(FIRST_ID).orElseThrow();
         assertThat(transfer.status()).isEqualTo(TransferStatus.NOT_SENT);
         assertThat(transfer.getSentAt()).isNull();
+        assertThat(transfer.getLastRequestedAt()).isEqualTo(notReceivedAt);
     }
 
     @DisplayName("save - 고친 택시비·1인당 금액·은행·계좌번호를 옮기고 계좌번호는 다시 암호문으로 저장된다")
@@ -416,22 +417,19 @@ class FareSplitJpaPersistenceTest {
         assertThat(fareSplits.findOpenTransfers(PAYER_ID)).as("받는 사람으로만 있는 정산은 나오지 않는다").isEmpty();
     }
 
-    // ───────────────────────── 알림 차례 저장 ─────────────────────────
+    // ───────────────────────── 알림 시각 저장 ─────────────────────────
 
-    @DisplayName("save - 송금 재요청 차례·마지막 요청 시각과 입금 확인 요청 시각을 옮긴다")
+    @DisplayName("save - 송금 재요청 시각과 입금 확인 요청 시각을 옮긴다")
     @Test
-    void save_requestTurns() {
+    void save_requestedAt() {
 
         /*
          * settings
          */
         RideRoster party = finishedParty(PAYER_ID, FIRST_ID, SECOND_ID);
-        fareSplits.create(FareSplit.open(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, Instant.now()));
-        clearContext();
-        // 한국 시각 11-03 12:00 에 시작했다 - 2번째 재요청 16:00, 입금 확인 요청 16:05
         Instant createdAt = Instant.parse("2026-11-03T03:00:00Z");
         Instant sentAt = createdAt.plus(Duration.ofMinutes(5));
-        setCreatedAt(party.partyId(), createdAt);
+        fareSplits.create(FareSplit.open(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, createdAt));
         clearContext();
         Instant remindAt = createdAt.plus(Duration.ofHours(4));
         Instant confirmAt = sentAt.plus(Duration.ofHours(4));
@@ -451,34 +449,35 @@ class FareSplitJpaPersistenceTest {
          */
         FareSplit found = fareSplits.findByPartyId(party.partyId()).orElseThrow();
         FareSplitTransfer first = found.findTransfer(FIRST_ID).orElseThrow();
-        assertThat(first.getRequestCount()).isEqualTo(2);
         assertThat(first.getLastRequestedAt()).isEqualTo(remindAt);
         assertThat(first.getConfirmRequestedAt()).isNull();
         FareSplitTransfer second = found.findTransfer(SECOND_ID).orElseThrow();
-        assertThat(second.getRequestCount()).isEqualTo(2);
+        assertThat(second.getLastRequestedAt()).as("보냈다고 눌러 재요청하지 않았다").isEqualTo(createdAt);
         assertThat(second.getConfirmRequestedAt()).isEqualTo(confirmAt);
     }
 
     // ───────────────────────── 스케줄러 대상 조회 ─────────────────────────
 
-    @DisplayName("findTransferRequestTargets - 재요청 차례(시작부터 4시간마다, 경계 포함)가 지난 확인 안 된 송금이 있는 OPEN·계좌 있는 정산만 주고, 도메인 판단과 같다")
+    @DisplayName("findTransferRequestTargets - 아직 안 보낸 송금 중 마지막 송금 요청 4시간 뒤(경계 포함)가 지난 것이 있는 OPEN·계좌 있는 정산만 주고, 도메인 판단과 같다")
     @Test
     void findTransferRequestTargets() {
 
         /*
          * settings
          */
-        Long dueSecond = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(4)), 1);
-        Long notYetSecond = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(4)).plusSeconds(1), 1);
-        Long notYetThird = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(8)).plusSeconds(1), 2);
-        Long catchUp = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(13)), 1);              // 서버가 멈춰 2~4번째가 밀렸다
-        Long dueLast = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(20)), 5);
-        Long exhausted = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(23)), 6);
-        Long confirmedOnly = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(5)), 1);
+        Instant fourHoursAgo = SWEEP_AT.minus(Duration.ofHours(4));
+        Long due = splitCreatedAt(fourHoursAgo);
+        Long notYet = splitCreatedAt(fourHoursAgo.plusSeconds(1));
+        Long late = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(13)));                 // 서버가 멈춰 늦었다
+        Long remindedRecently = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(10)));     // 시작이 아니라 마지막 요청부터 센다
+        execute("UPDATE fare_split_transfer SET last_requested_at = ?1 WHERE match_id = ?2", fourHoursAgo.plusSeconds(1), remindedRecently);
+        Long sentOnly = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(5)));
+        execute("UPDATE fare_split_transfer SET sent_at = ?1 WHERE match_id = ?2", SWEEP_AT.minus(Duration.ofHours(1)), sentOnly);
+        Long confirmedOnly = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(5)));
         execute("UPDATE fare_split_transfer SET confirmed_at = ?1 WHERE match_id = ?2", SWEEP_AT, confirmedOnly);
-        Long expired = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(5)), 1);
+        Long expired = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(5)));
         execute("UPDATE fare_split SET status = 'EXPIRED', account_number = NULL WHERE match_id = ?1", expired);
-        Long noAccount = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(5)), 1);
+        Long noAccount = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(5)));
         execute("UPDATE fare_split SET account_number = NULL WHERE match_id = ?1", noAccount);
         clearContext();
 
@@ -490,10 +489,10 @@ class FareSplitJpaPersistenceTest {
         /*
          * verify
          */
-        assertThat(targets).containsExactlyInAnyOrder(dueSecond, catchUp, dueLast);
-        for(Long partyId : List.of(dueSecond, notYetSecond, notYetThird, catchUp, dueLast, exhausted, confirmedOnly, expired, noAccount)) {
-            boolean due = fareSplits.findByPartyId(partyId).orElseThrow().remindTransfers(SWEEP_AT).handled();
-            assertThat(due).as("partyId=%d 의 쿼리 결과와 도메인 판단", partyId).isEqualTo(targets.contains(partyId));
+        assertThat(targets).containsExactlyInAnyOrder(due, late);
+        for(Long partyId : List.of(due, notYet, late, remindedRecently, sentOnly, confirmedOnly, expired, noAccount)) {
+            boolean shouldSend = fareSplits.findByPartyId(partyId).orElseThrow().remindTransfers(SWEEP_AT).shouldSend();
+            assertThat(shouldSend).as("partyId=%d 의 쿼리 결과와 도메인 판단", partyId).isEqualTo(targets.contains(partyId));
         }
     }
 
@@ -505,16 +504,16 @@ class FareSplitJpaPersistenceTest {
          * settings
          */
         Instant fourHoursAgo = SWEEP_AT.minus(Duration.ofHours(4));
-        Long due = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(6)), 2);
+        Long due = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(6)));
         execute("UPDATE fare_split_transfer SET sent_at = ?1 WHERE match_id = ?2", fourHoursAgo, due);
-        Long notYet = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(6)), 2);
+        Long notYet = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(6)));
         execute("UPDATE fare_split_transfer SET sent_at = ?1 WHERE match_id = ?2", fourHoursAgo.plusSeconds(1), notYet);
-        Long requested = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(6)), 2);
+        Long requested = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(6)));
         execute("UPDATE fare_split_transfer SET sent_at = ?1, confirm_requested_at = ?2 WHERE match_id = ?3", fourHoursAgo.minusSeconds(3600), fourHoursAgo, requested);
-        Long confirmed = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(6)), 2);
+        Long confirmed = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(6)));
         execute("UPDATE fare_split_transfer SET sent_at = ?1, confirmed_at = ?2 WHERE match_id = ?3", fourHoursAgo.minusSeconds(3600), fourHoursAgo, confirmed);
-        Long notSent = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(6)), 2);
-        Long expired = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(6)), 2);
+        Long notSent = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(6)));
+        Long expired = splitCreatedAt(SWEEP_AT.minus(Duration.ofHours(6)));
         execute("UPDATE fare_split_transfer SET sent_at = ?1 WHERE match_id = ?2", fourHoursAgo.minusSeconds(3600), expired);
         execute("UPDATE fare_split SET status = 'EXPIRED', account_number = NULL WHERE match_id = ?1", expired);
         clearContext();
@@ -529,7 +528,7 @@ class FareSplitJpaPersistenceTest {
          */
         assertThat(targets).containsExactly(due);
         for(Long partyId : List.of(due, notYet, requested, confirmed, notSent, expired)) {
-            boolean isDue = fareSplits.findByPartyId(partyId).orElseThrow().requestConfirm(SWEEP_AT).handled();
+            boolean isDue = fareSplits.findByPartyId(partyId).orElseThrow().requestConfirm(SWEEP_AT).shouldSend();
             assertThat(isDue).as("partyId=%d 의 쿼리 결과와 도메인 판단", partyId).isEqualTo(targets.contains(partyId));
         }
     }
@@ -542,10 +541,10 @@ class FareSplitJpaPersistenceTest {
          * settings
          */
         Instant dayAgo = SWEEP_AT.minus(Duration.ofDays(1));
-        Long older = splitCreatedAt(dayAgo.minus(Duration.ofDays(1)), 6);
-        Long exactlyDay = splitCreatedAt(dayAgo, 6);
-        Long notYet = splitCreatedAt(dayAgo.plusSeconds(1), 6);
-        Long completed = splitCreatedAt(dayAgo.minus(Duration.ofDays(1)), 6);
+        Long older = splitCreatedAt(dayAgo.minus(Duration.ofDays(1)));
+        Long exactlyDay = splitCreatedAt(dayAgo);
+        Long notYet = splitCreatedAt(dayAgo.plusSeconds(1));
+        Long completed = splitCreatedAt(dayAgo.minus(Duration.ofDays(1)));
         execute("UPDATE fare_split SET status = 'COMPLETED', account_number = NULL WHERE match_id = ?1", completed);
         clearContext();
 
@@ -695,13 +694,12 @@ class FareSplitJpaPersistenceTest {
                 .executeUpdate();
     }
 
-    /** 받는 사람·보내는 사람 둘이 탄 방에 createdAt 에 시작한 정산. 보내는 사람의 송금 요청 차례는 requestCount 번째까지 처리했다 */
-    private Long splitCreatedAt(Instant createdAt, int requestCount) {
+    /** 받는 사람·보내는 사람 둘이 탄 방에 createdAt 에 시작한 정산. 첫 송금 요청도 그때 보냈다 */
+    private Long splitCreatedAt(Instant createdAt) {
         RideRoster party = finishedParty(PAYER_ID, FIRST_ID);
         fareSplits.create(FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, createdAt));
         clearContext();
         setCreatedAt(party.partyId(), createdAt);
-        execute("UPDATE fare_split_transfer SET request_count = ?1 WHERE match_id = ?2", requestCount, party.partyId());
         clearContext();
 
         return party.partyId();

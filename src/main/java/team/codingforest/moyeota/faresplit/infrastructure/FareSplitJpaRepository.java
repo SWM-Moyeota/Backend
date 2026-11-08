@@ -6,9 +6,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import team.codingforest.moyeota.faresplit.domain.FareShare;
-import team.codingforest.moyeota.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.faresplit.domain.OpenTransfer;
-import team.codingforest.moyeota.faresplit.domain.RequestTurn;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -29,10 +27,10 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
             select s.partyId, s.payerId, s.amountPerPerson, t.sentAt, t.confirmedAt, s.createdAt
             from FareSplitTransferEntity t
             join t.fareSplit s
-            where t.memberId = :memberId and s.status = :status
+            where t.memberId = :memberId and s.status = team.codingforest.moyeota.faresplit.domain.FareSplitStatus.OPEN
             order by s.createdAt desc, s.partyId desc
             """)
-    List<OpenTransfer> findTransfersBySender(@Param("memberId") Long memberId, @Param("status") FareSplitStatus status);
+    List<OpenTransfer> findOpenTransfersBySender(@Param("memberId") Long memberId);
 
     // 송금 행을 펼치지 않고 정산 한 건당 한 줄 - 보내는 사람 수와 내가 보내는 사람인지는 송금 PK(match_id, user_id)로 센다
     @Query("""
@@ -44,16 +42,18 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
             """)
     List<FareShare> findShares(@Param("memberId") Long memberId, @Param("partyIds") Collection<Long> partyIds);
 
-    // 재요청 대상 후보 - 차례가 지났는지는 RequestTurn.isDue 가 정산 시작 시각으로 가른다. 열린 정산은 하루 안에 닫혀 후보가 많지 않다
+    // 아직 안 보낸(NOT_SENT) 송금 중 마지막 송금 요청이 requestedBefore 이전인 것
     @Query("""
-            select s.partyId, s.createdAt, cast(t.requestCount as Integer) from FareSplitTransferEntity t
+            select distinct s.partyId from FareSplitTransferEntity t
             join t.fareSplit s
             where s.status = team.codingforest.moyeota.faresplit.domain.FareSplitStatus.OPEN
                 and s.accountNumber is not null
+                and t.sentAt is null
                 and t.confirmedAt is null
+                and t.lastRequestedAt <= :requestedBefore
             order by s.partyId
             """)
-    List<RequestTurn> findRequestTurns();
+    List<Long> findTransferRequestTargetIds(@Param("requestedBefore") Instant requestedBefore);
 
     @Query("""
             select distinct s.partyId from FareSplitTransferEntity t

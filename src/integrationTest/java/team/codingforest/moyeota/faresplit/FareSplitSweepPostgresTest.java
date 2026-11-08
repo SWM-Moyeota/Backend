@@ -8,6 +8,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 import team.codingforest.moyeota.faresplit.domain.Bank;
+import team.codingforest.moyeota.faresplit.domain.FareSplit;
 import team.codingforest.moyeota.faresplit.domain.FareSplits;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
@@ -42,7 +43,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
 /**
- *  택시비 정산 스케줄러를 실제 Postgres 에서 본다 - 재요청 대상 조회가 시작 시각(timestamptz)으로 4시간마다 차례를 가르는지, 재요청·입금 확인 요청·만료가 컬럼에 남는지,
+ *  택시비 정산 스케줄러를 실제 Postgres 에서 본다 - 재요청 대상 조회가 마지막 송금 요청 시각(timestamptz) 4시간 뒤를 가르는지, 재요청·입금 확인 요청·만료가 컬럼에 남는지,
  *  만료·받는 사람 탈퇴로 계좌번호 컬럼이 NULL 이 되는지, 재요청이 정산 행 잠금으로 보냈어요와 줄 서 보낸 시각을 잃지 않는지.
  *  실제 스케줄러(1분마다 지금 시각으로 돈다)가 테스트 행을 고르지 않게 기준 시각을 30일 뒤로 잡는다
  */
@@ -85,26 +86,26 @@ class FareSplitSweepPostgresTest {
     // ───────────────────────── 대상 조회 ─────────────────────────
 
     @Test
-    void 재요청_대상은_시작부터_4시간마다_차례를_가른다() {
-        Long 두번째차례 = startedSplit(NOON.minus(Duration.ofHours(4)), 1);
-        Long 두번째전 = startedSplit(NOON.minus(Duration.ofHours(4)).plusSeconds(1), 1);
-        Long 마지막차례 = startedSplit(NOON.minus(Duration.ofHours(20)), 5);
-        // 6번째(시작 20시간 뒤)가 마지막이라 만료 전이어도 더 보내지 않는다
-        Long 다씀 = startedSplit(NOON.minus(Duration.ofHours(23)), 6);
+    void 재요청_대상은_마지막_송금_요청_4시간_뒤를_가른다() {
+        Long 차례 = startedSplit(NOON.minus(Duration.ofHours(4)));
+        Long 차례전 = startedSplit(NOON.minus(Duration.ofHours(4)).plusSeconds(1));
+        // 시작이 아니라 마지막 요청부터 센다
+        Long 최근에요청함 = startedSplit(NOON.minus(Duration.ofHours(20)));
+        setRequestedAt(최근에요청함, NOON.minus(Duration.ofHours(1)));
 
         List<Long> targets = fareSplits.findTransferRequestTargets(NOON);
 
-        assertThat(targets).contains(두번째차례, 마지막차례).doesNotContain(두번째전, 다씀);
+        assertThat(targets).contains(차례).doesNotContain(차례전, 최근에요청함);
     }
 
     @Test
     void 입금_확인_요청과_만료_대상은_경계_시각을_포함한다() {
-        Long 확인요청 = startedSplit(NOON.minus(Duration.ofHours(5)), 2);
+        Long 확인요청 = startedSplit(NOON.minus(Duration.ofHours(5)));
         jdbc.update("UPDATE fare_split_transfer SET sent_at = ? WHERE match_id = ?", Timestamp.from(NOON.minus(Duration.ofHours(4))), 확인요청);
-        Long 확인요청전 = startedSplit(NOON.minus(Duration.ofHours(5)), 2);
+        Long 확인요청전 = startedSplit(NOON.minus(Duration.ofHours(5)));
         jdbc.update("UPDATE fare_split_transfer SET sent_at = ? WHERE match_id = ?", Timestamp.from(NOON.minus(Duration.ofHours(4)).plusSeconds(1)), 확인요청전);
-        Long 만료 = startedSplit(NOON.minus(Duration.ofDays(1)), 6);
-        Long 만료전 = startedSplit(NOON.minus(Duration.ofDays(1)).plusSeconds(1), 6);
+        Long 만료 = startedSplit(NOON.minus(Duration.ofDays(1)));
+        Long 만료전 = startedSplit(NOON.minus(Duration.ofDays(1)).plusSeconds(1));
 
         assertThat(fareSplits.findConfirmRequestTargets(NOON)).contains(확인요청).doesNotContain(확인요청전, 만료, 만료전);
         assertThat(fareSplits.findExpireTargets(NOON)).contains(만료).doesNotContain(만료전, 확인요청, 확인요청전);
@@ -113,53 +114,38 @@ class FareSplitSweepPostgresTest {
     // ───────────────────────── 재요청·입금 확인 요청 ─────────────────────────
 
     @Test
-    void 재요청은_안_보낸_사람의_요청_횟수와_시각을_남기고_보낸_사람은_차례만_넘기며_다시_불러도_그대로다() {
+    void 재요청은_안_보낸_사람의_요청_시각만_남기고_다시_불러도_그대로다() {
         Long room = finishedRoom(받는사람, 첫째, 둘째);
         service.create(room, 받는사람, 18_700, Bank.KAKAO, RAW_ACCOUNT);
-        Timestamp firstRequestedAt = lastRequestedAt(room, 둘째);
         service.markSent(room, 둘째);
-        setCreatedAt(room, NOON.minus(Duration.ofHours(4)));
+        startedAt(room, NOON.minus(Duration.ofHours(4)));
+
+        Instant beforeNext = NOON.plus(FareSplit.REMIND_AFTER).minusSeconds(1);
 
         notificationService.remindTransfers(room, NOON);
-        notificationService.remindTransfers(room, NOON);
+        notificationService.remindTransfers(room, beforeNext);
 
-        assertThat(requestCount(room, 첫째)).isEqualTo(2);
-        assertThat(lastRequestedAt(room, 첫째).toInstant()).isEqualTo(NOON);
-        assertThat(requestCount(room, 둘째)).as("보냈다고 누른 사람은 차례만 넘긴다").isEqualTo(2);
-        assertThat(lastRequestedAt(room, 둘째)).isEqualTo(firstRequestedAt);
-        assertThat(fareSplits.findTransferRequestTargets(NOON)).doesNotContain(room);
+        assertThat(lastRequestedAt(room, 첫째).toInstant()).as("4시간 안에 다시 불러도 다시 보내지 않는다").isEqualTo(NOON);
+        assertThat(lastRequestedAt(room, 둘째).toInstant()).as("보냈다고 누른 사람은 재요청하지 않는다").isEqualTo(NOON.minus(Duration.ofHours(4)));
+        assertThat(fareSplits.findTransferRequestTargets(beforeNext)).doesNotContain(room);
     }
 
     @Test
-    void 방해_금지_시간의_재요청은_보낸_시각을_남기지_않고_차례만_넘긴다() {
-        Long room = finishedRoom(받는사람, 첫째);
-        service.create(room, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
-        Timestamp firstRequestedAt = lastRequestedAt(room, 첫째);
-        Instant night = at(DAY, 23, 30);
-        setCreatedAt(room, night.minus(Duration.ofHours(4)));
-
-        notificationService.remindTransfers(room, night);
-
-        assertThat(requestCount(room, 첫째)).isEqualTo(2);
-        assertThat(lastRequestedAt(room, 첫째)).isEqualTo(firstRequestedAt);
-    }
-
-    @Test
-    void 입금_확인_요청은_보냄_4시간_뒤_한_번만_남고_방해_금지_시간에는_남지_않는다() {
+    void 입금_확인_요청은_보냄_4시간_뒤_새벽에도_한_번만_남는다() {
         Long room = finishedRoom(받는사람, 첫째);
         service.create(room, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
         setCreatedAt(room, at(DAY, 1, 0));
-        // 새벽 2시에 보냈다고 눌러 6시에 입금 확인 요청 차례가 되지만 방해 금지 시간이다
+        // 새벽 2시에 보냈다고 눌러 새벽 6시가 입금 확인 요청 차례다
         jdbc.update("UPDATE fare_split_transfer SET sent_at = ? WHERE match_id = ?", Timestamp.from(at(DAY, 2, 0)), room);
 
+        notificationService.requestConfirm(room, at(DAY, 6, 0).minusSeconds(1));
+        assertThat(confirmRequestedAt(room, 첫째)).as("4시간 전").isNull();
+
+        notificationService.requestConfirm(room, at(DAY, 6, 0));
         notificationService.requestConfirm(room, at(DAY, 7, 0));
-        assertThat(confirmRequestedAt(room, 첫째)).as("방해 금지 시간").isNull();
 
-        notificationService.requestConfirm(room, NOON);
-        notificationService.requestConfirm(room, NOON.plus(Duration.ofHours(1)));
-
-        assertThat(confirmRequestedAt(room, 첫째).toInstant()).isEqualTo(NOON);
-        assertThat(fareSplits.findConfirmRequestTargets(NOON.plus(Duration.ofHours(1)))).doesNotContain(room);
+        assertThat(confirmRequestedAt(room, 첫째).toInstant()).isEqualTo(at(DAY, 6, 0));
+        assertThat(fareSplits.findConfirmRequestTargets(at(DAY, 7, 0))).doesNotContain(room);
     }
 
     // ───────────────────────── 스케줄러 한 바퀴 ─────────────────────────
@@ -168,14 +154,14 @@ class FareSplitSweepPostgresTest {
     void 스케줄러는_정산마다_따로_커밋해_만료하고_재요청하고_입금_확인을_요청한다() {
         Long 만료방 = finishedRoom(받는사람, 첫째);
         service.create(만료방, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
-        setCreatedAt(만료방, NOON.minus(Duration.ofDays(3)));
+        startedAt(만료방, NOON.minus(Duration.ofDays(3)));
         Long 재요청방 = finishedRoom(받는사람, 첫째);
         service.create(재요청방, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
-        setCreatedAt(재요청방, NOON.minus(Duration.ofHours(4)));
+        startedAt(재요청방, NOON.minus(Duration.ofHours(4)));
         Long 확인요청방 = finishedRoom(받는사람, 첫째);
         service.create(확인요청방, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
-        setCreatedAt(확인요청방, NOON.minus(Duration.ofHours(5)));
-        jdbc.update("UPDATE fare_split_transfer SET sent_at = ?, request_count = 2 WHERE match_id = ?", Timestamp.from(NOON.minus(Duration.ofHours(4))), 확인요청방);
+        startedAt(확인요청방, NOON.minus(Duration.ofHours(5)));
+        jdbc.update("UPDATE fare_split_transfer SET sent_at = ? WHERE match_id = ?", Timestamp.from(NOON.minus(Duration.ofHours(4))), 확인요청방);
         // 다른 테스트가 남긴 정산을 건드리지 않게 실제 쿼리 결과 중 이 테스트의 방만 넘긴다. 처리는 실제(프록시) 서비스가 한다
         FareSplitSweeper sweeper = new FareSplitSweeper(onlyMyRooms(), service, notificationService);
 
@@ -184,8 +170,7 @@ class FareSplitSweepPostgresTest {
         assertThat(jdbc.queryForObject("SELECT status FROM fare_split WHERE match_id = ?", String.class, 만료방)).isEqualTo("EXPIRED");
         assertThat(jdbc.queryForObject("SELECT closed_at FROM fare_split WHERE match_id = ?", Timestamp.class, 만료방).toInstant()).isEqualTo(NOON);
         assertThat(jdbc.queryForObject("SELECT account_number FROM fare_split WHERE match_id = ?", String.class, 만료방)).isNull();
-        assertThat(requestCount(만료방, 첫째)).as("만료를 먼저 해 닫힌 정산은 재요청하지 않는다").isEqualTo(1);
-        assertThat(requestCount(재요청방, 첫째)).isEqualTo(2);
+        assertThat(lastRequestedAt(만료방, 첫째).toInstant()).as("만료를 먼저 해 닫힌 정산은 재요청하지 않는다").isEqualTo(NOON.minus(Duration.ofDays(3)));
         assertThat(lastRequestedAt(재요청방, 첫째).toInstant()).isEqualTo(NOON);
         assertThat(confirmRequestedAt(확인요청방, 첫째).toInstant()).isEqualTo(NOON);
         assertThat(jdbc.queryForObject("SELECT status FROM fare_split WHERE match_id = ?", String.class, 재요청방)).isEqualTo("OPEN");
@@ -219,7 +204,7 @@ class FareSplitSweepPostgresTest {
     void 재요청은_정산_행_잠금을_기다렸다가_돈다() throws Exception {
         Long room = finishedRoom(받는사람, 첫째);
         service.create(room, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
-        setCreatedAt(room, NOON.minus(Duration.ofHours(4)));
+        startedAt(room, NOON.minus(Duration.ofHours(4)));
         CountDownLatch locked = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
 
@@ -241,16 +226,16 @@ class FareSplitSweepPostgresTest {
         release.countDown();
         holder.get(10, TimeUnit.SECONDS);
         reminder.get(10, TimeUnit.SECONDS);
-        assertThat(requestCount(room, 첫째)).isEqualTo(2);
+        assertThat(lastRequestedAt(room, 첫째).toInstant()).isEqualTo(NOON);
     }
 
     @Test
-    void 재요청과_보냈어요가_동시에_와도_보낸_시각과_요청_차례를_모두_남긴다() throws Exception {
-        // 잠금이 없으면 한쪽이 앞서 읽은 송금 행 전체를 덮어써 보낸 시각이나 요청 차례를 잃는다 - 여러 방에서 되풀이해 경합을 만든다
+    void 재요청과_보냈어요가_동시에_와도_보낸_시각을_잃지_않는다() throws Exception {
+        // 잠금이 없으면 재요청이 앞서 읽은 송금 행 전체를 덮어써 보낸 시각을 잃는다 - 여러 방에서 되풀이해 경합을 만든다
         for(int i = 0; i < 3; i++) {
             Long room = finishedRoom(받는사람, 첫째);
             service.create(room, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
-            setCreatedAt(room, NOON.minus(Duration.ofHours(4)));
+            startedAt(room, NOON.minus(Duration.ofHours(4)));
             CountDownLatch start = new CountDownLatch(1);
 
             Future<?> sent = pool.submit(() -> {
@@ -269,18 +254,16 @@ class FareSplitSweepPostgresTest {
 
             assertThat(jdbc.queryForObject("SELECT sent_at FROM fare_split_transfer WHERE match_id = ? AND user_id = ?", Timestamp.class, room, 첫째))
                     .isNotNull();
-            assertThat(requestCount(room, 첫째)).isEqualTo(2);
         }
     }
 
     // ───────────────────────── fixtures ─────────────────────────
 
-    /** 받는 사람·첫째가 탄 방에 startedAt 에 시작한 정산. 첫째의 송금 요청은 requestCount 번째까지 처리했다 */
-    private Long startedSplit(Instant startedAt, int requestCount) {
+    /** 받는 사람·첫째가 탄 방에 startedAt 에 시작한 정산 */
+    private Long startedSplit(Instant startedAt) {
         Long room = finishedRoom(받는사람, 첫째);
         service.create(room, 받는사람, 10_000, Bank.KB, RAW_ACCOUNT);
-        setCreatedAt(room, startedAt);
-        jdbc.update("UPDATE fare_split_transfer SET request_count = ? WHERE match_id = ?", requestCount, room);
+        startedAt(room, startedAt);
 
         return room;
     }
@@ -324,8 +307,14 @@ class FareSplitSweepPostgresTest {
         jdbc.update("UPDATE fare_split SET created_at = ? WHERE match_id = ?", Timestamp.from(createdAt), room);
     }
 
-    private int requestCount(Long room, Long userId) {
-        return jdbc.queryForObject("SELECT request_count FROM fare_split_transfer WHERE match_id = ? AND user_id = ?", Integer.class, room, userId);
+    /** 정산을 startedAt 에 시작하고 그때 첫 송금 요청을 보낸 것으로 맞춘다 */
+    private void startedAt(Long room, Instant startedAt) {
+        setCreatedAt(room, startedAt);
+        setRequestedAt(room, startedAt);
+    }
+
+    private void setRequestedAt(Long room, Instant requestedAt) {
+        jdbc.update("UPDATE fare_split_transfer SET last_requested_at = ? WHERE match_id = ?", Timestamp.from(requestedAt), room);
     }
 
     private Timestamp lastRequestedAt(Long room, Long userId) {

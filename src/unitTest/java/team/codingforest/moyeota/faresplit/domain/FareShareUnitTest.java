@@ -51,7 +51,7 @@ class FareShareUnitTest {
          */
         int perPerson = FareSplit.amountPerPerson(totalFare, riders);
         List<FareSplitTransfer> transfers = LongStream.rangeClosed(2, riders)
-                .mapToObj(id -> FareSplitTransfer.load(id, null, null, 1, null, null))
+                .mapToObj(id -> FareSplitTransfer.load(id, null, null, null, null))
                 .toList();
         FareSplit split = FareSplit.load(PARTY_ID, PAYER_ID, totalFare, perPerson, Bank.KB, null, FareSplitStatus.COMPLETED,
                 Instant.parse("2026-11-03T12:00:00Z"), Instant.parse("2026-11-03T13:00:00Z"), transfers);

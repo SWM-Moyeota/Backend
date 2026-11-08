@@ -146,6 +146,6 @@ class FareSplitJpaUnitTest {
     /** 보내는 사람을 userId 역순(3 → 2)으로 담았다 */
     private static FareSplit split() {
         return FareSplit.load(PARTY_ID, 1L, 18_700, 6_240, Bank.KAKAO, new AccountNumber("3333012345678"), FareSplitStatus.OPEN, CREATED_AT, null,
-                List.of(FareSplitTransfer.load(3L, null, null, 1, CREATED_AT, null), FareSplitTransfer.load(2L, null, null, 1, CREATED_AT, null)));
+                List.of(FareSplitTransfer.load(3L, null, null, CREATED_AT, null), FareSplitTransfer.load(2L, null, null, CREATED_AT, null)));
     }
 }

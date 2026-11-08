@@ -5,13 +5,12 @@ import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import team.codingforest.moyeota.common.time.QuietHours;
 import team.codingforest.moyeota.faresplit.domain.FareSplits;
 
 import java.time.Instant;
 
 /**
- *  택시비 정산 스케줄러 - 1분마다 만료(시작 1일), 송금 재요청(4시간마다), 입금 확인 요청(보냄 4시간)을 정산마다 처리한다.
+ *  택시비 정산 스케줄러 - 1분마다 만료(시작 1일), 송금 재요청(마지막 요청 4시간 뒤), 입금 확인 요청(보냄 4시간 뒤)을 정산마다 처리한다.
  *  정산마다 서비스(프록시)를 거쳐 트랜잭션을 따로 열고, 한 정산이 실패해도 나머지를 계속한다
  */
 @Slf4j
@@ -45,9 +44,6 @@ public class FareSplitSweeper {
                 log.warn("송금 재요청 실패 partyId={}", partyId, e);
             }
         }
-
-        // 입금 확인 요청은 방해 금지 시간에 차례를 넘기지 않고 기다리므로 그동안은 대상을 찾지 않는다
-        if(QuietHours.contains(now)) return;
 
         for(Long partyId : fareSplits.findConfirmRequestTargets(now)) {
             try {
