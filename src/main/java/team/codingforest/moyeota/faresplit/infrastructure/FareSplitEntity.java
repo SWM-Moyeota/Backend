@@ -31,7 +31,7 @@ import java.util.List;
 @Table(name = "fare_split")
 public class FareSplitEntity extends BaseTimeEntity {
 
-    // 방 하나에 정산 하나 - 방 번호를 그대로 키로 쓴다
+    // 방 하나당 정산 하나이기에 1:1 매핑
     @Id
     @Column(name = "match_id")
     private Long partyId;
@@ -49,7 +49,7 @@ public class FareSplitEntity extends BaseTimeEntity {
     @Column(name = "bank_code", nullable = false, length = 20)
     private Bank bankCode;
 
-    // user_profile 의 개인정보와 같은 AES-GCM 으로 암호화해 저장한다
+    // 계좌번호는 암호화하여 저장
     @Convert(converter = EncryptedStringConverter.class)
     @Column(name = "account_number")
     private String accountNumber;
@@ -88,7 +88,7 @@ public class FareSplitEntity extends BaseTimeEntity {
         return entity;
     }
 
-    /** 바뀔 수 있는 값만 옮긴다 - 방·받는 사람·송금 행 구성은 그대로다 */
+    // 변경될 수 있는 값들 계좌번호, 총 금액 등
     void update(FareSplit split) {
         AccountNumber account = split.getAccountNumber();
         this.totalFare = split.getTotalFare();
@@ -103,7 +103,7 @@ public class FareSplitEntity extends BaseTimeEntity {
         }
     }
 
-    /** 송금은 userId 순으로 담는다 - 방 합류 순은 응답을 만들 때 맞춘다(FareSplit.transfersInJoinOrder) */
+    // userId 순으로 정렬
     public FareSplit toDomain() {
         List<FareSplitTransfer> ordered = transfers.stream()
                 .sorted(Comparator.comparing(FareSplitTransferEntity::getMemberId))

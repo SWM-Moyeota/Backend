@@ -1,8 +1,7 @@
 package team.codingforest.moyeota.faresplit.domain;
 
 /**
- *  받을 계좌의 은행. 이름(enum 상수)이 fare_split.bank_code 에 저장되고 요청·응답의 bankCode 다.
- *  tossName 은 토스 송금 딥링크의 bank 파라미터 값이다 - 토스가 공개한 규격이 아니라 실기기에서 맞는지 확인해야 한다
+ *  받을 계좌의 은행. 이름이 fare_split.bank_code 에 저장
  */
 public enum Bank {
     KB("KB국민은행", "KB국민"),

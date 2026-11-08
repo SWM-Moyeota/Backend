@@ -13,10 +13,7 @@ public class FareSplitUserDeletionListener {
     private final FareSplitService fareSplitService;
 
     /**
-     * 탈퇴한 사용자가 받는 사람인 열린 정산의 계좌번호를 바로 지움
-     * 정산은 열어 둬 시작 1일 뒤 만료로 닫힘. 이미 지운 정산은 그대로라 재발행돼도 됨
-     *
-     * @param event 탈퇴한 사용자 정보
+     * 탈퇴한 사용자가 받는 사람인 열린 정산의 계좌번호를 바로 지운다.
      */
     @ApplicationModuleListener
     public void on(UserDeletedEvent event) {

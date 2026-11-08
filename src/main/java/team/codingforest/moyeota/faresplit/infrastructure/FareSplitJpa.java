@@ -22,7 +22,7 @@ import java.util.Optional;
 @Repository
 @RequiredArgsConstructor
 public class FareSplitJpa implements FareSplits {
-    // unique_violation - Postgres 와 H2 가 같은 값을 쓴다
+    // unique 위반 에러코드(중복으로 저장될때)
     private static final String UNIQUE_VIOLATION = "23505";
 
     private final FareSplitJpaRepository repository;
@@ -32,8 +32,7 @@ public class FareSplitJpa implements FareSplits {
     public FareSplit create(FareSplit split) {
         FareSplitEntity entity = FareSplitEntity.from(split);
 
-        // 키(방 번호)를 직접 넣는 엔티티라 save 는 merge 로 돌아 같은 방의 행을 덮어쓸 수 있다.
-        // persist 로 INSERT 만 하고 바로 flush 해 PK 중복을 이 자리에서 드러낸다
+        // 매칭방 ID와 1:1 매핑이라 저장할때 바로 쿼리문 사용할 수 있게 구성
         try {
             em.persist(entity);
             em.flush();

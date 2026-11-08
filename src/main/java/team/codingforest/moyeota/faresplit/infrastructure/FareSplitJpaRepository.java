@@ -18,7 +18,6 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
     @Query("select s from FareSplitEntity s left join fetch s.transfers where s.partyId = :partyId")
     Optional<FareSplitEntity> findWithTransfersByPartyId(@Param("partyId") Long partyId);
 
-    // 송금 행까지 join 해 잠그지 않는다 - 정산 행 하나만 잠그고 송금은 그 뒤에 읽는다
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from FareSplitEntity s where s.partyId = :partyId")
     Optional<FareSplitEntity> findByPartyIdForUpdate(@Param("partyId") Long partyId);

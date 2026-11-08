@@ -6,7 +6,7 @@ import team.codingforest.moyeota.faresplit.domain.FareSplitNotifier;
 
 import java.util.List;
 
-/** FCM 설정이 없는 환경(로컬·테스트)의 대체 구현 - 보내는 대신 로그만 남긴다 */
+// 부하 테스트 대체 구현
 @Slf4j
 @Component
 public class LoggingFareSplitNotifier implements FareSplitNotifier {
