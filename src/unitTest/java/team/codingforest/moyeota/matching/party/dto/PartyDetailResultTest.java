@@ -104,7 +104,7 @@ class PartyDetailResultTest {
          * settings
          */
         Party reservation = Party.load(200L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
-                new Capacity(3), List.of(PartyMember.load(1L, CREATED_AT)), 1L, CREATED_AT, PartyStatus.ACTIVE, null, null, null, 0L,
+                new Capacity(3), List.of(PartyMember.load(1L, CREATED_AT, null)), 1L, CREATED_AT, PartyStatus.ACTIVE, null, null, null, 0L,
                 RoomType.RESERVED, CREATED_AT.plus(Duration.ofDays(1)), null, null, 0);
 
         /*
@@ -122,7 +122,7 @@ class PartyDetailResultTest {
 
     /** 정원이 찬 실시간 방 - 정원이 차도 ACTIVE 다. 예전에는 정원이 차면 COMPLETED 가 되고 기사가 배정됐다 */
     private static Party fullParty() {
-        List<PartyMember> members = List.of(PartyMember.load(1L, CREATED_AT), PartyMember.load(2L, CREATED_AT.plusSeconds(1)));
+        List<PartyMember> members = List.of(PartyMember.load(1L, CREATED_AT, null), PartyMember.load(2L, CREATED_AT.plusSeconds(1), null));
 
         return Party.load(100L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
                 new Capacity(2), members, 1L, CREATED_AT, PartyStatus.ACTIVE, 12000, 25, "encoded-path", 0L,

@@ -174,7 +174,7 @@ class PartyAccessServiceTest {
     /** 방장이 10분 뒤로 약속을 확정한 방(COMPLETED) */
     private Party confirmedParty() {
         Party party = fullParty();
-        party.confirm(방장, MeetingPlan.at(지금.plus(Duration.ofMinutes(10))), 지금);
+        party.confirm(방장, new MeetingPlan(지금.plus(Duration.ofMinutes(10)), null, null), 지금);
         return party;
     }
 

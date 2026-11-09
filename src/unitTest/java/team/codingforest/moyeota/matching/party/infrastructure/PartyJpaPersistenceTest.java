@@ -261,7 +261,7 @@ class PartyJpaPersistenceTest {
         party.join(2L, Instant.now());
         parties.save(party);
         Instant 약속 = 뒤(Duration.ofMinutes(30)).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
-        party.confirm(1L, MeetingPlan.at(약속), Instant.now());
+        party.confirm(1L, new MeetingPlan(약속, null, null), Instant.now());
         parties.save(party);
         clearContext();
 
@@ -308,7 +308,7 @@ class PartyJpaPersistenceTest {
         Party party = realtime(1L);
         party.join(2L, Instant.now());
         parties.save(party);
-        party.confirm(1L, MeetingPlan.at(Instant.now().minusSeconds(30)), Instant.now().minus(Duration.ofMinutes(6)));
+        party.confirm(1L, new MeetingPlan(Instant.now().minusSeconds(30), null, null), Instant.now().minus(Duration.ofMinutes(6)));
         parties.save(party);
 
         return party;
@@ -332,7 +332,7 @@ class PartyJpaPersistenceTest {
         Instant 도착 = micros(Instant.now().minusSeconds(120));
         Party party = Party.load(null, 강남, 판교, "강남역", "판교역", new Capacity(3),
                 List.of(PartyMember.load(1L, Instant.now().minusSeconds(600), 도착),
-                        PartyMember.load(2L, Instant.now().minusSeconds(500))),
+                        PartyMember.load(2L, Instant.now().minusSeconds(500), null)),
                 1L, Instant.now(), PartyStatus.FINISHED, 12000, 25, "encoded-path", 0L, RoomType.REALTIME, Instant.now().minusSeconds(300), null, null, 0);
         Long id = parties.save(party).getId();
         clearContext();
@@ -633,21 +633,33 @@ class PartyJpaPersistenceTest {
         Party party = createAndSave();
         party.join(2L, Instant.now());
         party.join(3L, Instant.now());
-        party.confirm(1L, MeetingPlan.at(Instant.now().minusSeconds(30)), Instant.now().minus(Duration.ofMinutes(6)));
+        party.confirm(1L, new MeetingPlan(Instant.now().minusSeconds(30), null, null), Instant.now().minus(Duration.ofMinutes(6)));
         party.arrive(1L, true, Instant.now());
+        party.arrive(2L, true, Instant.now());
         party.depart(1L, Instant.now());
         parties.save(party);
     }
 
     @Test
-    void 완주한_방_수를_멤버별로_센다() {
+    void 완주한_방_수를_도착한_멤버별로_센다() {
         // 인터페이스 프로젝션은 JPQL 별칭과 getter 이름이 어긋나면 실행 때만 null 이 난다 - 그래서 실제 쿼리로 검증
         finishRide();
         finishRide();
         createAndSave();                                   // ACTIVE 방 - 집계 제외
 
-        assertThat(parties.countFinishedRides(java.util.List.of(1L, 2L, 999L)))
-                .containsOnly(entry(1L, 2), entry(2L, 2));   // 999L 은 결과에 없음(0회는 빠진다)
+        assertThat(parties.countFinishedRides(java.util.List.of(1L, 2L, 3L, 999L)))
+                .containsOnly(entry(1L, 2), entry(2L, 2));   // 3L 은 도착하지 않아 0회, 999L 은 멤버가 아님(0회는 빠진다)
+    }
+
+    @Test
+    void 도착_기록이_없는_옛_FINISHED_방은_멤버_전원을_탑승으로_센다() {
+        Party old = parties.save(Party.load(null, 강남, 판교, "강남역", "판교역", new Capacity(3),
+                List.of(PartyMember.load(1L, Instant.now(), null), PartyMember.load(2L, Instant.now(), null)), 1L, Instant.now(), PartyStatus.FINISHED,
+                9000, 20, "encoded-path", 0L, RoomType.REALTIME, null, null, null, 0));
+        clearContext();
+
+        assertThat(parties.countFinishedRides(java.util.List.of(1L, 2L)))
+                .containsOnly(entry(1L, 1), entry(2L, 1));
     }
 
     @Test

@@ -62,7 +62,7 @@ class PartyConfirmPostgresTest {
 
         tx.executeWithoutResult(status -> {
             Party locked = parties.findByIdForUpdate(id).orElseThrow();
-            locked.confirm(HOST_ID, MeetingPlan.at(meetingAt), Instant.now());
+            locked.confirm(HOST_ID, new MeetingPlan(meetingAt, null, null), Instant.now());
             parties.save(locked);
         });
 

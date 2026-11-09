@@ -47,11 +47,12 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     List<PartySummary> findSummariesWithinBounds(@Param("status") PartyStatus status, @Param("swLat") double swLat, @Param("neLat") double neLat,
                                                  @Param("swLng") double swLng, @Param("neLng") double neLng, Limit limit);
 
-    // 동승 횟수 - 끝난(FINISHED) 방에 있었던 횟수
+    // 탑승 횟수 - 끝난(FINISHED) 방에서 탄 횟수. 도착자가 있는 방은 도착한 멤버만, 도착 기록이 없는 옛 방(출시 전 FINISHED)은 멤버 전원을 센다
     @Query("""
                     select m.memberId as memberId, count(m) as count
                     from PartyMemberEntity m
                     where m.memberId in :memberIds and m.party.status = :status
+                        and (m.arrivedAt is not null or not exists (select a from PartyMemberEntity a where a.party = m.party and a.arrivedAt is not null))
                     group by m.memberId
             """)
     List<MemberRideCount> countByMemberIdsAndStatus(@Param("memberIds") Collection<Long> memberIds, @Param("status") PartyStatus status);

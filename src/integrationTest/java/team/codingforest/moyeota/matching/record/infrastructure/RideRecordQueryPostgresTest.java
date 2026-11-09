@@ -72,9 +72,10 @@ class RideRecordQueryPostgresTest {
         party.join(동승자, Instant.now());
         Long partyId = track(parties.save(party).getId());
         // 약속을 확정한 뒤 약속 시각을 방금 지난 시각으로 돌려 바로 도착·출발을 누른다
-        partyService.confirm(partyId, 나, MeetingPlan.at(Instant.now().plus(Duration.ofMinutes(10))));
+        partyService.confirm(partyId, 나, new MeetingPlan(Instant.now().plus(Duration.ofMinutes(10)), null, null));
         jdbc.update("UPDATE match_room SET departure_at = now() - interval '30 seconds' WHERE id = ?", partyId);
         partyService.arrive(partyId, 나, DEPARTURE.latitude(), DEPARTURE.longitude());
+        partyService.arrive(partyId, 동승자, DEPARTURE.latitude(), DEPARTURE.longitude());
 
         partyService.depart(partyId, 나);
 
@@ -118,8 +119,8 @@ class RideRecordQueryPostgresTest {
     @Test
     void 방별_멤버는_합류_순으로_모이고_id_순서와_달라도_합류_순을_따른다() {
         Instant 기준 = Instant.now().truncatedTo(ChronoUnit.MICROS);
-        Long partyId = savedParty(List.of(PartyMember.load(남, 기준.plusSeconds(2)), PartyMember.load(나, 기준.plusSeconds(1)),
-                PartyMember.load(동승자, 기준)));
+        Long partyId = savedParty(List.of(PartyMember.load(남, 기준.plusSeconds(2), null), PartyMember.load(나, 기준.plusSeconds(1), null),
+                PartyMember.load(동승자, 기준, null)));
 
         assertThat(rideRecords.findMemberIds(List.of(partyId)).get(partyId)).containsExactly(동승자, 나, 남);
     }
@@ -129,9 +130,9 @@ class RideRecordQueryPostgresTest {
         Instant 기준 = Instant.now().truncatedTo(ChronoUnit.MICROS);
         Instant 합류 = 기준.minusSeconds(3600);
         Instant 도착 = 합류.plusSeconds(600);
-        // 남은 도착을 누르지 않아 탑승자가 아니다 - 기록에는 나오고 정산에는 없다
+        // 남은 도착을 누르지 않아 탑승자가 아니다 - 기록에도 정산에도 없다
         Long 정산방 = droppedOff(기준, List.of(PartyMember.load(동승자, 합류, 도착), PartyMember.load(나, 합류.plusSeconds(1), 도착),
-                PartyMember.load(넷째, 합류.plusSeconds(2), 도착), PartyMember.load(남, 합류.plusSeconds(3))));
+                PartyMember.load(넷째, 합류.plusSeconds(2), 도착), PartyMember.load(남, 합류.plusSeconds(3), null)));
         Long 정산없는방 = droppedOff(기준.minusSeconds(60), 나, 동승자);
         fareSplitService.create(정산방, 나, 18_700, Bank.KB, "3333-01-2345678");
 
@@ -140,8 +141,7 @@ class RideRecordQueryPostgresTest {
         assertThat(rideOf(동승자, 정산방).totalFare()).isEqualTo(18_700);
         assertThat(rideOf(동승자, 정산방).farePerPerson()).as("보내는 사람 몫 = 1인당 금액").isEqualTo(6_240);
         assertThat(rideOf(넷째, 정산방).farePerPerson()).isEqualTo(6_240);
-        assertThat(rideOf(남, 정산방).totalFare()).isNull();
-        assertThat(rideOf(남, 정산방).farePerPerson()).isNull();
+        assertThat(rideRecordService.findMyRides(남, null, 20).rides()).as("도착하지 않은 멤버에게는 기록이 없다").isEmpty();
         assertThat(rideOf(나, 정산없는방).totalFare()).isNull();
         assertThat(rideOf(나, 정산없는방).farePerPerson()).isNull();
 
@@ -199,7 +199,7 @@ class RideRecordQueryPostgresTest {
     private List<PartyMember> members(Instant joinedFrom, Long... memberIds) {
         List<PartyMember> members = new ArrayList<>();
         for(int i = 0; i < memberIds.length; i++) {
-            members.add(PartyMember.load(memberIds[i], joinedFrom.plusSeconds(i)));
+            members.add(PartyMember.load(memberIds[i], joinedFrom.plusSeconds(i), null));
         }
         return members;
     }

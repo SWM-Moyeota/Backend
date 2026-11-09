@@ -1419,7 +1419,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          */
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
-        verify(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(MeetingPlan.at(CONFIRMED_AT)));
+        verify(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(new MeetingPlan(CONFIRMED_AT, null, null)));
     }
 
     @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 시간대가 붙은 ISO-8601 도 같은 순간으로 읽는다")
@@ -1436,7 +1436,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isNoContent());
-        verify(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(MeetingPlan.at(CONFIRMED_AT)));
+        verify(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(new MeetingPlan(CONFIRMED_AT, null, null)));
     }
 
     @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 토큰이 없으면 401")
@@ -1555,7 +1555,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        doThrow(new BusinessException(errorCode)).when(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(MeetingPlan.at(CONFIRMED_AT)));
+        doThrow(new BusinessException(errorCode)).when(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(new MeetingPlan(CONFIRMED_AT, null, null)));
 
         /*
          * test

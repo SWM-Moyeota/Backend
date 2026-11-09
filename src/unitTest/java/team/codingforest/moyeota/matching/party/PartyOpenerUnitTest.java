@@ -315,7 +315,7 @@ class PartyOpenerUnitTest {
 
     private static Party party(PartyStatus status, int capacity) {
         return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity),
-                List.of(PartyMember.load(HOST_ID, BASE_TIME)), HOST_ID,
+                List.of(PartyMember.load(HOST_ID, BASE_TIME, null)), HOST_ID,
                 BASE_TIME, status, 12000, 25, "encoded-path", 0L,
                 RoomType.REALTIME, null, null, null, 0);
     }

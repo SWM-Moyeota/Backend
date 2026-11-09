@@ -49,7 +49,7 @@ final class PartyFixtures {
     /** 방장이 NOW 에 MEETING_AT 로 약속을 확정한 실시간 방 */
     static Party confirmed(int capacity, Long... others) {
         Party party = realtime(capacity, others);
-        party.confirm(HOST_ID, MeetingPlan.at(MEETING_AT), NOW);
+        party.confirm(HOST_ID, new MeetingPlan(MEETING_AT, null, null), NOW);
         return party;
     }
 
@@ -69,7 +69,7 @@ final class PartyFixtures {
 
     /** order 가 작을수록 먼저 합류했다 */
     static PartyMember waiting(Long memberId, int order) {
-        return PartyMember.load(memberId, NOW.minus(Duration.ofHours(1)).plusSeconds(order));
+        return PartyMember.load(memberId, NOW.minus(Duration.ofHours(1)).plusSeconds(order), null);
     }
 
     static PartyMember arrived(Long memberId, int order) {

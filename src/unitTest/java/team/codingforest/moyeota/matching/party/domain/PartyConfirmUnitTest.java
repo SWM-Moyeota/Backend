@@ -24,7 +24,7 @@ class PartyConfirmUnitTest {
         Party party = realtime(3, MEMBER_ID);
         long before = party.getVersion();
 
-        party.confirm(HOST_ID, MeetingPlan.at(MEETING_AT), NOW);
+        party.confirm(HOST_ID, new MeetingPlan(MEETING_AT, null, null), NOW);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
         assertThat(party.getDepartureAt()).isEqualTo(MEETING_AT);
@@ -63,7 +63,7 @@ class PartyConfirmUnitTest {
     void confirm_full() {
         Party party = realtime(2, MEMBER_ID);
 
-        party.confirm(HOST_ID, MeetingPlan.at(MEETING_AT), NOW);
+        party.confirm(HOST_ID, new MeetingPlan(MEETING_AT, null, null), NOW);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
     }
@@ -74,8 +74,8 @@ class PartyConfirmUnitTest {
         Party inFive = realtime(3, MEMBER_ID);
         Party inAnHour = realtime(3, MEMBER_ID);
 
-        inFive.confirm(HOST_ID, MeetingPlan.at(NOW.plus(Party.MIN_CONFIRM_AHEAD)), NOW);
-        inAnHour.confirm(HOST_ID, MeetingPlan.at(NOW.plus(Party.MAX_CONFIRM_AHEAD)), NOW);
+        inFive.confirm(HOST_ID, new MeetingPlan(NOW.plus(Party.MIN_CONFIRM_AHEAD), null, null), NOW);
+        inAnHour.confirm(HOST_ID, new MeetingPlan(NOW.plus(Party.MAX_CONFIRM_AHEAD), null, null), NOW);
 
         assertThat(inFive.getDepartureAt()).isEqualTo(NOW.plus(Duration.ofMinutes(5)));
         assertThat(inAnHour.getDepartureAt()).isEqualTo(NOW.plus(Duration.ofHours(1)));
@@ -86,7 +86,7 @@ class PartyConfirmUnitTest {
     void confirm_tooSoon() {
         Party party = realtime(3, MEMBER_ID);
 
-        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, MeetingPlan.at(NOW.plus(Duration.ofMinutes(5)).minusSeconds(1)), NOW));
+        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, new MeetingPlan(NOW.plus(Duration.ofMinutes(5)).minusSeconds(1), null, null), NOW));
 
         assertUnchanged(thrown, MatchingErrorCode.INVALID_MEETING_TIME, party);
     }
@@ -96,7 +96,7 @@ class PartyConfirmUnitTest {
     void confirm_tooLate() {
         Party party = realtime(3, MEMBER_ID);
 
-        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, MeetingPlan.at(NOW.plus(Duration.ofHours(1)).plusSeconds(1)), NOW));
+        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, new MeetingPlan(NOW.plus(Duration.ofHours(1)).plusSeconds(1), null, null), NOW));
 
         assertUnchanged(thrown, MatchingErrorCode.INVALID_MEETING_TIME, party);
     }
@@ -106,7 +106,7 @@ class PartyConfirmUnitTest {
     void confirm_nullTime() {
         Party party = realtime(3, MEMBER_ID);
 
-        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, MeetingPlan.at(null), NOW));
+        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, new MeetingPlan(null, null, null), NOW));
 
         assertUnchanged(thrown, MatchingErrorCode.INVALID_MEETING_TIME, party);
     }
@@ -116,8 +116,8 @@ class PartyConfirmUnitTest {
     void confirm_notHost() {
         Party party = realtime(3, MEMBER_ID);
 
-        assertUnchanged(catchThrowable(() -> party.confirm(OUTSIDER_ID, MeetingPlan.at(MEETING_AT), NOW)), MatchingErrorCode.NOT_PARTY_MEMBER, party);
-        assertUnchanged(catchThrowable(() -> party.confirm(MEMBER_ID, MeetingPlan.at(MEETING_AT), NOW)), MatchingErrorCode.NOT_PARTY_HOST, party);
+        assertUnchanged(catchThrowable(() -> party.confirm(OUTSIDER_ID, new MeetingPlan(MEETING_AT, null, null), NOW)), MatchingErrorCode.NOT_PARTY_MEMBER, party);
+        assertUnchanged(catchThrowable(() -> party.confirm(MEMBER_ID, new MeetingPlan(MEETING_AT, null, null), NOW)), MatchingErrorCode.NOT_PARTY_HOST, party);
     }
 
     @DisplayName("confirm - 예약 방은 NOT_REALTIME_PARTY 이고 출발 시각은 그대로다")
@@ -125,7 +125,7 @@ class PartyConfirmUnitTest {
     void confirm_reservation() {
         Party party = reserved(3, MEMBER_ID);
 
-        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, MeetingPlan.at(MEETING_AT), NOW));
+        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, new MeetingPlan(MEETING_AT, null, null), NOW));
 
         assertRejected(thrown, MatchingErrorCode.NOT_REALTIME_PARTY);
         assertThat(party.getDepartureAt()).isEqualTo(RESERVED_AT);
@@ -137,7 +137,7 @@ class PartyConfirmUnitTest {
     void confirm_twice() {
         Party party = confirmed(3, MEMBER_ID);
 
-        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, MeetingPlan.at(MEETING_AT.plusSeconds(60)), NOW));
+        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, new MeetingPlan(MEETING_AT.plusSeconds(60), null, null), NOW));
 
         assertRejected(thrown, MatchingErrorCode.ALREADY_CONFIRMED);
         assertThat(party.getDepartureAt()).isEqualTo(MEETING_AT);
@@ -149,7 +149,7 @@ class PartyConfirmUnitTest {
     void confirm_closed(PartyStatus status) {
         Party party = restored(RoomType.REALTIME, status, null, waiting(HOST_ID, 0), waiting(MEMBER_ID, 1));
 
-        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, MeetingPlan.at(MEETING_AT), NOW));
+        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, new MeetingPlan(MEETING_AT, null, null), NOW));
 
         assertRejected(thrown, MatchingErrorCode.PARTY_CLOSED);
     }
@@ -159,7 +159,7 @@ class PartyConfirmUnitTest {
     void confirm_alone() {
         Party party = realtime(3);
 
-        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, MeetingPlan.at(MEETING_AT), NOW));
+        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, new MeetingPlan(MEETING_AT, null, null), NOW));
 
         assertUnchanged(thrown, MatchingErrorCode.NOT_ENOUGH_MEMBERS, party);
     }

@@ -14,10 +14,6 @@ public record MeetingPlan(Instant departureAt, Location departure, String depart
         if((departure == null) != (departurePlace == null)) throw new BusinessException(MatchingErrorCode.INCOMPLETE_MEETING_PLACE);
     }
 
-    public static MeetingPlan at(Instant departureAt) {
-        return new MeetingPlan(departureAt, null, null);
-    }
-
     boolean hasPlace() {
         return departure != null;
     }

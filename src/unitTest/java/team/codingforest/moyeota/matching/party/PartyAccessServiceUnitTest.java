@@ -188,7 +188,7 @@ class PartyAccessServiceUnitTest {
          */
         Party party = attendedParty(PartyStatus.FINISHED, List.of(
                 arrived(MEMBER_ID, 0),
-                PartyMember.load(NOT_ARRIVED_ID, BASE_TIME.plusSeconds(1)),
+                PartyMember.load(NOT_ARRIVED_ID, BASE_TIME.plusSeconds(1), null),
                 arrived(HOST_ID, 2)));
         doReturn(Optional.of(party)).when(parties).findById(eq(PARTY_ID));
 
@@ -297,7 +297,7 @@ class PartyAccessServiceUnitTest {
     private static Party party(PartyStatus status, Long... memberIds) {
         List<PartyMember> members = new ArrayList<>();
         for (int i = 0; i < memberIds.length; i++) {
-            members.add(PartyMember.load(memberIds[i], BASE_TIME.plusSeconds(i)));
+            members.add(PartyMember.load(memberIds[i], BASE_TIME.plusSeconds(i), null));
         }
 
         return Party.load(PARTY_ID, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",

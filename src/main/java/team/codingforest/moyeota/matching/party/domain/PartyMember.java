@@ -21,10 +21,6 @@ public class PartyMember {
         return new PartyMember(memberId, now, null);
     }
 
-    public static PartyMember load(Long memberId, Instant joinedAt) {
-        return new PartyMember(memberId, joinedAt, null);
-    }
-
     public static PartyMember load(Long memberId, Instant joinedAt, Instant arrivedAt) {
         return new PartyMember(memberId, joinedAt, arrivedAt);
     }

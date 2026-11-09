@@ -81,7 +81,6 @@ public class Party {
         this.departureReminderCount = departureReminderCount;
     }
 
-    // ───────────────────────── 생성·복원 ─────────────────────────
 
     public static Party create(Long creatorId, Location departureLocation, Location destinationLocation, String departure, String destination,
                                Capacity capacity, Instant now, Integer estimatedFare, Integer estimatedTime, String route) {
@@ -112,6 +111,7 @@ public class Party {
                               RoomType roomType, Instant departureAt) {
         Party party = new Party(null, departureLocation, destinationLocation, departure, destination, capacity, List.of(), creatorId, now,
                 PartyStatus.ACTIVE, estimatedFare, estimatedTime, route, 0L, roomType, departureAt, null, null, 0);
+
         party.members.add(PartyMember.join(creatorId, now));
 
         return party;
@@ -126,24 +126,30 @@ public class Party {
                 estimatedFare, estimatedTime, route, version, roomType, departureAt, reminderSentAt, meetingNotifiedAt, departureReminderCount);
     }
 
-    // ───────────────────────── 참여·나가기 ─────────────────────────
-
     /** 모집 중(ACTIVE)이고 자리가 남은 방에만 들어온다. 예약 방은 출발 시각부터 닫힌 것으로 본다 */
     public void join(Long memberId, Instant now) {
-        if(status != PartyStatus.ACTIVE) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+        if(status != PartyStatus.ACTIVE) {
+			throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+		}
 
-        if(isReservation() && !now.isBefore(departureAt)) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+        if(isReservation() && !now.isBefore(departureAt)) {
+			throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+		}
 
-        if(isFull()) throw new BusinessException(MatchingErrorCode.PARTY_FULL);
+        if(isFull()) {
+			throw new BusinessException(MatchingErrorCode.PARTY_FULL);
+		}
 
-        if(isMember(memberId)) throw new BusinessException(MatchingErrorCode.ALREADY_JOINED_PARTY);
+        if(isMember(memberId)) {
+			throw new BusinessException(MatchingErrorCode.ALREADY_JOINED_PARTY);
+		}
 
         members.add(PartyMember.join(memberId, now));
         version++;
     }
 
     /**
-     *  열린 방이면 언제든 나갈 수 있다. 방장이 나가면 가장 먼저 합류한 멤버가 승계한다.
+     *  열린 방이면 도착하기 전까지 언제든 나갈 수 있다. 방장이 나가면 가장 먼저 합류한 멤버가 승계한다.
      *  마지막 멤버가 나가거나, 약속을 확정한 실시간 방에서 혼자 남으면(더 모을 수 없고 혼자서는 출발할 수 없다) 방을 닫는다.
      *  예약 방은 출발 전까지 다시 모을 수 있어 혼자 남아도 열어 둔다 - 출발 시각까지 혼자면 모집 만료가 닫는다
      */
@@ -151,6 +157,11 @@ public class Party {
         PartyMember member = findMember(memberId);
 
         ensureOpen();
+
+        // 도착을 누른 사람은 같이 탄 사람이다 - 나가서 정산 대상에서 빠지는 길을 막는다
+        if(member.isArrived()) {
+            throw new BusinessException(MatchingErrorCode.ARRIVED_MEMBER_CANNOT_LEAVE);
+        }
 
         members.remove(member);
         version++;
@@ -161,9 +172,13 @@ public class Party {
             return;
         }
 
-        if(isHost(memberId)) hostId = earliestJoinedMemberId();
+        if(isHost(memberId)) {
+			hostId = earliestJoinedMemberId();
+		}
 
-        if(status == PartyStatus.COMPLETED && !hasCompanion()) status = PartyStatus.CANCELED;
+        if(status == PartyStatus.COMPLETED && !hasCompanion()) {
+			status = PartyStatus.CANCELED;
+		}
     }
 
     // ───────────────────────── 약속 확정 ─────────────────────────

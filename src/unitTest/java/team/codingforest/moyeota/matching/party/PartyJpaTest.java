@@ -79,9 +79,10 @@ public class PartyJpaTest implements Parties {
         Map<Long, Integer> counts = new HashMap<>();
         for(Party p : store.values()) {
             if(p.getStatus() != PartyStatus.FINISHED) continue;
+            // 실제 쿼리처럼 - 도착자가 있는 방은 도착한 멤버만, 도착 기록이 없는 옛 방은 멤버 전원을 센다
+            List<Long> riders = p.riderIds().isEmpty() ? p.memberIds() : p.riderIds();
             for(Long id : memberIds) {
-                // 실제 쿼리처럼 끝난(FINISHED) 방의 멤버 수를 센다
-                if(p.isMember(id)) counts.merge(id, 1, Integer::sum);
+                if(riders.contains(id)) counts.merge(id, 1, Integer::sum);
             }
         }
         return counts;

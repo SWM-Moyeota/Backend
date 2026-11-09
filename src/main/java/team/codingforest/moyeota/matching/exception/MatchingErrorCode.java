@@ -20,6 +20,7 @@ public enum MatchingErrorCode implements ErrorCode {
     NOT_ENOUGH_MEMBERS(HttpStatus.CONFLICT, "함께 탈 인원이 부족합니다."),
     NOT_REALTIME_PARTY(HttpStatus.CONFLICT, "실시간 방에서만 할 수 있습니다."),
     ALREADY_CONFIRMED(HttpStatus.CONFLICT, "이미 약속 시간을 확정한 방입니다."),
+    ARRIVED_MEMBER_CANNOT_LEAVE(HttpStatus.CONFLICT, "출발지에 도착한 뒤에는 나갈 수 없습니다."),
 
     // 출발지 도착·출발
     PARTY_NOT_CONFIRMED(HttpStatus.CONFLICT, "약속 시간이 확정되지 않은 방입니다."),

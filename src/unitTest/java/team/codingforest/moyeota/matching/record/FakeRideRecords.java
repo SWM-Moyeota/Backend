@@ -3,6 +3,7 @@ package team.codingforest.moyeota.matching.record;
 import team.codingforest.moyeota.matching.record.domain.RideRecords;
 import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.matching.party.domain.Parties;
+import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 
 import java.time.Instant;
@@ -58,7 +59,7 @@ public class FakeRideRecords implements RideRecords {
         for(Long matchId : matchIds) {
             parties.findById(matchId)
                     .filter(p -> !p.getMembers().isEmpty())
-                    .ifPresent(p -> result.put(matchId, p.getMembers().stream()
+                    .ifPresent(p -> result.put(matchId, riders(p).stream()
                             .sorted(Comparator.comparing(PartyMember::getJoinedAt).thenComparing(PartyMember::getMemberId))
                             .map(PartyMember::getMemberId)
                             .toList()));
@@ -78,8 +79,14 @@ public class FakeRideRecords implements RideRecords {
     /** 실제 쿼리처럼 방 멤버에게만 기록이 있다 */
     private boolean rode(Long matchId, Long memberId) {
         return parties.findById(matchId)
-                .map(p -> p.getMembers().stream().anyMatch(m -> m.getMemberId().equals(memberId)))
+                .map(p -> riders(p).stream().anyMatch(m -> m.getMemberId().equals(memberId)))
                 .orElse(false);
+    }
+
+    /** 실제 쿼리와 같은 규칙 - 도착자가 있는 방은 도착한 멤버만, 도착 기록이 없는 옛 방은 멤버 전원 */
+    private static List<PartyMember> riders(Party p) {
+        List<PartyMember> arrived = p.getMembers().stream().filter(PartyMember::isArrived).toList();
+        return arrived.isEmpty() ? p.getMembers() : arrived;
     }
 
     private static RideRecord copy(RideRecord h) {

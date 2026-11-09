@@ -242,6 +242,19 @@ class PartyTest {
         assertThat(party.memberIds()).containsExactly(HOST_ID);
     }
 
+    @DisplayName("leave - 출발지에 도착한 멤버는 나갈 수 없다 - 같이 탄 뒤 나가서 정산을 피하는 길을 막는다")
+    @Test
+    void leave_arrived() {
+        Party party = confirmed(3, MEMBER_ID, THIRD_ID);
+        party.arrive(MEMBER_ID, true, MEETING_AT);
+
+        Throwable thrown = catchThrowable(() -> party.leave(MEMBER_ID));
+
+        assertRejected(thrown, MatchingErrorCode.ARRIVED_MEMBER_CANNOT_LEAVE);
+        assertThat(party.memberIds()).containsExactly(HOST_ID, MEMBER_ID, THIRD_ID);
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+    }
+
     @DisplayName("leave - 방에 없는 사람이면 NOT_PARTY_MEMBER")
     @Test
     void leave_notMember() {

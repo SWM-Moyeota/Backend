@@ -58,7 +58,7 @@ class PartyAccessPostgresTest {
         // userId 순(첫째 < 둘째 < 셋째)과 다르게 셋째 → 첫째 → 둘째 순으로 들어왔다
         Long room = room(PartyStatus.FINISHED, "부산역", "해운대",
                 PartyMember.load(셋째, meetingAt, meetingAt),
-                PartyMember.load(첫째, meetingAt),
+                PartyMember.load(첫째, meetingAt, null),
                 PartyMember.load(둘째, meetingAt, meetingAt));
 
         PartyRiders riders = partyAccess.findRiders(room).orElseThrow();

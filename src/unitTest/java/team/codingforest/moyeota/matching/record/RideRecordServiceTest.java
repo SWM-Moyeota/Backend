@@ -213,8 +213,8 @@ class RideRecordServiceTest {
         MemberSummary 동승자정보 = users.등록(동승자, "지민");
         MemberSummary 내정보 = users.등록(나, "성윤");
         MemberSummary 셋째정보 = users.등록(셋째, "지우");
-        Long partyId = savedParty(List.of(PartyMember.load(셋째, 기준.plusSeconds(2)), PartyMember.load(나, 기준.plusSeconds(1)),
-                PartyMember.load(동승자, 기준)));
+        Long partyId = savedParty(List.of(PartyMember.load(셋째, 기준.plusSeconds(2), null), PartyMember.load(나, 기준.plusSeconds(1), null),
+                PartyMember.load(동승자, 기준, null)));
         dropOff(partyId, 기준.plusSeconds(600));
 
         RideRecordItem ride = service.findMyRides(나, null, 20).rides().getFirst();
@@ -331,7 +331,7 @@ class RideRecordServiceTest {
     private List<PartyMember> members(Long... memberIds) {
         List<PartyMember> members = new ArrayList<>();
         for(int i = 0; i < memberIds.length; i++) {
-            members.add(PartyMember.load(memberIds[i], 기준.plusSeconds(i)));
+            members.add(PartyMember.load(memberIds[i], 기준.plusSeconds(i), null));
         }
         return members;
     }

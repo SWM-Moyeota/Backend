@@ -450,7 +450,7 @@ class MeetingNotificationServiceUnitTest {
     }
 
     private static PartyMember waiting(Long memberId, int order) {
-        return PartyMember.load(memberId, MEETING_AT.minus(Duration.ofDays(1)).plusSeconds(order));
+        return PartyMember.load(memberId, MEETING_AT.minus(Duration.ofDays(1)).plusSeconds(order), null);
     }
 
     private static PartyMember arrived(Long memberId, int order) {

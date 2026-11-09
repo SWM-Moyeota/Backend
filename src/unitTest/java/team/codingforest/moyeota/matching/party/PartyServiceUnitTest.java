@@ -1331,7 +1331,7 @@ class PartyServiceUnitTest {
         /*
          * test
          */
-        partyService.confirm(PARTY_ID, HOST_ID, MeetingPlan.at(departureAt));
+        partyService.confirm(PARTY_ID, HOST_ID, new MeetingPlan(departureAt, null, null));
 
         /*
          * verify
@@ -1431,7 +1431,7 @@ class PartyServiceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyService.confirm(PARTY_ID, HOST_ID, MeetingPlan.at(Instant.now().plus(Duration.ofMinutes(30)))));
+        Throwable thrown = catchThrowable(() -> partyService.confirm(PARTY_ID, HOST_ID, new MeetingPlan(Instant.now().plus(Duration.ofMinutes(30)), null, null)));
 
         /*
          * verify
@@ -1454,7 +1454,7 @@ class PartyServiceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyService.confirm(PARTY_ID, memberId, MeetingPlan.at(Instant.now().plus(fromNow))));
+        Throwable thrown = catchThrowable(() -> partyService.confirm(PARTY_ID, memberId, new MeetingPlan(Instant.now().plus(fromNow), null, null)));
 
         /*
          * verify
@@ -2335,7 +2335,7 @@ class PartyServiceUnitTest {
     private static Party party(RoomType roomType, Instant departureAt, PartyStatus status, int capacity, long version, Long... memberIds) {
         List<PartyMember> members = new ArrayList<>();
         for (int i = 0; i < memberIds.length; i++) {
-            members.add(PartyMember.load(memberIds[i], BASE_TIME.plusSeconds(i)));
+            members.add(PartyMember.load(memberIds[i], BASE_TIME.plusSeconds(i), null));
         }
 
         boolean realtime = roomType == RoomType.REALTIME;
@@ -2354,7 +2354,7 @@ class PartyServiceUnitTest {
 
     /** 아직 도착하지 않은 멤버. order 가 작을수록 먼저 합류했다 */
     private static PartyMember waitingMember(Long memberId, int order) {
-        return PartyMember.load(memberId, BASE_TIME.plusSeconds(order));
+        return PartyMember.load(memberId, BASE_TIME.plusSeconds(order), null);
     }
 
     /** 출발지에 도착한 멤버 */

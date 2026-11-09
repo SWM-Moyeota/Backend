@@ -335,7 +335,7 @@ class ReservationSearchQueryPostgresTest {
         List<PartyMember> members = new ArrayList<>();
         Instant joinedAt = Instant.now();
         for (int i = 0; i < memberIds.length; i++) {
-            members.add(PartyMember.load(memberIds[i], joinedAt.plusSeconds(i)));
+            members.add(PartyMember.load(memberIds[i], joinedAt.plusSeconds(i), null));
         }
         return members;
     }

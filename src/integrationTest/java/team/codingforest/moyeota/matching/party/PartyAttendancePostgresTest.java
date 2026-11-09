@@ -28,7 +28,7 @@ import static org.assertj.core.api.Assertions.entry;
 
 /**
  *  약속 확정 → 출발지 도착 → 출발을 실제 서비스와 Postgres 로 돌려, 도착 시각이 저장되고 방장이 출발하면 방이 끝나
- *  탑승 기록·탑승 횟수에 잡히는지 본다. 도착한 멤버가 탄 사람(정산 대상)이고, 탑승 기록은 방 단위라 멤버 전원에게 보인다
+ *  탑승 기록·탑승 횟수에 잡히는지 본다. 도착한 멤버가 탄 사람이라 정산 대상·탑승 기록·탑승 횟수 모두 도착자 기준이다
  */
 @SpringBootTest(properties = "spring.profiles.active=dev")
 class PartyAttendancePostgresTest {
@@ -75,12 +75,13 @@ class PartyAttendancePostgresTest {
 
         RideRecordResponse.RideRecordItem 방장기록 = onlyRide(방장);
         assertThat(방장기록.partyId()).isEqualTo(id);
-        assertThat(방장기록.currentMembers()).as("탑승 기록은 방 멤버 전원을 센다").isEqualTo(3);
+        assertThat(방장기록.currentMembers()).as("탑승 기록은 도착한 멤버만 센다").isEqualTo(2);
         assertThat(onlyRide(동승자).partyId()).isEqualTo(id);
-        assertThat(onlyRide(늦은사람).partyId()).as("도착하지 않은 멤버에게도 끝난 방의 기록은 남는다").isEqualTo(id);
+        assertThat(rideRecordService.findMyRides(늦은사람, null, 20).rides()).as("도착하지 않은 멤버에게는 기록이 없다").isEmpty();
 
         assertThat(parties.countFinishedRides(List.of(방장, 동승자, 늦은사람)))
-                .containsOnly(entry(방장, 1), entry(동승자, 1), entry(늦은사람, 1));
+                .as("탑승 횟수도 도착한 멤버만 센다")
+                .containsOnly(entry(방장, 1), entry(동승자, 1));
     }
 
     @Test
@@ -154,7 +155,7 @@ class PartyAttendancePostgresTest {
         Long id = parties.save(party).getId();
         created.add(id);
 
-        partyService.confirm(id, 방장, MeetingPlan.at(Instant.now().plus(Duration.ofMinutes(10))));
+        partyService.confirm(id, 방장, new MeetingPlan(Instant.now().plus(Duration.ofMinutes(10)), null, null));
         jdbc.update("UPDATE match_room SET departure_at = now() - interval '30 seconds' WHERE id = ?", id);
 
         return id;

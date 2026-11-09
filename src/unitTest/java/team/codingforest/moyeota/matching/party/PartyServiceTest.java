@@ -265,7 +265,7 @@ class PartyServiceTest {
         service.join(방, participant);
         Instant 약속 = 뒤(Duration.ofMinutes(30));
 
-        service.confirm(방, host, MeetingPlan.at(약속));
+        service.confirm(방, host, new MeetingPlan(약속, null, null));
 
         Party saved = parties.findById(방).orElseThrow();
         assertThat(saved.getStatus()).isEqualTo(PartyStatus.COMPLETED);
@@ -292,7 +292,7 @@ class PartyServiceTest {
 
     @Test
     void 없는_방의_약속_시간은_확정할_수_없다() {
-        assertFails(() -> service.confirm(999L, host, MeetingPlan.at(뒤(Duration.ofMinutes(30)))), MatchingErrorCode.PARTY_NOT_FOUND);
+        assertFails(() -> service.confirm(999L, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), null, null)), MatchingErrorCode.PARTY_NOT_FOUND);
     }
 
     @Test
@@ -300,7 +300,7 @@ class PartyServiceTest {
         // 약속이 잡힌 뒤라 더 모을 수 없고 혼자서는 출발할 수 없다 - 남은 사람도 홈으로 돌아가야 한다
         Long 방 = service.open(createParty(host, 3)).id();
         service.join(방, participant);
-        service.confirm(방, host, MeetingPlan.at(뒤(Duration.ofMinutes(30))));
+        service.confirm(방, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), null, null));
         signals.sent.clear();
 
         service.leave(방, participant);
@@ -317,7 +317,7 @@ class PartyServiceTest {
     void 확정한_방에서_방장이_나가도_취소된다() {
         Long 방 = service.open(createParty(host, 3)).id();
         service.join(방, participant);
-        service.confirm(방, host, MeetingPlan.at(뒤(Duration.ofMinutes(30))));
+        service.confirm(방, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), null, null));
 
         service.leave(방, host);
 
@@ -330,7 +330,7 @@ class PartyServiceTest {
         Long 방 = service.open(createParty(host, 3)).id();
         service.join(방, participant);
         service.join(방, guest);
-        service.confirm(방, host, MeetingPlan.at(뒤(Duration.ofMinutes(30))));
+        service.confirm(방, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), null, null));
         signals.sent.clear();
 
         service.leave(방, guest);
@@ -765,7 +765,7 @@ class PartyServiceTest {
         service.leave(party.id(), guest);
         assertThat(signals.left.getLast().version()).isEqualTo(3).isEqualTo(versionOf(party.id()));
 
-        service.confirm(party.id(), host, MeetingPlan.at(뒤(Duration.ofMinutes(30))));
+        service.confirm(party.id(), host, new MeetingPlan(뒤(Duration.ofMinutes(30)), null, null));
         assertThat(signals.confirmed.getLast().version()).isEqualTo(4).isEqualTo(versionOf(party.id()));
         assertThat(service.getPartyDetail(party.id()).version()).isEqualTo(4);
     }

@@ -22,7 +22,7 @@ class PartyMemberUnitTest {
         /*
          * test
          */
-        PartyMember member = PartyMember.load(MEMBER_ID, JOINED_AT);
+        PartyMember member = PartyMember.load(MEMBER_ID, JOINED_AT, null);
 
         /*
          * verify
@@ -56,7 +56,7 @@ class PartyMemberUnitTest {
         /*
          * settings
          */
-        PartyMember member = PartyMember.load(MEMBER_ID, JOINED_AT);
+        PartyMember member = PartyMember.load(MEMBER_ID, JOINED_AT, null);
 
         /*
          * test
