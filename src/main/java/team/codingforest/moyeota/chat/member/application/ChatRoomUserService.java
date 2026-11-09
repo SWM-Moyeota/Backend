@@ -20,6 +20,7 @@ import team.codingforest.moyeota.chat.message.domain.ChatMessage;
 import team.codingforest.moyeota.chat.message.domain.ChatMessages;
 import team.codingforest.moyeota.chat.message.dto.ReadChatCommand;
 import team.codingforest.moyeota.chat.room.domain.ChatRoom;
+import team.codingforest.moyeota.chat.room.domain.PartyProvider;
 import team.codingforest.moyeota.chat.room.dto.ChatRoomCommand;
 import team.codingforest.moyeota.chat.room.infrastructure.ChatRooms;
 
@@ -39,6 +40,19 @@ public class ChatRoomUserService {
     private final ChatMessages chatMessages;
     private final MemberProvider memberProvider;
     private final ChatReadBuffer chatReadBuffer;
+    private final PartyProvider partyProvider;
+
+    @Transactional
+    public void joinByUser(ChatRoomCommand command) {
+        ChatRoom chatRoom = chatRooms.findById(command.chatRoomId())
+                .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        if (!partyProvider.isActiveMember(command.userId(), chatRoom.getPartyId())) {
+            throw new ChatException(ChatErrorCode.CHAT_NOT_PARTY_MEMBER);
+        }
+
+        join(command);
+    }
 
     @Transactional
     public void join(ChatRoomCommand command) {
