@@ -132,7 +132,7 @@ public class PartyEntity extends BaseTimeEntity {
                 party.getDeparture(),
                 party.getDestination(),
                 party.getCapacity().value(),
-                party.hostId(),
+                party.getHostId(),
                 party.getStatus(),
                 party.getEstimatedFare(),
                 party.getEstimatedTime(),
@@ -160,7 +160,10 @@ public class PartyEntity extends BaseTimeEntity {
     }
 
     public void update(Party party) {
-        this.hostId = party.hostId();   // 방장이 나가면 승계된다
+        this.hostId = party.getHostId();   // 방장이 나가면 승계된다
+        this.departureLat = party.getDepartureLocation().latitude();   // 약속 확정 때 만남 장소로 바뀐다. departure_geog 는 생성 컬럼이라 따라온다
+        this.departureLng = party.getDepartureLocation().longitude();
+        this.departure = party.getDeparture();
         this.status = party.getStatus();
         this.version = party.getVersion();
         this.departureAt = party.getDepartureAt();   // 실시간 방은 방장이 약속 시간을 확정하면 채워진다
@@ -178,7 +181,7 @@ public class PartyEntity extends BaseTimeEntity {
 
         Set<Long> existing = new HashSet<>();
 
-        // 남아 있는 멤버 행도 도착·노쇼가 바뀌었을 수 있다 - 더티체킹으로 반영된다
+        // 남아 있는 멤버 행도 도착이 바뀌었을 수 있다 - 더티체킹으로 반영된다
         for(PartyMemberEntity e : members) {
             e.update(byId.get(e.getMemberId()));
             existing.add(e.getMemberId());

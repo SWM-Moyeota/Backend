@@ -8,8 +8,6 @@ import team.codingforest.moyeota.common.ControllerUnitTestSupport;
 import team.codingforest.moyeota.user.local.application.LocalUserService;
 import team.codingforest.moyeota.user.local.dto.MyProfileResponse;
 
-import java.time.Instant;
-
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
@@ -21,39 +19,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(LocalUserController.class)
 class LocalUserControllerUnitTest extends ControllerUnitTestSupport {
     private static final String URL = "/api/v1/local/users/info";
-    private static final Instant RESTRICTED_UNTIL = Instant.parse("2026-11-04T08:30:00Z");
 
     @MockitoBean
     private LocalUserService service;
 
-    @DisplayName("GET /api/v1/local/users/info - 지금 노쇼 횟수와 제한 끝 시각(ISO-8601)을 함께 준다")
+    @DisplayName("GET /api/v1/local/users/info - 토큰의 사용자 프로필을 주고, 출시 앱 호환용 noShowCount 는 0·restrictedUntil 은 null 로 고정이다")
     @Test
-    void getProfile_restricted() throws Exception {
-
-        /*
-         * settings
-         */
-        doReturn(new MyProfileResponse(PUBLIC_ID, "길동이", "https://cdn/img.png", 2, RESTRICTED_UNTIL)).when(service).getProfile(eq(USER_ID));
-
-        /*
-         * test
-         */
-        mockMvc.perform(get(URL).with(loginUser()))
-
-        /*
-         * verify
-         */
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.uuid").value(PUBLIC_ID.toString()))
-                .andExpect(jsonPath("$.name").value("길동이"))
-                .andExpect(jsonPath("$.imageUrl").value("https://cdn/img.png"))
-                .andExpect(jsonPath("$.noShowCount").value(2))
-                .andExpect(jsonPath("$.restrictedUntil").value("2026-11-04T08:30:00Z"));
-    }
-
-    @DisplayName("GET /api/v1/local/users/info - 제한이 없으면 restrictedUntil 은 null")
-    @Test
-    void getProfile_notRestricted() throws Exception {
+    void getProfile() throws Exception {
 
         /*
          * settings
@@ -69,6 +41,9 @@ class LocalUserControllerUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.uuid").value(PUBLIC_ID.toString()))
+                .andExpect(jsonPath("$.name").value("길동이"))
+                .andExpect(jsonPath("$.imageUrl").value("https://cdn/img.png"))
                 .andExpect(jsonPath("$.noShowCount").value(0))
                 .andExpect(jsonPath("$.restrictedUntil").value(nullValue()));
     }

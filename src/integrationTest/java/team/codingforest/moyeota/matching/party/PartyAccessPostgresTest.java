@@ -53,31 +53,28 @@ class PartyAccessPostgresTest {
     }
 
     @Test
-    void 멤버와_탑승자는_user_id_순이_아니라_합류_순이고_노쇼와_도착하지_않은_무효_노쇼는_탑승자가_아니다() {
+    void 멤버와_탑승자는_user_id_순이_아니라_합류_순이고_도착하지_않은_멤버는_탑승자가_아니다() {
         Instant meetingAt = meetingAt();
         // userId 순(첫째 < 둘째 < 셋째)과 다르게 셋째 → 첫째 → 둘째 순으로 들어왔다
         Long room = room(PartyStatus.FINISHED, "부산역", "해운대",
-                PartyMember.load(셋째, meetingAt, meetingAt, null, null),
-                PartyMember.load(첫째, meetingAt, null, meetingAt, null),
-                PartyMember.load(둘째, meetingAt, meetingAt, null, null));
+                PartyMember.load(셋째, meetingAt, meetingAt),
+                PartyMember.load(첫째, meetingAt),
+                PartyMember.load(둘째, meetingAt, meetingAt));
 
         PartyRiders riders = partyAccess.findRiders(room).orElseThrow();
 
         assertThat(riders.partyId()).isEqualTo(room);
         assertThat(riders.finished()).isTrue();
         assertThat(riders.memberIds()).containsExactly(셋째, 첫째, 둘째);
-        assertThat(riders.riderIds()).as("노쇼(첫째)는 빠진다").containsExactly(셋째, 둘째);
-
-        jdbc.update("UPDATE user_match_room SET no_show_voided_at = now() WHERE match_id = ? AND user_id = ?", room, 첫째);
-        assertThat(partyAccess.findRiders(room).orElseThrow().riderIds()).as("무효로 돌아가도 도착하지 않았으면 탑승자가 아니다").containsExactly(셋째, 둘째);
+        assertThat(riders.riderIds()).as("도착하지 않은 첫째는 빠진다").containsExactly(셋째, 둘째);
     }
 
     @Test
     void 합류_시각이_같으면_user_id_순이다() {
         Instant meetingAt = meetingAt();
         Long room = room(PartyStatus.FINISHED, "부산역", "해운대",
-                PartyMember.load(둘째, meetingAt, meetingAt, null, null),
-                PartyMember.load(첫째, meetingAt, meetingAt, null, null));
+                PartyMember.load(둘째, meetingAt, meetingAt),
+                PartyMember.load(첫째, meetingAt, meetingAt));
         jdbc.update("UPDATE user_match_room SET created_at = ? WHERE match_id = ?", java.sql.Timestamp.from(meetingAt.minusSeconds(60)), room);
 
         PartyRiders riders = partyAccess.findRiders(room).orElseThrow();
@@ -90,8 +87,8 @@ class PartyAccessPostgresTest {
     void 끝나지_않은_방은_finished_가_아니고_없는_방은_비어_있다() {
         Instant meetingAt = meetingAt();
         Long room = room(PartyStatus.COMPLETED, "부산역", "해운대",
-                PartyMember.load(첫째, meetingAt, meetingAt, null, null),
-                PartyMember.load(둘째, meetingAt, null, null, null));
+                PartyMember.load(첫째, meetingAt, meetingAt),
+                PartyMember.load(둘째, meetingAt, null));
 
         PartyRiders riders = partyAccess.findRiders(room).orElseThrow();
 
@@ -104,8 +101,8 @@ class PartyAccessPostgresTest {
     @Test
     void 방별_출발지와_도착지_이름을_한_번에_읽고_없는_방은_빠진다() {
         Instant meetingAt = meetingAt();
-        Long 해운대방 = room(PartyStatus.FINISHED, "부산역", "해운대", PartyMember.load(첫째, meetingAt, meetingAt, null, null));
-        Long 서면방 = room(PartyStatus.ACTIVE, "센텀시티", "서면", PartyMember.load(둘째, meetingAt, null, null, null));
+        Long 해운대방 = room(PartyStatus.FINISHED, "부산역", "해운대", PartyMember.load(첫째, meetingAt, meetingAt));
+        Long 서면방 = room(PartyStatus.ACTIVE, "센텀시티", "서면", PartyMember.load(둘째, meetingAt, null));
 
         assertThat(partyAccess.findPlaces(List.of(해운대방, 서면방, -1L)))
                 .containsOnly(entry(해운대방, new PartyPlaces("부산역", "해운대")), entry(서면방, new PartyPlaces("센텀시티", "서면")));
@@ -121,7 +118,7 @@ class PartyAccessPostgresTest {
         Instant meetingAt = membersInJoinOrder[0].getJoinedAt();
         Long id = parties.save(Party.load(null, DEPARTURE, DESTINATION, departure, destination, new Capacity(3), new ArrayList<>(List.of(membersInJoinOrder)),
                 membersInJoinOrder[0].getMemberId(), meetingAt.minus(Duration.ofHours(1)), status,
-                12000, 25, "encoded-path", 0L, RoomType.REALTIME, meetingAt, null)).getId();
+                12000, 25, "encoded-path", 0L, RoomType.REALTIME, meetingAt, null, null, 0)).getId();
         rooms.add(id);
 
         for(int i = 0; i < membersInJoinOrder.length; i++) {

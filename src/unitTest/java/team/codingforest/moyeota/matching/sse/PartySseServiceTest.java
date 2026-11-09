@@ -42,7 +42,7 @@ class PartySseServiceTest {
     @Test
     void 멤버는_방_변화를_구독할_수_있다() {
         Party party = parties.save(createParty(host));
-        party.join(participant);
+        party.join(participant, Instant.now());
         parties.save(party);
 
         assertThat(service.subscribe(party.getId(), participant)).isNotNull();

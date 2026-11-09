@@ -3,33 +3,30 @@ package team.codingforest.moyeota.matching.party.domain;
 import java.time.Instant;
 
 /**
- *  방 멤버. 출석(도착·노쇼)은 애그리거트 루트 Party 를 거쳐서만 바뀐다 - 바꾸는 메소드는 패키지 안에서만 연다
+ *  방 멤버. 도착은 애그리거트 루트 Party 를 거쳐서만 바뀐다 - 바꾸는 메소드는 패키지 안에서만 연다.
+ *  도착한 멤버가 탄 사람이고 정산 대상이다
  */
 public class PartyMember {
     private final Long memberId;
     private final Instant joinedAt;
     private Instant arrivedAt;
-    private Instant noShowAt;
-    private Instant noShowVoidedAt;
 
-    PartyMember(Long memberId, Instant joinedAt) {
-        this(memberId, joinedAt, null, null, null);
-    }
-
-    private PartyMember(Long memberId, Instant joinedAt, Instant arrivedAt, Instant noShowAt, Instant noShowVoidedAt) {
+    private PartyMember(Long memberId, Instant joinedAt, Instant arrivedAt) {
         this.memberId = memberId;
         this.joinedAt = joinedAt;
         this.arrivedAt = arrivedAt;
-        this.noShowAt = noShowAt;
-        this.noShowVoidedAt = noShowVoidedAt;
+    }
+
+    static PartyMember join(Long memberId, Instant now) {
+        return new PartyMember(memberId, now, null);
     }
 
     public static PartyMember load(Long memberId, Instant joinedAt) {
-        return new PartyMember(memberId, joinedAt);
+        return new PartyMember(memberId, joinedAt, null);
     }
 
-    public static PartyMember load(Long memberId, Instant joinedAt, Instant arrivedAt, Instant noShowAt, Instant noShowVoidedAt) {
-        return new PartyMember(memberId, joinedAt, arrivedAt, noShowAt, noShowVoidedAt);
+    public static PartyMember load(Long memberId, Instant joinedAt, Instant arrivedAt) {
+        return new PartyMember(memberId, joinedAt, arrivedAt);
     }
 
     /** 이미 도착했으면 처음 시각을 그대로 둔다 */
@@ -37,48 +34,19 @@ public class PartyMember {
         if(arrivedAt == null) arrivedAt = now;
     }
 
-    void markNoShow(Instant now) {
-        noShowAt = now;
-    }
-
-    /**
-     *  노쇼를 무효로 돌린다. 이미 무효였으면 처음 시각을 그대로 둔다
-     *
-     *  @return 이번에 무효로 돌렸으면 true
-     */
-    boolean voidNoShow(Instant now) {
-        if(noShowVoidedAt != null) return false;
-
-        noShowVoidedAt = now;
-        return true;
-    }
-
     public boolean isArrived() {
         return arrivedAt != null;
     }
 
-    /** 노쇼로 찍혔고 운영자가 무효로 돌리지 않았다 - 탑승 기록·탑승 횟수에서 빠지는 기준 */
-    public boolean isNoShow() {
-        return noShowAt != null && noShowVoidedAt == null;
+    public Long getMemberId() {
+        return memberId;
     }
 
-	public Long getMemberId() {
-		return memberId;
-	}
+    public Instant getJoinedAt() {
+        return joinedAt;
+    }
 
-	public Instant getJoinedAt() {
-		return joinedAt;
-	}
-
-	public Instant getArrivedAt() {
-		return arrivedAt;
-	}
-
-	public Instant getNoShowAt() {
-		return noShowAt;
-	}
-
-	public Instant getNoShowVoidedAt() {
-		return noShowVoidedAt;
-	}
+    public Instant getArrivedAt() {
+        return arrivedAt;
+    }
 }

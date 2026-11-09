@@ -6,7 +6,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
-import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
@@ -26,7 +25,6 @@ public class PartyOpener {
 
 	private final Parties parties;
 	private final ApplicationEventPublisher eventPublisher;
-	private final PartyCompletionPolicy partyCompletionPolicy;
 
 	@Transactional
 	public PartyResult open(OpenPartyCommand command, RouteEstimate estimate) {
@@ -40,12 +38,6 @@ public class PartyOpener {
 				Instant.now(), estimate.estimateFare(), estimate.estimateTime(), estimate.path());
 
 		Party saved = parties.save(party);
-
-		if (saved.isFull()) {
-			partyCompletionPolicy.onCompleted(saved);
-			parties.save(saved);
-			return PartyResult.from(saved);
-		}
 
 		eventPublisher.publishEvent(new PartyMemberJoinedEvent(saved.getId(), command.creatorId()));
 		log.info("매칭방 활성화. partyId={}, creatorId={}, capacity={}, status={}", saved.getId(), command.creatorId(), saved.getCapacity().value(), saved.getStatus());

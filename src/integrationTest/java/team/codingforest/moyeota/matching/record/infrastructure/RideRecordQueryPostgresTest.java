@@ -11,21 +11,25 @@ import team.codingforest.moyeota.faresplit.domain.enums.Bank;
 import team.codingforest.moyeota.matching.party.PartyService;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
+import team.codingforest.moyeota.matching.party.domain.MeetingPlan;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.RoomType;
 import team.codingforest.moyeota.matching.record.RideRecordService;
 import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.matching.record.domain.RideRecords;
 import team.codingforest.moyeota.matching.record.dto.RideRecordResponse;
 import team.codingforest.moyeota.matching.record.dto.RideRecordResponse.RideRecordItem;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -62,13 +66,17 @@ class RideRecordQueryPostgresTest {
     }
 
     @Test
-    void 방장이_합승을_종료하면_기록이_남고_동승자의_탑승_기록으로_조회된다() {
+    void 방장이_출발하면_기록이_남고_동승자의_탑승_기록으로_조회된다() {
         Party party = Party.create(나, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(2), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC");
-        party.join(동승자);   // 정원 2 충족 → COMPLETED
+        party.join(동승자, Instant.now());
         Long partyId = track(parties.save(party).getId());
+        // 약속을 확정한 뒤 약속 시각을 방금 지난 시각으로 돌려 바로 도착·출발을 누른다
+        partyService.confirm(partyId, 나, MeetingPlan.at(Instant.now().plus(Duration.ofMinutes(10))));
+        jdbc.update("UPDATE match_room SET departure_at = now() - interval '30 seconds' WHERE id = ?", partyId);
+        partyService.arrive(partyId, 나, DEPARTURE.latitude(), DEPARTURE.longitude());
 
-        partyService.finish(partyId, 나);
+        partyService.depart(partyId, 나);
 
         RideRecord rideRecord = rideRecords.findById(partyId).orElseThrow();
         assertThat(rideRecord.getDeparturePlace()).isEqualTo("강남역");
@@ -117,41 +125,13 @@ class RideRecordQueryPostgresTest {
     }
 
     @Test
-    void 노쇼로_남은_방은_커서로_넘겨도_내_기록에_나오지_않고_무효로_돌린_노쇼는_나온다() {
-        Instant 기준 = Instant.now().truncatedTo(ChronoUnit.MICROS);
-        Instant 합류 = 기준.minusSeconds(3600);
-        Long 탄방 = droppedOff(기준.minusSeconds(120), List.of(PartyMember.load(나, 합류), PartyMember.load(동승자, 합류.plusSeconds(1))));
-        Long 노쇼방 = droppedOff(기준.minusSeconds(60), List.of(PartyMember.load(나, 합류, null, 기준.minusSeconds(600), null),
-                PartyMember.load(동승자, 합류.plusSeconds(1), 기준.minusSeconds(700), null, null)));
-        Long 무효방 = droppedOff(기준, List.of(PartyMember.load(나, 합류, null, 기준.minusSeconds(600), 기준.minusSeconds(10)),
-                PartyMember.load(동승자, 합류.plusSeconds(1), 기준.minusSeconds(700), null, null)));
-
-        List<Long> seen = new ArrayList<>();
-        Long cursor = null;
-        do {
-            RideRecordResponse page = rideRecordService.findMyRides(나, cursor, 1);
-            page.rides().forEach(r -> seen.add(r.partyId()));
-            cursor = page.nextCursor();
-        } while(cursor != null && seen.size() < 10);
-
-        assertThat(seen).containsExactly(무효방, 탄방);
-        assertThat(rideRecords.findMemberIds(List.of(노쇼방, 무효방)))
-                .as("노쇼는 동승자 목록에서도 빠지고, 무효로 돌린 노쇼는 남는다")
-                .containsEntry(노쇼방, List.of(동승자))
-                .containsEntry(무효방, List.of(나, 동승자));
-        assertThat(rideRecordService.findMyRides(동승자, null, 20).rides()).extracting(RideRecordItem::partyId)
-                .as("노쇼가 있던 방도 탄 사람에게는 남는다")
-                .containsExactly(무효방, 노쇼방, 탄방);
-    }
-
-    @Test
     void 택시비_정산이_있는_방은_받는_사람과_보내는_사람에게_각자_몫이_채워지고_정산에_없는_멤버와_정산이_없는_방은_null_이다() {
         Instant 기준 = Instant.now().truncatedTo(ChronoUnit.MICROS);
         Instant 합류 = 기준.minusSeconds(3600);
         Instant 도착 = 합류.plusSeconds(600);
-        // 남은 노쇼였다가 정산 시작 전에 무효로 돌아갔지만 도착을 누르지 않아 탑승자가 아니다 - 기록에는 나오고 정산에는 없다
-        Long 정산방 = droppedOff(기준, List.of(PartyMember.load(동승자, 합류, 도착, null, null), PartyMember.load(나, 합류.plusSeconds(1), 도착, null, null),
-                PartyMember.load(넷째, 합류.plusSeconds(2), 도착, null, null), PartyMember.load(남, 합류.plusSeconds(3), null, 기준.minusSeconds(600), 기준.minusSeconds(300))));
+        // 남은 도착을 누르지 않아 탑승자가 아니다 - 기록에는 나오고 정산에는 없다
+        Long 정산방 = droppedOff(기준, List.of(PartyMember.load(동승자, 합류, 도착), PartyMember.load(나, 합류.plusSeconds(1), 도착),
+                PartyMember.load(넷째, 합류.plusSeconds(2), 도착), PartyMember.load(남, 합류.plusSeconds(3))));
         Long 정산없는방 = droppedOff(기준.minusSeconds(60), 나, 동승자);
         fareSplitService.create(정산방, 나, 18_700, Bank.KB, "3333-01-2345678");
 
@@ -177,8 +157,8 @@ class RideRecordQueryPostgresTest {
     void 택시비_정산을_취소하면_탑승_기록의_요금이_다시_null_이다() {
         Instant 기준 = Instant.now().truncatedTo(ChronoUnit.MICROS);
         Instant 합류 = 기준.minusSeconds(3600);
-        Long 정산방 = droppedOff(기준, List.of(PartyMember.load(나, 합류, 합류.plusSeconds(600), null, null),
-                PartyMember.load(동승자, 합류.plusSeconds(1), 합류.plusSeconds(600), null, null)));
+        Long 정산방 = droppedOff(기준, List.of(PartyMember.load(나, 합류, 합류.plusSeconds(600)),
+                PartyMember.load(동승자, 합류.plusSeconds(1), 합류.plusSeconds(600))));
         fareSplitService.create(정산방, 나, 10_001, Bank.KAKAO, "3333-01-2345678");
         assertThat(rideOf(동승자, 정산방).farePerPerson()).isEqualTo(5_010);
 
@@ -224,10 +204,15 @@ class RideRecordQueryPostgresTest {
         return members;
     }
 
+    /** 끝난(FINISHED) 실시간 방. 방장은 가장 먼저 합류한 멤버다 */
     private Long savedParty(List<PartyMember> members) {
         Instant now = Instant.now();
+        Long hostId = members.stream()
+                .min(Comparator.comparing(PartyMember::getJoinedAt).thenComparing(PartyMember::getMemberId))
+                .map(PartyMember::getMemberId).orElse(null);
         Long partyId = track(parties.save(Party.load(null, DEPARTURE, DESTINATION, "강남역", "판교역",
-                new Capacity(3), members, now, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L)).getId());
+                new Capacity(3), members, hostId, now, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L,
+                RoomType.REALTIME, null, null, null, 0)).getId());
         // 합류 시각(created_at)은 auditing 이 저장 시각으로 채운다 - 픽스처의 합류 시각을 행에 그대로 옮긴다
         members.forEach(member -> jdbc.update("UPDATE user_match_room SET created_at = ? WHERE match_id = ? AND user_id = ?",
                 OffsetDateTime.ofInstant(member.getJoinedAt(), ZoneOffset.UTC), partyId, member.getMemberId()));

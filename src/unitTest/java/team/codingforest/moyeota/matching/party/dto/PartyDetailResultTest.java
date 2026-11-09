@@ -28,14 +28,14 @@ class PartyDetailResultTest {
 
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
-    @DisplayName("from - 정원이 찬 방이어도 taxiDriverId 는 null 이다")
+    @DisplayName("from - 정원이 찬 방이어도 taxiDriverId 는 null 이고 상태는 ACTIVE 다")
     @Test
     void from_taxiDriverIdIsNull() {
 
         /*
          * settings
          */
-        Party party = completedParty();
+        Party party = fullParty();
 
         /*
          * test
@@ -47,7 +47,7 @@ class PartyDetailResultTest {
          */
         assertThat(result.taxiDriverId()).isNull();
         assertThat(result.id()).isEqualTo(100L);
-        assertThat(result.status()).isEqualTo("COMPLETED");
+        assertThat(result.status()).isEqualTo("ACTIVE");
     }
 
     @DisplayName("from - JSON 으로 내보내면 taxiDriverId 키는 남고 값은 null 이다")
@@ -57,7 +57,7 @@ class PartyDetailResultTest {
         /*
          * settings
          */
-        PartyDetailResult result = PartyDetailResult.from(completedParty(), Map.of(), Map.of());
+        PartyDetailResult result = PartyDetailResult.from(fullParty(), Map.of(), Map.of());
 
         /*
          * test
@@ -78,7 +78,7 @@ class PartyDetailResultTest {
         /*
          * settings
          */
-        PartyDetailResult result = PartyDetailResult.from(completedParty(), Map.of(), Map.of());
+        PartyDetailResult result = PartyDetailResult.from(fullParty(), Map.of(), Map.of());
 
         /*
          * test
@@ -105,7 +105,7 @@ class PartyDetailResultTest {
          */
         Party reservation = Party.load(200L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
                 new Capacity(3), List.of(PartyMember.load(1L, CREATED_AT)), 1L, CREATED_AT, PartyStatus.ACTIVE, null, null, null, 0L,
-                RoomType.RESERVED, CREATED_AT.plus(Duration.ofDays(1)), null);
+                RoomType.RESERVED, CREATED_AT.plus(Duration.ofDays(1)), null, null, 0);
 
         /*
          * test
@@ -120,11 +120,12 @@ class PartyDetailResultTest {
         assertThat(result.roomType()).isEqualTo("RESERVED");
     }
 
-    /** 정원이 차 COMPLETED 에 머문 실시간 방 - 예전에는 이 상태에서 기사가 배정됐다 */
-    private static Party completedParty() {
+    /** 정원이 찬 실시간 방 - 정원이 차도 ACTIVE 다. 예전에는 정원이 차면 COMPLETED 가 되고 기사가 배정됐다 */
+    private static Party fullParty() {
         List<PartyMember> members = List.of(PartyMember.load(1L, CREATED_AT), PartyMember.load(2L, CREATED_AT.plusSeconds(1)));
 
         return Party.load(100L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
-                new Capacity(2), members, CREATED_AT, PartyStatus.COMPLETED, 12000, 25, "encoded-path", 0L);
+                new Capacity(2), members, 1L, CREATED_AT, PartyStatus.ACTIVE, 12000, 25, "encoded-path", 0L,
+                RoomType.REALTIME, null, null, null, 0);
     }
 }

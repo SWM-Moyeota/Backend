@@ -136,7 +136,7 @@ class MeetingNotificationPostgresTest {
         // 실제 스케줄러가 먼저 처리하지 않게 약속 시각을 3시간 뒤로 두고, 서비스에 그 뒤의 시각을 넘긴다
         Instant meetingAt = Instant.now().plus(Duration.ofHours(3)).truncatedTo(ChronoUnit.MICROS);
         Party party = Party.reserve(방장, DEPARTURE, DESTINATION, "제주공항", "서귀포", new Capacity(3), Instant.now(), meetingAt);
-        party.join(동승자);
+        party.join(동승자, Instant.now());
         Long id = parties.save(party).getId();
         created.add(id);
         Instant notifiedAt = meetingAt.plusSeconds(10);
@@ -171,7 +171,7 @@ class MeetingNotificationPostgresTest {
     private Long realtimeRoom(PartyStatus status, Instant departureAt) {
         Party party = Party.create(방장, DEPARTURE, DESTINATION, "제주공항", "서귀포", new Capacity(3), Instant.now(),
                 30000, 60, "_p~iF~ps|U_ulLnnqC");
-        party.join(동승자);
+        party.join(동승자, Instant.now());
         Long id = parties.save(party).getId();
         jdbc.update("UPDATE match_room SET status = ?, departure_at = ? WHERE id = ?", status.name(), departureAt == null ? null : at(departureAt), id);
         return id;
@@ -180,7 +180,7 @@ class MeetingNotificationPostgresTest {
     /** 방장·동승자 둘이 있는 예약 방 - 출발 시각만 departureAt 으로 옮긴다 */
     private Long reservedRoom(PartyStatus status, Instant departureAt) {
         Party party = Party.reserve(방장, DEPARTURE, DESTINATION, "제주공항", "서귀포", new Capacity(3), Instant.now(), Instant.now().plus(Duration.ofHours(1)));
-        party.join(동승자);
+        party.join(동승자, Instant.now());
         Long id = parties.save(party).getId();
         jdbc.update("UPDATE match_room SET status = ?, departure_at = ? WHERE id = ?", status.name(), at(departureAt), id);
         return id;

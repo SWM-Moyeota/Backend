@@ -9,16 +9,17 @@ import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
+import team.codingforest.moyeota.matching.party.domain.MeetingPlan;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyStatus;
 import team.codingforest.moyeota.matching.record.RideRecordService;
 import team.codingforest.moyeota.matching.record.dto.RideRecordResponse;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,8 +27,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.entry;
 
 /**
- *  약속 확정 → 출발지 도착 → 출발을 실제 서비스와 Postgres 로 돌려, 도착하지 않은 멤버가 노쇼로 저장되고
- *  탑승 기록·탑승 횟수에서 빠지는지 본다. 운영자가 노쇼를 무효로 돌리면(다른 PR - 여기선 컬럼을 직접 채운다) 다시 잡힌다
+ *  약속 확정 → 출발지 도착 → 출발을 실제 서비스와 Postgres 로 돌려, 도착 시각이 저장되고 방장이 출발하면 방이 끝나
+ *  탑승 기록·탑승 횟수에 잡히는지 본다. 도착한 멤버가 탄 사람(정산 대상)이고, 탑승 기록은 방 단위라 멤버 전원에게 보인다
  */
 @SpringBootTest(properties = "spring.profiles.active=dev")
 class PartyAttendancePostgresTest {
@@ -58,52 +59,74 @@ class PartyAttendancePostgresTest {
     }
 
     @Test
-    void 출발하면_도착하지_않은_멤버는_노쇼로_저장되고_탑승_기록과_탑승_횟수에서_빠진다() {
-        Long id = confirmedRoomOfThree();
+    void 도착한_방장이_출발하면_FINISHED_로_끝나고_도착한_멤버가_탑승자이며_탑승_기록은_멤버_전원에게_남는다() {
+        Long id = confirmedRoom(동승자, 늦은사람);
 
         partyService.arrive(id, 방장, DEPARTURE_LAT, DEPARTURE_LNG);
         partyService.arrive(id, 동승자, DEPARTURE_LAT + 0.0003, DEPARTURE_LNG);   // 약 33m
-        partyService.depart(id, 동승자);
+        partyService.depart(id, 방장);
 
-        assertThat(parties.findById(id).orElseThrow().getStatus()).isEqualTo(PartyStatus.FINISHED);
+        Party party = parties.findById(id).orElseThrow();
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
+        assertThat(party.riderIds()).as("도착한 멤버가 탄 사람이다").containsExactlyInAnyOrder(방장, 동승자);
         assertThat(column("arrived_at", id, 방장)).isNotNull();
         assertThat(column("arrived_at", id, 동승자)).isNotNull();
-        assertThat(column("no_show_at", id, 방장)).isNull();
-        assertThat(column("no_show_at", id, 동승자)).isNull();
         assertThat(column("arrived_at", id, 늦은사람)).isNull();
-        assertThat(column("no_show_at", id, 늦은사람)).isNotNull();
-        assertThat(column("no_show_voided_at", id, 늦은사람)).isNull();
-
-        assertThat(rideRecordService.findMyRides(늦은사람, null, 20).rides()).as("노쇼에게는 탑승 기록이 없다").isEmpty();
 
         RideRecordResponse.RideRecordItem 방장기록 = onlyRide(방장);
         assertThat(방장기록.partyId()).isEqualTo(id);
-        assertThat(방장기록.currentMembers()).as("노쇼는 함께 탄 인원에서도 빠진다").isEqualTo(2);
+        assertThat(방장기록.currentMembers()).as("탑승 기록은 방 멤버 전원을 센다").isEqualTo(3);
         assertThat(onlyRide(동승자).partyId()).isEqualTo(id);
+        assertThat(onlyRide(늦은사람).partyId()).as("도착하지 않은 멤버에게도 끝난 방의 기록은 남는다").isEqualTo(id);
 
         assertThat(parties.countFinishedRides(List.of(방장, 동승자, 늦은사람)))
-                .containsOnly(entry(방장, 1), entry(동승자, 1));
+                .containsOnly(entry(방장, 1), entry(동승자, 1), entry(늦은사람, 1));
     }
 
     @Test
-    void 운영자가_노쇼를_무효로_돌리면_탑승_기록과_탑승_횟수에_다시_잡힌다() {
-        Long id = confirmedRoomOfThree();
-        partyService.arrive(id, 방장, DEPARTURE_LAT, DEPARTURE_LNG);
-        partyService.depart(id, 방장);   // 동승자·늦은사람 노쇼
+    void 방장이_아닌_멤버는_도착했어도_출발할_수_없고_도착하지_않은_방장도_출발할_수_없다() {
+        Long id = confirmedRoom(동승자);
+        partyService.arrive(id, 동승자, DEPARTURE_LAT, DEPARTURE_LNG);
 
-        jdbc.update("UPDATE user_match_room SET no_show_voided_at = now() WHERE match_id = ? AND user_id = ?", id, 늦은사람);
+        assertThatThrownBy(() -> partyService.depart(id, 동승자))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.NOT_PARTY_HOST);
+        assertThatThrownBy(() -> partyService.depart(id, 방장))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(MatchingErrorCode.NOT_ARRIVED);
+        assertThat(parties.findById(id).orElseThrow().getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM ride_record WHERE match_id = ?", Integer.class, id)).isZero();
+    }
 
-        assertThat(rideRecordService.findMyRides(동승자, null, 20).rides()).isEmpty();
-        assertThat(onlyRide(늦은사람).partyId()).isEqualTo(id);
-        assertThat(onlyRide(방장).currentMembers()).as("방장 + 무효로 돌린 늦은사람").isEqualTo(2);
+    @Test
+    void 확정한_방에서_둘_중_하나가_나가면_CANCELED_로_닫힌다() {
+        Long id = confirmedRoom(동승자);
 
-        Map<Long, Integer> counts = parties.countFinishedRides(List.of(방장, 동승자, 늦은사람));
-        assertThat(counts).containsOnly(entry(방장, 1), entry(늦은사람, 1));
+        partyService.leave(id, 동승자);
+
+        assertThat(jdbc.queryForObject("SELECT status FROM match_room WHERE id = ?", String.class, id)).isEqualTo("CANCELED");
+        Party party = parties.findById(id).orElseThrow();
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.CANCELED);
+        assertThat(party.memberIds()).containsExactly(방장);
+        assertThat(party.getHostId()).isEqualTo(방장);
+    }
+
+    @Test
+    void 확정한_방에서_셋_중_하나가_나가도_둘이_남으면_그대로_확정_상태다() {
+        Long id = confirmedRoom(동승자, 늦은사람);
+
+        partyService.leave(id, 늦은사람);
+
+        Party party = parties.findById(id).orElseThrow();
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(party.memberIds()).containsExactlyInAnyOrder(방장, 동승자);
     }
 
     @Test
     void 다시_도착을_눌러도_처음_시각이_남고_출발지에서_멀면_도착이_남지_않는다() {
-        Long id = confirmedRoomOfThree();
+        Long id = confirmedRoom(동승자, 늦은사람);
         partyService.arrive(id, 방장, DEPARTURE_LAT, DEPARTURE_LNG);
         Instant 처음 = column("arrived_at", id, 방장);
 
@@ -118,16 +141,21 @@ class PartyAttendancePostgresTest {
         assertThat(parties.findById(id).orElseThrow().getVersion()).as("참여 2번·확정·도착 1번").isEqualTo(4);
     }
 
-    /** 방장·동승자·늦은사람 셋이 찬 실시간 방을 방금 지난 시각(30초 전)으로 확정한다 - 바로 도착을 누를 수 있다 */
-    private Long confirmedRoomOfThree() {
+    /**
+     *  방장과 넘긴 멤버들이 있는 실시간 방을 확정한 뒤 약속 시각을 방금 지난 시각(30초 전)으로 돌린다 - 바로 도착·출발을 누를 수 있다.
+     *  확정은 지금부터 5분 뒤부터만 받으므로 10분 뒤로 확정하고 행을 직접 고친다
+     */
+    private Long confirmedRoom(Long... others) {
         Party party = Party.create(방장, DEPARTURE, DESTINATION, "광주송정역", "전남대", new Capacity(3), Instant.now(),
                 9000, 20, "_p~iF~ps|U_ulLnnqC");
-        party.join(동승자);
-        party.join(늦은사람);
+        for(Long other : others) {
+            party.join(other, Instant.now());
+        }
         Long id = parties.save(party).getId();
         created.add(id);
 
-        partyService.confirm(id, 방장, Instant.now().minusSeconds(30));
+        partyService.confirm(id, 방장, MeetingPlan.at(Instant.now().plus(Duration.ofMinutes(10))));
+        jdbc.update("UPDATE match_room SET departure_at = now() - interval '30 seconds' WHERE id = ?", id);
 
         return id;
     }

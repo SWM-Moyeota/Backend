@@ -1,311 +1,297 @@
 package team.codingforest.moyeota.matching.party.domain;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import team.codingforest.moyeota.common.exception.BusinessException;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
-import java.time.Instant;
-import java.util.List;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
+import static team.codingforest.moyeota.matching.party.domain.PartyFixtures.*;
 
+/**
+ *  방 만들기·참여·나가기·방장 승계. 정원이 차도 ACTIVE 이고 참여만 PARTY_FULL 로 막힌다
+ */
 class PartyTest {
-    private static final Long 생성자 = 1L;
-    private static final Long 참여자 = 2L;
-    private static final Long 외부인 = 10L;
-    private static final Location 강남역 = new Location(37.4979, 127.0276);
-    private static final Location 판교역 = new Location(37.3948, 127.1112);
-    private static final String 강남역출발 = "강남역";
-    private static final String 판교역도착 = "판교역";
-    private static final Instant 지금 = Instant.now();
-    private static final Integer 예상요금 = 12000;
-    private static final Integer 예상시간 = 25;
-    private static final String 경로 = "_p~iF~ps|U_ulLnnqC";
 
-    private Party createParty(int capacity) {
-        return Party.create(생성자, 강남역, 판교역, 강남역출발, 판교역도착, new Capacity(capacity), 지금, 예상요금, 예상시간, 경로);
-    }
+    // ───────────────────────── create ─────────────────────────
 
-    // ───────────────────────── 모집 ─────────────────────────
-
+    @DisplayName("create - 만든 사람이 방장으로 들어간 ACTIVE 실시간 방이다")
     @Test
-    void 정원이_차면_자동으로_마감된다() {
-        Party party = createParty(2);
-
-        party.join(참여자);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
-    }
-
-    @Test
-    void 마감된_방에는_참여할_수_없다() {
-        Party party = createParty(2);
-        party.join(참여자);
-
-        assertThatThrownBy(() -> party.join(3L))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_CLOSED);
-    }
-
-    @Test
-    void 같은_회원은_중복_참여할_수_없다() {
-        Party party = createParty(2);
-
-        assertThatThrownBy(() -> party.join(생성자))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.ALREADY_JOINED_PARTY);
-    }
-
-    @Test
-    void 혼자_타는_방은_생성_즉시_마감된다() {
-        // 1인 방은 join 경로를 탈 수 없으므로 생성 시점에 정원 충족 처리가 안 되면 좀비 방이 된다
-        Party party = createParty(1);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
-    }
-
-    @Test
-    void 참여자가_나가면_명단에서_빠진다() {
-        Party party = createParty(3);
-        party.join(참여자);
-
-        party.leave(참여자);
-
-        assertThat(party.hasMember(참여자)).isFalse();
-        assertThat(party.getMembers()).hasSize(1);
-    }
-
-    @Test
-    void 마지막_남은_사람이_나가면_방이_취소되고_명단이_빈다() {
-        Party party = createParty(2);
-
-        party.leave(생성자);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.CANCELED);
-        assertThat(party.getMembers()).isEmpty();   // 나간 사람이 취소된 방에 묶여 있으면 안 된다
-    }
-
-    @Test
-    void 마감된_방에서_누군가_나가면_다시_모집중이_된다() {
-        Party party = createParty(2);
-        party.join(참여자);
-
-        party.leave(참여자);
+    void create() {
+        Party party = realtime(3);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.ACTIVE);
+        assertThat(party.getRoomType()).isEqualTo(RoomType.REALTIME);
+        assertThat(party.isHost(HOST_ID)).isTrue();
+        assertThat(party.memberIds()).containsExactly(HOST_ID);
+        assertThat(party.isConfirmed()).isFalse();
+        assertThat(party.getDepartureAt()).isNull();
+        assertThat(party.getVersion()).isZero();
     }
 
+    @DisplayName("create - 출발지와 도착지가 같으면 SAME_DEPARTURE_DESTINATION")
     @Test
-    void 참여하지_않은_회원은_나갈_수_없다() {
-        Party party = createParty(2);
+    void create_samePlace() {
+        Throwable thrown = catchThrowable(() -> Party.create(HOST_ID, DEPARTURE, DEPARTURE, DEPARTURE_PLACE, DEPARTURE_PLACE, new Capacity(3), NOW, FARE, MINUTES, ROUTE));
 
-        assertThatThrownBy(() -> party.leave(참여자))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.NOT_PARTY_MEMBER);
+        assertRejected(thrown, MatchingErrorCode.SAME_DEPARTURE_DESTINATION);
     }
 
+    @DisplayName("create - 경로·요금·시간이 비었거나 음수면 INVALID_ROUTE_ESTIMATE")
     @Test
-    void 취소된_방에서는_다시_나갈_수_없다() {
-        // 나가기 이중 탭 - 이미 명단에서 빠졌으므로 "참여하지 않은 방" 예외가 난다
-        Party party = createParty(2);
-        party.leave(생성자);   // 혼자 나가며 방 취소 + 명단에서 제거됨
-
-        assertThatThrownBy(() -> party.leave(생성자))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.NOT_PARTY_MEMBER);
+    void create_invalidEstimate() {
+        assertRejected(catchThrowable(() -> Party.create(HOST_ID, DEPARTURE, DESTINATION, DEPARTURE_PLACE, DESTINATION_PLACE, new Capacity(3), NOW, null, MINUTES, ROUTE)), MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
+        assertRejected(catchThrowable(() -> Party.create(HOST_ID, DEPARTURE, DESTINATION, DEPARTURE_PLACE, DESTINATION_PLACE, new Capacity(3), NOW, FARE, -1, ROUTE)), MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
+        assertRejected(catchThrowable(() -> Party.create(HOST_ID, DEPARTURE, DESTINATION, DEPARTURE_PLACE, DESTINATION_PLACE, new Capacity(3), NOW, FARE, MINUTES, null)), MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
     }
 
-
-    // ───────────────────────── 동승 완료 ─────────────────────────
-
+    @DisplayName("create - 정원 1인 방도 만들자마자 ACTIVE 이고 정원이 찼다")
     @Test
-    void 정원이_찬_방은_방장이_동승_완료할_수_있다() {
-        Party party = createParty(2);
-        party.join(참여자);
+    void create_soloIsFullButActive() {
+        Party party = realtime(1);
 
-        party.finishUnconfirmed(생성자);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.ACTIVE);
+        assertThat(party.isFull()).isTrue();
     }
 
+    // ───────────────────────── reserve ─────────────────────────
+
+    @DisplayName("reserve - 출발 시각이 있는 ACTIVE 예약 방이고 만들자마자 약속이 정해진 방이다. 경로·요금·시간은 없다")
     @Test
-    void 방에_없는_사람은_동승_완료할_수_없다() {
-        Party party = createParty(2);
-        party.join(참여자);
+    void reserve() {
+        Party party = reserved(3);
 
-        assertThatThrownBy(() -> party.finishUnconfirmed(외부인))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.NOT_PARTY_MEMBER);
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.ACTIVE);
+        assertThat(party.getRoomType()).isEqualTo(RoomType.RESERVED);
+        assertThat(party.isConfirmed()).isTrue();
+        assertThat(party.getDepartureAt()).isEqualTo(RESERVED_AT);
+        assertThat(party.getEstimatedFare()).isNull();
+        assertThat(party.getEstimatedTime()).isNull();
+        assertThat(party.getRoute()).isNull();
     }
 
+    @DisplayName("reserve - 출발 시각이 지금이거나 과거, 7일 넘게 뒤면 INVALID_DEPARTURE_TIME")
     @Test
-    void 모집_중인_방은_동승_완료할_수_없다() {
-        Party party = createParty(3);
-        party.join(참여자);   // 2/3 - 아직 ACTIVE
-
-        assertThatThrownBy(() -> party.finishUnconfirmed(생성자))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_COMPLETED);
+    void reserve_invalidDepartureAt() {
+        assertRejected(catchThrowable(() -> Party.reserve(HOST_ID, DEPARTURE, DESTINATION, DEPARTURE_PLACE, DESTINATION_PLACE, new Capacity(3), NOW, NOW)), MatchingErrorCode.INVALID_DEPARTURE_TIME);
+        assertRejected(catchThrowable(() -> Party.reserve(HOST_ID, DEPARTURE, DESTINATION, DEPARTURE_PLACE, DESTINATION_PLACE, new Capacity(3), NOW, NOW.plus(Duration.ofDays(7)).plusSeconds(1))), MatchingErrorCode.INVALID_DEPARTURE_TIME);
     }
 
+    @DisplayName("reserve - 정확히 7일 뒤는 받는다")
     @Test
-    void 방치된_방은_시스템이_멤버_검증_없이_닫는다() {
-        Party party = createParty(2);
-        party.join(참여자);
+    void reserve_sevenDaysAhead() {
+        Party party = Party.reserve(HOST_ID, DEPARTURE, DESTINATION, DEPARTURE_PLACE, DESTINATION_PLACE, new Capacity(3), NOW, NOW.plus(Duration.ofDays(7)));
 
-        party.autoClose(Instant.now());
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
+        assertThat(party.getDepartureAt()).isEqualTo(NOW.plus(Duration.ofDays(7)));
     }
 
+    // ───────────────────────── join ─────────────────────────
+
+    @DisplayName("join - 들어온 멤버가 합류 순으로 쌓이고 version 이 1 오른다")
     @Test
-    void 이미_닫힌_방은_다시_닫을_수_없다() {
-        Party party = createParty(2);
-        party.join(참여자);
-        party.finishUnconfirmed(생성자);
+    void join() {
+        Party party = realtime(3);
 
-        assertThatThrownBy(() -> party.autoClose(Instant.now()))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_CLOSED);
-    }
+        party.join(MEMBER_ID, NOW.plusSeconds(1));
 
-    // ───────────────────────── 방장 ─────────────────────────
-
-    /** 합류 시각을 조작해 복원한 정원 충족 방 - 도메인 경로로는 joinedAt 이 항상 Instant.now() 로 찍힌다 */
-    private Party completedPartyWith(PartyMember... members) {
-        return Party.load(1L, 강남역, 판교역, 강남역출발, 판교역도착, new Capacity(members.length),
-                List.of(members), 지금, PartyStatus.COMPLETED, 예상요금, 예상시간, 경로, 0L);
-    }
-
-    @Test
-    void 방장은_가장_먼저_합류한_멤버다() {
-        Party party = createParty(3);
-        party.join(참여자);
-
-        assertThat(party.hostId()).isEqualTo(생성자);
-    }
-
-    @Test
-    void 방장이_나가면_다음으로_일찍_합류한_멤버가_방장이_된다() {
-        Party party = createParty(3);
-        party.join(참여자);
-
-        party.leave(생성자);
-
-        assertThat(party.hostId()).isEqualTo(참여자);
-    }
-
-    @Test
-    void 합류_시각이_같으면_memberId가_작은_멤버가_방장이다() {
-        Party party = completedPartyWith(PartyMember.load(5L, 지금), PartyMember.load(3L, 지금));
-
-        assertThat(party.hostId()).isEqualTo(3L);
-    }
-
-    @Test
-    void 멤버가_없는_방에는_방장이_없다() {
-        Party party = createParty(2);
-        party.leave(생성자);   // 마지막 멤버가 나가 명단이 빈다
-
-        assertThat(party.hostId()).isNull();
-        assertThat(party.isHost(생성자)).isFalse();
-    }
-
-    @Test
-    void 방장이_아닌_멤버는_동승_완료할_수_없다() {
-        Party party = createParty(2);
-        party.join(참여자);
-
-        assertThatThrownBy(() -> party.finishUnconfirmed(참여자))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.NOT_PARTY_HOST);
-
-        assertThat(party.getStatus()).as("거부된 호출이 방을 닫으면 안 된다").isEqualTo(PartyStatus.COMPLETED);
-    }
-
-    @Test
-    void 승계된_방장은_동승_완료할_수_있다() {
-        // 원래 방장이 빠진 뒤 복원된 방 - 창설자가 아니라 "현재 멤버 중 가장 일찍 합류한 사람"이 권한을 가진다
-        Party party = completedPartyWith(PartyMember.load(참여자, 지금), PartyMember.load(생성자, 지금.plusSeconds(60)));
-
-        party.finishUnconfirmed(참여자);
-
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.FINISHED);
-    }
-
-    // ───────────────────────── version ─────────────────────────
-
-    @Test
-    void 새_방의_version_은_0_이다() {
-        assertThat(createParty(3).getVersion()).isZero();
-    }
-
-    @Test
-    void 참여_나가기_동승완료는_version_을_1씩_올린다() {
-        Party party = createParty(3);
-
-        party.join(참여자);
+        assertThat(party.memberIds()).containsExactly(HOST_ID, MEMBER_ID);
+        assertThat(party.getMembers().get(1).getJoinedAt()).isEqualTo(NOW.plusSeconds(1));
         assertThat(party.getVersion()).isEqualTo(1);
-
-        party.leave(참여자);
-        assertThat(party.getVersion()).isEqualTo(2);
-
-        party.join(참여자);
-        party.join(3L);
-        assertThat(party.getVersion()).isEqualTo(4);
-
-        party.finishUnconfirmed(생성자);
-        assertThat(party.getVersion()).isEqualTo(5);
+        assertThat(party.isHost(MEMBER_ID)).isFalse();
     }
 
+    @DisplayName("join - 정원이 차도 상태는 ACTIVE 그대로이고 다음 참여는 PARTY_FULL")
     @Test
-    void 정원이_차는_참여도_version_은_1만_오른다() {
-        Party party = createParty(2);
+    void join_full() {
+        Party party = realtime(2, MEMBER_ID);
 
-        party.join(참여자);
+        Throwable thrown = catchThrowable(() -> party.join(THIRD_ID, NOW));
 
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
-        assertThat(party.getVersion()).isEqualTo(1);
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.ACTIVE);
+        assertThat(party.isFull()).isTrue();
+        assertRejected(thrown, MatchingErrorCode.PARTY_FULL);
+        assertThat(party.memberIds()).containsExactly(HOST_ID, MEMBER_ID);
     }
 
-    @Test
-    void 마지막_사람이_나가_방이_닫혀도_version_은_1만_오른다() {
-        Party party = createParty(2);
+    @DisplayName("join - 약속을 확정한 방(COMPLETED)과 닫힌 방은 PARTY_CLOSED - 정원이 남아 있어도 들어올 수 없다")
+    @ParameterizedTest(name = "{0}")
+    @EnumSource(value = PartyStatus.class, names = {"COMPLETED", "FINISHED", "CANCELED"})
+    void join_notActive(PartyStatus status) {
+        Party party = restored(RoomType.REALTIME, status, MEETING_AT, waiting(HOST_ID, 0), waiting(MEMBER_ID, 1));
 
-        party.leave(생성자);
+        Throwable thrown = catchThrowable(() -> party.join(THIRD_ID, NOW));
+
+        assertRejected(thrown, MatchingErrorCode.PARTY_CLOSED);
+    }
+
+    @DisplayName("join - 출발 시각이 된 예약 방은 모집 정리 전이어도 PARTY_CLOSED")
+    @Test
+    void join_reservationAtDeparture() {
+        Party party = reserved(3);
+
+        Throwable thrown = catchThrowable(() -> party.join(MEMBER_ID, RESERVED_AT));
+
+        assertRejected(thrown, MatchingErrorCode.PARTY_CLOSED);
+    }
+
+    @DisplayName("join - 이미 들어온 멤버면 ALREADY_JOINED_PARTY")
+    @Test
+    void join_twice() {
+        Party party = realtime(3, MEMBER_ID);
+
+        Throwable thrown = catchThrowable(() -> party.join(MEMBER_ID, NOW));
+
+        assertRejected(thrown, MatchingErrorCode.ALREADY_JOINED_PARTY);
+    }
+
+    // ───────────────────────── leave ─────────────────────────
+
+    @DisplayName("leave - 방장이 아닌 멤버가 나가면 방장은 그대로고 version 이 1 오른다")
+    @Test
+    void leave_member() {
+        Party party = realtime(3, MEMBER_ID, THIRD_ID);
+        long before = party.getVersion();
+
+        party.leave(MEMBER_ID);
+
+        assertThat(party.memberIds()).containsExactly(HOST_ID, THIRD_ID);
+        assertThat(party.isHost(HOST_ID)).isTrue();
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.ACTIVE);
+        assertThat(party.getVersion()).isEqualTo(before + 1);
+    }
+
+    @DisplayName("leave - 방장이 나가면 남은 멤버 중 가장 먼저 합류한 사람이 승계한다")
+    @Test
+    void leave_hostSucceeded() {
+        Party party = realtime(3, MEMBER_ID, THIRD_ID);
+
+        party.leave(HOST_ID);
+
+        assertThat(party.getHostId()).isEqualTo(MEMBER_ID);
+    }
+
+    @DisplayName("leave - 합류 시각이 같으면 memberId 가 작은 멤버가 승계한다")
+    @Test
+    void leave_hostSucceededByLowerId() {
+        Party party = restored(RoomType.REALTIME, PartyStatus.ACTIVE, null, waiting(HOST_ID, 0), waiting(7L, 1), waiting(5L, 1));
+
+        party.leave(HOST_ID);
+
+        assertThat(party.getHostId()).isEqualTo(5L);
+    }
+
+    @DisplayName("leave - 마지막 멤버가 나가면 CANCELED 이고 방장이 없다")
+    @Test
+    void leave_last() {
+        Party party = realtime(3);
+
+        party.leave(HOST_ID);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.CANCELED);
-        assertThat(party.getVersion()).isEqualTo(1);
+        assertThat(party.getHostId()).isNull();
+        assertThat(party.memberIds()).isEmpty();
     }
 
+    @DisplayName("leave - 정원이 찼던 방에서 나가면 다시 들어올 수 있다")
     @Test
-    void 방치된_방의_자동_종료는_version_을_1_올린다() {
-        Party party = createParty(2);
-        party.join(참여자);
+    void leave_reopensSeat() {
+        Party party = realtime(2, MEMBER_ID);
 
-        party.autoClose(Instant.now());
+        party.leave(MEMBER_ID);
+        party.join(THIRD_ID, NOW);
 
-        assertThat(party.getVersion()).isEqualTo(2);
+        assertThat(party.memberIds()).containsExactly(HOST_ID, THIRD_ID);
     }
 
+    @DisplayName("leave - 약속을 확정한 실시간 방에서도 나갈 수 있다")
     @Test
-    void 거부된_명령은_version_을_바꾸지_않는다() {
-        Party party = createParty(2);
-        party.join(참여자);
+    void leave_confirmed() {
+        Party party = confirmed(3, MEMBER_ID, THIRD_ID);
 
-        assertThatThrownBy(() -> party.join(3L)).isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> party.leave(3L)).isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> party.finishUnconfirmed(참여자)).isInstanceOf(BusinessException.class);
+        party.leave(MEMBER_ID);
 
-        assertThat(party.getVersion()).isEqualTo(1);
+        assertThat(party.memberIds()).containsExactly(HOST_ID, THIRD_ID);
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(party.getDepartureAt()).isEqualTo(MEETING_AT);
+    }
+
+    @DisplayName("leave - 확정한 실시간 방에서 나가 1명만 남으면 CANCELED 다 - 약속이 잡힌 뒤라 더 모을 수 없고 혼자서는 출발할 수 없다")
+    @Test
+    void leave_confirmedLeavesOne() {
+        Party party = confirmed(3, MEMBER_ID);
+
+        party.leave(MEMBER_ID);
+
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.CANCELED);
+        assertThat(party.memberIds()).containsExactly(HOST_ID);
+        assertThat(party.getHostId()).isEqualTo(HOST_ID);
+    }
+
+    @DisplayName("leave - 예약 방은 참여한 뒤에도 나갈 수 있고, 혼자 남아도 출발 전이라 ACTIVE 로 다시 모은다")
+    @Test
+    void leave_reservationLeavesOne() {
+        Party party = reserved(3, MEMBER_ID);
+
+        party.leave(MEMBER_ID);
+
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.ACTIVE);
+        assertThat(party.memberIds()).containsExactly(HOST_ID);
+    }
+
+    @DisplayName("leave - 방에 없는 사람이면 NOT_PARTY_MEMBER")
+    @Test
+    void leave_notMember() {
+        Party party = realtime(3, MEMBER_ID);
+
+        Throwable thrown = catchThrowable(() -> party.leave(OUTSIDER_ID));
+
+        assertRejected(thrown, MatchingErrorCode.NOT_PARTY_MEMBER);
+    }
+
+    @DisplayName("leave - 닫힌 방이면 PARTY_CLOSED")
+    @ParameterizedTest(name = "{0}")
+    @EnumSource(value = PartyStatus.class, names = {"FINISHED", "CANCELED"})
+    void leave_closed(PartyStatus status) {
+        Party party = restored(RoomType.REALTIME, status, MEETING_AT, waiting(HOST_ID, 0), waiting(MEMBER_ID, 1));
+
+        Throwable thrown = catchThrowable(() -> party.leave(MEMBER_ID));
+
+        assertRejected(thrown, MatchingErrorCode.PARTY_CLOSED);
+    }
+
+    // ───────────────────────── load·조회 ─────────────────────────
+
+    @DisplayName("load - 저장된 방장을 그대로 복원하고, 멤버가 없는 방은 방장이 없다")
+    @Test
+    void load_host() {
+        Party party = restored(RoomType.REALTIME, PartyStatus.ACTIVE, null, waiting(MEMBER_ID, 1), waiting(HOST_ID, 0));
+        Party empty = restored(RoomType.REALTIME, PartyStatus.CANCELED, null);
+
+        assertThat(party.getHostId()).isEqualTo(MEMBER_ID);
+        assertThat(empty.getHostId()).isNull();
+    }
+
+    @DisplayName("isHost - 방장이 아닌 멤버, 방에 없는 사람, null 은 방장이 아니다")
+    @Test
+    void isHost() {
+        Party party = realtime(3, MEMBER_ID);
+
+        assertThat(party.isHost(MEMBER_ID)).isFalse();
+        assertThat(party.isHost(OUTSIDER_ID)).isFalse();
+        assertThat(party.isHost(null)).isFalse();
+    }
+
+    @DisplayName("getMembers - 밖에서 멤버 목록을 바꿀 수 없다")
+    @Test
+    void getMembers_unmodifiable() {
+        Party party = realtime(3);
+
+        Throwable thrown = catchThrowable(() -> party.getMembers().clear());
+
+        assertThat(thrown).isInstanceOf(UnsupportedOperationException.class);
     }
 }

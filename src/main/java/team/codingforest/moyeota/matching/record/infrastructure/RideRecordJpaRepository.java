@@ -15,7 +15,6 @@ public interface RideRecordJpaRepository extends JpaRepository<RideRecordEntity,
             select h from RideRecordEntity h
             join PartyMemberEntity m on m.party.id = h.matchId
             where m.memberId = :memberId and h.dropoffTime is not null
-                and (m.noShowAt is null or m.noShowVoidedAt is not null)
             order by h.dropoffTime desc, h.matchId desc
             """)
     List<RideRecordEntity> findDroppedOffByMember(@Param("memberId") Long memberId, Limit limit);
@@ -24,7 +23,6 @@ public interface RideRecordJpaRepository extends JpaRepository<RideRecordEntity,
             select h from RideRecordEntity h
             join PartyMemberEntity m on m.party.id = h.matchId
             where m.memberId = :memberId and h.dropoffTime is not null
-                and (m.noShowAt is null or m.noShowVoidedAt is not null)
                 and (h.dropoffTime < :dropoffTime or (h.dropoffTime = :dropoffTime and h.matchId < :matchId))
             order by h.dropoffTime desc, h.matchId desc
             """)
@@ -35,7 +33,6 @@ public interface RideRecordJpaRepository extends JpaRepository<RideRecordEntity,
             select m.party.id as matchId, m.memberId as memberId
             from PartyMemberEntity m
             where m.party.id in :matchIds
-                and (m.noShowAt is null or m.noShowVoidedAt is not null)
             order by m.party.id, m.createdAt, m.memberId
             """)
     List<MatchMemberRow> findMembersByMatchIds(@Param("matchIds") Collection<Long> matchIds);

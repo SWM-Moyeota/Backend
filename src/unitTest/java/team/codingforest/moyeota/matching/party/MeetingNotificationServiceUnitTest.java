@@ -32,7 +32,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
@@ -54,7 +53,6 @@ class MeetingNotificationServiceUnitTest {
     private static final Instant MEETING_AT = seoul("2026-11-03T12:00:00");
     private static final String MEETING_TASK = "party.meeting-notice";
     private static final String REMINDER_TASK = "party.departure-reminder";
-    private static final String NO_SHOW_TASK = "party.no-show-notice";
 
     @Mock
     private Parties parties;
@@ -263,7 +261,7 @@ class MeetingNotificationServiceUnitTest {
 
     // ───────────────────────── remindDeparture ─────────────────────────
 
-    @DisplayName("remindDeparture - 차례를 넘겨 저장하고, 커밋 후 도착한 멤버에게만 출발 재촉을 보낸다")
+    @DisplayName("remindDeparture - 차례를 넘겨 저장하고, 커밋 후 출발 버튼을 누르는 방장 한 명에게 출발 재촉을 보낸다")
     @Test
     void remindDeparture() {
 
@@ -290,17 +288,17 @@ class MeetingNotificationServiceUnitTest {
         Runnable task = capturedTask(REMINDER_TASK);
         verifyNoInteractions(meetingNotifier);
         task.run();
-        verify(meetingNotifier).remindDeparture(eq(PARTY_ID), eq(List.of(HOST_ID, THIRD_ID)));
+        verify(meetingNotifier).remindDeparture(eq(PARTY_ID), eq(List.of(HOST_ID)));
     }
 
-    @DisplayName("remindDeparture - 도착한 멤버가 없으면 차례만 넘겨 저장하고 보내지 않는다")
+    @DisplayName("remindDeparture - 혼자인 방은 차례만 넘겨 저장하고 보내지 않는다")
     @Test
-    void remindDeparture_nobodyArrived() {
+    void remindDeparture_alone() {
 
         /*
          * settings
          */
-        Party party = confirmedParty(MEETING_AT, PartyStatus.COMPLETED, MEETING_AT, 0, waiting(HOST_ID, 0), waiting(MEMBER_ID, 1));
+        Party party = confirmedParty(MEETING_AT, PartyStatus.COMPLETED, MEETING_AT, 0, waiting(HOST_ID, 0));
         doReturn(Optional.of(party)).when(parties).findByIdForUpdate(eq(PARTY_ID));
 
         /*
@@ -438,64 +436,6 @@ class MeetingNotificationServiceUnitTest {
         verifyNoInteractions(afterCommitExecutor, meetingNotifier);
     }
 
-    // ───────────────────────── notifyNoShows ─────────────────────────
-
-    @DisplayName("notifyNoShows - 커밋 후에 노쇼 멤버에게 노쇼 알림을 보낸다")
-    @Test
-    void notifyNoShows() {
-
-        /*
-         * test
-         */
-        service.notifyNoShows(PARTY_ID, List.of(MEMBER_ID, THIRD_ID), MEETING_AT.plus(Duration.ofMinutes(10)));
-
-        /*
-         * verify
-         */
-        Runnable task = capturedTask(NO_SHOW_TASK);
-        verifyNoInteractions(meetingNotifier);
-        task.run();
-        verify(meetingNotifier).notifyNoShow(eq(PARTY_ID), eq(List.of(MEMBER_ID, THIRD_ID)));
-        verifyNoInteractions(parties);
-    }
-
-    @DisplayName("notifyNoShows - 방해 금지 시간(23:00~08:00 KST)에는 보내지 않는다")
-    @ParameterizedTest(name = "{0} KST → 보냄 {1}")
-    @CsvSource({
-            "2026-11-03T22:59:00, true",
-            "2026-11-03T23:00:00, false",
-            "2026-11-04T07:59:00, false",
-            "2026-11-04T08:00:00, true"})
-    void notifyNoShows_quietHours(LocalDateTime seoulNow, boolean sends) {
-
-        /*
-         * test
-         */
-        service.notifyNoShows(PARTY_ID, List.of(MEMBER_ID), seoulNow.atZone(SEOUL).toInstant());
-
-        /*
-         * verify
-         */
-        verify(afterCommitExecutor, times(sends ? 1 : 0)).execute(eq(NO_SHOW_TASK), any());
-        verifyNoInteractions(meetingNotifier);
-    }
-
-    @DisplayName("notifyNoShows - 노쇼가 없으면 아무것도 맡기지 않는다")
-    @Test
-    void notifyNoShows_empty() {
-
-        /*
-         * test
-         */
-        service.notifyNoShows(PARTY_ID, List.of(), MEETING_AT);
-
-        /*
-         * verify
-         */
-        verify(afterCommitExecutor, never()).execute(anyString(), any());
-        verifyNoInteractions(meetingNotifier);
-    }
-
     // ───────────────────────── 도우미 ─────────────────────────
 
     private static Instant seoul(String localDateTime) {
@@ -514,7 +454,7 @@ class MeetingNotificationServiceUnitTest {
     }
 
     private static PartyMember arrived(Long memberId, int order) {
-        return PartyMember.load(memberId, MEETING_AT.minus(Duration.ofDays(1)).plusSeconds(order), MEETING_AT.minus(Duration.ofDays(1)).plusSeconds(60), null, null);
+        return PartyMember.load(memberId, MEETING_AT.minus(Duration.ofDays(1)).plusSeconds(order), MEETING_AT.minus(Duration.ofDays(1)).plusSeconds(60));
     }
 
     /** 알림은 커밋 후 실행기에 맡긴 작업 안에서만 나가야 한다 */

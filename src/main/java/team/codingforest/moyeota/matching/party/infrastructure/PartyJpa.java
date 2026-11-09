@@ -64,17 +64,17 @@ public class PartyJpa implements Parties {
 
     @Override
     public boolean existsOngoingByMemberId(Long memberId) {
-        return partyJpaRepository.existsByMemberIdAndStatusIn(memberId, ongoingStatuses());
+        return partyJpaRepository.existsByMemberIdAndStatusIn(memberId, openStatuses());
     }
 
     @Override
     public boolean existsOngoingRealtimeByMemberId(Long memberId) {
-        return partyJpaRepository.existsByMemberIdAndRoomTypeAndStatusIn(memberId, RoomType.REALTIME, ongoingStatuses());
+        return partyJpaRepository.existsByMemberIdAndRoomTypeAndStatusIn(memberId, RoomType.REALTIME, openStatuses());
     }
 
     @Override
     public boolean existsOngoingReservationBetween(Long memberId, Instant from, Instant to) {
-        return partyJpaRepository.existsReservationBetween(memberId, ongoingStatuses(), from, to);
+        return partyJpaRepository.existsReservationBetween(memberId, openStatuses(), from, to);
     }
 
     @Override
@@ -120,7 +120,7 @@ public class PartyJpa implements Parties {
 
     @Override
     public List<Long> findReservationsToRemind(Instant from, Instant to) {
-        return partyJpaRepository.findIdsToRemind(List.of(PartyStatus.ACTIVE, PartyStatus.COMPLETED), from, to);
+        return partyJpaRepository.findIdsToRemind(openStatuses(), from, to);
     }
 
     @Override
@@ -137,15 +137,9 @@ public class PartyJpa implements Parties {
                 now.minus(offsets.get(0)), now.minus(offsets.get(1)), now.minus(offsets.get(2)), now.minus(offsets.get(3)));
     }
 
-    private List<PartyStatus> ongoingStatuses() {
+    private List<PartyStatus> openStatuses() {
         return Arrays.stream(PartyStatus.values())
-                .filter(PartyStatus::isOngoing)
-                .toList();
-    }
-
-    private List<PartyStatus> recruitingStatuses() {
-        return Arrays.stream(PartyStatus.values())
-                .filter(PartyStatus::isRecruiting)
+                .filter(PartyStatus::isOpen)
                 .toList();
     }
 
@@ -175,7 +169,7 @@ public class PartyJpa implements Parties {
 
     @Override
     public List<Long> findAutoCloseTargets(Instant cutoff) {
-        return partyJpaRepository.findAutoCloseTargetIds(recruitingStatuses(), cutoff);
+        return partyJpaRepository.findAutoCloseTargetIds(openStatuses(), cutoff);
     }
 
     @Override

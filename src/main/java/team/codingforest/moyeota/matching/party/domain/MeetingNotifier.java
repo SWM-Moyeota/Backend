@@ -10,9 +10,6 @@ public interface MeetingNotifier {
     /** 약속 시각 알림 - 약속이 정해진 방의 멤버 전원 */
     void notifyMeetingTime(Long partyId, List<Long> memberIds);
 
-    /** 출발 재촉 - 출발 버튼을 누를 수 있는 도착한 멤버 */
+    /** 출발 재촉 - 출발 버튼을 누르는 방장 */
     void remindDeparture(Long partyId, List<Long> memberIds);
-
-    /** 노쇼 알림 - 이번에 노쇼로 찍힌 멤버 */
-    void notifyNoShow(Long partyId, List<Long> memberIds);
 }

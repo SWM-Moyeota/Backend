@@ -19,7 +19,6 @@ import java.time.Instant;
 @IdClass(PartyMemberId.class)
 @Table(name = "user_match_room")
 public class PartyMemberEntity extends BaseTimeEntity {
-
     @Id
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "match_id", nullable = false)
@@ -32,12 +31,6 @@ public class PartyMemberEntity extends BaseTimeEntity {
     @Column(name = "arrived_at")
     private Instant arrivedAt;
 
-    @Column(name = "no_show_at")
-    private Instant noShowAt;
-
-    @Column(name = "no_show_voided_at")
-    private Instant noShowVoidedAt;
-
     protected PartyMemberEntity() {}
 
     private PartyMemberEntity(PartyEntity party, Long memberId) {
@@ -48,18 +41,15 @@ public class PartyMemberEntity extends BaseTimeEntity {
     public static PartyMemberEntity of(PartyEntity party, PartyMember member) {
         PartyMemberEntity entity = new PartyMemberEntity(party, member.getMemberId());
         entity.update(member);
-
         return entity;
     }
 
-    /** 이미 있는 멤버 행의 출석(도착·노쇼) 변경을 옮긴다 - 합류 시각과 키는 바뀌지 않는다 */
+    /** 이미 있는 멤버 행의 도착을 옮긴다 - 합류 시각과 키는 바뀌지 않는다 */
     void update(PartyMember member) {
         this.arrivedAt = member.getArrivedAt();
-        this.noShowAt = member.getNoShowAt();
-        this.noShowVoidedAt = member.getNoShowVoidedAt();
     }
 
     public PartyMember toDomain() {
-        return PartyMember.load(memberId, getCreatedAt(), arrivedAt, noShowAt, noShowVoidedAt);
+        return PartyMember.load(memberId, getCreatedAt(), arrivedAt);
     }
 }

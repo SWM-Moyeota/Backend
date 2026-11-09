@@ -28,7 +28,8 @@ public class ReservationReminderService {
         Party party = parties.findByIdForUpdate(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
-        if(party.getReminderSentAt() != null || !party.getStatus().isRecruiting()) return;
+        // 혼자인 예약 방은 출발 시각에 모집 만료로 닫힐 방이라 "출발 전" 알림을 보내지 않는다
+        if(party.getReminderSentAt() != null || !party.getStatus().isOpen() || !party.hasCompanion()) return;
 
         party.markReminderSent(Instant.now());
         parties.save(party);

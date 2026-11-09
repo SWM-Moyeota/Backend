@@ -95,7 +95,7 @@ class PartyUnmappedColumnPostgresTest {
         assertThat(row).containsEntry("departure_radius", 500).containsEntry("destination_radius", 500);
     }
 
-    @DisplayName("save - 새 실시간 방은 반경·completed_at 없이 저장되고(반경 500, completed_at NULL) 정원이 차도 completed_at 을 쓰지 않는다")
+    @DisplayName("save - 새 실시간 방은 반경·completed_at 없이 저장되고(반경 500, completed_at NULL) 정원이 차도 ACTIVE 그대로라 completed_at 을 쓰지 않는다")
     @Test
     void save_realtimeWithoutUnmappedColumns() {
 
@@ -110,7 +110,7 @@ class PartyUnmappedColumnPostgresTest {
          */
         tx.executeWithoutResult(status -> {
             Party locked = parties.findByIdForUpdate(id).orElseThrow();
-            locked.join(동승자);   // 정원 2 충족 → COMPLETED
+            locked.join(동승자, Instant.now());   // 정원 2 충족 - 그래도 ACTIVE
             parties.save(locked);
         });
 
@@ -122,7 +122,8 @@ class PartyUnmappedColumnPostgresTest {
         assertThat(row.get("completed_at")).isNull();
 
         Party found = parties.findById(id).orElseThrow();
-        assertThat(found.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(found.getStatus()).as("정원이 차도 모집 중이다 - 참여는 PARTY_FULL 로 막힌다").isEqualTo(PartyStatus.ACTIVE);
+        assertThat(found.isFull()).isTrue();
         assertThat(found.getMembers()).hasSize(2);
         assertThat(found.getDepartureLocation()).isEqualTo(DEPARTURE);
         assertThat(found.getDestinationLocation()).isEqualTo(DESTINATION);
@@ -154,10 +155,10 @@ class PartyUnmappedColumnPostgresTest {
         Party found = parties.findById(id).orElseThrow();
         assertThat(found.getRoomType()).isEqualTo(RoomType.RESERVED);
         assertThat(found.getStatus()).isEqualTo(PartyStatus.ACTIVE);
-        assertThat(found.hostId()).isEqualTo(방장);
+        assertThat(found.getHostId()).isEqualTo(방장);
     }
 
-    @DisplayName("findById - 구버전 서버가 반경 100·completed_at 을 채운 행도 읽히고, 고쳐 저장해도 그 값은 건드리지 않는다")
+    @DisplayName("findById - 구버전 서버가 반경 100·completed_at 을 채운 확정 방도 읽히고, 고쳐 저장해도 그 값은 건드리지 않는다")
     @Test
     void findById_rowWrittenByOldServer() {
 
@@ -167,8 +168,8 @@ class PartyUnmappedColumnPostgresTest {
         Long id = jdbc.queryForObject("""
                 INSERT INTO match_room (capacity, departure_lat, departure_lng, departure_radius, destination_lat, destination_lng, destination_radius,
                                         created_at, departure_place, destination_place, status, version, room_type, estimated_fare, estimated_time, route,
-                                        host_id, completed_at)
-                VALUES (2, 35.1595, 126.8526, 100, 35.1768, 126.9055, 100, now(), '광주송정역', '전남대', 'COMPLETED', 1, 'REALTIME', 9000, 20, 'x', ?, now())
+                                        host_id, departure_at, completed_at)
+                VALUES (2, 35.1595, 126.8526, 100, 35.1768, 126.9055, 100, now(), '광주송정역', '전남대', 'COMPLETED', 1, 'REALTIME', 9000, 20, 'x', ?, now() + interval '30 minutes', now())
                 RETURNING id
                 """, Long.class, 방장);
         created.add(id);
@@ -182,7 +183,7 @@ class PartyUnmappedColumnPostgresTest {
         Party loaded = parties.findById(id).orElseThrow();
         tx.executeWithoutResult(status -> {
             Party locked = parties.findByIdForUpdate(id).orElseThrow();
-            locked.leave(동승자);   // COMPLETED → ACTIVE
+            locked.leave(동승자);   // 확정한 실시간 방에서 혼자 남으면 CANCELED
             parties.save(locked);
         });
 
@@ -190,6 +191,7 @@ class PartyUnmappedColumnPostgresTest {
          * verify
          */
         assertThat(loaded.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(loaded.isConfirmed()).isTrue();
         assertThat(loaded.getMembers()).hasSize(2);
         assertThat(loaded.isHost(방장)).isTrue();
 
@@ -197,7 +199,7 @@ class PartyUnmappedColumnPostgresTest {
         Map<String, Object> row = jdbc.queryForMap(RADIUS_AND_COMPLETED_AT, id);
         assertThat(row).containsEntry("departure_radius", 100).containsEntry("destination_radius", 100);
         assertThat(row.get("completed_at")).isEqualTo(completedAt);
-        assertThat(parties.findById(id).orElseThrow().getStatus()).isEqualTo(PartyStatus.ACTIVE);
+        assertThat(parties.findById(id).orElseThrow().getStatus()).as("확정 방은 혼자서 출발할 수 없어 닫힌다").isEqualTo(PartyStatus.CANCELED);
     }
 
     private Long save(Party party) {

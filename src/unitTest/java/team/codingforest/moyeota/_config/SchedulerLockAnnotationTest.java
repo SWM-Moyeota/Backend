@@ -51,7 +51,7 @@ class SchedulerLockAnnotationTest {
                 scheduled(PartyRecruitingSweeper.class, "sweep"), scheduled(PartyRecruitingSweeper.class, "remind"),
                 scheduled(MeetingNotificationSweeper.class, "sweep"),
                 scheduled(FareSplitSweeper.class, "sweep"))) {
-            Duration period = Duration.ofMillis(m.getAnnotation(Scheduled.class).fixedDelay());
+            Duration period = period(m.getAnnotation(Scheduled.class));
             SchedulerLock lock = m.getAnnotation(SchedulerLock.class);
 
             assertThat(Duration.parse(lock.lockAtLeastFor())).as(lock.name() + " lockAtLeastFor").isLessThan(period);
@@ -69,6 +69,19 @@ class SchedulerLockAnnotationTest {
                 lockName(UserDeletionSweeper.class, "sweep"));
 
         assertThat(names).doesNotHaveDuplicates();
+    }
+
+    /** fixedDelay 는 그대로, cron 은 매시 정각과 N분마다(초·분 자리가 0 과 슬래시 N) 두 모양만 쓴다 - 다른 모양을 넣으면 여기서 주기를 더해 준다 */
+    private static Duration period(Scheduled scheduled) {
+        if(scheduled.cron().isEmpty()) return Duration.ofMillis(scheduled.fixedDelay());
+
+        String cron = scheduled.cron();
+        if(cron.equals("0 0 * * * *")) return Duration.ofHours(1);
+
+        java.util.regex.Matcher everyMinutes = java.util.regex.Pattern.compile("0 \\*/(\\d+) \\* \\* \\* \\*").matcher(cron);
+        assertThat(everyMinutes.matches()).as("아는 cron 식: " + cron).isTrue();
+
+        return Duration.ofMinutes(Long.parseLong(everyMinutes.group(1)));
     }
 
     private static void assertLocked(Class<?> type, String method, String expectedName) {

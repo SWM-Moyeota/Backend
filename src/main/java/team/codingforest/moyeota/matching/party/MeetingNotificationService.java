@@ -17,9 +17,9 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- *  약속 시각 전후 알림 - 약속 시각 알림, 출발 재촉, 노쇼 알림.
+ *  약속 시각 전후 알림 - 약속 시각 알림, 출발 재촉.
  *  언제 차례인지(약속 시각·재촉 간격·30분 지연)는 Party 가, 방해 금지 시간은 QuietHours 가 정하고 여기서는 잠금·저장·커밋 후 전송을 묶는다.
- *  지금 시각(now)은 부르는 쪽이 넘긴다 - 스케줄러는 한 번 돌 때의 시각을, 출발·자동 정리는 노쇼를 찍은 시각을 넘긴다
+ *  지금 시각(now)은 스케줄러가 한 번 돌 때의 시각으로 넘긴다
  */
 @Slf4j
 @Service
@@ -57,7 +57,7 @@ public class MeetingNotificationService {
     }
 
     /**
-     *  출발 재촉. 차례가 되면 보내지 않는 경우(도착한 멤버 없음, 방해 금지 시간)에도 차례를 넘긴다 - 나중에 몰아 보내지 않는다
+     *  출발 재촉. 차례가 되면 보내지 않는 경우(혼자인 방, 방해 금지 시간)에도 차례를 넘긴다 - 나중에 몰아 보내지 않는다
      */
     @Transactional
     public void remindDeparture(Long partyId, Instant now) {
@@ -73,7 +73,7 @@ public class MeetingNotificationService {
         parties.save(party);
 
         if(!notice.shouldSend()) {
-            log.info("출발 재촉을 보내지 않고 차례만 넘김(도착한 멤버 없음) partyId={}, count={}", partyId, party.getDepartureReminderCount());
+            log.info("출발 재촉을 보내지 않고 차례만 넘김(혼자인 방) partyId={}, count={}", partyId, party.getDepartureReminderCount());
             return;
         }
 
@@ -86,22 +86,6 @@ public class MeetingNotificationService {
         afterCommitExecutor.execute("party.departure-reminder", () -> meetingNotifier.remindDeparture(partyId, recipientIds));
 
         log.info("출발 재촉 partyId={}, count={}, 받는 사람={}명", partyId, party.getDepartureReminderCount(), recipientIds.size());
-    }
-
-    /**
-     *  노쇼 알림 - 출발·자동 정리가 노쇼를 찍은 트랜잭션 안에서 부른다. 커밋된 뒤에만 나가고 롤백되면 나가지 않는다.
-     *  방해 금지 시간에는 보내지 않는다(앱의 노쇼 기록·프로필에서 볼 수 있다)
-     */
-    public void notifyNoShows(Long partyId, List<Long> noShowMemberIds, Instant now) {
-        if(noShowMemberIds.isEmpty()) return;
-
-        if(QuietHours.contains(now)) {
-            log.info("방해 금지 시간이라 노쇼 알림을 보내지 않음 partyId={}, noShowMemberIds={}", partyId, noShowMemberIds);
-            return;
-        }
-
-        List<Long> recipientIds = List.copyOf(noShowMemberIds);
-        afterCommitExecutor.execute("party.no-show-notice", () -> meetingNotifier.notifyNoShow(partyId, recipientIds));
     }
 
     private Party lock(Long partyId) {

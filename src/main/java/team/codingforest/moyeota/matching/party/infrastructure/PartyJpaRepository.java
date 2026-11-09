@@ -39,6 +39,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
             from PartyEntity p
             where p.status = :status
                 and p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.REALTIME
+                and (select count(m) from PartyMemberEntity m where m.party = p) < p.capacity
                 and p.departureLat between :swLat and :neLat
                 and p.departureLng between :swLng and :neLng
             order by p.createdAt desc, p.id desc
@@ -46,22 +47,21 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     List<PartySummary> findSummariesWithinBounds(@Param("status") PartyStatus status, @Param("swLat") double swLat, @Param("neLat") double neLat,
                                                  @Param("swLng") double swLng, @Param("neLng") double neLng, Limit limit);
 
-    // 노쇼는 제외한 동승 횟수 쿼리
+    // 동승 횟수 - 끝난(FINISHED) 방에 있었던 횟수
     @Query("""
                     select m.memberId as memberId, count(m) as count
                     from PartyMemberEntity m
                     where m.memberId in :memberIds and m.party.status = :status
-                        and (m.noShowAt is null or m.noShowVoidedAt is not null)
                     group by m.memberId
             """)
     List<MemberRideCount> countByMemberIdsAndStatus(@Param("memberIds") Collection<Long> memberIds, @Param("status") PartyStatus status);
 
-    // 자동 정리 대상 - 실시간 방은 만든 시각(created_at), 예약 방은 출발 시각(departure_at)이 지정된 시간 보다 이른 열린 방.
+    // 자동 정리 대상 - 약속이 있는 방(확정한 실시간 방·예약 방)은 약속 시각, 약속이 없는 실시간 방은 만든 시각이 cutoff 보다 이른 열린 방
     @Query("""
             select p.id from PartyEntity p
             where p.status in :statuses
-                and ((p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.REALTIME and p.createdAt < :cutoff)
-                    or (p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.RESERVED and p.departureAt < :cutoff))
+                and ((p.departureAt is null and p.createdAt < :cutoff)
+                    or (p.departureAt is not null and p.departureAt < :cutoff))
             """)
     List<Long> findAutoCloseTargetIds(@Param("statuses") Collection<PartyStatus> statuses, @Param("cutoff") Instant cutoff);
 
@@ -88,6 +88,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
             from PartyEntity p
             where p.status = :status
                 and p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.RESERVED
+                and (select count(m) from PartyMemberEntity m where m.party = p) < p.capacity
                 and p.departureAt between :from and :to
             order by p.departureAt asc, p.id asc
             """)
@@ -100,6 +101,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
             from PartyEntity p
             where p.status = :status
                 and p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.RESERVED
+                and (select count(m) from PartyMemberEntity m where m.party = p) < p.capacity
                 and p.departureAt between :from and :to
                 and p.departureLat between :swLat and :neLat
                 and p.departureLng between :swLng and :neLng
@@ -125,6 +127,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
     @Query("""
             select p.id from PartyEntity p
             where p.status = :status
+                and (select count(m) from PartyMemberEntity m where m.party = p) < 2
                 and ((p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.REALTIME and p.createdAt < :realtimeCreatedBefore)
                     or (p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.RESERVED and p.departureAt <= :now))
             """)
@@ -172,6 +175,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
             FROM match_room m
             WHERE m.status = 'ACTIVE'
               AND m.room_type = 'REALTIME'
+              AND (SELECT COUNT(*) FROM user_match_room um WHERE um.match_id = m.id) < m.capacity
               AND ST_DWithin(m.departure_geog,
                              CAST(ST_SetSRID(ST_MakePoint(:depLng, :depLat), 4326) AS geography),
                              :radius)
@@ -200,6 +204,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
             FROM match_room m
             WHERE m.status = 'ACTIVE'
               AND m.room_type = 'RESERVED'
+              AND (SELECT COUNT(*) FROM user_match_room um WHERE um.match_id = m.id) < m.capacity
               AND m.departure_at >= :from
               AND m.departure_at < :to
               AND ST_DWithin(m.departure_geog,
@@ -223,6 +228,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
             FROM match_room m
             WHERE m.status = 'ACTIVE'
               AND m.room_type = 'RESERVED'
+              AND (SELECT COUNT(*) FROM user_match_room um WHERE um.match_id = m.id) < m.capacity
               AND m.departure_at >= :from
               AND m.departure_at < :to
               AND ST_DWithin(m.departure_geog,

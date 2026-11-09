@@ -40,7 +40,7 @@ class PartyAccessService implements PartyAccess {
     @Override
     public boolean isOnboardingMember(Long partyId, Long memberId) {
         return parties.findById(partyId)
-                .map(party -> party.hasMember(memberId) && party.getStatus().isOngoing())
+                .map(party -> party.isMember(memberId) && party.getStatus().isOpen())
                 .orElse(false);
     }
 

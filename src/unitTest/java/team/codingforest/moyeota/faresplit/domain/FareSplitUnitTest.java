@@ -31,8 +31,7 @@ class FareSplitUnitTest {
     private static final Long PAYER_ID = 1L;
     private static final Long RIDER_ID = 2L;
     private static final Long LATE_RIDER_ID = 3L;
-    private static final Long NO_SHOW_ID = 4L;
-    private static final Long VOIDED_NO_SHOW_ID = 5L;
+    private static final Long ABSENT_ID = 4L;
     private static final Long CASH_RIDER_ID = 6L;
     private static final Long IDLE_RIDER_ID = 7L;
     private static final Long OUTSIDER_ID = 99L;
@@ -84,14 +83,14 @@ class FareSplitUnitTest {
         });
     }
 
-    @DisplayName("open - 노쇼 멤버는 탑승자가 아니라 송금 대상에서 빠지고 N 에도 세지 않는다")
+    @DisplayName("open - 도착을 누르지 않은 멤버는 탑승자가 아니라 송금 대상에서 빠지고 N 에도 세지 않는다")
     @Test
-    void open_excludesNoShow() {
+    void open_excludesAbsentMember() {
 
         /*
          * settings
          */
-        RideRoster party = withNoShow();
+        RideRoster party = withAbsent();
 
         /*
          * test
@@ -104,26 +103,6 @@ class FareSplitUnitTest {
         assertThat(split.senderIds()).containsExactly(RIDER_ID);
         assertThat(split.getAmountPerPerson()).as("18700 / 2").isEqualTo(9_350);
         assertThat(split.payerShare()).isEqualTo(9_350);
-    }
-
-    @DisplayName("open - 노쇼가 무효로 돌아갔어도 도착을 누르지 않은 멤버는 탑승자가 아니다")
-    @Test
-    void open_excludesVoidedNoShow() {
-
-        /*
-         * settings
-         */
-        RideRoster party = withVoidedNoShow();
-
-        /*
-         * test
-         */
-        FareSplit split = FareSplit.create(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, NOW);
-
-        /*
-         * verify
-         */
-        assertThat(split.senderIds()).containsExactly(RIDER_ID);
     }
 
     @DisplayName("open - payer 가 합류 순 중간이어도 나머지 탑승자를 합류 순으로 담는다")
@@ -187,39 +166,19 @@ class FareSplitUnitTest {
         assertBusinessException(thrown, FareSplitErrorCode.PARTY_NOT_FINISHED);
     }
 
-    @DisplayName("open - 노쇼로 찍힌 멤버는 payer 가 될 수 없어 NOT_A_RIDER")
+    @DisplayName("open - 도착을 누르지 않은 멤버는 payer 가 될 수 없어 NOT_A_RIDER")
     @Test
-    void open_payerNoShow() {
+    void open_payerAbsent() {
 
         /*
          * settings
          */
-        RideRoster party = withNoShow();
+        RideRoster party = withAbsent();
 
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> FareSplit.create(party, NO_SHOW_ID, 10_000, Bank.KB, ACCOUNT, NOW));
-
-        /*
-         * verify
-         */
-        assertBusinessException(thrown, FareSplitErrorCode.NOT_A_RIDER);
-    }
-
-    @DisplayName("open - 노쇼가 무효로 돌아갔어도 도착을 누르지 않은 멤버는 payer 가 될 수 없어 NOT_A_RIDER")
-    @Test
-    void open_payerVoidedNoShow() {
-
-        /*
-         * settings
-         */
-        RideRoster party = withVoidedNoShow();
-
-        /*
-         * test
-         */
-        Throwable thrown = catchThrowable(() -> FareSplit.create(party, VOIDED_NO_SHOW_ID, 10_000, Bank.KB, ACCOUNT, NOW));
+        Throwable thrown = catchThrowable(() -> FareSplit.create(party, ABSENT_ID, 10_000, Bank.KB, ACCOUNT, NOW));
 
         /*
          * verify
@@ -254,7 +213,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        RideRoster party = finished(List.of(PAYER_ID, NO_SHOW_ID), List.of(PAYER_ID));
+        RideRoster party = finished(List.of(PAYER_ID, ABSENT_ID), List.of(PAYER_ID));
 
         /*
          * test
@@ -368,7 +327,7 @@ class FareSplitUnitTest {
         assertThat(sender).isEqualTo(FareSplitRole.SENDER);
     }
 
-    @DisplayName("roleOf - 정산에 없는 사람(노쇼 멤버·방 밖)은 NOT_FARE_SPLIT_PARTICIPANT")
+    @DisplayName("roleOf - 정산에 없는 사람(도착하지 않은 멤버·방 밖)은 NOT_FARE_SPLIT_PARTICIPANT")
     @ParameterizedTest
     @ValueSource(longs = {4L, 99L})
     void roleOf_notParticipant(Long memberId) {
@@ -376,7 +335,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        FareSplit split = FareSplit.create(withNoShow(), PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
+        FareSplit split = FareSplit.create(withAbsent(), PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
 
         /*
          * test
@@ -959,14 +918,14 @@ class FareSplitUnitTest {
         assertThat(split.getCreatedAt()).isEqualTo(NOW);
     }
 
-    @DisplayName("edit - 보내는 사람이 한 명이면 둘로 나눈다(노쇼 멤버는 N 에 세지 않는다)")
+    @DisplayName("edit - 보내는 사람이 한 명이면 둘로 나눈다(도착하지 않은 멤버는 N 에 세지 않는다)")
     @Test
     void edit_twoRiders() {
 
         /*
          * settings
          */
-        FareSplit split = FareSplit.create(withNoShow(), PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
+        FareSplit split = FareSplit.create(withAbsent(), PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
 
         /*
          * test
@@ -1507,14 +1466,9 @@ class FareSplitUnitTest {
         return finished(List.of(PAYER_ID, RIDER_ID, LATE_RIDER_ID), List.of(PAYER_ID, RIDER_ID, LATE_RIDER_ID));
     }
 
-    /** 합류 순 payer(도착) → 노쇼 → rider(도착). 노쇼는 탑승자가 아니다(matching 이 정한다) */
-    private static RideRoster withNoShow() {
-        return finished(List.of(PAYER_ID, NO_SHOW_ID, RIDER_ID), List.of(PAYER_ID, RIDER_ID));
-    }
-
-    /** 합류 순 payer(도착) → 도착하지 않아 노쇼였다가 무효로 돌아간 멤버 → rider(도착). 무효 노쇼도 도착하지 않았으면 탑승자가 아니다 */
-    private static RideRoster withVoidedNoShow() {
-        return finished(List.of(PAYER_ID, VOIDED_NO_SHOW_ID, RIDER_ID), List.of(PAYER_ID, RIDER_ID));
+    /** 합류 순 payer(도착) → 도착하지 않은 멤버 → rider(도착). 도착한 멤버만 탑승자다(matching 이 정한다) */
+    private static RideRoster withAbsent() {
+        return finished(List.of(PAYER_ID, ABSENT_ID, RIDER_ID), List.of(PAYER_ID, RIDER_ID));
     }
 
     /** 동승이 끝난 방. 멤버·탑승자 모두 합류 순 */

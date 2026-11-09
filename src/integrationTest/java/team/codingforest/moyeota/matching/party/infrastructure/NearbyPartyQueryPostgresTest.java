@@ -9,6 +9,8 @@ import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
+import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
@@ -43,7 +45,7 @@ class NearbyPartyQueryPostgresTest {
     @Test
     void 반경_안의_방을_현재_인원과_함께_돌려준다() {
         Party party = create(3);
-        party.join(2L);
+        party.join(2L, Instant.now());
         Long id = save(party);
 
         NearbyPartySummary found = findNear(id);
@@ -55,15 +57,31 @@ class NearbyPartyQueryPostgresTest {
     }
 
     @Test
-    void 정원이_찬_방은_ACTIVE_가_아니라_후보에서_빠진다() {
+    void 정원이_찬_ACTIVE_방은_후보에서_빠진다() {
         Party party = create(2);
-        party.join(2L);
+        party.join(2L, Instant.now());
         Long id = save(party);
 
         List<NearbyPartySummary> result = parties.findMatchesWithinRadius(DEPARTURE.latitude(), DEPARTURE.longitude(),
                 DESTINATION.latitude(), DESTINATION.longitude(), RADIUS);
 
+        assertThat(parties.findById(id).orElseThrow().getStatus()).as("정원이 차도 모집 중이다").isEqualTo(PartyStatus.ACTIVE);
         assertThat(result).extracting(NearbyPartySummary::id).doesNotContain(id);
+    }
+
+    @Test
+    void 정원이_찬_ACTIVE_방은_지도_영역_조회에서도_빠진다() {
+        Party 남은방 = create(3);
+        남은방.join(2L, Instant.now());
+        Long 남은방id = save(남은방);
+        Party 찬방 = create(2);
+        찬방.join(2L, Instant.now());
+        Long 찬방id = save(찬방);
+
+        List<PartySummary> result = parties.findSummariesWithinBounds(PartyStatus.ACTIVE,
+                DEPARTURE.latitude() - 0.01, DEPARTURE.latitude() + 0.01, DEPARTURE.longitude() - 0.01, DEPARTURE.longitude() + 0.01, 100);
+
+        assertThat(result).extracting(PartySummary::id).contains(남은방id).doesNotContain(찬방id);
     }
 
     @Test

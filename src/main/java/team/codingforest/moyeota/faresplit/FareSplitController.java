@@ -25,7 +25,7 @@ import team.codingforest.moyeota.user.api.CurrentUser;
 
 import java.util.UUID;
 
-@Tag(name = "택시비 정산", description = "동승이 끝난 뒤 택시비를 1/N 로 나누는 도우미. 함께 탄 사람(출발지 도착을 누르고 노쇼가 아닌 멤버) 중 한 명이 택시비를 다 내고 실제 요금과 받을 계좌를 넣으면, 나머지 사람이 1인당 금액을 토스·은행 앱으로 각자 보낸다. 앱은 돈을 옮기지 않는다. 방마다 정산 하나. 송금 상태는 NOT_SENT(아직 안 보냄) → SENT(보내는 사람이 보냈다고 누름) → CONFIRMED(받는 사람이 받았다고 확인)이고, 모든 송금이 CONFIRMED 가 되면 정산이 COMPLETED 로 닫히며 계좌번호를 지운다")
+@Tag(name = "택시비 정산", description = "동승이 끝난 뒤 택시비를 1/N 로 나누는 도우미. 함께 탄 사람(출발지 도착을 누른 멤버) 중 한 명이 택시비를 다 내고 실제 요금과 받을 계좌를 넣으면, 나머지 사람이 1인당 금액을 토스·은행 앱으로 각자 보낸다. 앱은 돈을 옮기지 않는다. 방마다 정산 하나. 송금 상태는 NOT_SENT(아직 안 보냄) → SENT(보내는 사람이 보냈다고 누름) → CONFIRMED(받는 사람이 받았다고 확인)이고, 모든 송금이 CONFIRMED 가 되면 정산이 COMPLETED 로 닫히며 계좌번호를 지운다")
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -35,7 +35,7 @@ public class FareSplitController {
     private final FareSplitService fareSplitService;
 
     @Operation(summary = "정산 시작", description = "토큰의 사용자가 받는 사람(PAYER)이 된다. 동승이 끝난(FINISHED) 방의 탑승자만 시작할 수 있고, 받는 사람을 포함한 탑승자가 2명 이상이어야 한다. 받는 사람을 뺀 탑승자가 보내는 사람(SENDER)이 된다. 1인당 금액 = 택시비 / 탑승자 수를 10원 단위로 올린 값, 받는 사람 몫 = 택시비 - 1인당 금액 × 보내는 사람 수. 계좌번호는 이 정산에만 암호화해 저장하고 정산이 끝나면 지운다. 응답은 정산 상세(받는 사람 화면)")
-    @ApiResponses({@ApiResponse(responseCode = "201", description = "시작한 정산 상세"), @ApiResponse(responseCode = "400", description = "INVALID_REQUEST - 필드 누락·없는 은행 코드 / INVALID_FARE - 택시비가 1,000~500,000원 밖 / INVALID_ACCOUNT_NUMBER - 계좌번호가 숫자 10~16자리가 아님"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER - 이 방의 멤버가 아님 / NOT_A_RIDER - 출발지 도착을 누르지 않았거나 노쇼인 멤버"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_NOT_FINISHED - 아직 출발하지 않은 방 / NOT_ENOUGH_RIDERS - 함께 탄 사람이 혼자 / FARE_SPLIT_ALREADY_EXISTS - 이미 정산을 시작한 방(GET 으로 본다)")})
+    @ApiResponses({@ApiResponse(responseCode = "201", description = "시작한 정산 상세"), @ApiResponse(responseCode = "400", description = "INVALID_REQUEST - 필드 누락·없는 은행 코드 / INVALID_FARE - 택시비가 1,000~500,000원 밖 / INVALID_ACCOUNT_NUMBER - 계좌번호가 숫자 10~16자리가 아님"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER - 이 방의 멤버가 아님 / NOT_A_RIDER - 출발지 도착을 누르지 않은 멤버"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_NOT_FINISHED - 아직 출발하지 않은 방 / NOT_ENOUGH_RIDERS - 함께 탄 사람이 혼자 / FARE_SPLIT_ALREADY_EXISTS - 이미 정산을 시작한 방(GET 으로 본다)")})
     @PostMapping(FARE_SPLIT)
     public ResponseEntity<FareSplitDetailResponse> create(@PathVariable Long partyId, @CurrentUser Long memberId, @Valid @RequestBody FareSplitRequest request) {
         FareSplitDetailResponse detail = fareSplitService.create(partyId, memberId, request.totalFare(), request.bankCode(), request.accountNumber());

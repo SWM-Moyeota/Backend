@@ -49,7 +49,7 @@ class ReservationReminderServiceTest {
     @Test
     void 구성원_모두에게_알리고_보낸_시각을_남긴다() {
         Party party = savedReservation();
-        party.join(2L);
+        party.join(2L, Instant.now());
         parties.save(party);
 
         service.remind(party.getId());
@@ -61,7 +61,9 @@ class ReservationReminderServiceTest {
 
     @Test
     void 이미_보낸_방에는_다시_보내지_않는다() {
-        Long id = savedReservation().getId();
+        Party party = savedReservation();
+        party.join(2L, Instant.now());
+        Long id = parties.save(party).getId();
 
         service.remind(id);
         service.remind(id);
@@ -70,9 +72,22 @@ class ReservationReminderServiceTest {
     }
 
     @Test
+    void 혼자인_예약_방에는_보내지_않고_보낸_시각도_남기지_않는다() {
+        // 출발 시각까지 혼자면 모집 만료로 닫힐 방이라 "출발 전" 알림이 맞지 않는다
+        Long id = savedReservation().getId();
+
+        service.remind(id);
+
+        assertThat(notified).isEmpty();
+        assertThat(parties.findById(id).orElseThrow().getReminderSentAt()).isNull();
+    }
+
+    @Test
     void 취소된_방에는_보내지_않는다() {
         Party party = savedReservation();
-        party.expireRecruiting();
+        party.join(2L, Instant.now());
+        party.leave(2L);
+        party.leave(1L);
         parties.save(party);
 
         service.remind(party.getId());

@@ -28,9 +28,9 @@ class DriverTablesDropPostgresTest {
     private static final List<String> DROPPED = List.of("taxi", "taxi_driver", "driver_setting", "driver_report",
             "settlement", "settlement_ledger", "payout", DRIVER_PAYOUT_ACCOUNT);
     // 살아 있는 테이블 - V32 가 건드리면 안 된다
-    // 코드가 @Table 로 매핑하는 14개 + 엔티티 없이 JDBC 로 쓰는 2개(Spring Modulith event_publication, EventDeadLetterJdbc event_dead_letter)
+    // 코드가 @Table 로 매핑하는 13개 + 엔티티 없이 JDBC 로 쓰는 2개(Spring Modulith event_publication, EventDeadLetterJdbc event_dead_letter)
     private static final List<String> LIVE = List.of("chat_message", "chat_report", "chat_room", "chat_room_user", "favorite_place",
-            "local_user", "match_room", "no_show_objection", "refresh_token", "ride_record", "user_deletion", "user_match_room",
+            "local_user", "match_room", "refresh_token", "ride_record", "user_deletion", "user_match_room",
             "user_profile", "users", "event_publication", "event_dead_letter");
 
     @Autowired JdbcTemplate jdbc;

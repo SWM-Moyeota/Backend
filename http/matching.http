@@ -73,12 +73,15 @@ GET {{host}}/api/v1/matching/reservations/search?depLat=37.4979&depLng=127.0276&
 ### 6-2. 예약 방 검색 - 도착지 없이 출발지만. 출발 시각 순, destinationNearby 는 null
 GET {{host}}/api/v1/matching/reservations/search?depLat=37.4979&depLng=127.0276&date=2026-11-06
 
-### 7. 방장이 약속 시간 확정 - 실시간 방, 2명 이상, 지금부터 1시간 안. 확정하면 모집이 끝나고 아무도 나갈 수 없다
+### 7. 방장이 약속 확정 - 실시간 방, 2명 이상, 지금부터 5분 뒤~1시간 사이. 만남 장소(departureLat·departureLng·departure)는 선택이고 셋을 함께 보내면 출발지가 바뀐다
 POST {{host}}/api/v1/matching/rooms/1/confirm
 Content-Type: application/json
 
 {
-  "departureAt": "2026-11-03T08:30:00Z"
+  "departureAt": "2026-11-03T08:30:00Z",
+  "departureLat": 37.4985,
+  "departureLng": 127.0290,
+  "departure": "강남역 2번 출구"
 }
 
 ### 8. 출발지 도착 - 약속 시간부터, 방 출발지 100m 안의 지금 위치. 다시 눌러도 204(처음 시각 유지)
@@ -90,28 +93,6 @@ Content-Type: application/json
   "longitude": 127.0276
 }
 
-### 9. 출발 - 도착한 멤버가 약속 시간 뒤에 누르면 방이 끝나고, 도착하지 않은 멤버는 노쇼로 남는다
+### 9. 출발 - 도착한 방장이 약속 시간 뒤에 누르면 방이 끝난다. 도착한 멤버가 정산 대상이다
 POST {{host}}/api/v1/matching/rooms/1/depart
 
-### 10. 내 노쇼 기록 - 노쇼 시각 최신순 최대 20개, 무효(voided)·이의 상태(objectionStatus) 포함
-GET {{host}}/api/v1/matching/no-shows
-
-### 11. 노쇼 이의 신청 - 이 방에서 노쇼인 멤버가 방마다 한 번. 201, 본문 없음
-POST {{host}}/api/v1/matching/rooms/1/no-show-objection
-Content-Type: application/json
-
-{
-  "reason": "약속 장소에 도착했는데 도착 버튼이 눌리지 않았습니다."
-}
-
-### 12. (운영자) 이의 신청 목록 - X-Operator-Token 은 서버 설정 OPERATOR_TOKEN. 값을 이 파일에 적어 커밋하지 않는다
-GET {{host}}/api/v1/operator/no-show-objections?status=PENDING
-X-Operator-Token: {{operatorToken}}
-
-### 13. (운영자) 이의 인정 - 노쇼 무효(노쇼 횟수에서 빠짐), 지금 걸린 제한 해제
-POST {{host}}/api/v1/operator/no-show-objections/1/accept
-X-Operator-Token: {{operatorToken}}
-
-### 14. (운영자) 이의 거절
-POST {{host}}/api/v1/operator/no-show-objections/1/reject
-X-Operator-Token: {{operatorToken}}

@@ -13,10 +13,8 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import team.codingforest.moyeota.common.exception.GlobalExceptionHandler;
-import team.codingforest.moyeota.matching.party.completion.ChatOnlyCompletionPolicy;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
-import team.codingforest.moyeota.matching.party.infrastructure.LoggingMeetingNotifier;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
 import java.time.Duration;
@@ -38,13 +36,11 @@ class PartyControllerTest {
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),
                 new RouteCacheTest());
         PartyJpaTest parties = new PartyJpaTest();
-        ChatOnlyCompletionPolicy policy = new ChatOnlyCompletionPolicy();
         PartyService service = new PartyService(parties, events, routeService,
-                new FakeUserAccess(), policy,
+                new FakeUserAccess(),
                 (name, task) -> task.run(), new PartyServiceTest.RecordingPartyChangeNotifier(),
                 new PartyServiceTest.FakeWalkRouteFinder(), new FakeRideRecords(new PartyJpaTest()),
-                new PartyOpener(parties, events, policy), new FakeNoShowPenalty(),
-                new MeetingNotificationService(parties, (name, task) -> task.run(), new LoggingMeetingNotifier()));
+                new PartyOpener(parties, events));
 
         mvc = MockMvcBuilders.standaloneSetup(new PartyController(service))
                 .setCustomArgumentResolvers(new StubCurrentUserResolver())
