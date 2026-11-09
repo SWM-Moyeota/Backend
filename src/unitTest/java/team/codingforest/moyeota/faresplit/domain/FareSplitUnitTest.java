@@ -61,7 +61,7 @@ class FareSplitUnitTest {
         /*
          * test
          */
-        FareSplit split = FareSplit.open(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
+        FareSplit split = FareSplit.create(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
 
         /*
          * verify
@@ -96,7 +96,7 @@ class FareSplitUnitTest {
         /*
          * test
          */
-        FareSplit split = FareSplit.open(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
+        FareSplit split = FareSplit.create(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
 
         /*
          * verify
@@ -118,7 +118,7 @@ class FareSplitUnitTest {
         /*
          * test
          */
-        FareSplit split = FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, NOW);
+        FareSplit split = FareSplit.create(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, NOW);
 
         /*
          * verify
@@ -138,7 +138,7 @@ class FareSplitUnitTest {
         /*
          * test
          */
-        FareSplit split = FareSplit.open(party, RIDER_ID, 10_000, Bank.KB, ACCOUNT, NOW);
+        FareSplit split = FareSplit.create(party, RIDER_ID, 10_000, Bank.KB, ACCOUNT, NOW);
 
         /*
          * verify
@@ -159,7 +159,7 @@ class FareSplitUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> FareSplit.open(party, OUTSIDER_ID, 10_000, Bank.KB, ACCOUNT, NOW));
+        Throwable thrown = catchThrowable(() -> FareSplit.create(party, OUTSIDER_ID, 10_000, Bank.KB, ACCOUNT, NOW));
 
         /*
          * verify
@@ -179,7 +179,7 @@ class FareSplitUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, NOW));
+        Throwable thrown = catchThrowable(() -> FareSplit.create(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, NOW));
 
         /*
          * verify
@@ -199,7 +199,7 @@ class FareSplitUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> FareSplit.open(party, NO_SHOW_ID, 10_000, Bank.KB, ACCOUNT, NOW));
+        Throwable thrown = catchThrowable(() -> FareSplit.create(party, NO_SHOW_ID, 10_000, Bank.KB, ACCOUNT, NOW));
 
         /*
          * verify
@@ -219,7 +219,7 @@ class FareSplitUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> FareSplit.open(party, VOIDED_NO_SHOW_ID, 10_000, Bank.KB, ACCOUNT, NOW));
+        Throwable thrown = catchThrowable(() -> FareSplit.create(party, VOIDED_NO_SHOW_ID, 10_000, Bank.KB, ACCOUNT, NOW));
 
         /*
          * verify
@@ -239,7 +239,7 @@ class FareSplitUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, NOW));
+        Throwable thrown = catchThrowable(() -> FareSplit.create(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, NOW));
 
         /*
          * verify
@@ -259,7 +259,7 @@ class FareSplitUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, NOW));
+        Throwable thrown = catchThrowable(() -> FareSplit.create(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, NOW));
 
         /*
          * verify
@@ -280,7 +280,7 @@ class FareSplitUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> FareSplit.open(party, PAYER_ID, totalFare, Bank.KB, ACCOUNT, NOW));
+        Throwable thrown = catchThrowable(() -> FareSplit.create(party, PAYER_ID, totalFare, Bank.KB, ACCOUNT, NOW));
 
         /*
          * verify
@@ -301,7 +301,7 @@ class FareSplitUnitTest {
         /*
          * test
          */
-        FareSplit split = FareSplit.open(party, PAYER_ID, totalFare, Bank.KB, ACCOUNT, NOW);
+        FareSplit split = FareSplit.create(party, PAYER_ID, totalFare, Bank.KB, ACCOUNT, NOW);
 
         /*
          * verify
@@ -376,7 +376,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        FareSplit split = FareSplit.open(withNoShow(), PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
+        FareSplit split = FareSplit.create(withNoShow(), PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
 
         /*
          * test
@@ -966,7 +966,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        FareSplit split = FareSplit.open(withNoShow(), PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
+        FareSplit split = FareSplit.create(withNoShow(), PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
 
         /*
          * test
@@ -1486,7 +1486,7 @@ class FareSplitUnitTest {
     // ───────────────────────── fixtures ─────────────────────────
 
     private static FareSplit openSplit() {
-        return FareSplit.open(threeRiders(), PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
+        return FareSplit.create(threeRiders(), PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, NOW);
     }
 
     /** 택시비 18,700원, 1인당 6,240원인 정산. 닫힌 정산은 계좌가 지워져 있다 */

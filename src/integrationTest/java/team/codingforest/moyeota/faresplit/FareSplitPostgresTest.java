@@ -125,10 +125,10 @@ class FareSplitPostgresTest {
     void 같은_방에_정산을_두_번_INSERT_하면_덮어쓰지_않고_PK_위반을_중복_키로_알린다() {
         Long room = finishedRoom(방장, 둘째);
         RideRoster party = new RideRoster(room, true, List.of(방장, 둘째), List.of(방장, 둘째));
-        tx.executeWithoutResult(status -> fareSplits.create(FareSplit.open(party, 방장, 10_000, Bank.KB, AccountNumber.of(RAW_ACCOUNT), Instant.now())));
+        tx.executeWithoutResult(status -> fareSplits.create(FareSplit.create(party, 방장, 10_000, Bank.KB, AccountNumber.of(RAW_ACCOUNT), Instant.now())));
 
         assertThatThrownBy(() -> tx.executeWithoutResult(status ->
-                fareSplits.create(FareSplit.open(party, 둘째, 20_000, Bank.KB, AccountNumber.of(RAW_ACCOUNT), Instant.now()))))
+                fareSplits.create(FareSplit.create(party, 둘째, 20_000, Bank.KB, AccountNumber.of(RAW_ACCOUNT), Instant.now()))))
                 .isInstanceOf(DuplicateKeyException.class);
         assertThat(jdbc.queryForObject("SELECT payer_id FROM fare_split WHERE match_id = ?", Long.class, room)).isEqualTo(방장);
     }

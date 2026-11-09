@@ -36,19 +36,19 @@ public class FareSplitTransfer {
         return TransferStatus.of(sentAt, confirmedAt);
     }
 
-    void setSentAt(Instant now) {
+    void markSent(Instant now) {
         sentAt = now;
     }
 
-    void setConfirmedAt(Instant now) {
+    void confirm(Instant now) {
         confirmedAt = now;
     }
 
-    void setLastRequestedAt(Instant now) {
+    void markRequested(Instant now) {
         lastRequestedAt = now;
     }
 
-    void setConfirmRequestedAt(Instant now) {
+    void markConfirmRequested(Instant now) {
         confirmRequestedAt = now;
     }
 
