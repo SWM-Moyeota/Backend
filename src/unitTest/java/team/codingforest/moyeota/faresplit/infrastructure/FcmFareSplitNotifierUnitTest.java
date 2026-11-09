@@ -126,7 +126,7 @@ class FcmFareSplitNotifierUnitTest {
          * verify
          */
         assertApns(payload, "823456", "택시비가 들어왔는지 확인해 주세요",
-                "보냈다는 송금이 하루째 확인을 기다리고 있어요. 입금을 확인했다면 받았어요를 눌러 주세요.");
+                "보냈다는 송금이 아직 확인을 기다리고 있어요. 입금을 확인했다면 받았어요를 눌러 주세요.");
         assertAndroidAndData(payload, Map.of("type", "FARE_SPLIT_CONFIRM_REQUEST", "partyId", "123456"));
     }
 

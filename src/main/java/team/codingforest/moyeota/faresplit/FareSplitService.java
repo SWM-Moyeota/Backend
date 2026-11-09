@@ -50,9 +50,7 @@ public class FareSplitService {
     private final FareSplitNotifier notifier;
 
     /**
-     *  payerId 가 택시비를 다 낸 사람이다. 동승이 끝난 방의 탑승자만, 방마다 한 번 시작할 수 있다.
-     *  방 행은 잠그지 않는다 - 끝난 방의 탑승자는 더 바뀌지 않고, 방마다 하나는 PK(fare_split.match_id)가 지킨다.
-     *  보내는 사람 전원에게 첫 송금 요청을 보낸다 - 사용자가 누른 일이라 방해 금지 시간에도 보낸다
+     *  보내는 사람 전원에게 첫 송금 요청을 보낸다
      */
     @Transactional
     public FareSplitDetailResponse create(Long partyId, Long payerId, int totalFare, Bank bank, String accountNumber) {
@@ -64,10 +62,10 @@ public class FareSplitService {
 
         FareSplit split = FareSplit.open(party, payerId, totalFare, bank, account, Instant.now());
 
-        // 흔한 경우(이미 시작한 방)는 INSERT 없이 막는다
         if(fareSplits.existsByPartyId(partyId)) throw new BusinessException(FareSplitErrorCode.FARE_SPLIT_ALREADY_EXISTS);
 
         FareSplit saved;
+
         try {
             saved = fareSplits.create(split);
         } catch (DuplicateKeyException e) {
@@ -144,7 +142,7 @@ public class FareSplitService {
         split.ensurePayer(payerId);
         Long senderId = senderIdOf(split, senderPublicId);
 
-        split.markNotReceived(payerId, senderId);
+        split.markNotReceived(payerId, senderId, Instant.now());
         fareSplits.save(split);
 
         afterCommitExecutor.execute("fare-split.not-received", () -> notifier.notifyNotReceived(partyId, senderId));
@@ -198,7 +196,7 @@ public class FareSplitService {
     }
 
     /**
-     *  시작하고 7일이 지난 OPEN 정산을 EXPIRED 로 닫고 계좌번호를 지운다(스케줄러). 조회와 잠금 사이에 닫히거나 취소된 정산은 그대로 둔다
+     *  시작하고 1일이 지난 OPEN 정산을 EXPIRED 로 닫고 계좌번호를 지운다(스케줄러). 조회와 잠금 사이에 닫히거나 취소된 정산은 그대로 둔다
      */
     @Transactional
     public void expire(Long partyId, Instant now) {

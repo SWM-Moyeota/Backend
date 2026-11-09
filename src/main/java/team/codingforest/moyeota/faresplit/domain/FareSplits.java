@@ -29,7 +29,7 @@ public interface FareSplits {
     /** partyIds 중 정산이 있고 memberId 가 받는 사람이거나 보내는 사람인 것(상태 무관) - 탑승 기록 한 페이지를 한 번에 읽는다 */
     List<FareShare> findShares(Long memberId, Collection<Long> partyIds);
 
-    /** now 에 송금 재요청 차례(TransferRequestSchedule 2..4번째)가 지난, 확인되지 않은 송금이 있는 OPEN 정산(받을 계좌가 있는 것만) */
+    /** 아직 안 보낸 송금 중 마지막 송금 요청 뒤 REMIND_AFTER 가 지난 것이 있는 OPEN 정산(받을 계좌가 있는 것만) */
     List<Long> findTransferRequestTargets(Instant now);
 
     /** 보냈다고 누른 지 CONFIRM_REQUEST_AFTER 가 지나도 확인되지 않았고 아직 입금 확인을 요청하지 않은 송금이 있는 OPEN 정산 */

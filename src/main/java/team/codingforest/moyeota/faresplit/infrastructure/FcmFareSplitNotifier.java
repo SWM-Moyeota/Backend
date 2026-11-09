@@ -113,7 +113,7 @@ public class FcmFareSplitNotifier implements FareSplitNotifier {
     private enum Push {
         REQUEST("FARE_SPLIT_REQUEST", "택시비를 나눠 내요", "%s을 보내 주세요. 받을 계좌는 앱에서 볼 수 있어요.", 700_000, "택시비 송금 요청"),
         REMINDER("FARE_SPLIT_REMINDER", "택시비를 아직 보내지 않았어요", "%s을 보낸 뒤 보냈어요를 눌러 주세요.", 700_000, "택시비 송금 재요청"),
-        CONFIRM_REQUEST("FARE_SPLIT_CONFIRM_REQUEST", "택시비가 들어왔는지 확인해 주세요", "보냈다는 송금이 하루째 확인을 기다리고 있어요. 입금을 확인했다면 받았어요를 눌러 주세요.", 800_000, "입금 확인 요청"),
+        CONFIRM_REQUEST("FARE_SPLIT_CONFIRM_REQUEST", "택시비가 들어왔는지 확인해 주세요", "보냈다는 송금이 아직 확인을 기다리고 있어요. 입금을 확인했다면 받았어요를 눌러 주세요.", 800_000, "입금 확인 요청"),
         NOT_RECEIVED("FARE_SPLIT_NOT_RECEIVED", "택시비가 아직 들어오지 않았대요", "받을 계좌와 금액을 확인하고 다시 보내 주세요.", 900_000, "못 받음 알림"),
         COMPLETED("FARE_SPLIT_COMPLETED", "택시비 정산이 끝났어요", "모든 송금이 확인됐어요.", 1_000_000, "정산 완료 알림");
 

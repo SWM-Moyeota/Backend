@@ -12,9 +12,7 @@ public interface PartyAccess {
     PartyChatSummary findChatSummary(Long partyId);
     boolean isOnboardingMember(Long partyId, Long memberId);
 
-    /** 방이 없으면 empty. 잠그지 않고 읽는다 */
     Optional<PartyRiders> findRiders(Long partyId);
 
-    /** 방 id → 출발지·도착지 이름. 없는 방은 빠진다 */
     Map<Long, PartyPlaces> findPlaces(Collection<Long> partyIds);
 }

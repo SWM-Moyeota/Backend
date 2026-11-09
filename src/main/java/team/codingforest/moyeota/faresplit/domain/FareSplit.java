@@ -1,7 +1,6 @@
 package team.codingforest.moyeota.faresplit.domain;
 
 import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.common.time.QuietHours;
 import team.codingforest.moyeota.faresplit.exception.FareSplitErrorCode;
 
 import java.time.Duration;
@@ -23,9 +22,11 @@ public class FareSplit {
     static final int MIN_RIDERS = 2;
     static final int ROUNDING_UNIT = 10;
     // 시작하고 이만큼 지나도 열려 있으면 EXPIRED 로 닫는다
-    public static final Duration EXPIRES_AFTER = Duration.ofDays(7);
+    public static final Duration EXPIRES_AFTER = Duration.ofDays(1);
+    // 아직 안 보낸 사람에게 마지막 송금 요청 뒤 이만큼 지나면 다시 요청한다. 만료 전까지 많아야 5번(4·8·12·16·20시간)이다
+    public static final Duration REMIND_AFTER = Duration.ofHours(4);
     // 보냈다고 누르고 이만큼 지나도 확인되지 않으면 받는 사람에게 입금 확인을 한 번 요청한다
-    public static final Duration CONFIRM_REQUEST_AFTER = Duration.ofHours(24);
+    public static final Duration CONFIRM_REQUEST_AFTER = Duration.ofHours(4);
 
     private final Long partyId;
     private final Long payerId;
@@ -56,7 +57,7 @@ public class FareSplit {
 
     /**
      *  정산 시작. 동승이 끝난(FINISHED) 방의 탑승자만 payer 가 될 수 있고, payer 를 포함한 탑승자가 2명 이상이어야 한다. 탑승자가 누구인지는 matching 이 정한다.
-     *  payer 를 뺀 탑승자마다 NOT_SENT 송금을 만들고, 이때 보내는 첫 송금 요청을 1번째 차례로 센다. 같은 방에 이미 정산이 있는지는 서비스가 본다
+     *  payer 를 뺀 탑승자마다 NOT_SENT 송금을 만들고, 이때 보내는 첫 송금 요청 시각을 남긴다. 같은 방에 이미 정산이 있는지는 서비스가 본다
      */
     public static FareSplit open(RideRoster party, Long payerId, int totalFare, Bank bank, AccountNumber accountNumber, Instant now) {
         Objects.requireNonNull(bank, "bank");
@@ -139,9 +140,10 @@ public class FareSplit {
     }
 
     /**
-     *  payer 가 아직 못 받았다고 되돌린다(SENT → NOT_SENT). SENT 가 아니면 TRANSFER_NOT_SENT
+     *  payer 가 아직 못 받았다고 되돌린다(SENT → NOT_SENT). SENT 가 아니면 TRANSFER_NOT_SENT.
+     *  보내는 사람에게 가는 못 받았어요 알림을 송금 요청으로 쳐 재요청은 그때부터 다시 센다
      */
-    public void markNotReceived(Long requesterId, Long senderId) {
+    public void markNotReceived(Long requesterId, Long senderId, Instant now) {
         ensurePayer(requesterId);
 
         FareSplitTransfer transfer = transferOf(senderId);
@@ -150,7 +152,7 @@ public class FareSplit {
 
         if(transfer.status() != TransferStatus.SENT) throw new BusinessException(FareSplitErrorCode.TRANSFER_NOT_SENT);
 
-        transfer.markNotReceived();
+        transfer.markNotReceived(now);
     }
 
     // ───────────────────────── 수정·취소 ─────────────────────────
@@ -211,38 +213,30 @@ public class FareSplit {
     // ───────────────────────── 알림·만료·탈퇴 ─────────────────────────
 
     /**
-     *  송금 재요청 차례(2..4번째)를 처리한다. 확인되지 않은 송금 중 차례가 지난 것의 차례를 넘기고, 그중 아직 안 보낸(NOT_SENT) 사람에게 보낸다.
-     *  보냈다고 누른(SENT) 사람은 차례만 넘긴다 - 나중에 못 받았어요로 되돌아와도 지난 차례를 몰아 받지 않는다.
-     *  서버가 멈춰 여러 차례가 밀렸으면 한 번만 보낸다. 방해 금지 시간에는 보내지 않고 차례만 넘긴다(출발 재촉과 같다).
-     *  받을 계좌가 지워졌으면(받는 사람 탈퇴) 보낼 곳이 없어 재요청하지 않는다
+     *  송금 재요청 - 아직 안 보낸(NOT_SENT) 사람 중 마지막 송금 요청 뒤 REMIND_AFTER 가 지난 사람에게 보내고 그때부터 다시 센다.
+     *  서버가 멈춰 늦어졌어도 한 번만 보낸다. 받을 계좌가 지워졌으면(받는 사람 탈퇴) 보낼 곳이 없어 재요청하지 않는다
      */
     public FareSplitNotice remindTransfers(Instant now) {
         if(status != FareSplitStatus.OPEN || accountNumber == null) return FareSplitNotice.notDue();
 
-        int passed = TransferRequestSchedule.passedCount(createdAt, now);
-
         List<FareSplitTransfer> due = transfers.stream()
-                .filter(t -> t.status() != TransferStatus.CONFIRMED && t.getRequestCount() < passed)
+                .filter(t -> t.status() == TransferStatus.NOT_SENT)
+                .filter(t -> !now.isBefore(t.getLastRequestedAt().plus(REMIND_AFTER)))
                 .toList();
 
         if(due.isEmpty()) return FareSplitNotice.notDue();
 
-        due.forEach(t -> t.passRequestTurns(passed));
+        due.forEach(t -> t.markRequested(now));
 
-        if(QuietHours.contains(now)) return FareSplitNotice.silent();
-
-        List<FareSplitTransfer> recipients = due.stream().filter(t -> t.status() == TransferStatus.NOT_SENT).toList();
-        recipients.forEach(t -> t.markRequested(now));
-
-        return FareSplitNotice.send(recipients.stream().map(FareSplitTransfer::getMemberId).toList());
+        return FareSplitNotice.send(due.stream().map(FareSplitTransfer::getMemberId).toList());
     }
 
     /**
-     *  입금 확인 요청 - 보냈다고 누르고 24시간이 지나도 확인되지 않은 송금마다 한 번, 받는 사람에게 묶어서 보낸다.
-     *  방해 금지 시간에는 아무것도 바꾸지 않고 끝날 때까지 기다린다. 못 받았어요로 되돌아갔다가 다시 보내면 그때부터 다시 센다
+     *  입금 확인 요청 - 보냈다고 누르고 4시간이 지나도 확인되지 않은 송금마다 한 번, 받는 사람에게 묶어서 보낸다.
+     *  못 받았어요로 되돌아갔다가 다시 보내면 그때부터 다시 센다
      */
     public FareSplitNotice requestConfirm(Instant now) {
-        if(status != FareSplitStatus.OPEN || QuietHours.contains(now)) return FareSplitNotice.notDue();
+        if(status != FareSplitStatus.OPEN) return FareSplitNotice.notDue();
 
         List<FareSplitTransfer> due = transfers.stream()
                 .filter(t -> t.status() == TransferStatus.SENT && t.getConfirmRequestedAt() == null)
@@ -257,7 +251,7 @@ public class FareSplit {
     }
 
     /**
-     *  시작하고 7일이 지나도 열려 있으면 EXPIRED 로 닫고 계좌번호를 지운다. 닫았으면 true
+     *  시작하고 1일이 지나도 열려 있으면 EXPIRED 로 닫고 계좌번호를 지운다. 닫았으면 true
      */
     public boolean expire(Instant now) {
         if(status != FareSplitStatus.OPEN || now.isBefore(createdAt.plus(EXPIRES_AFTER))) return false;

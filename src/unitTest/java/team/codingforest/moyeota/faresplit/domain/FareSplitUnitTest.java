@@ -12,6 +12,7 @@ import team.codingforest.moyeota.faresplit.exception.FareSplitErrorCode;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,16 +38,14 @@ class FareSplitUnitTest {
     private static final Instant LATER = NOW.plus(Duration.ofHours(2));
     private static final AccountNumber ACCOUNT = new AccountNumber("3333012345678");
     private static final AccountNumber NEW_ACCOUNT = new AccountNumber("110123456789");
-    // NOW(한국 시각 11-03 21:40)에 시작한 정산의 재요청 차례 - 2번째 22:40, 3번째 11-04 10:00, 4번째 11-05 10:00(한국 시각)
-    private static final Instant SECOND_DUE = NOW.plus(Duration.ofHours(1));
-    private static final Instant THIRD_DUE = Instant.parse("2026-11-04T01:00:00Z");
-    private static final Instant FOURTH_DUE = Instant.parse("2026-11-05T01:00:00Z");
-    // 한국 시각 11-03 23:30 - 방해 금지 시간
-    private static final Instant QUIET = Instant.parse("2026-11-03T14:30:00Z");
+    // NOW(한국 시각 11-03 21:40)에 보낸 첫 송금 요청 4시간 뒤(11-04 01:40). 새벽이어도 보낸다
+    private static final Instant REMIND_DUE = NOW.plus(FareSplit.REMIND_AFTER);
+    // SENT_AT(한국 시각 11-03 21:45)에 보냈다고 누르고 4시간 뒤(11-04 01:45). 새벽이어도 보낸다
+    private static final Instant CONFIRM_DUE = SENT_AT.plus(FareSplit.CONFIRM_REQUEST_AFTER);
 
     // ───────────────────────── open ─────────────────────────
 
-    @DisplayName("open - payer 를 뺀 탑승자마다 NOT_SENT 송금을 합류 순으로 만들고 1인당 금액은 탑승자 수로 나눠 10원 단위로 올린다. 첫 송금 요청을 1번째 차례로 센다")
+    @DisplayName("open - payer 를 뺀 탑승자마다 NOT_SENT 송금을 합류 순으로 만들고 1인당 금액은 탑승자 수로 나눠 10원 단위로 올린다. 첫 송금 요청 시각을 남긴다")
     @Test
     void open() {
 
@@ -76,7 +75,6 @@ class FareSplitUnitTest {
         assertThat(split.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(RIDER_ID, LATE_RIDER_ID);
         assertThat(split.getTransfers()).allSatisfy(t -> {
             assertThat(t.status()).isEqualTo(TransferStatus.NOT_SENT);
-            assertThat(t.getRequestCount()).isEqualTo(1);
             assertThat(t.getLastRequestedAt()).isEqualTo(NOW);
             assertThat(t.getConfirmRequestedAt()).isNull();
         });
@@ -325,7 +323,7 @@ class FareSplitUnitTest {
          * settings
          */
         List<FareSplitTransfer> transfers = java.util.stream.LongStream.rangeClosed(2, riders)
-                .mapToObj(id -> FareSplitTransfer.load(id, null, null, 0, null, null))
+                .mapToObj(id -> FareSplitTransfer.load(id, null, null, null, null))
                 .toList();
 
         /*
@@ -462,7 +460,7 @@ class FareSplitUnitTest {
          * settings
          */
         FareSplit split = FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, ACCOUNT, status, NOW, NOW.plusSeconds(60),
-                List.of(FareSplitTransfer.load(RIDER_ID, null, null, 0, null, null)));
+                List.of(FareSplitTransfer.load(RIDER_ID, null, null, null, null)));
 
         /*
          * test
@@ -485,7 +483,7 @@ class FareSplitUnitTest {
          * settings
          */
         FareSplit split = FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, null, FareSplitStatus.OPEN, NOW, null,
-                List.of(FareSplitTransfer.load(RIDER_ID, null, null, 0, null, null)));
+                List.of(FareSplitTransfer.load(RIDER_ID, null, null, null, null)));
 
         /*
          * test
@@ -579,8 +577,8 @@ class FareSplitUnitTest {
          * settings
          */
         FareSplit split = split(status,
-                FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null),
-                FareSplitTransfer.load(LATE_RIDER_ID, null, SENT_AT, 1, NOW, null));
+                FareSplitTransfer.load(RIDER_ID, SENT_AT, null, NOW, null),
+                FareSplitTransfer.load(LATE_RIDER_ID, null, SENT_AT, NOW, null));
 
         /*
          * test
@@ -645,7 +643,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        FareSplit split = split(FareSplitStatus.EXPIRED, FareSplitTransfer.load(RIDER_ID, null, null, 4, NOW, null));
+        FareSplit split = split(FareSplitStatus.EXPIRED, FareSplitTransfer.load(RIDER_ID, null, null, NOW, null));
 
         /*
          * test
@@ -669,8 +667,8 @@ class FareSplitUnitTest {
          * settings
          */
         FareSplit split = split(FareSplitStatus.OPEN,
-                FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null),
-                FareSplitTransfer.load(LATE_RIDER_ID, null, null, 1, NOW, null));
+                FareSplitTransfer.load(RIDER_ID, SENT_AT, null, NOW, null),
+                FareSplitTransfer.load(LATE_RIDER_ID, null, null, NOW, null));
 
         /*
          * test
@@ -722,8 +720,8 @@ class FareSplitUnitTest {
          * settings
          */
         FareSplit split = split(FareSplitStatus.OPEN,
-                FareSplitTransfer.load(RIDER_ID, SENT_AT, SENT_AT.plusSeconds(60), 1, NOW, null),
-                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, null, 1, NOW, SENT_AT.plus(Duration.ofDays(1))));
+                FareSplitTransfer.load(RIDER_ID, SENT_AT, SENT_AT.plusSeconds(60), NOW, null),
+                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, null, NOW, SENT_AT.plus(Duration.ofDays(1))));
 
         /*
          * test
@@ -751,8 +749,8 @@ class FareSplitUnitTest {
          */
         Instant closedAt = SENT_AT.plusSeconds(60);
         FareSplit split = FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, null, FareSplitStatus.COMPLETED, NOW, closedAt,
-                List.of(FareSplitTransfer.load(RIDER_ID, SENT_AT, closedAt, 1, NOW, null),
-                        FareSplitTransfer.load(LATE_RIDER_ID, null, closedAt, 1, NOW, null)));
+                List.of(FareSplitTransfer.load(RIDER_ID, SENT_AT, closedAt, NOW, null),
+                        FareSplitTransfer.load(LATE_RIDER_ID, null, closedAt, NOW, null)));
 
         /*
          * test
@@ -818,7 +816,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        FareSplit split = split(FareSplitStatus.EXPIRED, FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null));
+        FareSplit split = split(FareSplitStatus.EXPIRED, FareSplitTransfer.load(RIDER_ID, SENT_AT, null, NOW, null));
 
         /*
          * test
@@ -834,7 +832,7 @@ class FareSplitUnitTest {
 
     // ───────────────────────── markNotReceived ─────────────────────────
 
-    @DisplayName("markNotReceived - SENT 송금을 NOT_SENT 로 되돌리고 보낸 시각·입금 확인 요청 시각을 지운다. 송금 요청 횟수는 남긴다")
+    @DisplayName("markNotReceived - SENT 송금을 NOT_SENT 로 되돌리고 보낸 시각·입금 확인 요청 시각을 지운다. 못 받았어요 알림을 보낸 때를 마지막 송금 요청으로 남긴다")
     @Test
     void markNotReceived() {
 
@@ -843,13 +841,13 @@ class FareSplitUnitTest {
          */
         Instant confirmRequestedAt = SENT_AT.plus(Duration.ofDays(1));
         FareSplit split = split(FareSplitStatus.OPEN,
-                FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 2, NOW, confirmRequestedAt),
-                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, null, 1, NOW, null));
+                FareSplitTransfer.load(RIDER_ID, SENT_AT, null, NOW, confirmRequestedAt),
+                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, null, NOW, null));
 
         /*
          * test
          */
-        split.markNotReceived(PAYER_ID, RIDER_ID);
+        split.markNotReceived(PAYER_ID, RIDER_ID, LATER);
 
         /*
          * verify
@@ -858,8 +856,7 @@ class FareSplitUnitTest {
         assertThat(transfer.status()).isEqualTo(TransferStatus.NOT_SENT);
         assertThat(transfer.getSentAt()).isNull();
         assertThat(transfer.getConfirmRequestedAt()).isNull();
-        assertThat(transfer.getRequestCount()).isEqualTo(2);
-        assertThat(transfer.getLastRequestedAt()).isEqualTo(NOW);
+        assertThat(transfer.getLastRequestedAt()).isEqualTo(LATER);
         assertThat(split.findTransfer(LATE_RIDER_ID).orElseThrow().status()).isEqualTo(TransferStatus.SENT);
     }
 
@@ -871,14 +868,14 @@ class FareSplitUnitTest {
          * settings
          */
         FareSplit split = split(FareSplitStatus.OPEN,
-                FareSplitTransfer.load(RIDER_ID, null, null, 1, NOW, null),
-                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, LATER, 1, NOW, null));
+                FareSplitTransfer.load(RIDER_ID, null, null, NOW, null),
+                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, LATER, NOW, null));
 
         /*
          * test
          */
-        Throwable notSent = catchThrowable(() -> split.markNotReceived(PAYER_ID, RIDER_ID));
-        Throwable confirmed = catchThrowable(() -> split.markNotReceived(PAYER_ID, LATE_RIDER_ID));
+        Throwable notSent = catchThrowable(() -> split.markNotReceived(PAYER_ID, RIDER_ID, LATER));
+        Throwable confirmed = catchThrowable(() -> split.markNotReceived(PAYER_ID, LATE_RIDER_ID, LATER));
 
         /*
          * verify
@@ -895,12 +892,12 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        FareSplit split = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null));
+        FareSplit split = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, SENT_AT, null, NOW, null));
 
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> split.markNotReceived(RIDER_ID, RIDER_ID));
+        Throwable thrown = catchThrowable(() -> split.markNotReceived(RIDER_ID, RIDER_ID, LATER));
 
         /*
          * verify
@@ -916,12 +913,12 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        FareSplit split = split(FareSplitStatus.EXPIRED, FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null));
+        FareSplit split = split(FareSplitStatus.EXPIRED, FareSplitTransfer.load(RIDER_ID, SENT_AT, null, NOW, null));
 
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> split.markNotReceived(PAYER_ID, RIDER_ID));
+        Throwable thrown = catchThrowable(() -> split.markNotReceived(PAYER_ID, RIDER_ID, LATER));
 
         /*
          * verify
@@ -988,8 +985,8 @@ class FareSplitUnitTest {
          * settings
          */
         FareSplit split = split(FareSplitStatus.OPEN,
-                FareSplitTransfer.load(RIDER_ID, null, null, 1, NOW, null),
-                FareSplitTransfer.load(LATE_RIDER_ID, sentAt, confirmedAt, 1, NOW, null));
+                FareSplitTransfer.load(RIDER_ID, null, null, NOW, null),
+                FareSplitTransfer.load(LATE_RIDER_ID, sentAt, confirmedAt, NOW, null));
 
         /*
          * test
@@ -1017,7 +1014,7 @@ class FareSplitUnitTest {
          * settings
          */
         Instant confirmedAt = status == FareSplitStatus.COMPLETED ? LATER : null;
-        FareSplit split = split(status, FareSplitTransfer.load(RIDER_ID, null, confirmedAt, 4, NOW, null));
+        FareSplit split = split(status, FareSplitTransfer.load(RIDER_ID, null, confirmedAt, NOW, null));
 
         /*
          * test
@@ -1105,7 +1102,7 @@ class FareSplitUnitTest {
 
     // ───────────────────────── remindTransfers ─────────────────────────
 
-    @DisplayName("remindTransfers - 시작 1시간이 지나면 확인되지 않은 송금의 차례를 2번째로 넘기고 아직 안 보낸 사람에게만 보낸다")
+    @DisplayName("remindTransfers - 마지막 송금 요청 4시간 뒤(경계 포함) 아직 안 보낸 사람에게만 보내고 그 시각을 남긴다")
     @Test
     void remindTransfers() {
 
@@ -1113,152 +1110,123 @@ class FareSplitUnitTest {
          * settings
          */
         FareSplit split = split(FareSplitStatus.OPEN,
-                FareSplitTransfer.load(RIDER_ID, null, null, 1, NOW, null),
-                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, null, 1, NOW, null),
-                FareSplitTransfer.load(CASH_RIDER_ID, null, SENT_AT, 1, NOW, null));
+                FareSplitTransfer.load(RIDER_ID, null, null, NOW, null),
+                FareSplitTransfer.load(IDLE_RIDER_ID, null, null, NOW.plusSeconds(1), null),
+                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, null, NOW, null),
+                FareSplitTransfer.load(CASH_RIDER_ID, null, SENT_AT, NOW, null));
 
         /*
          * test
          */
-        FareSplitNotice notice = split.remindTransfers(SECOND_DUE);
+        FareSplitNotice notice = split.remindTransfers(REMIND_DUE);
 
         /*
          * verify
          */
         assertThat(notice.shouldSend()).isTrue();
         assertThat(notice.recipientIds()).containsExactly(RIDER_ID);
-        FareSplitTransfer notSent = split.findTransfer(RIDER_ID).orElseThrow();
-        assertThat(notSent.getRequestCount()).isEqualTo(2);
-        assertThat(notSent.getLastRequestedAt()).isEqualTo(SECOND_DUE);
-        FareSplitTransfer sent = split.findTransfer(LATE_RIDER_ID).orElseThrow();
-        assertThat(sent.getRequestCount()).as("보냈다고 누른 사람은 차례만 넘긴다").isEqualTo(2);
-        assertThat(sent.getLastRequestedAt()).isEqualTo(NOW);
-        FareSplitTransfer confirmed = split.findTransfer(CASH_RIDER_ID).orElseThrow();
-        assertThat(confirmed.getRequestCount()).as("확인된 송금은 그대로").isEqualTo(1);
+        assertThat(split.findTransfer(RIDER_ID).orElseThrow().getLastRequestedAt()).isEqualTo(REMIND_DUE);
+        assertThat(split.findTransfer(IDLE_RIDER_ID).orElseThrow().getLastRequestedAt()).as("4시간 1초 전").isEqualTo(NOW.plusSeconds(1));
+        assertThat(split.findTransfer(LATE_RIDER_ID).orElseThrow().getLastRequestedAt()).as("보냈다고 누름").isEqualTo(NOW);
+        assertThat(split.findTransfer(CASH_RIDER_ID).orElseThrow().getLastRequestedAt()).as("확인됨").isEqualTo(NOW);
     }
 
-    @DisplayName("remindTransfers - 다음 차례 전이면 아무것도 바꾸지 않는다")
+    @DisplayName("remindTransfers - 마지막 송금 요청 4시간 전이면 아무것도 바꾸지 않는다")
     @Test
     void remindTransfers_notDue() {
 
         /*
          * settings
          */
-        FareSplit beforeSecond = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, null, null, 1, NOW, null));
-        FareSplit beforeThird = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, null, null, 2, SECOND_DUE, null));
+        FareSplit split = split(FareSplitStatus.OPEN, notSent(RIDER_ID));
 
         /*
          * test
          */
-        FareSplitNotice second = beforeSecond.remindTransfers(SECOND_DUE.minusSeconds(1));
-        FareSplitNotice third = beforeThird.remindTransfers(THIRD_DUE.minusSeconds(1));
+        FareSplitNotice notice = split.remindTransfers(REMIND_DUE.minusSeconds(1));
 
         /*
          * verify
          */
-        assertThat(second.handled()).isFalse();
-        assertThat(beforeSecond.findTransfer(RIDER_ID).orElseThrow().getRequestCount()).isEqualTo(1);
-        assertThat(third.handled()).as("다음 날 10시(한국 시각) 전").isFalse();
-        assertThat(beforeThird.findTransfer(RIDER_ID).orElseThrow().getRequestCount()).isEqualTo(2);
-    }
-
-    @DisplayName("remindTransfers - 다음 날·그다음 날 10시(한국 시각)에 3·4번째를 보내고, 4번째 뒤에는 더 보내지 않는다")
-    @Test
-    void remindTransfers_dailyAndLimit() {
-
-        /*
-         * settings
-         */
-        FareSplit split = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, null, null, 2, SECOND_DUE, null));
-
-        /*
-         * test
-         */
-        FareSplitNotice third = split.remindTransfers(THIRD_DUE);
-        FareSplitNotice fourth = split.remindTransfers(FOURTH_DUE);
-        FareSplitNotice afterLimit = split.remindTransfers(FOURTH_DUE.plus(Duration.ofDays(1)));
-
-        /*
-         * verify
-         */
-        assertThat(third.recipientIds()).containsExactly(RIDER_ID);
-        assertThat(fourth.recipientIds()).containsExactly(RIDER_ID);
-        assertThat(afterLimit.handled()).isFalse();
-        FareSplitTransfer transfer = split.findTransfer(RIDER_ID).orElseThrow();
-        assertThat(transfer.getRequestCount()).isEqualTo(TransferRequestSchedule.LIMIT);
-        assertThat(transfer.getLastRequestedAt()).isEqualTo(FOURTH_DUE);
-    }
-
-    @DisplayName("remindTransfers - 방해 금지 시간이면 보내지 않고 차례만 넘긴다(나중에 몰아 보내지 않는다)")
-    @Test
-    void remindTransfers_quietHours() {
-
-        /*
-         * settings
-         */
-        FareSplit split = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, null, null, 1, NOW, null));
-
-        /*
-         * test
-         */
-        FareSplitNotice notice = split.remindTransfers(QUIET);
-        FareSplitNotice morning = split.remindTransfers(Instant.parse("2026-11-03T23:00:00Z"));
-
-        /*
-         * verify
-         */
-        assertThat(notice.handled()).isTrue();
         assertThat(notice.shouldSend()).isFalse();
-        assertThat(morning.handled()).as("방해 금지 시간이 끝나도 넘긴 차례는 다시 보내지 않는다").isFalse();
-        FareSplitTransfer transfer = split.findTransfer(RIDER_ID).orElseThrow();
-        assertThat(transfer.getRequestCount()).isEqualTo(2);
-        assertThat(transfer.getLastRequestedAt()).isEqualTo(NOW);
+        assertThat(split.findTransfer(RIDER_ID).orElseThrow().getLastRequestedAt()).isEqualTo(NOW);
     }
 
-    @DisplayName("remindTransfers - 서버가 멈춰 여러 차례가 밀렸으면 지난 차례를 모두 넘기고 한 번만 보낸다")
+    @DisplayName("remindTransfers - 1분마다 불러도 시작부터 만료 전까지 4·8·12·16·20시간에 한 번씩, 5번 보낸다")
     @Test
-    void remindTransfers_catchUp() {
+    void remindTransfers_untilExpiry() {
 
         /*
          * settings
          */
-        FareSplit split = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, null, null, 1, NOW, null));
-        Instant now = THIRD_DUE.plus(Duration.ofHours(1));
+        FareSplit split = split(FareSplitStatus.OPEN, notSent(RIDER_ID));
+        List<Instant> sentAt = new ArrayList<>();
 
         /*
          * test
          */
-        FareSplitNotice notice = split.remindTransfers(now);
+        for(Instant now = NOW; now.isBefore(NOW.plus(FareSplit.EXPIRES_AFTER)); now = now.plus(Duration.ofMinutes(1))) {
+            if(split.remindTransfers(now).shouldSend()) sentAt.add(now);
+        }
 
         /*
          * verify
          */
-        assertThat(notice.recipientIds()).containsExactly(RIDER_ID);
-        FareSplitTransfer transfer = split.findTransfer(RIDER_ID).orElseThrow();
-        assertThat(transfer.getRequestCount()).isEqualTo(3);
-        assertThat(transfer.getLastRequestedAt()).isEqualTo(now);
+        assertThat(sentAt).containsExactly(
+                NOW.plus(Duration.ofHours(4)),
+                NOW.plus(Duration.ofHours(8)),
+                NOW.plus(Duration.ofHours(12)),
+                NOW.plus(Duration.ofHours(16)),
+                NOW.plus(Duration.ofHours(20)));
     }
 
-    @DisplayName("remindTransfers - 차례가 지난 송금이 모두 보냈다고 누른 것이면 차례만 넘기고 보내지 않는다")
+    @DisplayName("remindTransfers - 서버가 멈춰 늦어졌으면 한 번만 보내고 그때부터 4시간을 다시 센다")
     @Test
-    void remindTransfers_allSent() {
+    void remindTransfers_late() {
 
         /*
          * settings
          */
-        FareSplit split = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null));
+        FareSplit split = split(FareSplitStatus.OPEN, notSent(RIDER_ID));
+        Instant late = NOW.plus(Duration.ofHours(13));
 
         /*
          * test
          */
-        FareSplitNotice notice = split.remindTransfers(SECOND_DUE);
+        FareSplitNotice first = split.remindTransfers(late);
+        FareSplitNotice again = split.remindTransfers(late.plus(FareSplit.REMIND_AFTER).minusSeconds(1));
+        FareSplitNotice next = split.remindTransfers(late.plus(FareSplit.REMIND_AFTER));
 
         /*
          * verify
          */
-        assertThat(notice.handled()).isTrue();
-        assertThat(notice.shouldSend()).isFalse();
-        assertThat(split.findTransfer(RIDER_ID).orElseThrow().getRequestCount()).isEqualTo(2);
+        assertThat(first.recipientIds()).containsExactly(RIDER_ID);
+        assertThat(again.shouldSend()).isFalse();
+        assertThat(next.recipientIds()).containsExactly(RIDER_ID);
+    }
+
+    @DisplayName("remindTransfers - 못 받았어요로 되돌아온 송금은 그 알림 4시간 뒤에 재요청한다(되돌린 직후 재요청이 겹치지 않는다)")
+    @Test
+    void remindTransfers_afterNotReceived() {
+
+        /*
+         * settings
+         */
+        FareSplit split = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, SENT_AT, null, NOW, null));
+        Instant notReceivedAt = NOW.plus(Duration.ofHours(5));
+        split.markNotReceived(PAYER_ID, RIDER_ID, notReceivedAt);
+
+        /*
+         * test
+         */
+        FareSplitNotice right = split.remindTransfers(notReceivedAt.plus(Duration.ofMinutes(1)));
+        FareSplitNotice due = split.remindTransfers(notReceivedAt.plus(FareSplit.REMIND_AFTER));
+
+        /*
+         * verify
+         */
+        assertThat(right.shouldSend()).isFalse();
+        assertThat(due.recipientIds()).containsExactly(RIDER_ID);
     }
 
     @DisplayName("remindTransfers - 닫힌 정산이나 받을 계좌가 지워진(받는 사람 탈퇴) 정산은 재요청하지 않는다")
@@ -1268,51 +1236,49 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        FareSplit expired = split(FareSplitStatus.EXPIRED, FareSplitTransfer.load(RIDER_ID, null, null, 1, NOW, null));
+        FareSplit expired = split(FareSplitStatus.EXPIRED, notSent(RIDER_ID));
         FareSplit noAccount = FareSplit.load(PARTY_ID, PAYER_ID, 18_700, 6_240, Bank.KAKAO, null, FareSplitStatus.OPEN, NOW, null,
-                List.of(FareSplitTransfer.load(RIDER_ID, null, null, 1, NOW, null)));
+                List.of(notSent(RIDER_ID)));
 
         /*
          * test
          */
-        FareSplitNotice closedNotice = expired.remindTransfers(SECOND_DUE);
-        FareSplitNotice noAccountNotice = noAccount.remindTransfers(SECOND_DUE);
+        FareSplitNotice closedNotice = expired.remindTransfers(REMIND_DUE);
+        FareSplitNotice noAccountNotice = noAccount.remindTransfers(REMIND_DUE);
 
         /*
          * verify
          */
-        assertThat(closedNotice.handled()).isFalse();
-        assertThat(noAccountNotice.handled()).isFalse();
-        assertThat(expired.findTransfer(RIDER_ID).orElseThrow().getRequestCount()).isEqualTo(1);
-        assertThat(noAccount.findTransfer(RIDER_ID).orElseThrow().getRequestCount()).isEqualTo(1);
+        assertThat(closedNotice.shouldSend()).isFalse();
+        assertThat(noAccountNotice.shouldSend()).isFalse();
+        assertThat(expired.findTransfer(RIDER_ID).orElseThrow().getLastRequestedAt()).isEqualTo(NOW);
+        assertThat(noAccount.findTransfer(RIDER_ID).orElseThrow().getLastRequestedAt()).isEqualTo(NOW);
     }
 
     // ───────────────────────── requestConfirm ─────────────────────────
 
-    @DisplayName("requestConfirm - 보냈다고 누르고 24시간이 지난 송금에 입금 확인 요청 시각을 남기고 받는 사람에게 보낸다")
+    @DisplayName("requestConfirm - 보냈다고 누르고 4시간이 지난(경계 포함) 송금에 입금 확인 요청 시각을 남기고 받는 사람에게 보낸다")
     @Test
     void requestConfirm() {
 
         /*
          * settings
          */
-        Instant laterSentAt = SENT_AT.plus(Duration.ofHours(1));
         FareSplit split = split(FareSplitStatus.OPEN,
-                FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null),
-                FareSplitTransfer.load(LATE_RIDER_ID, laterSentAt, null, 1, NOW, null));
-        Instant now = SENT_AT.plus(Duration.ofHours(24));
+                FareSplitTransfer.load(RIDER_ID, SENT_AT, null, NOW, null),
+                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT.plus(Duration.ofHours(1)), null, NOW, null));
 
         /*
          * test
          */
-        FareSplitNotice notice = split.requestConfirm(now);
+        FareSplitNotice notice = split.requestConfirm(CONFIRM_DUE);
 
         /*
          * verify
          */
         assertThat(notice.recipientIds()).containsExactly(PAYER_ID);
-        assertThat(split.findTransfer(RIDER_ID).orElseThrow().getConfirmRequestedAt()).isEqualTo(now);
-        assertThat(split.findTransfer(LATE_RIDER_ID).orElseThrow().getConfirmRequestedAt()).as("아직 24시간 전").isNull();
+        assertThat(split.findTransfer(RIDER_ID).orElseThrow().getConfirmRequestedAt()).isEqualTo(CONFIRM_DUE);
+        assertThat(split.findTransfer(LATE_RIDER_ID).orElseThrow().getConfirmRequestedAt()).as("아직 4시간 전").isNull();
     }
 
     @DisplayName("requestConfirm - 차례가 된 송금이 여럿이어도 받는 사람에게 한 번만 보내고 모두 요청한 것으로 남긴다")
@@ -1323,37 +1289,36 @@ class FareSplitUnitTest {
          * settings
          */
         FareSplit split = split(FareSplitStatus.OPEN,
-                FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null),
-                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, null, 1, NOW, null));
-        Instant now = SENT_AT.plus(Duration.ofHours(25));
+                FareSplitTransfer.load(RIDER_ID, SENT_AT, null, NOW, null),
+                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, null, NOW, null));
 
         /*
          * test
          */
-        FareSplitNotice notice = split.requestConfirm(now);
+        FareSplitNotice notice = split.requestConfirm(CONFIRM_DUE);
 
         /*
          * verify
          */
         assertThat(notice.recipientIds()).containsExactly(PAYER_ID);
-        assertThat(split.getTransfers()).extracting(FareSplitTransfer::getConfirmRequestedAt).containsOnly(now);
+        assertThat(split.getTransfers()).extracting(FareSplitTransfer::getConfirmRequestedAt).containsOnly(CONFIRM_DUE);
     }
 
-    @DisplayName("requestConfirm - 24시간 전이거나 이미 요청했거나 SENT 가 아닌 송금뿐이면 아무것도 바꾸지 않는다")
+    @DisplayName("requestConfirm - 4시간 전이거나 이미 요청했거나 SENT 가 아닌 송금뿐이면 아무것도 바꾸지 않는다")
     @Test
     void requestConfirm_notDue() {
 
         /*
          * settings
          */
-        // 한국 시각 11-04 22:45 - 방해 금지 시간이 아니어서 송금 조건만으로 가른다
-        Instant now = SENT_AT.plus(Duration.ofHours(25));
-        Instant requestedAt = SENT_AT.plus(Duration.ofHours(24));
+        Instant now = CONFIRM_DUE.plus(Duration.ofHours(1));
+        // SENT_AT 에 보냈으니 입금 확인 요청은 빨라야 CONFIRM_DUE 에 남는다
+        Instant requestedAt = CONFIRM_DUE;
         FareSplit split = split(FareSplitStatus.OPEN,
-                FareSplitTransfer.load(RIDER_ID, now.minus(Duration.ofHours(24)).plusSeconds(1), null, 1, NOW, null),
-                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, null, 1, NOW, requestedAt),
-                FareSplitTransfer.load(IDLE_RIDER_ID, null, null, 1, NOW, null),
-                FareSplitTransfer.load(CASH_RIDER_ID, null, SENT_AT, 1, NOW, null));
+                FareSplitTransfer.load(RIDER_ID, now.minus(FareSplit.CONFIRM_REQUEST_AFTER).plusSeconds(1), null, NOW, null),
+                FareSplitTransfer.load(LATE_RIDER_ID, SENT_AT, null, NOW, requestedAt),
+                FareSplitTransfer.load(IDLE_RIDER_ID, null, null, NOW, null),
+                FareSplitTransfer.load(CASH_RIDER_ID, null, SENT_AT, NOW, null));
 
         /*
          * test
@@ -1363,39 +1328,11 @@ class FareSplitUnitTest {
         /*
          * verify
          */
-        assertThat(notice.handled()).isFalse();
+        assertThat(notice.shouldSend()).isFalse();
         assertThat(split.findTransfer(RIDER_ID).orElseThrow().getConfirmRequestedAt()).isNull();
         assertThat(split.findTransfer(LATE_RIDER_ID).orElseThrow().getConfirmRequestedAt()).isEqualTo(requestedAt);
         assertThat(split.findTransfer(IDLE_RIDER_ID).orElseThrow().getConfirmRequestedAt()).isNull();
         assertThat(split.findTransfer(CASH_RIDER_ID).orElseThrow().getConfirmRequestedAt()).isNull();
-    }
-
-    @DisplayName("requestConfirm - 방해 금지 시간에는 아무것도 바꾸지 않고 기다렸다가, 끝나면 보낸다")
-    @Test
-    void requestConfirm_quietHours() {
-
-        /*
-         * settings
-         */
-        FareSplit split = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null));
-        // 24시간이 지난 한국 시각 11-04 23:30 과 다음 날 08:00
-        Instant quiet = QUIET.plus(Duration.ofDays(1));
-        Instant morning = Instant.parse("2026-11-04T23:00:00Z");
-
-        /*
-         * test
-         */
-        FareSplitNotice waiting = split.requestConfirm(quiet);
-        Instant requestedWhileQuiet = split.findTransfer(RIDER_ID).orElseThrow().getConfirmRequestedAt();
-        FareSplitNotice sent = split.requestConfirm(morning);
-
-        /*
-         * verify
-         */
-        assertThat(waiting.handled()).isFalse();
-        assertThat(requestedWhileQuiet).isNull();
-        assertThat(sent.recipientIds()).containsExactly(PAYER_ID);
-        assertThat(split.findTransfer(RIDER_ID).orElseThrow().getConfirmRequestedAt()).isEqualTo(morning);
     }
 
     @DisplayName("requestConfirm - 닫힌 정산이면 아무것도 바꾸지 않는다")
@@ -1405,7 +1342,7 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        FareSplit split = split(FareSplitStatus.EXPIRED, FareSplitTransfer.load(RIDER_ID, SENT_AT, null, 1, NOW, null));
+        FareSplit split = split(FareSplitStatus.EXPIRED, FareSplitTransfer.load(RIDER_ID, SENT_AT, null, NOW, null));
 
         /*
          * test
@@ -1415,21 +1352,21 @@ class FareSplitUnitTest {
         /*
          * verify
          */
-        assertThat(notice.handled()).isFalse();
+        assertThat(notice.shouldSend()).isFalse();
         assertThat(split.findTransfer(RIDER_ID).orElseThrow().getConfirmRequestedAt()).isNull();
     }
 
     // ───────────────────────── expire ─────────────────────────
 
-    @DisplayName("expire - 시작하고 7일이 지나면 EXPIRED 로 닫고 닫힌 시각을 남기며 계좌번호를 지운다")
+    @DisplayName("expire - 시작하고 1일이 지나면 EXPIRED 로 닫고 닫힌 시각을 남기며 계좌번호를 지운다")
     @Test
     void expire() {
 
         /*
          * settings
          */
-        FareSplit split = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, null, null, 4, NOW, null));
-        Instant now = NOW.plus(Duration.ofDays(7));
+        FareSplit split = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, null, null, NOW, null));
+        Instant now = NOW.plus(Duration.ofDays(1));
 
         /*
          * test
@@ -1446,19 +1383,19 @@ class FareSplitUnitTest {
         assertThat(split.tossDeeplink()).isEmpty();
     }
 
-    @DisplayName("expire - 7일이 지나기 전이면 그대로 둔다")
+    @DisplayName("expire - 1일이 지나기 전이면 그대로 둔다")
     @Test
     void expire_notYet() {
 
         /*
          * settings
          */
-        FareSplit split = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, null, null, 4, NOW, null));
+        FareSplit split = split(FareSplitStatus.OPEN, FareSplitTransfer.load(RIDER_ID, null, null, NOW, null));
 
         /*
          * test
          */
-        boolean expired = split.expire(NOW.plus(Duration.ofDays(7)).minusSeconds(1));
+        boolean expired = split.expire(NOW.plus(Duration.ofDays(1)).minusSeconds(1));
 
         /*
          * verify
@@ -1477,12 +1414,12 @@ class FareSplitUnitTest {
         /*
          * settings
          */
-        FareSplit split = split(status, FareSplitTransfer.load(RIDER_ID, SENT_AT, LATER, 1, NOW, null));
+        FareSplit split = split(status, FareSplitTransfer.load(RIDER_ID, SENT_AT, LATER, NOW, null));
 
         /*
          * test
          */
-        boolean expired = split.expire(NOW.plus(Duration.ofDays(8)));
+        boolean expired = split.expire(NOW.plus(Duration.ofDays(2)));
 
         /*
          * verify
@@ -1527,7 +1464,7 @@ class FareSplitUnitTest {
          */
         FareSplit split = openSplit();
         split.forgetAccount();
-        FareSplit completed = split(FareSplitStatus.COMPLETED, FareSplitTransfer.load(RIDER_ID, SENT_AT, LATER, 1, NOW, null));
+        FareSplit completed = split(FareSplitStatus.COMPLETED, FareSplitTransfer.load(RIDER_ID, SENT_AT, LATER, NOW, null));
 
         /*
          * test
@@ -1558,7 +1495,7 @@ class FareSplitUnitTest {
 
     /** 시작할 때 첫 송금 요청만 받고 아직 안 보낸 송금 */
     private static FareSplitTransfer notSent(Long memberId) {
-        return FareSplitTransfer.load(memberId, null, null, 1, NOW, null);
+        return FareSplitTransfer.load(memberId, null, null, NOW, null);
     }
 
     /** 셋 다 도착해 탄 방. 합류 순 payer → rider → late rider */

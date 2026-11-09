@@ -28,10 +28,10 @@ import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class FareSplitSweeperUnitTest {
-    // 한국 시각 11-04 12:00 - 방해 금지 시간이 아니다
+    // 한국 시각 11-04 12:00
     private static final Instant NOON = Instant.parse("2026-11-04T03:00:00Z");
-    // 한국 시각 11-04 23:30 - 방해 금지 시간
-    private static final Instant QUIET = Instant.parse("2026-11-04T14:30:00Z");
+    // 한국 시각 11-05 02:30
+    private static final Instant NIGHT = Instant.parse("2026-11-04T17:30:00Z");
 
     @Mock
     private FareSplits fareSplits;
@@ -99,28 +99,28 @@ class FareSplitSweeperUnitTest {
         verify(notificationService).requestConfirm(eq(6L), eq(NOON));
     }
 
-    @DisplayName("sweepAt - 방해 금지 시간에는 만료와 송금 재요청(차례만 넘김)은 하고 입금 확인 요청 대상은 찾지 않는다")
+    @DisplayName("sweepAt - 새벽에도 만료·송금 재요청·입금 확인 요청을 모두 처리한다")
     @Test
-    void sweepAt_quietHours() {
+    void sweepAt_night() {
 
         /*
          * settings
          */
         doReturn(List.of(1L)).when(fareSplits).findExpireTargets(any());
         doReturn(List.of(2L)).when(fareSplits).findTransferRequestTargets(any());
+        doReturn(List.of(3L)).when(fareSplits).findConfirmRequestTargets(any());
 
         /*
          * test
          */
-        sweeper.sweepAt(QUIET);
+        sweeper.sweepAt(NIGHT);
 
         /*
          * verify
          */
-        verify(fareSplitService).expire(eq(1L), eq(QUIET));
-        verify(notificationService).remindTransfers(eq(2L), eq(QUIET));
-        verify(fareSplits, never()).findConfirmRequestTargets(any());
-        verify(notificationService, never()).requestConfirm(anyLong(), any());
+        verify(fareSplitService).expire(eq(1L), eq(NIGHT));
+        verify(notificationService).remindTransfers(eq(2L), eq(NIGHT));
+        verify(notificationService).requestConfirm(eq(3L), eq(NIGHT));
     }
 
     @DisplayName("sweep - 지금 시각으로 돈다")

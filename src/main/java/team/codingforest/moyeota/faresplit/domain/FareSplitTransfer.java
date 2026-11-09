@@ -9,28 +9,25 @@ public class FareSplitTransfer {
     private final Long memberId;
     private Instant sentAt;
     private Instant confirmedAt;
-    // 처리한 송금 요청 차례 수(1..TransferRequestSchedule.LIMIT). 방해 금지 시간·보냄 상태로 보내지 않은 차례도 센다
-    private int requestCount;
-    // 실제로 송금 요청 알림을 보낸 마지막 시각
+    // 마지막 송금 요청 시각 - 첫 요청, 재요청, 못 받았어요 알림. 재요청은 이 시각부터 센다
     private Instant lastRequestedAt;
     private Instant confirmRequestedAt;
 
-    private FareSplitTransfer(Long memberId, Instant sentAt, Instant confirmedAt, int requestCount, Instant lastRequestedAt, Instant confirmRequestedAt) {
+    private FareSplitTransfer(Long memberId, Instant sentAt, Instant confirmedAt, Instant lastRequestedAt, Instant confirmRequestedAt) {
         this.memberId = memberId;
         this.sentAt = sentAt;
         this.confirmedAt = confirmedAt;
-        this.requestCount = requestCount;
         this.lastRequestedAt = lastRequestedAt;
         this.confirmRequestedAt = confirmRequestedAt;
     }
 
-    /** 정산을 시작하며 첫 송금 요청(1번째)을 보낸 NOT_SENT 송금 */
+    /** 정산을 시작하며 첫 송금 요청을 보낸 NOT_SENT 송금 */
     static FareSplitTransfer requested(Long memberId, Instant now) {
-        return new FareSplitTransfer(memberId, null, null, 1, now, null);
+        return new FareSplitTransfer(memberId, null, null, now, null);
     }
 
-    public static FareSplitTransfer load(Long memberId, Instant sentAt, Instant confirmedAt, int requestCount, Instant lastRequestedAt, Instant confirmRequestedAt) {
-        return new FareSplitTransfer(memberId, sentAt, confirmedAt, requestCount, lastRequestedAt, confirmRequestedAt);
+    public static FareSplitTransfer load(Long memberId, Instant sentAt, Instant confirmedAt, Instant lastRequestedAt, Instant confirmRequestedAt) {
+        return new FareSplitTransfer(memberId, sentAt, confirmedAt, lastRequestedAt, confirmRequestedAt);
     }
 
     public TransferStatus status() {
@@ -45,10 +42,6 @@ public class FareSplitTransfer {
         confirmedAt = now;
     }
 
-    void passRequestTurns(int count) {
-        requestCount = count;
-    }
-
     void markRequested(Instant now) {
         lastRequestedAt = now;
     }
@@ -57,10 +50,11 @@ public class FareSplitTransfer {
         confirmRequestedAt = now;
     }
 
-    /** SENT → NOT_SENT. 입금 확인 요청도 다시 할 수 있게 지운다 */
-    void markNotReceived() {
+    /** SENT → NOT_SENT. 입금 확인 요청도 다시 할 수 있게 지우고, 보내는 사람에게 가는 못 받았어요 알림을 송금 요청으로 친다 */
+    void markNotReceived(Instant now) {
         sentAt = null;
         confirmRequestedAt = null;
+        lastRequestedAt = now;
     }
 
     public Long getMemberId() {
@@ -73,10 +67,6 @@ public class FareSplitTransfer {
 
     public Instant getConfirmedAt() {
         return confirmedAt;
-    }
-
-    public int getRequestCount() {
-        return requestCount;
     }
 
     public Instant getLastRequestedAt() {

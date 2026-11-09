@@ -6,7 +6,6 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import team.codingforest.moyeota.faresplit.domain.FareShare;
-import team.codingforest.moyeota.faresplit.domain.FareSplitStatus;
 import team.codingforest.moyeota.faresplit.domain.OpenTransfer;
 
 import java.time.Instant;
@@ -19,7 +18,6 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
     @Query("select s from FareSplitEntity s left join fetch s.transfers where s.partyId = :partyId")
     Optional<FareSplitEntity> findWithTransfersByPartyId(@Param("partyId") Long partyId);
 
-    // 송금 행까지 join 해 잠그지 않는다 - 정산 행 하나만 잠그고 송금은 그 뒤에 읽는다
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from FareSplitEntity s where s.partyId = :partyId")
     Optional<FareSplitEntity> findByPartyIdForUpdate(@Param("partyId") Long partyId);
@@ -28,10 +26,10 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
             select s.partyId, s.payerId, s.amountPerPerson, t.sentAt, t.confirmedAt, s.createdAt
             from FareSplitTransferEntity t
             join t.fareSplit s
-            where t.memberId = :memberId and s.status = :status
+            where t.memberId = :memberId and s.status = team.codingforest.moyeota.faresplit.domain.FareSplitStatus.OPEN
             order by s.createdAt desc, s.partyId desc
             """)
-    List<OpenTransfer> findTransfersBySender(@Param("memberId") Long memberId, @Param("status") FareSplitStatus status);
+    List<OpenTransfer> findOpenTransfersBySender(@Param("memberId") Long memberId);
 
     // 송금 행을 펼치지 않고 정산 한 건당 한 줄 - 보내는 사람 수와 내가 보내는 사람인지는 송금 PK(match_id, user_id)로 센다
     @Query("""
@@ -43,20 +41,18 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
             """)
     List<FareShare> findShares(@Param("memberId") Long memberId, @Param("partyIds") Collection<Long> partyIds);
 
-    // 차례 n 은 시작 시각이 nth 번째 기준(TransferRequestSchedule.startedBefore)보다 이르면 지났다. 1번째는 시작할 때 보낸다
+    // 아직 안 보낸(NOT_SENT) 송금 중 마지막 송금 요청이 requestedBefore 이전인 것
     @Query("""
             select distinct s.partyId from FareSplitTransferEntity t
             join t.fareSplit s
             where s.status = team.codingforest.moyeota.faresplit.domain.FareSplitStatus.OPEN
                 and s.accountNumber is not null
+                and t.sentAt is null
                 and t.confirmedAt is null
-                and ((t.requestCount < 2 and s.createdAt < :secondBefore)
-                    or (t.requestCount = 2 and s.createdAt < :thirdBefore)
-                    or (t.requestCount = 3 and s.createdAt < :fourthBefore))
+                and t.lastRequestedAt <= :requestedBefore
             order by s.partyId
             """)
-    List<Long> findTransferRequestTargetIds(@Param("secondBefore") Instant secondBefore, @Param("thirdBefore") Instant thirdBefore,
-                                            @Param("fourthBefore") Instant fourthBefore);
+    List<Long> findTransferRequestTargetIds(@Param("requestedBefore") Instant requestedBefore);
 
     @Query("""
             select distinct s.partyId from FareSplitTransferEntity t

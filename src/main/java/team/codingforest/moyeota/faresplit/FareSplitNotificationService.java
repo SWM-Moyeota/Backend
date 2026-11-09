@@ -15,8 +15,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- *  스케줄러가 부르는 정산 알림 - 송금 재요청(2~4번째), 입금 확인 요청.
- *  언제 차례인지·방해 금지 시간에 어떻게 할지는 FareSplit 이 정하고 여기서는 정산 행 잠금·저장·커밋 후 전송을 묶는다.
+ *  스케줄러가 부르는 정산 알림 - 송금 재요청(마지막 요청 4시간 뒤), 입금 확인 요청.
+ *  누구에게 보낼지는 FareSplit 이 정하고 여기서는 정산 행 잠금·저장·커밋 후 전송을 묶는다.
  *  조회와 잠금 사이에 취소됐거나 다른 서버가 먼저 처리한 정산은 아무것도 하지 않는다
  */
 @Slf4j
@@ -28,7 +28,7 @@ public class FareSplitNotificationService {
     private final FareSplitNotifier notifier;
 
     /**
-     *  송금 재요청. 방해 금지 시간에는 보내지 않고 차례만 넘긴다 - 나중에 몰아 보내지 않는다
+     *  송금 재요청
      */
     @Transactional
     public void remindTransfers(Long partyId, Instant now) {
@@ -42,17 +42,12 @@ public class FareSplitNotificationService {
         FareSplit split = found.get();
         FareSplitNotice notice = split.remindTransfers(now);
 
-        if(!notice.handled()) {
+        if(!notice.shouldSend()) {
             log.info("송금 재요청 차례가 아니어서 건너 뜀 partyId={}, status={}", partyId, split.getStatus());
             return;
         }
 
         fareSplits.save(split);
-
-        if(!notice.shouldSend()) {
-            log.info("송금 재요청을 보내지 않고 차례만 넘김(방해 금지 시간이거나 모두 보냈다고 누름) partyId={}", partyId);
-            return;
-        }
 
         List<Long> recipientIds = notice.recipientIds();
         int amount = split.getAmountPerPerson();
@@ -62,7 +57,7 @@ public class FareSplitNotificationService {
     }
 
     /**
-     *  입금 확인 요청. 방해 금지 시간에는 아무것도 바꾸지 않아 끝난 뒤 다시 고른다
+     *  입금 확인 요청
      */
     @Transactional
     public void requestConfirm(Long partyId, Instant now) {

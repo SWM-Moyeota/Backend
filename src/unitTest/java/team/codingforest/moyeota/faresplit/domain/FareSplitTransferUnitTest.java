@@ -22,7 +22,7 @@ class FareSplitTransferUnitTest {
         /*
          * settings
          */
-        FareSplitTransfer transfer = FareSplitTransfer.load(MEMBER_ID, null, null, 0, null, null);
+        FareSplitTransfer transfer = FareSplitTransfer.load(MEMBER_ID, null, null, null, null);
 
         /*
          * test
@@ -42,7 +42,7 @@ class FareSplitTransferUnitTest {
         /*
          * settings
          */
-        FareSplitTransfer transfer = FareSplitTransfer.load(MEMBER_ID, SENT_AT, null, 1, null, null);
+        FareSplitTransfer transfer = FareSplitTransfer.load(MEMBER_ID, SENT_AT, null, null, null);
 
         /*
          * test
@@ -62,7 +62,7 @@ class FareSplitTransferUnitTest {
         /*
          * settings
          */
-        FareSplitTransfer transfer = FareSplitTransfer.load(MEMBER_ID, SENT_AT, CONFIRMED_AT, 1, null, null);
+        FareSplitTransfer transfer = FareSplitTransfer.load(MEMBER_ID, SENT_AT, CONFIRMED_AT, null, null);
 
         /*
          * test
@@ -82,7 +82,7 @@ class FareSplitTransferUnitTest {
         /*
          * settings
          */
-        FareSplitTransfer transfer = FareSplitTransfer.load(MEMBER_ID, null, CONFIRMED_AT, 0, null, null);
+        FareSplitTransfer transfer = FareSplitTransfer.load(MEMBER_ID, null, CONFIRMED_AT, null, null);
 
         /*
          * test
