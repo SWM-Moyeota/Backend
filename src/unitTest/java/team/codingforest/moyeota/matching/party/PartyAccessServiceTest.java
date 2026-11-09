@@ -41,7 +41,7 @@ class PartyAccessServiceTest {
 
     @Test
     void 모집_중인_방의_멤버는_true() {
-        Long partyId = save(openParty(3));
+        Long partyId = save(createParty(3));
 
         assertThat(access.isOnboardingMember(partyId, 방장)).isTrue();
     }
@@ -68,7 +68,7 @@ class PartyAccessServiceTest {
 
     @Test
     void 마지막_멤버가_나가_취소된_방은_false() {
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.leave(방장);   // 혼자 남은 사람이 나가면 CANCELED
         Long partyId = save(party);
 
@@ -81,14 +81,14 @@ class PartyAccessServiceTest {
 
     @Test
     void 방에_없는_사람은_false() {
-        Long partyId = save(openParty(3));
+        Long partyId = save(createParty(3));
 
         assertThat(access.isOnboardingMember(partyId, 남남)).isFalse();
     }
 
     @Test
     void 나간_사람은_false() {
-        Party party = openParty(3);
+        Party party = createParty(3);
         party.join(동승자);
         party.leave(동승자);
         Long partyId = save(party);
@@ -112,7 +112,7 @@ class PartyAccessServiceTest {
      */
     @Test
     void 방장만_있는_방도_채팅_요약이_조회된다() {
-        Long partyId = save(openParty(3));
+        Long partyId = save(createParty(3));
 
         PartyChatSummary summary = access.findChatSummary(partyId);
 
@@ -124,7 +124,7 @@ class PartyAccessServiceTest {
 
     @Test
     void 정원이_덜_찬_방은_지금까지_들어온_멤버만_담긴다() {
-        Party party = openParty(3);
+        Party party = createParty(3);
         party.join(동승자);
         Long partyId = save(party);
 
@@ -153,13 +153,13 @@ class PartyAccessServiceTest {
         return parties.save(party).getId();
     }
 
-    private Party openParty(int capacity) {
-        return Party.open(방장, 강남역, 판교역, "강남역", "판교역", new Capacity(capacity), 지금, 12000, 25, "_p~iF~ps|U_ulLnnqC");
+    private Party createParty(int capacity) {
+        return Party.create(방장, 강남역, 판교역, "강남역", "판교역", new Capacity(capacity), 지금, 12000, 25, "_p~iF~ps|U_ulLnnqC");
     }
 
     /** 정원 2명이 찬 방 */
     private Party completedParty() {
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.join(동승자);
         return party;
     }

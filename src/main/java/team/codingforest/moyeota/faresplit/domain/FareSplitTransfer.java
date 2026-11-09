@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.faresplit.domain;
 
+import team.codingforest.moyeota.faresplit.domain.enums.TransferStatus;
+
 import java.time.Instant;
 
 /**
@@ -34,19 +36,19 @@ public class FareSplitTransfer {
         return TransferStatus.of(sentAt, confirmedAt);
     }
 
-    void markSent(Instant now) {
+    void setSentAt(Instant now) {
         sentAt = now;
     }
 
-    void confirm(Instant now) {
+    void setConfirmedAt(Instant now) {
         confirmedAt = now;
     }
 
-    void markRequested(Instant now) {
+    void setLastRequestedAt(Instant now) {
         lastRequestedAt = now;
     }
 
-    void markConfirmRequested(Instant now) {
+    void setConfirmRequestedAt(Instant now) {
         confirmRequestedAt = now;
     }
 

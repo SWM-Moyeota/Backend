@@ -8,6 +8,10 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.exception.ErrorCode;
+import team.codingforest.moyeota.faresplit.domain.enums.Bank;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitRole;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.TransferStatus;
 import team.codingforest.moyeota.faresplit.exception.FareSplitErrorCode;
 
 import java.time.Duration;

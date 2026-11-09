@@ -67,7 +67,7 @@ class PartyOpenerUnitTest {
 
     @DisplayName("open - 정원이 남으면 생성자가 멤버인 ACTIVE 방을 저장하고 참여 이벤트를 발행한다")
     @Test
-    void open() {
+    void create() {
 
         /*
          * settings
@@ -80,7 +80,7 @@ class PartyOpenerUnitTest {
         /*
          * test
          */
-        PartyResult result = partyOpener.open(openCommand(3), ESTIMATE);
+        PartyResult result = partyOpener.open(createCommand(3), ESTIMATE);
 
         /*
          * verify
@@ -111,7 +111,7 @@ class PartyOpenerUnitTest {
 
     @DisplayName("open - 혼자 타는 방은 완료 정책을 돌려 다시 저장하고 참여 이벤트는 내지 않는다")
     @Test
-    void open_fullOnCreate() {
+    void create_fullOnCreate() {
 
         /*
          * settings
@@ -124,7 +124,7 @@ class PartyOpenerUnitTest {
         /*
          * test
          */
-        PartyResult result = partyOpener.open(openCommand(1), ESTIMATE);
+        PartyResult result = partyOpener.open(createCommand(1), ESTIMATE);
 
         /*
          * verify
@@ -139,7 +139,7 @@ class PartyOpenerUnitTest {
     /** 경로 조회는 트랜잭션 밖이라 PartyService 의 첫 검사와 저장 사이에 다른 방에 들어갈 수 있다 */
     @DisplayName("open - 경로 조회 중 다른 방에 들어갔으면 ALREADY_JOINED_OTHER_PARTY 이고 저장하지 않는다")
     @Test
-    void open_joinedOtherPartyDuringRouteSearch() {
+    void create_joinedOtherPartyDuringRouteSearch() {
 
         /*
          * settings
@@ -149,7 +149,7 @@ class PartyOpenerUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyOpener.open(openCommand(3), ESTIMATE));
+        Throwable thrown = catchThrowable(() -> partyOpener.open(createCommand(3), ESTIMATE));
 
         /*
          * verify
@@ -161,7 +161,7 @@ class PartyOpenerUnitTest {
 
     @DisplayName("open - 출발지와 도착지가 같으면 SAME_DEPARTURE_DESTINATION")
     @Test
-    void open_sameLocation() {
+    void create_sameLocation() {
 
         /*
          * settings
@@ -199,7 +199,7 @@ class PartyOpenerUnitTest {
             "37.0, 127.0, NaN, 127.0",
             "37.0, 127.0, 37.0, NaN"
     })
-    void open_outOfServiceArea(double departureLat, double departureLng, double destinationLat, double destinationLng) {
+    void create_outOfServiceArea(double departureLat, double departureLng, double destinationLat, double destinationLng) {
 
         /*
          * settings
@@ -223,7 +223,7 @@ class PartyOpenerUnitTest {
     @DisplayName("open - 정원이 1~3 밖이면 INVALID_CAPACITY")
     @ParameterizedTest(name = "capacity={0}")
     @ValueSource(ints = {-1, 0, 4})
-    void open_invalidCapacity(int capacity) {
+    void create_invalidCapacity(int capacity) {
 
         /*
          * settings
@@ -233,7 +233,7 @@ class PartyOpenerUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyOpener.open(openCommand(capacity), ESTIMATE));
+        Throwable thrown = catchThrowable(() -> partyOpener.open(createCommand(capacity), ESTIMATE));
 
         /*
          * verify
@@ -245,7 +245,7 @@ class PartyOpenerUnitTest {
     @DisplayName("open - 경로 산출값이 null 이거나 음수면 INVALID_ROUTE_ESTIMATE")
     @ParameterizedTest(name = "{0}")
     @MethodSource("invalidEstimates")
-    void open_invalidRouteEstimate(RouteEstimate estimate) {
+    void create_invalidRouteEstimate(RouteEstimate estimate) {
 
         /*
          * settings
@@ -255,7 +255,7 @@ class PartyOpenerUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyOpener.open(openCommand(3), estimate));
+        Throwable thrown = catchThrowable(() -> partyOpener.open(createCommand(3), estimate));
 
         /*
          * verify
@@ -275,7 +275,7 @@ class PartyOpenerUnitTest {
 
     @DisplayName("open - 요금과 시간이 경계값 0 이면 생성된다")
     @Test
-    void open_zeroEstimate() {
+    void create_zeroEstimate() {
 
         /*
          * settings
@@ -286,7 +286,7 @@ class PartyOpenerUnitTest {
         /*
          * test
          */
-        partyOpener.open(openCommand(3), new RouteEstimate(0, 0, ""));
+        partyOpener.open(createCommand(3), new RouteEstimate(0, 0, ""));
 
         /*
          * verify
@@ -300,7 +300,7 @@ class PartyOpenerUnitTest {
 
     @DisplayName("open - 방 저장은 트랜잭션 안에서 돈다")
     @Test
-    void open_transactional() throws Exception {
+    void create_transactional() throws Exception {
 
         /*
          * test
@@ -314,7 +314,7 @@ class PartyOpenerUnitTest {
         assertThat(transactional).isTrue();
     }
 
-    private static OpenPartyCommand openCommand(int capacity) {
+    private static OpenPartyCommand createCommand(int capacity) {
         return new OpenPartyCommand(HOST_ID, DEPARTURE_LAT, DEPARTURE_LNG, DESTINATION_LAT, DESTINATION_LNG, "강남역", "판교역", capacity);
     }
 

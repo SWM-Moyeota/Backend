@@ -2,12 +2,12 @@ package team.codingforest.moyeota.faresplit.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import team.codingforest.moyeota.faresplit.domain.AccountNumber;
-import team.codingforest.moyeota.faresplit.domain.Bank;
+import team.codingforest.moyeota.faresplit.domain.enums.Bank;
 import team.codingforest.moyeota.faresplit.domain.FareSplit;
-import team.codingforest.moyeota.faresplit.domain.FareSplitRole;
-import team.codingforest.moyeota.faresplit.domain.FareSplitStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitRole;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus;
 import team.codingforest.moyeota.faresplit.domain.FareSplitTransfer;
-import team.codingforest.moyeota.faresplit.domain.TransferStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.TransferStatus;
 import team.codingforest.moyeota.user.api.MemberSummary;
 
 import java.time.Instant;

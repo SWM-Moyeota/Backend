@@ -144,12 +144,12 @@ class PartyServiceUnitTest {
 
     @DisplayName("open - 진행 중인 방을 확인하고 경로를 조회한 뒤 그 결과로 PartyOpener 에 저장을 맡긴다")
     @Test
-    void open() {
+    void create() {
 
         /*
          * settings
          */
-        OpenPartyCommand command = openCommand(3);
+        OpenPartyCommand command = createCommand(3);
         PartyResult opened = PartyResult.from(party(PartyStatus.ACTIVE, 3, 0L, HOST_ID));
 
         doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
@@ -175,7 +175,7 @@ class PartyServiceUnitTest {
 
     @DisplayName("open - 진행 중인 방이 있으면 ALREADY_JOINED_OTHER_PARTY 이고 경로 조회도 하지 않는다")
     @Test
-    void open_alreadyInOngoingParty() {
+    void create_alreadyInOngoingParty() {
 
         /*
          * settings
@@ -185,7 +185,7 @@ class PartyServiceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyService.open(openCommand(3)));
+        Throwable thrown = catchThrowable(() -> partyService.open(createCommand(3)));
 
         /*
          * verify
@@ -196,7 +196,7 @@ class PartyServiceUnitTest {
 
     @DisplayName("open - 경로 조회가 실패하면 예외가 그대로 나가고 저장을 맡기지 않는다")
     @Test
-    void open_routeSearchFailed() {
+    void create_routeSearchFailed() {
 
         /*
          * settings
@@ -208,7 +208,7 @@ class PartyServiceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyService.open(openCommand(3)));
+        Throwable thrown = catchThrowable(() -> partyService.open(createCommand(3)));
 
         /*
          * verify
@@ -219,12 +219,12 @@ class PartyServiceUnitTest {
 
     @DisplayName("open - 저장 단계의 예외는 그대로 나간다")
     @Test
-    void open_openerFailed() {
+    void create_openerFailed() {
 
         /*
          * settings
          */
-        OpenPartyCommand command = openCommand(3);
+        OpenPartyCommand command = createCommand(3);
 
         doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
         doReturn(ESTIMATE).when(routeService).estimate(eq(DEPARTURE_LAT), eq(DEPARTURE_LNG), eq(DESTINATION_LAT), eq(DESTINATION_LNG));
@@ -244,7 +244,7 @@ class PartyServiceUnitTest {
     /** 네이버 호출 동안 DB 커넥션을 쥐고 있으면 안 된다 - 트랜잭션은 PartyOpener 에만 있어야 한다 */
     @DisplayName("open - 경로 조회가 있는 바깥 메서드에는 트랜잭션이 없다")
     @Test
-    void open_notTransactional() throws Exception {
+    void create_notTransactional() throws Exception {
 
         /*
          * test
@@ -2224,7 +2224,7 @@ class PartyServiceUnitTest {
 
     @DisplayName("open - 노쇼로 이용 제한 중이면 NO_SHOW_RESTRICTED 이고 진행 중 방 확인·경로 조회(네이버)·저장을 하지 않는다")
     @Test
-    void open_noShowRestricted() {
+    void create_noShowRestricted() {
 
         /*
          * settings
@@ -2234,7 +2234,7 @@ class PartyServiceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyService.open(openCommand(3)));
+        Throwable thrown = catchThrowable(() -> partyService.open(createCommand(3)));
 
         /*
          * verify
@@ -2245,12 +2245,12 @@ class PartyServiceUnitTest {
 
     @DisplayName("open - 제한 확인을 진행 중 방 확인·경로 조회보다 먼저 한다")
     @Test
-    void open_checksRestrictionFirst() {
+    void create_checksRestrictionFirst() {
 
         /*
          * settings
          */
-        OpenPartyCommand command = openCommand(3);
+        OpenPartyCommand command = createCommand(3);
         PartyResult opened = PartyResult.from(party(PartyStatus.ACTIVE, 3, 0L, HOST_ID));
         doReturn(ESTIMATE).when(routeService).estimate(eq(DEPARTURE_LAT), eq(DEPARTURE_LNG), eq(DESTINATION_LAT), eq(DESTINATION_LNG));
         doReturn(opened).when(partyOpener).open(eq(command), eq(ESTIMATE));
@@ -2633,7 +2633,7 @@ class PartyServiceUnitTest {
 
     // ───────────────────────── 공통 도우미 ─────────────────────────
 
-    private static OpenPartyCommand openCommand(int capacity) {
+    private static OpenPartyCommand createCommand(int capacity) {
         return new OpenPartyCommand(HOST_ID, DEPARTURE_LAT, DEPARTURE_LNG, DESTINATION_LAT, DESTINATION_LNG, "강남역", "판교역", capacity);
     }
 

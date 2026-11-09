@@ -22,7 +22,7 @@ class PartyOngoingCheckerTest {
 
     /** 정원 2명이 찬 방(COMPLETED) */
     private Party fullParty() {
-        Party party = Party.open(1L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
+        Party party = Party.create(1L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
                 "강남역", "판교역", new Capacity(2), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC");
         party.join(2L);

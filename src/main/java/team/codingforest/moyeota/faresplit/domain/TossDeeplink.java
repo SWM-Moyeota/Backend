@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.faresplit.domain;
 
+import team.codingforest.moyeota.faresplit.domain.enums.Bank;
+
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 

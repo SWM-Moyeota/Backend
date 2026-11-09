@@ -39,7 +39,7 @@ class PartyStatusUnitTest {
     @DisplayName("isOngoing - ACTIVE·COMPLETED 는 진행 중이고 닫히지 않았다")
     @ParameterizedTest(name = "{0}")
     @EnumSource(value = PartyStatus.class, names = {"ACTIVE", "COMPLETED"})
-    void isOngoing_open(PartyStatus status) {
+    void isOngoing_create(PartyStatus status) {
 
         /*
          * settings

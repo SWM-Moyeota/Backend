@@ -208,7 +208,7 @@ class NoShowObjectionQueryPostgresTest {
 
     /** members 첫 번째가 방장인 실시간 방 */
     private Long room(Long... members) {
-        Party party = Party.open(members[0], DEPARTURE, DESTINATION, "동대구역", "반월당", new Capacity(3), Instant.now(),
+        Party party = Party.create(members[0], DEPARTURE, DESTINATION, "동대구역", "반월당", new Capacity(3), Instant.now(),
                 9000, 20, "_p~iF~ps|U_ulLnnqC");
         for (int i = 1; i < members.length; i++) party.join(members[i]);
         Long id = parties.save(party).getId();

@@ -23,15 +23,15 @@ class PartyTest {
     private static final Integer 예상시간 = 25;
     private static final String 경로 = "_p~iF~ps|U_ulLnnqC";
 
-    private Party openParty(int capacity) {
-        return Party.open(생성자, 강남역, 판교역, 강남역출발, 판교역도착, new Capacity(capacity), 지금, 예상요금, 예상시간, 경로);
+    private Party createParty(int capacity) {
+        return Party.create(생성자, 강남역, 판교역, 강남역출발, 판교역도착, new Capacity(capacity), 지금, 예상요금, 예상시간, 경로);
     }
 
     // ───────────────────────── 모집 ─────────────────────────
 
     @Test
     void 정원이_차면_자동으로_마감된다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
 
         party.join(참여자);
 
@@ -40,7 +40,7 @@ class PartyTest {
 
     @Test
     void 마감된_방에는_참여할_수_없다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.join(참여자);
 
         assertThatThrownBy(() -> party.join(3L))
@@ -51,7 +51,7 @@ class PartyTest {
 
     @Test
     void 같은_회원은_중복_참여할_수_없다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
 
         assertThatThrownBy(() -> party.join(생성자))
                 .isInstanceOf(BusinessException.class)
@@ -62,14 +62,14 @@ class PartyTest {
     @Test
     void 혼자_타는_방은_생성_즉시_마감된다() {
         // 1인 방은 join 경로를 탈 수 없으므로 생성 시점에 정원 충족 처리가 안 되면 좀비 방이 된다
-        Party party = openParty(1);
+        Party party = createParty(1);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
     }
 
     @Test
     void 참여자가_나가면_명단에서_빠진다() {
-        Party party = openParty(3);
+        Party party = createParty(3);
         party.join(참여자);
 
         party.leave(참여자);
@@ -80,7 +80,7 @@ class PartyTest {
 
     @Test
     void 마지막_남은_사람이_나가면_방이_취소되고_명단이_빈다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
 
         party.leave(생성자);
 
@@ -90,7 +90,7 @@ class PartyTest {
 
     @Test
     void 마감된_방에서_누군가_나가면_다시_모집중이_된다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.join(참여자);
 
         party.leave(참여자);
@@ -100,7 +100,7 @@ class PartyTest {
 
     @Test
     void 참여하지_않은_회원은_나갈_수_없다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
 
         assertThatThrownBy(() -> party.leave(참여자))
                 .isInstanceOf(BusinessException.class)
@@ -111,7 +111,7 @@ class PartyTest {
     @Test
     void 취소된_방에서는_다시_나갈_수_없다() {
         // 나가기 이중 탭 - 이미 명단에서 빠졌으므로 "참여하지 않은 방" 예외가 난다
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.leave(생성자);   // 혼자 나가며 방 취소 + 명단에서 제거됨
 
         assertThatThrownBy(() -> party.leave(생성자))
@@ -125,7 +125,7 @@ class PartyTest {
 
     @Test
     void 정원이_찬_방은_방장이_동승_완료할_수_있다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.join(참여자);
 
         party.finishUnconfirmed(생성자);
@@ -135,7 +135,7 @@ class PartyTest {
 
     @Test
     void 방에_없는_사람은_동승_완료할_수_없다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.join(참여자);
 
         assertThatThrownBy(() -> party.finishUnconfirmed(외부인))
@@ -146,7 +146,7 @@ class PartyTest {
 
     @Test
     void 모집_중인_방은_동승_완료할_수_없다() {
-        Party party = openParty(3);
+        Party party = createParty(3);
         party.join(참여자);   // 2/3 - 아직 ACTIVE
 
         assertThatThrownBy(() -> party.finishUnconfirmed(생성자))
@@ -157,7 +157,7 @@ class PartyTest {
 
     @Test
     void 방치된_방은_시스템이_멤버_검증_없이_닫는다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.join(참여자);
 
         party.autoClose(Instant.now());
@@ -167,7 +167,7 @@ class PartyTest {
 
     @Test
     void 이미_닫힌_방은_다시_닫을_수_없다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.join(참여자);
         party.finishUnconfirmed(생성자);
 
@@ -187,7 +187,7 @@ class PartyTest {
 
     @Test
     void 방장은_가장_먼저_합류한_멤버다() {
-        Party party = openParty(3);
+        Party party = createParty(3);
         party.join(참여자);
 
         assertThat(party.hostId()).isEqualTo(생성자);
@@ -195,7 +195,7 @@ class PartyTest {
 
     @Test
     void 방장이_나가면_다음으로_일찍_합류한_멤버가_방장이_된다() {
-        Party party = openParty(3);
+        Party party = createParty(3);
         party.join(참여자);
 
         party.leave(생성자);
@@ -212,7 +212,7 @@ class PartyTest {
 
     @Test
     void 멤버가_없는_방에는_방장이_없다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.leave(생성자);   // 마지막 멤버가 나가 명단이 빈다
 
         assertThat(party.hostId()).isNull();
@@ -221,7 +221,7 @@ class PartyTest {
 
     @Test
     void 방장이_아닌_멤버는_동승_완료할_수_없다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.join(참여자);
 
         assertThatThrownBy(() -> party.finishUnconfirmed(참여자))
@@ -246,12 +246,12 @@ class PartyTest {
 
     @Test
     void 새_방의_version_은_0_이다() {
-        assertThat(openParty(3).getVersion()).isZero();
+        assertThat(createParty(3).getVersion()).isZero();
     }
 
     @Test
     void 참여_나가기_동승완료는_version_을_1씩_올린다() {
-        Party party = openParty(3);
+        Party party = createParty(3);
 
         party.join(참여자);
         assertThat(party.getVersion()).isEqualTo(1);
@@ -269,7 +269,7 @@ class PartyTest {
 
     @Test
     void 정원이_차는_참여도_version_은_1만_오른다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
 
         party.join(참여자);
 
@@ -279,7 +279,7 @@ class PartyTest {
 
     @Test
     void 마지막_사람이_나가_방이_닫혀도_version_은_1만_오른다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
 
         party.leave(생성자);
 
@@ -289,7 +289,7 @@ class PartyTest {
 
     @Test
     void 방치된_방의_자동_종료는_version_을_1_올린다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.join(참여자);
 
         party.autoClose(Instant.now());
@@ -299,7 +299,7 @@ class PartyTest {
 
     @Test
     void 거부된_명령은_version_을_바꾸지_않는다() {
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.join(참여자);
 
         assertThatThrownBy(() -> party.join(3L)).isInstanceOf(BusinessException.class);

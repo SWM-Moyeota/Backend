@@ -11,8 +11,7 @@ public enum PartyStatus {
         return !isClosed();
     }
 
-    /** 더이상 방 상태를 변경할 수 없음
-     */
+	/** 방 상태 변경 불가 **/
     public boolean isClosed() {
         return this == CANCELED || this == FINISHED;
     }

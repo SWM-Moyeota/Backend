@@ -7,7 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import team.codingforest.moyeota.faresplit.FareSplitService;
-import team.codingforest.moyeota.faresplit.domain.Bank;
+import team.codingforest.moyeota.faresplit.domain.enums.Bank;
 import team.codingforest.moyeota.matching.party.PartyService;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
@@ -63,7 +63,7 @@ class RideRecordQueryPostgresTest {
 
     @Test
     void 방장이_합승을_종료하면_기록이_남고_동승자의_탑승_기록으로_조회된다() {
-        Party party = Party.open(나, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(2), Instant.now(),
+        Party party = Party.create(나, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(2), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC");
         party.join(동승자);   // 정원 2 충족 → COMPLETED
         Long partyId = track(parties.save(party).getId());

@@ -1002,7 +1002,7 @@ class PartyServiceTest {
 
         /** anotherHost·guest 멤버 목록 - PartyMember 생성자는 도메인 패키지 밖에서 못 부르므로 방을 하나 만들어 멤버 목록만 빌려 쓴다 */
         private List<PartyMember> seedMembers(Instant createdAt) {
-            Party seed = Party.open(anotherHost, 강남역(), 판교역(), "강남역", "판교역", new Capacity(2),
+            Party seed = Party.create(anotherHost, 강남역(), 판교역(), "강남역", "판교역", new Capacity(2),
                     createdAt, 12000, 25, "_p~iF~ps|U_ulLnnqC");
             seed.join(guest);
             return seed.getMembers();

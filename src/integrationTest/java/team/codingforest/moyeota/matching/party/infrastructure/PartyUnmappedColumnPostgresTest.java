@@ -102,7 +102,7 @@ class PartyUnmappedColumnPostgresTest {
         /*
          * settings
          */
-        Long id = save(Party.open(방장, DEPARTURE, DESTINATION, "광주송정역", "전남대", new Capacity(2), Instant.now(),
+        Long id = save(Party.create(방장, DEPARTURE, DESTINATION, "광주송정역", "전남대", new Capacity(2), Instant.now(),
                 9000, 20, "_p~iF~ps|U_ulLnnqC"));
 
         /*

@@ -169,7 +169,7 @@ class MeetingNotificationPostgresTest {
 
     /** 방장·동승자 둘이 있는 실시간 방. departureAt 이 있으면 그 시각으로 약속을 확정한 방이다 */
     private Long realtimeRoom(PartyStatus status, Instant departureAt) {
-        Party party = Party.open(방장, DEPARTURE, DESTINATION, "제주공항", "서귀포", new Capacity(3), Instant.now(),
+        Party party = Party.create(방장, DEPARTURE, DESTINATION, "제주공항", "서귀포", new Capacity(3), Instant.now(),
                 30000, 60, "_p~iF~ps|U_ulLnnqC");
         party.join(동승자);
         Long id = parties.save(party).getId();

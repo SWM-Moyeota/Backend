@@ -38,7 +38,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(3, MEMBER_ID);
+        Party party = create(3, MEMBER_ID);
         long before = party.getVersion();
 
         /*
@@ -62,7 +62,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(2, MEMBER_ID);
+        Party party = create(2, MEMBER_ID);
         long before = party.getVersion();
 
         /*
@@ -85,8 +85,8 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party rightNow = open(3, MEMBER_ID);
-        Party inAnHour = open(3, MEMBER_ID);
+        Party rightNow = create(3, MEMBER_ID);
+        Party inAnHour = create(3, MEMBER_ID);
 
         /*
          * test
@@ -108,7 +108,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(3, MEMBER_ID);
+        Party party = create(3, MEMBER_ID);
 
         /*
          * test
@@ -129,7 +129,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(3, MEMBER_ID);
+        Party party = create(3, MEMBER_ID);
 
         /*
          * test
@@ -149,7 +149,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(3, MEMBER_ID);
+        Party party = create(3, MEMBER_ID);
 
         /*
          * test
@@ -169,7 +169,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(3, MEMBER_ID);
+        Party party = create(3, MEMBER_ID);
 
         /*
          * test
@@ -189,7 +189,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(3, MEMBER_ID);
+        Party party = create(3, MEMBER_ID);
 
         /*
          * test
@@ -209,7 +209,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(3, MEMBER_ID);
+        Party party = create(3, MEMBER_ID);
 
         /*
          * test
@@ -252,7 +252,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(3, MEMBER_ID);
+        Party party = create(3, MEMBER_ID);
         party.confirm(HOST_ID, MEETING_AT, NOW);
         long version = party.getVersion();
 
@@ -296,7 +296,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(3);
+        Party party = create(3);
 
         /*
          * test
@@ -337,7 +337,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(3, MEMBER_ID);
+        Party party = create(3, MEMBER_ID);
         party.confirm(HOST_ID, MEETING_AT, NOW);
 
         /*
@@ -361,7 +361,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(3, MEMBER_ID);
+        Party party = create(3, MEMBER_ID);
 
         /*
          * test
@@ -418,7 +418,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(3, MEMBER_ID);
+        Party party = create(3, MEMBER_ID);
         party.confirm(HOST_ID, MEETING_AT, NOW);
         long version = party.getVersion();
 
@@ -494,7 +494,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(3, MEMBER_ID);
+        Party party = create(3, MEMBER_ID);
 
         /*
          * test
@@ -515,7 +515,7 @@ class PartyConfirmUnitTest {
         /*
          * settings
          */
-        Party party = open(2, MEMBER_ID);
+        Party party = create(2, MEMBER_ID);
 
         /*
          * test
@@ -553,8 +553,8 @@ class PartyConfirmUnitTest {
     // ───────────────────────── 공통 도우미 ─────────────────────────
 
     /** HOST_ID 가 만든 실시간 방에 others 가 차례로 참여한다 */
-    private static Party open(int capacity, Long... others) {
-        Party party = Party.open(HOST_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity), Instant.now(),
+    private static Party create(int capacity, Long... others) {
+        Party party = Party.create(HOST_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity), Instant.now(),
                 12000, 25, "encoded-path");
         for (Long other : others) {
             party.join(other);

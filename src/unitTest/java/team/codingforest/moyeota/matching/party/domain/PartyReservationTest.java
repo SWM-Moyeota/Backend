@@ -26,7 +26,7 @@ class PartyReservationTest {
     }
 
     private Party realtime(int capacity) {
-        return Party.open(방장, 강남역, 판교역, "강남역", "판교역", new Capacity(capacity), 지금, 12000, 25, "encoded-path");
+        return Party.create(방장, 강남역, 판교역, "강남역", "판교역", new Capacity(capacity), 지금, 12000, 25, "encoded-path");
     }
 
     private void assertFails(Runnable action, MatchingErrorCode code) {

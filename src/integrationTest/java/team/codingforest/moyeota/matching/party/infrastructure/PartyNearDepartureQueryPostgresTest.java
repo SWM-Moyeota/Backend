@@ -118,7 +118,7 @@ class PartyNearDepartureQueryPostgresTest {
     }
 
     private Long savedParty() {
-        Party party = Party.open(1L, DEPARTURE, DESTINATION, "대구시청", "경북대", new Capacity(3), Instant.now(),
+        Party party = Party.create(1L, DEPARTURE, DESTINATION, "대구시청", "경북대", new Capacity(3), Instant.now(),
                 9000, 20, "_p~iF~ps|U_ulLnnqC");
         Long id = parties.save(party).getId();
         created.add(id);

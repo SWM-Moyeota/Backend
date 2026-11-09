@@ -49,7 +49,7 @@ class PartyJpaPersistenceTest {
     }
 
     private Party realtime(Long creatorId) {
-        return parties.save(Party.open(creatorId, 강남, 판교, "강남역", "판교역", new Capacity(3), Instant.now(), 12000, 25, "encoded-path"));
+        return parties.save(Party.create(creatorId, 강남, 판교, "강남역", "판교역", new Capacity(3), Instant.now(), 12000, 25, "encoded-path"));
     }
 
     // DB 컬럼은 마이크로초까지만 저장한다. Linux 의 Instant.now() 는 나노초까지 나와서 자르지 않으면 저장한 값과 경계 비교가 어긋난다
@@ -407,7 +407,7 @@ class PartyJpaPersistenceTest {
     @Test
     void 단건_조회는_멤버까지_한_번에_읽는다() {
         // 상세 화면이 폴링으로 자주 부른다 - 멤버가 지연 로딩이면 조회마다 쿼리가 한 번 더 나간다
-        Party saved = openAndSave();
+        Party saved = createAndSave();
         saved.join(2L);
         parties.save(saved);
         em.flush();
@@ -421,7 +421,7 @@ class PartyJpaPersistenceTest {
 
     @Test
     void 단건_조회는_방_하나를_멤버_수와_무관하게_한_건으로_돌려준다() {
-        Party saved = openAndSave();
+        Party saved = createAndSave();
         saved.join(2L);
         parties.save(saved);
         em.flush();
@@ -440,7 +440,7 @@ class PartyJpaPersistenceTest {
 
     @Test
     void 멤버만_바뀐_참여도_version_이_저장된다() {
-        Party saved = openAndSave();
+        Party saved = createAndSave();
         saved.join(2L);
         parties.save(saved);
         em.flush();
@@ -454,10 +454,10 @@ class PartyJpaPersistenceTest {
     @Test
     void 요약_조회는_멤버가_여럿이어도_방_하나를_한_건으로_돌려주고_인원수를_센다() {
         // join fetch 였을 때는 방 하나가 멤버 수만큼 행으로 불어났다 - 요약은 방당 한 건이고 인원은 DB 가 센다
-        Party 세명방 = openAndSave();
+        Party 세명방 = createAndSave();
         세명방.join(2L);
         parties.save(세명방);
-        Party 혼자방 = parties.save(openAt(10L, 37.4980, 127.0277));
+        Party 혼자방 = parties.save(createAt(10L, 37.4980, 127.0277));
 
         List<PartySummary> result = parties.findSummariesWithinBounds(PartyStatus.ACTIVE, 37.49, 37.51, 127.02, 127.06, 100);
 
@@ -469,7 +469,7 @@ class PartyJpaPersistenceTest {
 
     @Test
     void 요약_조회는_마커에_필요한_값을_그대로_담는다() {
-        Party saved = openAndSave();
+        Party saved = createAndSave();
 
         PartySummary summary = parties.findSummariesWithinBounds(PartyStatus.ACTIVE, 37.49, 37.51, 127.02, 127.06, 100).get(0);
 
@@ -484,9 +484,9 @@ class PartyJpaPersistenceTest {
 
     @Test
     void 요약_조회는_영역_밖이거나_상태가_다른_방을_빼고_경계는_포함한다() {
-        Party 경계 = parties.save(openAt(1L, 37.49, 127.02));
-        parties.save(openAt(2L, 37.5665, 126.9780));   // 시청 - 영역 밖
-        Party 정원찬방 = parties.save(openAt(3L, 37.4979, 127.0276));
+        Party 경계 = parties.save(createAt(1L, 37.49, 127.02));
+        parties.save(createAt(2L, 37.5665, 126.9780));   // 시청 - 영역 밖
+        Party 정원찬방 = parties.save(createAt(3L, 37.4979, 127.0276));
         정원찬방.join(4L);
         정원찬방.join(5L);   // capacity 3 충족 → COMPLETED
         parties.save(정원찬방);
@@ -498,23 +498,23 @@ class PartyJpaPersistenceTest {
 
     @Test
     void 요약_조회는_최신_방부터_상한까지만_돌려준다() {
-        parties.save(openAt(1L, 37.4979, 127.0276));
-        Party 둘째 = parties.save(openAt(2L, 37.4979, 127.0276));
-        Party 셋째 = parties.save(openAt(3L, 37.4979, 127.0276));
+        parties.save(createAt(1L, 37.4979, 127.0276));
+        Party 둘째 = parties.save(createAt(2L, 37.4979, 127.0276));
+        Party 셋째 = parties.save(createAt(3L, 37.4979, 127.0276));
 
         List<PartySummary> result = parties.findSummariesWithinBounds(PartyStatus.ACTIVE, 37.49, 37.51, 127.02, 127.06, 2);
 
         assertThat(result).extracting(PartySummary::id).containsExactly(셋째.getId(), 둘째.getId());
     }
 
-    private Party openAt(Long creatorId, double lat, double lng) {
-        return Party.open(creatorId, new Location(lat, lng), new Location(37.3948, 127.1112),
+    private Party createAt(Long creatorId, double lat, double lng) {
+        return Party.create(creatorId, new Location(lat, lng), new Location(37.3948, 127.1112),
                 "강남역", "판교역", new Capacity(3), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC");
     }
 
-    private Party openAndSave() {
-        Party party = Party.open(1L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
+    private Party createAndSave() {
+        Party party = Party.create(1L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
                 "강남역", "판교역", new Capacity(3), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC");
         return parties.save(party);
@@ -522,7 +522,7 @@ class PartyJpaPersistenceTest {
 
     @Test
     void 기존_방을_다시_저장해도_행이_늘어나지_않는다() {
-        Party saved = openAndSave();
+        Party saved = createAndSave();
         long before = repository.count();
 
         saved.join(2L);
@@ -533,7 +533,7 @@ class PartyJpaPersistenceTest {
 
     @Test
     void 기존_방을_다시_저장하면_같은_id를_유지한다() {
-        Party saved = openAndSave();
+        Party saved = createAndSave();
 
         saved.join(2L);
         Party after = parties.save(saved);
@@ -543,7 +543,7 @@ class PartyJpaPersistenceTest {
 
     @Test
     void join_후_저장하면_원래_id로_조회했을_때_멤버가_반영된다() {
-        Party saved = openAndSave();
+        Party saved = createAndSave();
 
         saved.join(2L);
         parties.save(saved);
@@ -555,7 +555,7 @@ class PartyJpaPersistenceTest {
 
     @Test
     void 상태_변경_후_저장하면_원래_id로_조회했을_때_상태가_반영된다() {
-        Party saved = openAndSave();
+        Party saved = createAndSave();
 
         saved.leave(1L);   // 혼자 남은 사람이 나가면 방이 취소된다
         parties.save(saved);
@@ -565,7 +565,7 @@ class PartyJpaPersistenceTest {
 
     @Test
     void 취소된_방의_멤버는_진행_중인_방이_없는_것으로_본다() {
-        Party saved = openAndSave();
+        Party saved = createAndSave();
         saved.join(2L);
         parties.save(saved);
 
@@ -599,7 +599,7 @@ class PartyJpaPersistenceTest {
     @Test
     void 복원은_계산하지_않고_저장된_방장을_쓴다() {
         // 승계 규칙(가장 먼저 합류한 1L)과 다른 값을 넣어 두어야 컬럼에서 읽었는지 구분된다
-        Party saved = openAndSave();
+        Party saved = createAndSave();
         saved.join(2L);
         parties.save(saved);
         em.flush();
@@ -613,7 +613,7 @@ class PartyJpaPersistenceTest {
 
     @Test
     void 방장이_나가면_승계된_방장이_저장된다() {
-        Party saved = openAndSave();   // 1L 이 방장
+        Party saved = createAndSave();   // 1L 이 방장
         saved.join(2L);
         saved.join(3L);
         parties.save(saved);
@@ -628,7 +628,7 @@ class PartyJpaPersistenceTest {
 
     @Test
     void 방장이_아닌_멤버가_나가면_저장된_방장은_그대로다() {
-        Party saved = openAndSave();
+        Party saved = createAndSave();
         saved.join(2L);
         parties.save(saved);
 
@@ -641,7 +641,7 @@ class PartyJpaPersistenceTest {
 
     @Test
     void 마지막_멤버가_나가면_저장된_방장이_비워진다() {
-        Party saved = openAndSave();
+        Party saved = createAndSave();
 
         saved.leave(1L);
         parties.save(saved);
@@ -654,7 +654,7 @@ class PartyJpaPersistenceTest {
 
     /** 1L·2L·3L 이 탄 방을 방장(1L)이 동승 종료해 FINISHED 로 저장한다 */
     private void finishRide() {
-        Party party = openAndSave();
+        Party party = createAndSave();
         party.join(2L);
         party.join(3L);   // capacity 3 충족 → COMPLETED
         party.finishUnconfirmed(1L);
@@ -666,7 +666,7 @@ class PartyJpaPersistenceTest {
         // 인터페이스 프로젝션은 JPQL 별칭과 getter 이름이 어긋나면 실행 때만 null 이 난다 - 그래서 실제 쿼리로 검증
         finishRide();
         finishRide();
-        openAndSave();                                   // ACTIVE 방 - 집계 제외
+        createAndSave();                                   // ACTIVE 방 - 집계 제외
 
         assertThat(parties.countFinishedRides(java.util.List.of(1L, 2L, 999L)))
                 .containsOnly(entry(1L, 2), entry(2L, 2));   // 999L 은 결과에 없음(0회는 빠진다)
@@ -682,7 +682,7 @@ class PartyJpaPersistenceTest {
     @Test
     void 방별_출발지와_도착지_이름을_한_번에_읽고_없는_방은_빠진다() {
         Long 강남방 = realtime(1L).getId();
-        Long 서울방 = parties.save(Party.open(2L, 강남, 판교, "서울역", "홍대입구역", new Capacity(3), Instant.now(), 9000, 20, "encoded-path")).getId();
+        Long 서울방 = parties.save(Party.create(2L, 강남, 판교, "서울역", "홍대입구역", new Capacity(3), Instant.now(), 9000, 20, "encoded-path")).getId();
         clearContext();
 
         assertThat(parties.findPlaces(List.of(강남방, 서울방, 서울방 + 1_000)))

@@ -49,7 +49,7 @@ class PartyConfirmPostgresTest {
 
     @Test
     void 확정한_약속_시간이_departure_at_에_저장되고_다시_읽힌다() {
-        Party party = Party.open(HOST_ID, DEPARTURE, DESTINATION, "대전역", "한밭대", new Capacity(3), Instant.now(),
+        Party party = Party.create(HOST_ID, DEPARTURE, DESTINATION, "대전역", "한밭대", new Capacity(3), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC");
         party.join(MEMBER_ID);
         Long id = parties.save(party).getId();

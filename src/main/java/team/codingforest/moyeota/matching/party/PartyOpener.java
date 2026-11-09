@@ -33,7 +33,7 @@ public class PartyOpener {
 		parties.lockMember(command.creatorId());
 		PartyConflictRule.check(parties, command.creatorId(), Instant.now());
 
-		Party party = Party.open(command.creatorId(),
+		Party party = Party.create(command.creatorId(),
 				new Location(command.departureLat(), command.departureLng()),
 				new Location(command.destinationLat(), command.destinationLng()),
 				command.departure(), command.destination(), new Capacity(command.capacity()),

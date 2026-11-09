@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.faresplit.domain;
+package team.codingforest.moyeota.faresplit.domain.enums;
 
 import java.time.Instant;
 

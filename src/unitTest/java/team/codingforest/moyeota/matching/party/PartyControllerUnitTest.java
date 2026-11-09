@@ -454,7 +454,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
 
     @DisplayName("POST /api/v1/matching/rooms - 토큰의 사용자로 방을 만들고 방 정보를 돌려준다")
     @Test
-    void open() throws Exception {
+    void create() throws Exception {
 
         /*
          * settings
@@ -492,7 +492,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
 
     @DisplayName("POST /api/v1/matching/rooms - 기사 기능은 없앴지만 출시된 앱이 읽는 taxiDriverId 키는 null 로 남는다")
     @Test
-    void open_taxiDriverIdKeyKeptAsNull() throws Exception {
+    void create_taxiDriverIdKeyKeptAsNull() throws Exception {
 
         /*
          * settings
@@ -514,7 +514,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
 
     @DisplayName("POST /api/v1/matching/rooms - 서버는 반경을 쓰지 않지만 출시된 앱이 읽는 departureRadius·destinationRadius 키는 500 으로 남는다")
     @Test
-    void open_radiusKeysKeptAsFixedValue() throws Exception {
+    void create_radiusKeysKeptAsFixedValue() throws Exception {
 
         /*
          * settings
@@ -538,7 +538,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
 
     @DisplayName("POST /api/v1/matching/rooms - 본문의 creatorId 는 무시하고 토큰의 사용자를 쓴다")
     @Test
-    void open_ignoresBodyCreatorId() throws Exception {
+    void create_ignoresBodyCreatorId() throws Exception {
 
         /*
          * settings
@@ -572,7 +572,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
 
     @DisplayName("POST /api/v1/matching/rooms - 옛 앱이 보내는 모르는 필드는 무시한다")
     @Test
-    void open_ignoresUnknownFields() throws Exception {
+    void create_ignoresUnknownFields() throws Exception {
 
         /*
          * settings
@@ -607,7 +607,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
 
     @DisplayName("POST /api/v1/matching/rooms - 토큰이 없으면 401")
     @Test
-    void open_noToken() throws Exception {
+    void create_noToken() throws Exception {
 
         /*
          * test
@@ -624,7 +624,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
 
     @DisplayName("POST /api/v1/matching/rooms - 본문이 없으면 400")
     @Test
-    void open_noBody() throws Exception {
+    void create_noBody() throws Exception {
 
         /*
          * test
@@ -641,7 +641,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
 
     @DisplayName("POST /api/v1/matching/rooms - JSON 이 깨졌으면 400")
     @Test
-    void open_malformedJson() throws Exception {
+    void create_malformedJson() throws Exception {
 
         /*
          * test
@@ -658,7 +658,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
 
     @DisplayName("POST /api/v1/matching/rooms - 필드 타입이 틀리면 400")
     @Test
-    void open_wrongFieldType() throws Exception {
+    void create_wrongFieldType() throws Exception {
 
         /*
          * settings
@@ -699,7 +699,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
             "destination, 도착지 이름은 필수입니다",
             "capacity, 정원은 필수입니다"
     })
-    void open_nullField(String field, String message) throws Exception {
+    void create_nullField(String field, String message) throws Exception {
 
         /*
          * settings
@@ -722,7 +722,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
 
     @DisplayName("POST /api/v1/matching/rooms - 본문이 빈 객체면 400 이고 서비스를 부르지 않는다")
     @Test
-    void open_emptyObject() throws Exception {
+    void create_emptyObject() throws Exception {
 
         /*
          * test
@@ -743,7 +743,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
             "departure, 강남역, 출발지 이름은 필수입니다",
             "destination, 판교역, 도착지 이름은 필수입니다"
     })
-    void open_blankName(String field, String name, String message) throws Exception {
+    void create_blankName(String field, String name, String message) throws Exception {
 
         /*
          * settings
@@ -771,7 +771,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
             "-1, 정원은 1명 이상입니다",
             "4, 정원은 3명 이하입니다"
     })
-    void open_capacityOutOfRange(int capacity, String message) throws Exception {
+    void create_capacityOutOfRange(int capacity, String message) throws Exception {
 
         /*
          * settings
@@ -795,7 +795,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
     @DisplayName("POST /api/v1/matching/rooms - 정원 경계값 1과 3은 서비스까지 간다")
     @ParameterizedTest(name = "capacity={0}")
     @CsvSource({"1", "3"})
-    void open_capacityBoundary(int capacity) throws Exception {
+    void create_capacityBoundary(int capacity) throws Exception {
 
         /*
          * settings
@@ -819,7 +819,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
 
     @DisplayName("POST /api/v1/matching/rooms - Content-Type 이 JSON 이 아니면 415")
     @Test
-    void open_unsupportedContentType() throws Exception {
+    void create_unsupportedContentType() throws Exception {
 
         /*
          * test
@@ -843,7 +843,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
             "ALREADY_JOINED_OTHER_PARTY, 409",
             "ROUTE_SEARCH_FAILED, 502"
     })
-    void open_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
+    void create_businessException(MatchingErrorCode errorCode, int expectedStatus) throws Exception {
 
         /*
          * settings

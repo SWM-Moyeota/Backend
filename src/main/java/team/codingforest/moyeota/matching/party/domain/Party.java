@@ -1,6 +1,5 @@
 package team.codingforest.moyeota.matching.party.domain;
 
-import lombok.Getter;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
@@ -15,12 +14,14 @@ import java.util.Optional;
  *  애그리거트 루트
   */
 public class Party {
+	private static final Duration MIN_CONFIRM_AHEAD = Duration.ofMinutes(5);   // CONFIRM_CLOCK_SKEW 삭제
+	private static final Duration MAX_CONFIRM_AHEAD = Duration.ofHours(1);
+
     private static final Duration MAX_RESERVATION_AHEAD = Duration.ofDays(7);
-    private static final Duration MAX_CONFIRM_AHEAD = Duration.ofHours(1);
     public static final double ARRIVAL_RADIUS_METERS = 100;
-    // 약속 시간 이만큼 전부터 도착을 받는다. 출발은 약속 시간부터다
+
     public static final Duration ARRIVAL_OPENS_BEFORE = Duration.ofMinutes(10);
-    private static final Duration CONFIRM_CLOCK_SKEW = Duration.ofMinutes(1);
+
     private static final int MIN_MEMBERS_TO_DEPART = 2;
     // 약속 시각 알림은 이만큼 넘게 늦으면(서버가 멈췄다 다시 돈 경우) "약속 시간이에요"가 맞지 않아 보내지 않는다
     static final Duration MEETING_NOTICE_STALE_AFTER = Duration.ofMinutes(30);
@@ -85,31 +86,44 @@ public class Party {
     /**
      *  매칭방 생성
      */
-    public static Party open(Long creatorId, Location departureLocation, Location destinationLocation, String departure, String destination, Capacity capacity,
-                             Instant createdAt, Integer estimatedFare, Integer estimatedTime, String route) {
-        if(departureLocation.equals(destinationLocation)) throw new BusinessException(MatchingErrorCode.SAME_DEPARTURE_DESTINATION);
+    public static Party create(Long creatorId, Location departureLocation, Location destinationLocation, String departure, String destination, Capacity capacity,
+                               Instant createdAt, Integer estimatedFare, Integer estimatedTime, String route) {
+        if(departureLocation.equals(destinationLocation)) {
+			throw new BusinessException(MatchingErrorCode.SAME_DEPARTURE_DESTINATION);
+		}
 
-        if(estimatedFare == null || estimatedFare < 0) throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
+        if(estimatedFare == null || estimatedFare < 0) {
+			throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
+		}
 
-        if(estimatedTime == null || estimatedTime < 0) throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
+        if(estimatedTime == null || estimatedTime < 0) {
+			throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
+		}
 
-        if(route == null) throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
+        if(route == null) {
+			throw new BusinessException(MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
+		}
 
         Party party = new Party(null, departureLocation, destinationLocation, departure, destination, capacity, new ArrayList<>(), creatorId, createdAt, PartyStatus.ACTIVE,
                 estimatedFare, estimatedTime, route, 0L, RoomType.REALTIME, null, null, null, 0);
 
         party.members.add(new PartyMember(creatorId, Instant.now()));
 
-        if(party.isFull()) party.status = PartyStatus.COMPLETED;
-
         return party;
     }
 
+	/**
+	 * 	매칭방 예약
+	 */
     public static Party reserve(Long creatorId, Location departureLocation, Location destinationLocation, String departure, String destination, Capacity capacity,
                                 Instant createdAt, Instant departureAt) {
-        if(departureLocation.equals(destinationLocation)) throw new BusinessException(MatchingErrorCode.SAME_DEPARTURE_DESTINATION);
+        if(departureLocation.equals(destinationLocation)) {
+			throw new BusinessException(MatchingErrorCode.SAME_DEPARTURE_DESTINATION);
+		}
 
-        if(!departureAt.isAfter(createdAt) || departureAt.isAfter(createdAt.plus(MAX_RESERVATION_AHEAD))) throw new BusinessException(MatchingErrorCode.INVALID_DEPARTURE_TIME);
+        if(!departureAt.isAfter(createdAt) || departureAt.isAfter(createdAt.plus(MAX_RESERVATION_AHEAD))) {
+			throw new BusinessException(MatchingErrorCode.INVALID_DEPARTURE_TIME);
+		}
 
         Party party = new Party(null, departureLocation, destinationLocation, departure, destination, capacity, new ArrayList<>(), creatorId, createdAt, PartyStatus.ACTIVE,
                 null, null, null, 0L, RoomType.RESERVED, departureAt, null, null, 0);
@@ -123,26 +137,37 @@ public class Party {
      *  매칭방 참여
      */
     public void join(Long memberId) {
-        if(status != PartyStatus.ACTIVE) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
-        if(isReservation() && !Instant.now().isBefore(departureAt)) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
-        if(members.size() >= capacity.value()) throw new BusinessException(MatchingErrorCode.PARTY_FULL);
-        if(hasMember(memberId)) throw new BusinessException(MatchingErrorCode.ALREADY_JOINED_PARTY);
+		if(isFull()) throw new BusinessException(MatchingErrorCode.PARTY_FULL);
+
+        if(status != PartyStatus.ACTIVE) {
+			throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+		}
+
+        if(isReservation() && !Instant.now().isBefore(departureAt)) {
+			throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+		}
+
+        if(members.size() >= capacity.value()) {
+			throw new BusinessException(MatchingErrorCode.PARTY_FULL);
+		}
+
+        if(hasMember(memberId)) {
+			throw new BusinessException(MatchingErrorCode.ALREADY_JOINED_PARTY);
+		}
 
         members.add(new PartyMember(memberId, Instant.now()));
         version++;
-
-        if(isFull()) status = PartyStatus.COMPLETED;
     }
 
     /**
      *  매칭방 나가기
      */
     public void leave(Long memberId) {
-        if(!hasMember(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
-        ensureRecruiting();
+        if(!hasMember(memberId)) {
+			throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
+		}
 
-        // 약속이 정해진 방(확정한 실시간 방, 모든 예약 방)은 방장도 나갈 수 없다 - 남은 사람이 약속 장소에서 기다리게 되기 때문
-        if(isConfirmed()) throw new BusinessException(MatchingErrorCode.CANNOT_LEAVE_CONFIRMED_PARTY);
+        validateRecruiting();
 
         PartyMember tmp = null;
         version++;
@@ -157,75 +182,79 @@ public class Party {
 
         members.remove(tmp);
 
-        // 마지막 사용자도 나간 경우 방 없애기 - 남은 멤버가 없으니 방장도 없다
+        // 마지막 사용자도 나간 경우 방 없애기
         if(members.isEmpty()) {
             cancel();
             hostId = null;
             return;
         }
 
-        // 방장이 나가면 남은 멤버 중 가장 먼저 합류한 사람이 승계한다
+		// 방장이 나간 경우 가장 일찍 들어온 사람이 방장이 된다.
         if(memberId.equals(hostId)) {
             hostId = earliestJoinedMemberId(members);
         }
-
-        status = PartyStatus.ACTIVE;
     }
 
     /**
-     *  실시간 방의 약속 시간 확정 - 방장이 채팅으로 정한 시간을 박는다. 장소는 늘 방의 출발지라 따로 담지 않는다.
-     *  확정하면 모집도 끝난다: ACTIVE 면 COMPLETED 로 넘기고, 이미 정원이 차 COMPLETED 면 그대로 둔다.
-     *  약속 시간은 확정하는 순간(now)부터 1시간 안이어야 한다
+     *  실시간 방의 약속 확정으로 채팅을 통해 의견을 조율
+     *  확정하면 모집도 끝난다: ACTIVE 면 COMPLETED 로 넘긴다.
      */
     public void confirm(Long memberId, Instant departureAt, Instant now) {
-        if(!hasMember(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
+        if(!isHost(memberId)) {
+			throw new BusinessException(MatchingErrorCode.NOT_PARTY_HOST);
+		}
 
-        if(!isHost(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_HOST);
+		// 예약 매칭방인지 확인 + 이미 확정된 방인지
+		if(isConfirmed()) {
+			throw new BusinessException(MatchingErrorCode.ALREADY_CONFIRMED);
+		}
 
-        if(isReservation()) throw new BusinessException(MatchingErrorCode.NOT_REALTIME_PARTY);
+        validateRecruiting();
 
-        // 상태 검사보다 먼저 - 이미 확정한 방은 모집 상태와 상관없이 "모집 중 아님"이 아니라 "이미 확정"으로 알린다
-        if(isConfirmed()) throw new BusinessException(MatchingErrorCode.ALREADY_CONFIRMED);
+        if(members.size() < MIN_MEMBERS_TO_DEPART) {
+			throw new BusinessException(MatchingErrorCode.NOT_ENOUGH_MEMBERS);
+		}
 
-        ensureRecruiting();
-
-        if(members.size() < MIN_MEMBERS_TO_DEPART) throw new BusinessException(MatchingErrorCode.NOT_ENOUGH_MEMBERS);
-
-        if(departureAt == null || departureAt.isBefore(now.minus(CONFIRM_CLOCK_SKEW)) || departureAt.isAfter(now.plus(MAX_CONFIRM_AHEAD))) throw new BusinessException(MatchingErrorCode.INVALID_MEETING_TIME);
+        if(departureAt == null || departureAt.isBefore(now.plus(MIN_CONFIRM_AHEAD)) || departureAt.isAfter(now.plus(MAX_CONFIRM_AHEAD))) {
+			throw new BusinessException(MatchingErrorCode.INVALID_MEETING_TIME);
+		}
 
         this.departureAt = departureAt;
 
-        if(status == PartyStatus.ACTIVE) completeRecruiting();
+        if(status == PartyStatus.ACTIVE) {
+			completeRecruiting();
+		}
 
         version++;
     }
 
     /**
-     *  약속이 정해진 방인가 - 따로 저장하지 않고 계산한다. 예약 방은 만들 때 출발 시각을 정하므로 처음부터 확정,
-     *  실시간 방은 방장이 약속 시간을 확정해 departureAt 이 채워졌을 때
+	 *  매칭방이 확정인지 확인
      */
     public boolean isConfirmed() {
         return isReservation() || departureAt != null;
     }
 
     /**
-     *  출발지 도착 - 약속 시간(departureAt) 10분 전(ARRIVAL_OPENS_BEFORE)부터 출발지 100m(ARRIVAL_RADIUS_METERS) 안에 있는 멤버가 누른다. 장소는 늘 방의 출발지다.
-     *  거리는 도메인이 재지 않는다 - 서비스가 지금 위치가 반경 안인지 DB(PostGIS ST_DWithin)에 물어본 답을 nearDeparture 로 넘긴다.
-     *  예약 방은 모집 정리 스케줄러가 돌기 전이면 출발 시각에도 ACTIVE 일 수 있어 COMPLETED 와 함께 받는다.
-     *  이미 도착했으면 처음 시각을 그대로 두고 아무것도 바꾸지 않는다(위치·시간도 다시 보지 않는다)
-     *
-     *  @return 이번에 처음 도착했으면 true, 이미 도착해 있었으면 false
+     *  출발지 도착 확인 만약 이미 도착한 경우 false 처음 호출해서 도착한 경우 true를 리턴받는다.
      */
     public boolean arrive(Long memberId, boolean nearDeparture, Instant now) {
         PartyMember member = findMember(memberId);
 
+		// 아닌 경우 예외 처리
         ensureAttendanceOpen();
 
-        if(member.isArrived()) return false;
+        if(member.isArrived()) {
+			return false;
+		}
 
-        if(now.isBefore(departureAt.minus(ARRIVAL_OPENS_BEFORE))) throw new BusinessException(MatchingErrorCode.ARRIVAL_NOT_OPEN);
+        if(now.isBefore(departureAt.minus(ARRIVAL_OPENS_BEFORE))) {
+			throw new BusinessException(MatchingErrorCode.ARRIVAL_NOT_OPEN);
+		}
 
-        if(!nearDeparture) throw new BusinessException(MatchingErrorCode.TOO_FAR_FROM_DEPARTURE);
+        if(!nearDeparture) {
+			throw new BusinessException(MatchingErrorCode.TOO_FAR_FROM_DEPARTURE);
+		}
 
         member.arrive(now);
         version++;
@@ -234,22 +263,29 @@ public class Party {
     }
 
     /**
-     *  출발 - 도착한 멤버가 약속 시간 뒤에 누르면 방이 바로 끝난다(FINISHED). 방장이 아니어도 된다.
-     *  그 순간 도착하지 않은 멤버는 모두 노쇼로 찍히고, 도착한 멤버가 실제로 탄 사람이다.
-     *  예약 방은 아무도 들어오지 않았으면 모집 정리 때 취소되는 방이라 혼자 남은 방은 출발할 수 없다
-     *
-     *  @return 이번에 노쇼로 찍힌 memberId (합류 순)
+     *  출발 - 방장이 멤버가 약속 시간 뒤에 누르면 방이 바로 끝난다(FINISHED).
+	 *  arrive 메서드를 호출하지 않은 인원들은 노쇼로 기록 -> 노쇼한 유저 id값 기록
      */
     public List<Long> depart(Long memberId, Instant now) {
+		if(!isHost(memberId)) {
+			throw new BusinessException(MatchingErrorCode.NOT_PARTY_HOST);
+		}
+
         PartyMember member = findMember(memberId);
 
         ensureAttendanceOpen();
 
-        if(members.size() < MIN_MEMBERS_TO_DEPART) throw new BusinessException(MatchingErrorCode.NOT_ENOUGH_MEMBERS);
+        if(members.size() < MIN_MEMBERS_TO_DEPART) {
+			throw new BusinessException(MatchingErrorCode.NOT_ENOUGH_MEMBERS);
+		}
 
-        if(now.isBefore(departureAt)) throw new BusinessException(MatchingErrorCode.MEETING_NOT_STARTED);
+        if(now.isBefore(departureAt)) {
+			throw new BusinessException(MatchingErrorCode.MEETING_NOT_STARTED);
+		}
 
-        if(!member.isArrived()) throw new BusinessException(MatchingErrorCode.NOT_ARRIVED);
+        if(!member.isArrived()) {
+			throw new BusinessException(MatchingErrorCode.NOT_ARRIVED);
+		}
 
         List<Long> noShowMemberIds = markNoShowsExceptArrived(now);
 
@@ -258,6 +294,31 @@ public class Party {
 
         return noShowMemberIds;
     }
+
+	/**
+	 *  도착하지 않은 멤버를 모두 노쇼로 기록
+	 */
+	private List<Long> markNoShowsExceptArrived(Instant now) {
+		List<Long> noShowMemberIds = new ArrayList<>();
+
+		for(PartyMember m : members) {
+			if(m.isArrived()) continue;
+
+			m.markNoShow(now);
+			noShowMemberIds.add(m.getMemberId());
+		}
+
+		return noShowMemberIds;
+	}
+
+	/**
+	 *  노쇼 이의를 낼 수 있는 멤버인지 확인
+	 */
+	public void ensureNoShow(Long memberId) {
+		if(!findMember(memberId).isNoShow()) {
+			throw new BusinessException(MatchingErrorCode.NOT_NO_SHOW);
+		}
+	}
 
     /**
      *  자동 정리 - 실시간 방은 만든 지 1일, 예약 방은 출발 시각에서 1일이 지나도 열려 있으면(ACTIVE·COMPLETED) 정리 스케줄러가 닫는다.
@@ -270,10 +331,14 @@ public class Party {
      *  조회와 행 잠금 사이에 출발·나가기로 이미 닫힌 방은 PARTY_CLOSED 로 거절한다(스케줄러는 건너뛴다)
      */
     public AutoCloseResult autoClose(Instant now) {
-        if(!status.isRecruiting()) throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+        if(!status.isRecruiting()) {
+			throw new BusinessException(MatchingErrorCode.PARTY_CLOSED);
+		}
 
         // 만든 지 1일이 다 돼 확정한 실시간 방은 약속이 그 뒤일 수 있다 - 만나기도 전에 전원을 노쇼로 찍지 않게 약속 시간이 지난 다음 정리에서 닫는다
-        if(isConfirmed() && now.isBefore(departureAt)) throw new BusinessException(MatchingErrorCode.MEETING_NOT_STARTED);
+        if(isConfirmed() && now.isBefore(departureAt)) {
+			throw new BusinessException(MatchingErrorCode.MEETING_NOT_STARTED);
+		}
 
         List<Long> noShowMemberIds = List.of();
 
@@ -292,33 +357,8 @@ public class Party {
     }
 
     /**
-     *  도착하지 않은 멤버를 모두 노쇼로 찍는다 - 출발(depart)과 자동 정리(autoClose)가 같은 기준을 쓴다
-     *
-     *  @return 이번에 노쇼로 찍힌 memberId (합류 순)
-     */
-    private List<Long> markNoShowsExceptArrived(Instant now) {
-        List<Long> noShowMemberIds = new ArrayList<>();
-        for(PartyMember m : members) {
-            if(m.isArrived()) continue;
-
-            m.markNoShow(now);
-            noShowMemberIds.add(m.getMemberId());
-        }
-
-        return List.copyOf(noShowMemberIds);
-    }
-
-    /**
-     *  노쇼 이의를 낼 수 있는 멤버인지 - 이 방의 멤버이고 지금 노쇼(찍혔고 무효로 돌리지 않은)여야 한다
-     */
-    public void ensureNoShow(Long memberId) {
-        if(!findMember(memberId).isNoShow()) throw new BusinessException(MatchingErrorCode.NOT_NO_SHOW);
-    }
-
-    /**
      *  운영자가 이의를 받아들여 멤버의 노쇼를 무효로 돌린다. 무효가 된 노쇼는 탑승 기록·탑승 횟수에 다시 잡힌다.
      *  방이 끝난 뒤의 일이고 방 상세·SSE 에 보이는 값이 바뀌지 않아 version 은 올리지 않는다
-     *
      *  @return 이번에 무효로 돌렸으면 true, 이미 무효였으면 false
      */
     public boolean voidNoShow(Long memberId, Instant now) {
@@ -456,8 +496,7 @@ public class Party {
     }
 
     /**
-     *  영속 복원용. 저장된 방장이 비었거나(구버전 서버가 만든 방) 현재 멤버가 아니면(구버전 서버가 처리한 퇴장) 승계 규칙으로 다시 정한다.
-     *  배포 중 구버전과 섞여 도는 동안에만 생길 수 있는 어긋남이고, 다음 저장 때 컬럼도 이 값으로 고쳐진다
+     *  영속 복원용
      */
     public static Party load(Long id, Location departureLocation, Location destinationLocation, String departure, String destination, Capacity capacity, List<PartyMember> members, Long hostId, Instant createdAt, PartyStatus status,
                              Integer estimatedFare, Integer estimatedTime, String route, long version,
@@ -505,7 +544,7 @@ public class Party {
      *  혼자 남은 사람이 나가면 방 폭파 - leave 내부에서만 호출됨
      */
     private void cancel() {
-        ensureRecruiting();
+        validateRecruiting();
 
         status = PartyStatus.CANCELED;
     }
@@ -542,7 +581,7 @@ public class Party {
         version++;
     }
 
-    private void ensureRecruiting() {
+    private void validateRecruiting() {
         if(!status.isRecruiting()) throw new BusinessException(MatchingErrorCode.PARTY_NOT_RECRUITING);
     }
 

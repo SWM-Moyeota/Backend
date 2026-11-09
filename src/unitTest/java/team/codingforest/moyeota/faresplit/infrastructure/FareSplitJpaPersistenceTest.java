@@ -9,14 +9,14 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DuplicateKeyException;
 import team.codingforest.moyeota.common.JpaAuditingConfig;
 import team.codingforest.moyeota.faresplit.domain.AccountNumber;
-import team.codingforest.moyeota.faresplit.domain.Bank;
+import team.codingforest.moyeota.faresplit.domain.enums.Bank;
 import team.codingforest.moyeota.faresplit.domain.FareShare;
 import team.codingforest.moyeota.faresplit.domain.FareSplit;
-import team.codingforest.moyeota.faresplit.domain.FareSplitStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus;
 import team.codingforest.moyeota.faresplit.domain.FareSplitTransfer;
 import team.codingforest.moyeota.faresplit.domain.OpenTransfer;
 import team.codingforest.moyeota.faresplit.domain.RideRoster;
-import team.codingforest.moyeota.faresplit.domain.TransferStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.TransferStatus;
 
 import java.time.Duration;
 import java.time.Instant;

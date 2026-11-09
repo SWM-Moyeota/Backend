@@ -42,7 +42,7 @@ class NearbyPartyQueryPostgresTest {
 
     @Test
     void 반경_안의_방을_현재_인원과_함께_돌려준다() {
-        Party party = open(3);
+        Party party = create(3);
         party.join(2L);
         Long id = save(party);
 
@@ -56,7 +56,7 @@ class NearbyPartyQueryPostgresTest {
 
     @Test
     void 정원이_찬_방은_ACTIVE_가_아니라_후보에서_빠진다() {
-        Party party = open(2);
+        Party party = create(2);
         party.join(2L);
         Long id = save(party);
 
@@ -122,8 +122,8 @@ class NearbyPartyQueryPostgresTest {
         return id;
     }
 
-    private static Party open(int capacity) {
-        return Party.open(1L, DEPARTURE, DESTINATION, "대전역", "충남대", new Capacity(capacity), Instant.now(),
+    private static Party create(int capacity) {
+        return Party.create(1L, DEPARTURE, DESTINATION, "대전역", "충남대", new Capacity(capacity), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC");
     }
 }

@@ -4,6 +4,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import team.codingforest.moyeota.faresplit.domain.enums.Bank;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus;
 
 import java.time.Instant;
 import java.util.List;

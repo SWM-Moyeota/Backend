@@ -168,7 +168,7 @@ class PartyMeetingNotificationUnitTest {
     @DisplayName("markMeetingNotified - 이미 끝났거나 취소된 방은 차례가 아니다")
     @ParameterizedTest(name = "{0}")
     @EnumSource(value = PartyStatus.class, names = {"ACTIVE", "COMPLETED"}, mode = EnumSource.Mode.EXCLUDE)
-    void markMeetingNotified_notOpen(PartyStatus status) {
+    void markMeetingNotified_notCreate(PartyStatus status) {
 
         /*
          * settings

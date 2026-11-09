@@ -289,7 +289,7 @@ class PartyAutoCloseUnitTest {
     @DisplayName("autoClose - 이미 끝났거나 취소된 방이면 PARTY_CLOSED 이고 상태·version·노쇼가 그대로다")
     @ParameterizedTest(name = "status={0}")
     @EnumSource(value = PartyStatus.class, names = {"ACTIVE", "COMPLETED"}, mode = EnumSource.Mode.EXCLUDE)
-    void autoClose_notOpen(PartyStatus status) {
+    void autoClose_notCreate(PartyStatus status) {
 
         /*
          * settings

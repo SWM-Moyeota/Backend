@@ -21,8 +21,8 @@ class PartyHostUnitTest {
     private static final Location DESTINATION = new Location(37.3948, 127.1112);
     private static final Instant BASE_TIME = Instant.parse("2026-10-01T00:00:00Z");
 
-    private static Party open(int capacity) {
-        return Party.open(CREATOR_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity), Instant.now(),
+    private static Party create(int capacity) {
+        return Party.create(CREATOR_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity), Instant.now(),
                 12000, 25, "encoded-path");
     }
 
@@ -41,12 +41,12 @@ class PartyHostUnitTest {
 
     @DisplayName("open - 방을 만든 사람이 방장이다")
     @Test
-    void open_creatorIsHost() {
+    void create_creatorIsHost() {
 
         /*
          * test
          */
-        Party party = open(3);
+        Party party = create(3);
 
         /*
          * verify
@@ -85,7 +85,7 @@ class PartyHostUnitTest {
         /*
          * settings
          */
-        Party party = open(3);
+        Party party = create(3);
 
         /*
          * test
@@ -171,7 +171,7 @@ class PartyHostUnitTest {
         /*
          * settings
          */
-        Party party = open(3);
+        Party party = create(3);
 
         /*
          * test

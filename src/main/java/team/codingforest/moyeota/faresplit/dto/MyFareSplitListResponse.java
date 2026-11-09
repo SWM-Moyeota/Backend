@@ -2,7 +2,7 @@ package team.codingforest.moyeota.faresplit.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import team.codingforest.moyeota.faresplit.domain.OpenTransfer;
-import team.codingforest.moyeota.faresplit.domain.TransferStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.TransferStatus;
 import team.codingforest.moyeota.faresplit.dto.FareSplitDetailResponse.FareSplitPayer;
 import team.codingforest.moyeota.matching.api.dto.PartyPlaces;
 import team.codingforest.moyeota.user.api.MemberSummary;

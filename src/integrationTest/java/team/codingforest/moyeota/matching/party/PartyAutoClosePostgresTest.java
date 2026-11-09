@@ -158,7 +158,7 @@ class PartyAutoClosePostgresTest {
     }
 
     private Long realtimeRoom(PartyStatus status, Instant createdAt) {
-        Party party = Party.open(방장, DEPARTURE, DESTINATION, "울산역", "울산대", new Capacity(3), Instant.now(),
+        Party party = Party.create(방장, DEPARTURE, DESTINATION, "울산역", "울산대", new Capacity(3), Instant.now(),
                 9000, 20, "_p~iF~ps|U_ulLnnqC");
         Long id = parties.save(party).getId();
         jdbc.update("UPDATE match_room SET status = ?, created_at = ? WHERE id = ?", status.name(), at(createdAt), id);
@@ -184,7 +184,7 @@ class PartyAutoClosePostgresTest {
 
     /** 방장·동승자·늦은사람 셋이 찬 실시간 방을 방금 지난 시각(30초 전)으로 확정한다 - 바로 도착을 누를 수 있다 */
     private Long confirmedRoomOfThree() {
-        Party party = Party.open(방장, DEPARTURE, DESTINATION, "울산역", "울산대", new Capacity(3), Instant.now(),
+        Party party = Party.create(방장, DEPARTURE, DESTINATION, "울산역", "울산대", new Capacity(3), Instant.now(),
                 9000, 20, "_p~iF~ps|U_ulLnnqC");
         party.join(동승자);
         party.join(늦은사람);

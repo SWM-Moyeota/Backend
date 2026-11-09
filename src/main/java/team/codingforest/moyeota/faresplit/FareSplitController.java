@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import team.codingforest.moyeota.faresplit.domain.TransferStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.TransferStatus;
 import team.codingforest.moyeota.faresplit.dto.FareSplitDetailResponse;
 import team.codingforest.moyeota.faresplit.dto.FareSplitRequest;
 import team.codingforest.moyeota.faresplit.dto.MyFareSplitListResponse;
