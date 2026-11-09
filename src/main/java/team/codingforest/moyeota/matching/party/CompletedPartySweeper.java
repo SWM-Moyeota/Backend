@@ -24,8 +24,8 @@ public class CompletedPartySweeper {
     private final Parties parties;
     private final PartyService partyService;
 
-    @SchedulerLock(name = "completed-party-sweep", lockAtMostFor = "PT55M", lockAtLeastFor = "PT5M")
-    @Scheduled(fixedDelay = 3_600_000)
+    @SchedulerLock(name = "completed-party-sweep", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1M")
+	@Scheduled(cron = "0 0 * * * *", zone = "Asia/Seoul")
     public void sweep() {
         Instant cutoff = Instant.now().minus(AUTO_CLOSE_AFTER);
 
