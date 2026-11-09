@@ -215,9 +215,9 @@ class PartyOpenerUnitTest {
         verify(parties, never()).save(any());
     }
 
-    @DisplayName("open - 정원이 1~3 밖이면 INVALID_CAPACITY")
+    @DisplayName("open - 정원이 1~4 밖이면 INVALID_CAPACITY")
     @ParameterizedTest(name = "capacity={0}")
-    @ValueSource(ints = {-1, 0, 4})
+    @ValueSource(ints = {-1, 0, 5})
     void create_invalidCapacity(int capacity) {
 
         /*
@@ -317,7 +317,7 @@ class PartyOpenerUnitTest {
         return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity),
                 List.of(PartyMember.load(HOST_ID, BASE_TIME, null)), HOST_ID,
                 BASE_TIME, status, 12000, 25, "encoded-path", 0L,
-                RoomType.REALTIME, null, null, null, 0);
+                RoomType.REALTIME, null);
     }
 
     private static void assertBusinessException(Throwable thrown, ErrorCode expected) {

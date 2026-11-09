@@ -54,17 +54,12 @@ final class PartyFixtures {
     }
 
     /** 저장된 모양 그대로 복원한 방. members 의 첫 번째가 방장이다 */
-    static Party restored(RoomType roomType, PartyStatus status, Instant departureAt, Instant meetingNotifiedAt, int departureReminderCount,
-                          PartyMember... members) {
+    static Party restored(RoomType roomType, PartyStatus status, Instant departureAt, PartyMember... members) {
         boolean realtime = roomType == RoomType.REALTIME;
         return Party.load(100L, DEPARTURE, DESTINATION, DEPARTURE_PLACE, DESTINATION_PLACE, new Capacity(3),
                 new ArrayList<>(List.of(members)), members.length == 0 ? null : members[0].getMemberId(), NOW.minus(Duration.ofHours(1)), status,
                 realtime ? FARE : null, realtime ? MINUTES : null, realtime ? ROUTE : null,
-                7L, roomType, departureAt, null, meetingNotifiedAt, departureReminderCount);
-    }
-
-    static Party restored(RoomType roomType, PartyStatus status, Instant departureAt, PartyMember... members) {
-        return restored(roomType, status, departureAt, null, 0, members);
+                7L, roomType, departureAt);
     }
 
     /** order 가 작을수록 먼저 합류했다 */

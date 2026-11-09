@@ -18,3 +18,8 @@ UPDATE match_room
 SET status = 'ACTIVE'
 WHERE status = 'COMPLETED'
   AND (departure_at IS NULL OR room_type = 'RESERVED');
+
+ALTER TABLE match_room
+DROP COLUMN reminder_sent_at,
+    DROP COLUMN meeting_notified_at,
+    DROP COLUMN departure_reminder_count;

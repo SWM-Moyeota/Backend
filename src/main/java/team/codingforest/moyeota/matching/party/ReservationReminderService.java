@@ -3,42 +3,36 @@ package team.codingforest.moyeota.matching.party;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.ReservationReminderNotifier;
 
-import java.time.Instant;
 import java.util.List;
 
+/**
+ *  예약 방 출발 30분 전 알림. 언제 보낼지는 스케줄러가 departure_at 구간으로 고른다
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReservationReminderService {
-    private final Parties parties;
-    private final AfterCommitExecutor afterCommitExecutor;
-    private final ReservationReminderNotifier reminderNotifier;
+	private final Parties parties;
+	private final ReservationReminderNotifier reminderNotifier;
 
-    @Transactional
-    public void remind(Long partyId) {
-        Party party = parties.findByIdForUpdate(partyId)
-                .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
+	public void remind(Long partyId) {
+		Party party = parties.findById(partyId)
+				.orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
 
-        // 혼자인 예약 방은 출발 시각에 모집 만료로 닫힐 방이라 "출발 전" 알림을 보내지 않는다
-        if(party.getReminderSentAt() != null || !party.getStatus().isOpen() || !party.hasCompanion()) return;
+		List<Long> recipientIds = party.noticeRecipients();
 
-        party.markReminderSent(Instant.now());
-        parties.save(party);
+		if(recipientIds.isEmpty()) {
+			log.info("출발 전 알림을 보내지 않음(닫혔거나 혼자인 방) partyId={}", partyId);
+			return;
+		}
 
-        List<Long> memberIds = party.getMembers().stream().map(PartyMember::getMemberId).toList();
-        Instant departureAt = party.getDepartureAt();
-
-        afterCommitExecutor.execute("party.reminder", () -> reminderNotifier.notifyDepartureSoon(partyId, memberIds, departureAt));
-
-        log.info("예약 방 출발 전 알림 partyId={}, members={}", partyId, memberIds.size());
-    }
+		reminderNotifier.notifyDepartureSoon(partyId, recipientIds, party.getDepartureAt());
+		log.info("예약 방 출발 전 알림 partyId={}, 받는 사람={}명", partyId, recipientIds.size());
+	}
 }

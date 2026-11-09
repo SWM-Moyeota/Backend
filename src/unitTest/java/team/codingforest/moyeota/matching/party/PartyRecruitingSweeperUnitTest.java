@@ -12,6 +12,7 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,20 +51,25 @@ class PartyRecruitingSweeperUnitTest {
     }
 
     @Test
-    void 알림은_30분_안에_출발하는_방을_찾는다() {
-        doReturn(List.of()).when(parties).findReservationsToRemind(any(), any());
+    void 출발_전_알림은_실행한_분을_끝으로_하는_1분_구간을_30분_미룬_곳에서_출발하는_예약_방을_찾는다() {
+        doReturn(List.of()).when(parties).findOpenReservationIdsDepartingBetween(any(), any());
+        Instant before = Instant.now();
 
         sweeper.remind();
 
+        Instant after = Instant.now();
         ArgumentCaptor<Instant> from = ArgumentCaptor.forClass(Instant.class);
         ArgumentCaptor<Instant> to = ArgumentCaptor.forClass(Instant.class);
-        verify(parties).findReservationsToRemind(from.capture(), to.capture());
-        assertThat(Duration.between(from.getValue(), to.getValue())).isEqualTo(Duration.ofMinutes(30));
+        verify(parties).findOpenReservationIdsDepartingBetween(from.capture(), to.capture());
+        Instant tick = to.getValue().minus(Duration.ofMinutes(30));
+        assertThat(tick).as("실행한 분의 0초").isEqualTo(tick.truncatedTo(ChronoUnit.MINUTES))
+                .isBetween(before.truncatedTo(ChronoUnit.MINUTES), after.truncatedTo(ChronoUnit.MINUTES));
+        assertThat(Duration.between(from.getValue(), to.getValue())).isEqualTo(Duration.ofMinutes(1));
     }
 
     @Test
     void 한_방의_알림이_실패해도_나머지_방에_보낸다() {
-        doReturn(List.of(1L, 2L)).when(parties).findReservationsToRemind(any(), any());
+        doReturn(List.of(1L, 2L)).when(parties).findOpenReservationIdsDepartingBetween(any(), any());
         doThrow(new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND)).when(reminderService).remind(1L);
 
         sweeper.remind();

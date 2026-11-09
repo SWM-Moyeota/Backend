@@ -118,7 +118,7 @@ class PartyAccessPostgresTest {
         Instant meetingAt = membersInJoinOrder[0].getJoinedAt();
         Long id = parties.save(Party.load(null, DEPARTURE, DESTINATION, departure, destination, new Capacity(3), new ArrayList<>(List.of(membersInJoinOrder)),
                 membersInJoinOrder[0].getMemberId(), meetingAt.minus(Duration.ofHours(1)), status,
-                12000, 25, "encoded-path", 0L, RoomType.REALTIME, meetingAt, null, null, 0)).getId();
+                12000, 25, "encoded-path", 0L, RoomType.REALTIME, meetingAt)).getId();
         rooms.add(id);
 
         for(int i = 0; i < membersInJoinOrder.length; i++) {

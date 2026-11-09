@@ -1021,7 +1021,7 @@ class PartyServiceTest {
     private Long saveUnconfirmedOld(Instant createdAt) {
         Party party = Party.load(null, 강남역(), 판교역(), "강남역", "판교역", new Capacity(2),
                 members(createdAt, false), anotherHost, createdAt, PartyStatus.ACTIVE, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L,
-                RoomType.REALTIME, null, null, null, 0);
+                RoomType.REALTIME, null);
         return parties.save(party).getId();
     }
 
@@ -1030,7 +1030,7 @@ class PartyServiceTest {
         Instant createdAt = Instant.now().minus(Duration.ofDays(2));
         Party party = Party.load(null, 강남역(), 판교역(), "강남역", "판교역", new Capacity(2),
                 members(createdAt, arrived ? departureAt : null), anotherHost, createdAt, PartyStatus.COMPLETED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L,
-                RoomType.REALTIME, departureAt, null, null, 0);
+                RoomType.REALTIME, departureAt);
         return parties.save(party).getId();
     }
 
@@ -1043,7 +1043,7 @@ class PartyServiceTest {
         }
         Party party = Party.load(null, 강남역(), 판교역(), "강남역", "판교역", new Capacity(memberIds.length),
                 members, memberIds[0], createdAt, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L,
-                RoomType.REALTIME, createdAt.plus(Duration.ofMinutes(30)), null, null, 0);
+                RoomType.REALTIME, createdAt.plus(Duration.ofMinutes(30)));
         return parties.save(party).getId();
     }
 

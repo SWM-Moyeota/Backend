@@ -170,7 +170,7 @@ class RideRecordControllerTest {
         }
         Long partyId = parties.save(Party.load(null, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
                 "강남역", "판교역", new Capacity(3), members, members.getFirst().getMemberId(), 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L,
-                RoomType.REALTIME, 기준, null, null, 0)).getId();
+                RoomType.REALTIME, 기준)).getId();
         rideRecords.save(RideRecord.load(partyId, "강남역", "판교역", dropoffTime));
         return partyId;
     }

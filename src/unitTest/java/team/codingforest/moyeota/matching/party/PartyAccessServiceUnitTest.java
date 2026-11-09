@@ -302,14 +302,14 @@ class PartyAccessServiceUnitTest {
 
         return Party.load(PARTY_ID, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
                 new Capacity(3), members, memberIds.length == 0 ? null : memberIds[0], BASE_TIME, status, 12000, 25, "encoded-path", 0L,
-                RoomType.REALTIME, null, null, null, 0);
+                RoomType.REALTIME, null);
     }
 
     /** members 순서대로 합류한 약속이 정해진 방 */
     private static Party attendedParty(PartyStatus status, List<PartyMember> members) {
         return Party.load(PARTY_ID, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
                 new Capacity(3), new ArrayList<>(members), members.getFirst().getMemberId(), BASE_TIME, status, 12000, 25, "encoded-path",
-                0L, RoomType.REALTIME, MEETING_AT, null, null, 0);
+                0L, RoomType.REALTIME, MEETING_AT);
     }
 
     private static PartyMember arrived(Long memberId, int joinOrder) {

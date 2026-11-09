@@ -10,6 +10,7 @@ import team.codingforest.moyeota.matching.party.domain.Parties;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @Slf4j
 @Component
@@ -36,17 +37,18 @@ public class PartyRecruitingSweeper {
         }
     }
 
-    @SchedulerLock(name = "reservation-reminder", lockAtMostFor = "PT55S", lockAtLeastFor = "PT30S")
-    @Scheduled(fixedDelay = 60_000)
-    public void remind() {
-        Instant now = Instant.now();
+	@SchedulerLock(name = "reservation-reminder", lockAtMostFor = "PT55S", lockAtLeastFor = "PT30S")
+	@Scheduled(cron = "0 * * * * *", zone = "Asia/Seoul")
+	public void remind() {
+		Instant to = Instant.now().truncatedTo(ChronoUnit.MINUTES);
+		Instant from = to.minus(Duration.ofMinutes(1));
 
-        for(Long partyId : parties.findReservationsToRemind(now, now.plus(REMINDER_LEAD))) {
-            try {
-                reminderService.remind(partyId);
-            } catch (BusinessException e) {
-                log.info("출발 전 알림 건너 뜀 partyId={}, 사유={}", partyId, e.getMessage());
-            }
-        }
-    }
+		for(Long partyId : parties.findOpenReservationIdsDepartingBetween(from.plus(REMINDER_LEAD), to.plus(REMINDER_LEAD))) {
+			try {
+				reminderService.remind(partyId);
+			} catch (BusinessException e) {
+				log.info("출발 전 알림 건너 뜀 partyId={}, 사유={}", partyId, e.getMessage());
+			}
+		}
+	}
 }

@@ -30,14 +30,6 @@ public class Party {
 	public static final double ARRIVAL_RADIUS_METERS = 100;
 	public static final Duration ARRIVAL_OPENS_BEFORE = Duration.ofMinutes(10);
 	public static final int MIN_MEMBERS_TO_DEPART = 2;
-	/**
-	 * 약속 시각 알림이 이만큼 넘게 늦으면(서버가 멈췄다 다시 돈 경우) "약속 시간이에요"가 맞지 않아 보내지 않는다
-	 */
-	static final Duration MEETING_NOTICE_STALE_AFTER = Duration.ofMinutes(30);
-	/**
-	 * 출발 재촉 시각 - 약속 시각에서 이만큼 지난 때. n 번째 재촉(0부터)은 departureAt + OFFSETS[n].
-	 * 개수를 바꾸면 PartyJpaRepository.findDepartureReminderTargetIds 도 함께 바꾼다(차례마다 기준 시각을 하나씩 받는다)
-	 */
 	public static final List<Duration> DEPARTURE_REMINDER_OFFSETS = List.of(
 			Duration.ofMinutes(30), Duration.ofHours(1), Duration.ofHours(2), Duration.ofHours(4));
 
@@ -60,14 +52,11 @@ public class Party {
 	 * 예약 방은 만들 때 정한 출발 시각, 실시간 방은 방장이 확정한 약속 시간(확정 전 null). 실시간 방은 이 값이 있을 때만 COMPLETED 다
 	 */
 	private Instant departureAt;
-	private Instant reminderSentAt;
-	private Instant meetingNotifiedAt;
-	private int departureReminderCount;
 
 	private Party(Long id, Location departureLocation, Location destinationLocation, String departure, String destination, Capacity capacity,
 	              List<PartyMember> members, Long hostId, Instant createdAt, PartyStatus status,
 	              Integer estimatedFare, Integer estimatedTime, String route, long version,
-	              RoomType roomType, Instant departureAt, Instant reminderSentAt, Instant meetingNotifiedAt, int departureReminderCount) {
+	              RoomType roomType, Instant departureAt) {
 		this.id = id;
 		this.departureLocation = departureLocation;
 		this.destinationLocation = destinationLocation;
@@ -84,9 +73,6 @@ public class Party {
 		this.version = version;
 		this.roomType = roomType;
 		this.departureAt = departureAt;
-		this.reminderSentAt = reminderSentAt;
-		this.meetingNotifiedAt = meetingNotifiedAt;
-		this.departureReminderCount = departureReminderCount;
 	}
 
 
@@ -118,22 +104,19 @@ public class Party {
 	                          Capacity capacity, Instant now, Integer estimatedFare, Integer estimatedTime, String route,
 	                          RoomType roomType, Instant departureAt) {
 		Party party = new Party(null, departureLocation, destinationLocation, departure, destination, capacity, List.of(), creatorId, now,
-				PartyStatus.ACTIVE, estimatedFare, estimatedTime, route, 0L, roomType, departureAt, null, null, 0);
+				PartyStatus.ACTIVE, estimatedFare, estimatedTime, route, 0L, roomType, departureAt);
 
 		party.members.add(PartyMember.join(creatorId, now));
 
 		return party;
 	}
 
-	/**
-	 * 영속 복원 - 저장된 값을 그대로 믿는다
-	 */
 	public static Party load(Long id, Location departureLocation, Location destinationLocation, String departure, String destination, Capacity capacity,
 	                         List<PartyMember> members, Long hostId, Instant createdAt, PartyStatus status,
 	                         Integer estimatedFare, Integer estimatedTime, String route, long version,
-	                         RoomType roomType, Instant departureAt, Instant reminderSentAt, Instant meetingNotifiedAt, int departureReminderCount) {
+	                         RoomType roomType, Instant departureAt) {
 		return new Party(id, departureLocation, destinationLocation, departure, destination, capacity, members, hostId, createdAt, status,
-				estimatedFare, estimatedTime, route, version, roomType, departureAt, reminderSentAt, meetingNotifiedAt, departureReminderCount);
+				estimatedFare, estimatedTime, route, version, roomType, departureAt);
 	}
 
 	/**
@@ -193,8 +176,6 @@ public class Party {
 		}
 	}
 
-	// ───────────────────────── 약속 확정 ─────────────────────────
-
 	/**
 	 * 실시간 방의 방장이 채팅으로 정한 약속 시간과 만남 장소를 확정한다. 장소를 주면 출발지가 그 자리로 바뀐다 -
 	 * 도착 판정(출발지 100m)이 실제 만남 장소를 기준으로 하게 하기 위해서다. 경로·요금·시간은 미리보기 값이라 다시 구하지 않는다
@@ -230,8 +211,6 @@ public class Party {
 		status = PartyStatus.COMPLETED;
 		version++;
 	}
-
-	// ───────────────────────── 도착·출발 ─────────────────────────
 
 	/**
 	 * 출발지 도착 - 약속 10분 전부터 출발지 100m 안에서 누른다. 거리는 서비스가 PostGIS 로 재서 nearDeparture 로 넘긴다.
@@ -285,6 +264,28 @@ public class Party {
 	}
 
 	/**
+	 * 출발 전 알림·약속 시각 알림을 받을 사람 - 열린 확정 방에 함께 탈 사람이 있으면 멤버 전원, 아니면 빈 목록
+	 */
+	public List<Long> noticeRecipients() {
+		if (!isOpenAndConfirmed() || !hasCompanion()) {
+			return List.of();
+		}
+
+		return memberIds();
+	}
+
+	/**
+	 * 출발 재촉을 받을 사람 - 출발 버튼을 누르는 방장. 알림 대상이 아닌 방이면 빈 목록
+	 */
+	public List<Long> departureReminderRecipients() {
+		if (!isOpenAndConfirmed() || !hasCompanion()) {
+			return List.of();
+		}
+
+		return List.of(hostId);
+	}
+
+	/**
 	 * 모집 만료 - 실시간 방은 만든 지 15분, 예약 방은 출발 시각에 스케줄러가 부른다. 혼자인 방만 닫는다.
 	 * 2명 이상이면 방장이 확정할 때까지 그대로 둔다(15분은 혼자면 접는 기준이지 모집 마감이 아니다)
 	 *
@@ -317,56 +318,6 @@ public class Party {
 		close(riderIds.isEmpty() ? PartyStatus.CANCELED : PartyStatus.FINISHED);
 
 		return AutoCloseResult.closed(status, riderIds);
-	}
-
-	/**
-	 * 약속 시각 알림 - 열린 확정 방에서 약속 시각이 지나면 한 번 처리하고 멤버 전원에게 보낸다.
-	 * 30분 넘게 늦었거나 혼자인 방은 보내지 않지만 처리 시각은 남겨 다시 고르지 않는다. 알림 기록은 방 상세에 없어 version 은 올리지 않는다
-	 */
-	public PartyNotice markMeetingNotified(Instant now) {
-		if (!isOpenAndConfirmed() || meetingNotifiedAt != null || now.isBefore(departureAt)) {
-			return PartyNotice.notDue();
-		}
-
-		meetingNotifiedAt = now;
-
-		if (now.isAfter(departureAt.plus(MEETING_NOTICE_STALE_AFTER)) || !hasCompanion()) {
-			return PartyNotice.silent();
-		}
-
-		return PartyNotice.send(memberIds());
-	}
-
-	/**
-	 * 출발 재촉 - 차례 시각이 되면 출발을 누를 수 있는 방장에게 보낸다. 서버가 멈춰 여러 차례가 밀렸으면 지난 차례를 모두 넘기고 한 번만 보낸다.
-	 * 혼자인 방은 보내지 않고 차례만 넘긴다. 방해 금지 시간은 서비스가 가른다(그때도 차례는 넘긴다)
-	 */
-	public PartyNotice advanceDepartureReminder(Instant now) {
-		if (!isOpenAndConfirmed() || departureReminderCount >= DEPARTURE_REMINDER_OFFSETS.size()) {
-			return PartyNotice.notDue();
-		}
-
-		if (now.isBefore(departureAt.plus(DEPARTURE_REMINDER_OFFSETS.get(departureReminderCount)))) {
-			return PartyNotice.notDue();
-		}
-
-		do {
-			departureReminderCount++;
-		} while (departureReminderCount < DEPARTURE_REMINDER_OFFSETS.size()
-				&& !now.isBefore(departureAt.plus(DEPARTURE_REMINDER_OFFSETS.get(departureReminderCount))));
-
-		if (!hasCompanion()) {
-			return PartyNotice.silent();
-		}
-
-		return PartyNotice.send(List.of(hostId));
-	}
-
-	/**
-	 * 예약 방 출발 30분 전 알림을 보낸 시각
-	 */
-	public void markReminderSent(Instant now) {
-		reminderSentAt = now;
 	}
 
 	public boolean isConfirmed() {
@@ -528,17 +479,5 @@ public class Party {
 
 	public Instant getDepartureAt() {
 		return departureAt;
-	}
-
-	public Instant getReminderSentAt() {
-		return reminderSentAt;
-	}
-
-	public Instant getMeetingNotifiedAt() {
-		return meetingNotifiedAt;
-	}
-
-	public int getDepartureReminderCount() {
-		return departureReminderCount;
 	}
 }

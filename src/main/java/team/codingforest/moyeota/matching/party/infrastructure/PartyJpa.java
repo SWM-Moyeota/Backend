@@ -118,26 +118,17 @@ public class PartyJpa implements Parties {
         return partyJpaRepository.findRecruitingExpiredIds(PartyStatus.ACTIVE, realtimeCreatedBefore, now);
     }
 
-    @Override
-    public List<Long> findReservationsToRemind(Instant from, Instant to) {
-        return partyJpaRepository.findIdsToRemind(openStatuses(), from, to);
-    }
+	@Override
+	public List<Long> findOpenConfirmedIdsDepartingBetween(Instant from, Instant to) {
+		return partyJpaRepository.findOpenConfirmedIdsDepartingBetween(from, to);
+	}
 
-    @Override
-    public List<Long> findMeetingNoticeTargets(Instant now) {
-        return partyJpaRepository.findMeetingNoticeTargetIds(now);
-    }
+	@Override
+	public List<Long> findOpenReservationIdsDepartingBetween(Instant from, Instant to) {
+		return partyJpaRepository.findOpenReservationIdsDepartingBetween(from, to);
+	}
 
-    /** 차례 i 은 departure_at <= now - DEPARTURE_REMINDER_OFFSETS[i] 이면 지났다 판정 */
-    @Override
-    public List<Long> findDepartureReminderTargets(Instant now) {
-        List<Duration> offsets = Party.DEPARTURE_REMINDER_OFFSETS;
-
-        return partyJpaRepository.findDepartureReminderTargetIds(
-                now.minus(offsets.get(0)), now.minus(offsets.get(1)), now.minus(offsets.get(2)), now.minus(offsets.get(3)));
-    }
-
-    private List<PartyStatus> openStatuses() {
+	private List<PartyStatus> openStatuses() {
         return Arrays.stream(PartyStatus.values())
                 .filter(PartyStatus::isOpen)
                 .toList();

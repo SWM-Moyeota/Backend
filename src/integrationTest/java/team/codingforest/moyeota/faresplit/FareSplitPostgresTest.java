@@ -497,7 +497,7 @@ class FareSplitPostgresTest {
 
         Long id = parties.save(Party.load(null, DEPARTURE, DESTINATION, "광주송정역", "전남대", new Capacity(3), members,
                 memberIdsInJoinOrder[0], meetingAt.minus(Duration.ofHours(1)), PartyStatus.FINISHED,
-                12000, 25, "encoded-path", 0L, RoomType.REALTIME, meetingAt, null, null, 0)).getId();
+                12000, 25, "encoded-path", 0L, RoomType.REALTIME, meetingAt)).getId();
         rooms.add(id);
 
         for(int i = 0; i < memberIdsInJoinOrder.length; i++) {

@@ -3,404 +3,178 @@ package team.codingforest.moyeota.matching.party.domain;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import java.time.Duration;
-import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static team.codingforest.moyeota.matching.party.domain.PartyFixtures.*;
 
 /**
- *  약속 시각 알림(markMeetingNotified)과 출발 재촉 차례(advanceDepartureReminder)
+ *  알림 받는 사람 - 언제 보낼지는 스케줄러가 departure_at 구간으로 고르고, 누구에게 보낼지는 Party 가 정한다
  */
 class PartyMeetingNotificationUnitTest {
-    private static final long VERSION = 7L;
 
-    // ───────────────────────── markMeetingNotified ─────────────────────────
+    // ───────────────────────── noticeRecipients ─────────────────────────
 
-    @DisplayName("markMeetingNotified - 약속 시각이 되면 처리 시각을 남기고 멤버 전원(합류 순)에게 보낸다. version 은 그대로다")
+    @DisplayName("noticeRecipients - 열린 확정 방이면 도착 여부와 상관없이 멤버 전원(합류 순)이다")
     @ParameterizedTest(name = "{0}")
     @EnumSource(value = PartyStatus.class, names = {"ACTIVE", "COMPLETED"})
-    void markMeetingNotified(PartyStatus status) {
+    void noticeRecipients(PartyStatus status) {
 
         /*
          * settings
          */
-        Party party = confirmedParty(status, null, 0, waiting(HOST_ID, 0), arrived(MEMBER_ID, 1), waiting(THIRD_ID, 2));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.markMeetingNotified(MEETING_AT);
+        Party party = restored(RoomType.REALTIME, status, MEETING_AT, waiting(HOST_ID, 0), arrived(MEMBER_ID, 1), waiting(THIRD_ID, 2));
 
         /*
          * verify
          */
-        assertThat(notice.handled()).isTrue();
-        assertThat(notice.shouldSend()).isTrue();
-        assertThat(notice.recipientIds()).containsExactly(HOST_ID, MEMBER_ID, THIRD_ID);
-        assertThat(party.getMeetingNotifiedAt()).isEqualTo(MEETING_AT);
-        assertThat(party.getVersion()).isEqualTo(VERSION);
+        assertThat(party.noticeRecipients()).containsExactly(HOST_ID, MEMBER_ID, THIRD_ID);
     }
 
-    @DisplayName("markMeetingNotified - 약속 시각 전이면 차례가 아니고 아무것도 바꾸지 않는다")
+    @DisplayName("noticeRecipients - 예약 방은 만들 때부터 약속이 있어 ACTIVE 인 채로 멤버 전원이다")
     @Test
-    void markMeetingNotified_beforeMeeting() {
+    void noticeRecipients_reservation() {
 
         /*
          * settings
          */
-        Party party = confirmedParty(PartyStatus.COMPLETED, null, 0, waiting(HOST_ID, 0), waiting(MEMBER_ID, 1));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.markMeetingNotified(MEETING_AT.minusSeconds(1));
+        Party party = reserved(3, MEMBER_ID);
 
         /*
          * verify
          */
-        assertThat(notice.handled()).isFalse();
-        assertThat(notice.shouldSend()).isFalse();
-        assertThat(party.getMeetingNotifiedAt()).isNull();
+        assertThat(party.noticeRecipients()).containsExactly(HOST_ID, MEMBER_ID);
     }
 
-    @DisplayName("markMeetingNotified - 약속 시각에서 정확히 30분까지는 보낸다")
+    @DisplayName("noticeRecipients - 약속을 확정하지 않은 실시간 방은 아무도 받지 않는다")
     @Test
-    void markMeetingNotified_exactly30MinutesLate() {
+    void noticeRecipients_unconfirmed() {
 
         /*
          * settings
          */
-        Party party = confirmedParty(PartyStatus.COMPLETED, null, 0, waiting(HOST_ID, 0), waiting(MEMBER_ID, 1));
-        Instant now = MEETING_AT.plus(Duration.ofMinutes(30));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.markMeetingNotified(now);
+        Party party = realtime(3, MEMBER_ID);
 
         /*
          * verify
          */
-        assertThat(notice.shouldSend()).isTrue();
-        assertThat(notice.recipientIds()).containsExactly(HOST_ID, MEMBER_ID);
-        assertThat(party.getMeetingNotifiedAt()).isEqualTo(now);
+        assertThat(party.noticeRecipients()).isEmpty();
     }
 
-    @DisplayName("markMeetingNotified - 약속 시각에서 30분 넘게 지났으면(서버가 멈췄던 경우) 보내지 않고 처리만 남긴다")
+    @DisplayName("noticeRecipients - 혼자인 방은 함께 탈 사람이 없어 아무도 받지 않는다")
     @Test
-    void markMeetingNotified_stale() {
+    void noticeRecipients_alone() {
 
         /*
          * settings
          */
-        Party party = confirmedParty(PartyStatus.COMPLETED, null, 0, waiting(HOST_ID, 0), waiting(MEMBER_ID, 1));
-        Instant now = MEETING_AT.plus(Duration.ofMinutes(30)).plusSeconds(1);
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.markMeetingNotified(now);
+        Party party = reserved(3);
 
         /*
          * verify
          */
-        assertThat(notice.handled()).isTrue();
-        assertThat(notice.shouldSend()).isFalse();
-        assertThat(notice.recipientIds()).isEmpty();
-        assertThat(party.getMeetingNotifiedAt()).isEqualTo(now);
+        assertThat(party.noticeRecipients()).isEmpty();
     }
 
-    @DisplayName("markMeetingNotified - 이미 처리한 방은 차례가 아니고 처음 처리 시각을 그대로 둔다")
-    @Test
-    void markMeetingNotified_alreadyNotified() {
-
-        /*
-         * settings
-         */
-        Instant notifiedAt = MEETING_AT.plusSeconds(20);
-        Party party = confirmedParty(PartyStatus.COMPLETED, notifiedAt, 0, waiting(HOST_ID, 0), waiting(MEMBER_ID, 1));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.markMeetingNotified(MEETING_AT.plus(Duration.ofMinutes(1)));
-
-        /*
-         * verify
-         */
-        assertThat(notice.handled()).isFalse();
-        assertThat(party.getMeetingNotifiedAt()).isEqualTo(notifiedAt);
-    }
-
-    @DisplayName("markMeetingNotified - 약속을 확정하지 않은 실시간 방은 차례가 아니다")
-    @Test
-    void markMeetingNotified_unconfirmed() {
-
-        /*
-         * settings
-         */
-        Party party = party(RoomType.REALTIME, null, PartyStatus.COMPLETED, null, 0, waiting(HOST_ID, 0), waiting(MEMBER_ID, 1));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.markMeetingNotified(MEETING_AT);
-
-        /*
-         * verify
-         */
-        assertThat(notice.handled()).isFalse();
-        assertThat(party.getMeetingNotifiedAt()).isNull();
-    }
-
-    @DisplayName("markMeetingNotified - 이미 끝났거나 취소된 방은 차례가 아니다")
+    @DisplayName("noticeRecipients - 닫힌 방은 아무도 받지 않는다")
     @ParameterizedTest(name = "{0}")
-    @EnumSource(value = PartyStatus.class, names = {"ACTIVE", "COMPLETED"}, mode = EnumSource.Mode.EXCLUDE)
-    void markMeetingNotified_notCreate(PartyStatus status) {
+    @EnumSource(value = PartyStatus.class, names = {"FINISHED", "CANCELED"})
+    void noticeRecipients_closed(PartyStatus status) {
 
         /*
          * settings
          */
-        Party party = confirmedParty(status, null, 0, arrived(HOST_ID, 0), waiting(MEMBER_ID, 1));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.markMeetingNotified(MEETING_AT.plusSeconds(10));
+        Party party = restored(RoomType.REALTIME, status, MEETING_AT, arrived(HOST_ID, 0), waiting(MEMBER_ID, 1));
 
         /*
          * verify
          */
-        assertThat(notice.handled()).isFalse();
-        assertThat(party.getMeetingNotifiedAt()).isNull();
+        assertThat(party.noticeRecipients()).isEmpty();
     }
 
-    @DisplayName("markMeetingNotified - 예약 방은 출발 시각이 약속 시각이다")
+    // ───────────────────────── departureReminderRecipients ─────────────────────────
+
+    @DisplayName("departureReminderRecipients - 출발 버튼을 누르는 방장 한 명이다. 방장이 아직 도착 전이어도 받는다")
     @Test
-    void markMeetingNotified_reservation() {
+    void departureReminderRecipients() {
 
         /*
          * settings
          */
-        Party party = party(RoomType.RESERVED, MEETING_AT, PartyStatus.COMPLETED, null, 0, waiting(HOST_ID, 0), waiting(MEMBER_ID, 1));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.markMeetingNotified(MEETING_AT.plusSeconds(30));
+        Party party = restored(RoomType.REALTIME, PartyStatus.COMPLETED, MEETING_AT, waiting(HOST_ID, 0), arrived(MEMBER_ID, 1), arrived(THIRD_ID, 2));
 
         /*
          * verify
          */
-        assertThat(notice.shouldSend()).isTrue();
-        assertThat(notice.recipientIds()).containsExactly(HOST_ID, MEMBER_ID);
+        assertThat(party.departureReminderRecipients()).containsExactly(HOST_ID);
     }
 
-    @DisplayName("markMeetingNotified - 함께 탈 사람이 들어오지 않은 예약 방(멤버 1명)은 보내지 않고 처리만 남긴다")
+    @DisplayName("departureReminderRecipients - 방장이 나가 승계됐으면 새 방장이 받는다")
     @Test
-    void markMeetingNotified_aloneInReservation() {
+    void departureReminderRecipients_succeededHost() {
 
         /*
          * settings
          */
-        Party party = party(RoomType.RESERVED, MEETING_AT, PartyStatus.ACTIVE, null, 0, waiting(HOST_ID, 0));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.markMeetingNotified(MEETING_AT);
+        Party party = confirmed(3, MEMBER_ID, THIRD_ID);
+        party.leave(HOST_ID);
 
         /*
          * verify
          */
-        assertThat(notice.handled()).isTrue();
-        assertThat(notice.shouldSend()).isFalse();
-        assertThat(party.getMeetingNotifiedAt()).isEqualTo(MEETING_AT);
+        assertThat(party.departureReminderRecipients()).containsExactly(MEMBER_ID);
+    }
+
+    @DisplayName("departureReminderRecipients - 미확정 방·혼자인 방·닫힌 방은 아무도 받지 않는다")
+    @Test
+    void departureReminderRecipients_notDue() {
+
+        /*
+         * settings
+         */
+        Party unconfirmed = realtime(3, MEMBER_ID);
+        Party alone = reserved(3);
+        Party finished = restored(RoomType.REALTIME, PartyStatus.FINISHED, MEETING_AT, arrived(HOST_ID, 0), arrived(MEMBER_ID, 1));
+
+        /*
+         * verify
+         */
+        assertThat(unconfirmed.departureReminderRecipients()).isEmpty();
+        assertThat(alone.departureReminderRecipients()).isEmpty();
+        assertThat(finished.departureReminderRecipients()).isEmpty();
+    }
+
+    @DisplayName("받는 사람을 묻는 것만으로는 방이 바뀌지 않는다 - 알림 기록이 없어 version 도 그대로다")
+    @Test
+    void recipients_readOnly() {
+
+        /*
+         * settings
+         */
+        Party party = confirmed(3, MEMBER_ID);
+        long version = party.getVersion();
+
+        /*
+         * test
+         */
+        party.noticeRecipients();
+        party.departureReminderRecipients();
+
+        /*
+         * verify
+         */
+        assertThat(party.getVersion()).isEqualTo(version);
+        assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
     }
 
     // ───────────────────────── DEPARTURE_REMINDER_OFFSETS ─────────────────────────
 
-    @DisplayName("DEPARTURE_REMINDER_OFFSETS - 약속 시각 뒤 30분, 1시간, 2시간, 4시간 네 번이다")
+    @DisplayName("DEPARTURE_REMINDER_OFFSETS - 출발 재촉은 약속 시각 뒤 30분, 1시간, 2시간, 4시간 네 번이다")
     @Test
     void departureReminderOffsets() {
-
-        /*
-         * verify
-         */
         assertThat(Party.DEPARTURE_REMINDER_OFFSETS).containsExactly(
                 Duration.ofMinutes(30), Duration.ofHours(1), Duration.ofHours(2), Duration.ofHours(4));
-    }
-
-    // ───────────────────────── advanceDepartureReminder ─────────────────────────
-
-    @DisplayName("advanceDepartureReminder - 차례 시각이 되면 차례를 하나 넘기고 출발을 누를 수 있는 방장에게 보낸다. version 은 그대로다")
-    @ParameterizedTest(name = "차례 {0} (+{1}분)")
-    @CsvSource({"0, 30", "1, 60", "2, 120", "3, 240"})
-    void advanceDepartureReminder(int count, long minutes) {
-
-        /*
-         * settings
-         */
-        Party party = confirmedParty(PartyStatus.COMPLETED, MEETING_AT, count, arrived(HOST_ID, 0), waiting(MEMBER_ID, 1), arrived(THIRD_ID, 2));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.advanceDepartureReminder(MEETING_AT.plus(Duration.ofMinutes(minutes)));
-
-        /*
-         * verify
-         */
-        assertThat(notice.shouldSend()).isTrue();
-        assertThat(notice.recipientIds()).containsExactly(HOST_ID);
-        assertThat(party.getDepartureReminderCount()).isEqualTo(count + 1);
-        assertThat(party.getVersion()).isEqualTo(VERSION);
-    }
-
-    @DisplayName("advanceDepartureReminder - 차례 시각 1초 전이면 차례가 아니고 아무것도 바꾸지 않는다")
-    @ParameterizedTest(name = "차례 {0} (+{1}분)")
-    @CsvSource({"0, 30", "1, 60", "2, 120", "3, 240"})
-    void advanceDepartureReminder_notDue(int count, long minutes) {
-
-        /*
-         * settings
-         */
-        Party party = confirmedParty(PartyStatus.COMPLETED, MEETING_AT, count, arrived(HOST_ID, 0), waiting(MEMBER_ID, 1));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.advanceDepartureReminder(MEETING_AT.plus(Duration.ofMinutes(minutes)).minusSeconds(1));
-
-        /*
-         * verify
-         */
-        assertThat(notice.handled()).isFalse();
-        assertThat(party.getDepartureReminderCount()).isEqualTo(count);
-    }
-
-    @DisplayName("advanceDepartureReminder - 방장이 아직 도착 전이어도 방장에게 보낸다 - 도착 뒤 출발을 눌러야 하는 사람이다")
-    @Test
-    void advanceDepartureReminder_hostNotArrived() {
-
-        /*
-         * settings
-         */
-        Party party = confirmedParty(PartyStatus.COMPLETED, MEETING_AT, 0, waiting(HOST_ID, 0), waiting(MEMBER_ID, 1));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.advanceDepartureReminder(MEETING_AT.plus(Duration.ofMinutes(30)));
-
-        /*
-         * verify
-         */
-        assertThat(notice.shouldSend()).isTrue();
-        assertThat(notice.recipientIds()).containsExactly(HOST_ID);
-        assertThat(party.getDepartureReminderCount()).isEqualTo(1);
-    }
-
-    @DisplayName("advanceDepartureReminder - 네 번을 다 처리했으면 더는 차례가 없다")
-    @Test
-    void advanceDepartureReminder_stopsAtFour() {
-
-        /*
-         * settings
-         */
-        Party party = confirmedParty(PartyStatus.COMPLETED, MEETING_AT, 4, arrived(HOST_ID, 0), waiting(MEMBER_ID, 1));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.advanceDepartureReminder(MEETING_AT.plus(Duration.ofHours(10)));
-
-        /*
-         * verify
-         */
-        assertThat(notice.handled()).isFalse();
-        assertThat(party.getDepartureReminderCount()).isEqualTo(4);
-    }
-
-    @DisplayName("advanceDepartureReminder - 서버가 멈춰 여러 차례가 밀렸으면 지난 차례를 모두 넘기고 한 번만 보낸다")
-    @ParameterizedTest(name = "+{0}분 → 차례 {1}")
-    @CsvSource({"150, 3", "300, 4"})
-    void advanceDepartureReminder_catchUp(long minutes, int expectedCount) {
-
-        /*
-         * settings
-         */
-        Party party = confirmedParty(PartyStatus.COMPLETED, MEETING_AT, 0, arrived(HOST_ID, 0), waiting(MEMBER_ID, 1));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.advanceDepartureReminder(MEETING_AT.plus(Duration.ofMinutes(minutes)));
-
-        /*
-         * verify
-         */
-        assertThat(notice.shouldSend()).isTrue();
-        assertThat(notice.recipientIds()).containsExactly(HOST_ID);
-        assertThat(party.getDepartureReminderCount()).isEqualTo(expectedCount);
-    }
-
-    @DisplayName("advanceDepartureReminder - 닫힌 방은 차례가 아니다")
-    @ParameterizedTest(name = "{0}")
-    @EnumSource(value = PartyStatus.class, names = {"FINISHED", "CANCELED"})
-    void advanceDepartureReminder_closed(PartyStatus status) {
-
-        /*
-         * settings
-         */
-        Party party = confirmedParty(status, MEETING_AT, 0, arrived(HOST_ID, 0), waiting(MEMBER_ID, 1));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.advanceDepartureReminder(MEETING_AT.plus(Duration.ofHours(1)));
-
-        /*
-         * verify
-         */
-        assertThat(notice.handled()).isFalse();
-        assertThat(party.getDepartureReminderCount()).isZero();
-    }
-
-    @DisplayName("advanceDepartureReminder - 혼자 남은 방(멤버 1명)은 도착했어도 출발할 수 없어 보내지 않고 차례만 넘긴다")
-    @Test
-    void advanceDepartureReminder_alone() {
-
-        /*
-         * settings
-         */
-        Party party = party(RoomType.RESERVED, MEETING_AT, PartyStatus.ACTIVE, MEETING_AT, 0, arrived(HOST_ID, 0));
-
-        /*
-         * test
-         */
-        PartyNotice notice = party.advanceDepartureReminder(MEETING_AT.plus(Duration.ofMinutes(30)));
-
-        /*
-         * verify
-         */
-        assertThat(notice.handled()).isTrue();
-        assertThat(notice.shouldSend()).isFalse();
-        assertThat(party.getDepartureReminderCount()).isEqualTo(1);
-    }
-
-    // ───────────────────────── 도우미 ─────────────────────────
-
-    private static Party confirmedParty(PartyStatus status, Instant meetingNotifiedAt, int departureReminderCount, PartyMember... members) {
-        return party(RoomType.REALTIME, MEETING_AT, status, meetingNotifiedAt, departureReminderCount, members);
-    }
-
-    private static Party party(RoomType roomType, Instant departureAt, PartyStatus status, Instant meetingNotifiedAt, int departureReminderCount,
-                               PartyMember... members) {
-        return restored(roomType, status, departureAt, meetingNotifiedAt, departureReminderCount, members);
     }
 }

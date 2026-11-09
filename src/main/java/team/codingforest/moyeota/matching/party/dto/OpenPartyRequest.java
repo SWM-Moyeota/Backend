@@ -19,8 +19,8 @@ public record OpenPartyRequest(
 
 		@NotNull(message = "정원은 필수입니다")
 		@Min(value = 1, message = "정원은 1명 이상입니다")
-		@Max(value = 3, message = "정원은 3명 이하입니다")
-		@Schema(description = "정원(생성자 포함) 1~3", example = "3") Integer capacity) {
+		@Max(value = 4, message = "정원은 4명 이하입니다")
+		@Schema(description = "정원(생성자 포함) 1~4", example = "3") Integer capacity) {
 
 	/** creatorId는 토큰에서 온다. 본문의 creatorId 필드는 구버전 호환용으로 받기만 하고 무시한다 */
 	public OpenPartyCommand toCommand(Long creatorMemberId) {

@@ -105,7 +105,7 @@ class PartyDetailResultTest {
          */
         Party reservation = Party.load(200L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
                 new Capacity(3), List.of(PartyMember.load(1L, CREATED_AT, null)), 1L, CREATED_AT, PartyStatus.ACTIVE, null, null, null, 0L,
-                RoomType.RESERVED, CREATED_AT.plus(Duration.ofDays(1)), null, null, 0);
+                RoomType.RESERVED, CREATED_AT.plus(Duration.ofDays(1)));
 
         /*
          * test
@@ -126,6 +126,6 @@ class PartyDetailResultTest {
 
         return Party.load(100L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
                 new Capacity(2), members, 1L, CREATED_AT, PartyStatus.ACTIVE, 12000, 25, "encoded-path", 0L,
-                RoomType.REALTIME, null, null, null, 0);
+                RoomType.REALTIME, null);
     }
 }

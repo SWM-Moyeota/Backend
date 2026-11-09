@@ -146,7 +146,7 @@ class ReservationSearchQueryPostgresTest {
         Long canceled = reserved(DEPARTURE, DESTINATION, departureAt, PartyStatus.CANCELED);
         // 상태 조건에 걸리지 않게 ACTIVE 로 두고 departure_at 을 같은 날로 채운 실시간 방 - 방 종류 조건만으로 빠지는지 본다
         Long realtime = save(Party.load(null, DEPARTURE, DESTINATION, "강릉역", "경포해변", new Capacity(3), members(1L), 1L, Instant.now(),
-                PartyStatus.ACTIVE, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L, RoomType.REALTIME, departureAt, null, null, 0));
+                PartyStatus.ACTIVE, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L, RoomType.REALTIME, departureAt));
 
         /*
          * test
@@ -226,7 +226,7 @@ class ReservationSearchQueryPostgresTest {
         LocalDate date = todayKst().plusDays(1);
         Instant departureAt = kst(date, 18, 30);
         Long id = save(Party.load(null, DEPARTURE_900M, DESTINATION, "강릉역", "경포해변", new Capacity(3), members(1L, 2L), 1L, Instant.now(),
-                PartyStatus.ACTIVE, null, null, null, 0L, RoomType.RESERVED, departureAt, null, null, 0));
+                PartyStatus.ACTIVE, null, null, null, 0L, RoomType.RESERVED, departureAt));
 
         /*
          * test
@@ -292,9 +292,9 @@ class ReservationSearchQueryPostgresTest {
         Instant from = kst(date, 0, 0);
         Instant to = kst(date.plusDays(1), 0, 0);
         Long 남은방 = save(Party.load(null, DEPARTURE, DESTINATION, "강릉역", "경포해변", new Capacity(3), members(1L, 2L), 1L, Instant.now(),
-                PartyStatus.ACTIVE, null, null, null, 0L, RoomType.RESERVED, kst(date, 9, 0), null, null, 0));
+                PartyStatus.ACTIVE, null, null, null, 0L, RoomType.RESERVED, kst(date, 9, 0)));
         Long 찬방 = save(Party.load(null, DEPARTURE, DESTINATION, "강릉역", "경포해변", new Capacity(3), members(1L, 2L, 3L), 1L, Instant.now(),
-                PartyStatus.ACTIVE, null, null, null, 0L, RoomType.RESERVED, kst(date, 9, 0), null, null, 0));
+                PartyStatus.ACTIVE, null, null, null, 0L, RoomType.RESERVED, kst(date, 9, 0)));
 
         /*
          * test
@@ -322,7 +322,7 @@ class ReservationSearchQueryPostgresTest {
 
     private Long reserved(Location departure, Location destination, Instant departureAt, PartyStatus status) {
         return save(Party.load(null, departure, destination, "강릉역", "경포해변", new Capacity(3), members(1L), 1L, Instant.now(),
-                status, null, null, null, 0L, RoomType.RESERVED, departureAt, null, null, 0));
+                status, null, null, null, 0L, RoomType.RESERVED, departureAt));
     }
 
     private Long save(Party party) {

@@ -2342,14 +2342,14 @@ class PartyServiceUnitTest {
 
         return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity), members,
                 memberIds.length == 0 ? null : memberIds[0], BASE_TIME, status, realtime ? 12000 : null, realtime ? 25 : null, realtime ? "encoded-path" : null,
-                version, roomType, departureAt, null, null, 0);
+                version, roomType, departureAt);
     }
 
     /** 방장이 departureAt 으로 약속을 확정한 실시간 방. members 앞쪽이 먼저 합류했고 첫 번째가 방장 */
     private static Party confirmedParty(Instant departureAt, PartyStatus status, long version, PartyMember... members) {
         return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(3),
                 new ArrayList<>(List.of(members)), members[0].getMemberId(), BASE_TIME, status, 12000, 25, "encoded-path",
-                version, RoomType.REALTIME, departureAt, null, null, 0);
+                version, RoomType.REALTIME, departureAt);
     }
 
     /** 아직 도착하지 않은 멤버. order 가 작을수록 먼저 합류했다 */
