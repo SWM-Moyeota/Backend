@@ -46,7 +46,7 @@ public class PartyController {
     @ApiResponses({@ApiResponse(responseCode = "200", description = "생성된 방"), @ApiResponse(responseCode = "400", description = "SAME_DEPARTURE_DESTINATION / INVALID_CAPACITY / OUT_OF_SERVICE_AREA"), @ApiResponse(responseCode = "409", description = "ALREADY_JOINED_OTHER_PARTY"), @ApiResponse(responseCode = "502", description = "ROUTE_SEARCH_FAILED - 네이버 경로 API 장애")})
     @PostMapping("/matching/rooms")
     public ResponseEntity<OpenPartyResponse> open(@CurrentUser Long memberId, @Valid @RequestBody OpenPartyRequest request) {
-        PartyResult party = partyService.open(request.toCommand(memberId));
+        PartyResult party = partyService.create(request.toCommand(memberId));
 
         return ResponseEntity.ok(OpenPartyResponse.from(party));
     }

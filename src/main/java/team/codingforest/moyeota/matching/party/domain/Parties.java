@@ -25,12 +25,10 @@ public interface Parties {
     boolean existsOngoingReservationBetween(Long memberId, Instant from, Instant to);
     List<ReservationSummary> findReservations(Instant from, Instant to, int limit);
     List<ReservationSummary> findReservationsWithinBounds(Instant from, Instant to, double swLat, double neLat, double swLng, double neLng, int limit);
-    /** 출발 시각이 [from, to) 이고 출발지가 departure 반경 안인 ACTIVE 예약 방. destination 이 null 이면 도착지 근처 여부를 재지 않는다 */
     List<NearbyReservation> findReservationsWithinRadius(Instant from, Instant to, Location departure, Location destination, int radius, int limit);
     List<Long> findRecruitingExpired(Instant realtimeCreatedBefore, Instant now);
     List<Long> findReservationsToRemind(Instant from, Instant to);
     List<Long> findMeetingNoticeTargets(Instant now);
     List<Long> findDepartureReminderTargets(Instant now);
-    /** 방 id → 출발지·도착지 이름. 없는 방은 빠진다 */
     Map<Long, PartyPlaces> findPlaces(Collection<Long> ids);
 }

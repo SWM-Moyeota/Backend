@@ -461,7 +461,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
+        doReturn(partyResult()).when(partyService).create(eq(OPEN_COMMAND));
 
         /*
          * test
@@ -489,7 +489,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.estimateTime").value(25))
                 .andExpect(jsonPath("$.route").value("encoded-path"))
                 .andExpect(jsonPath("$.taxiDriverId").value(nullValue()));
-        verify(partyService).open(eq(OPEN_COMMAND));
+        verify(partyService).create(eq(OPEN_COMMAND));
     }
 
     @DisplayName("POST /api/v1/matching/rooms - 기사 기능은 없앴지만 출시된 앱이 읽는 taxiDriverId 키는 null 로 남는다")
@@ -499,7 +499,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
+        doReturn(partyResult()).when(partyService).create(eq(OPEN_COMMAND));
 
         /*
          * test
@@ -521,7 +521,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
+        doReturn(partyResult()).when(partyService).create(eq(OPEN_COMMAND));
 
         /*
          * test
@@ -558,7 +558,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 }
                 """;
 
-        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
+        doReturn(partyResult()).when(partyService).create(eq(OPEN_COMMAND));
 
         /*
          * test
@@ -569,7 +569,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isOk());
-        verify(partyService).open(eq(OPEN_COMMAND));
+        verify(partyService).create(eq(OPEN_COMMAND));
     }
 
     @DisplayName("POST /api/v1/matching/rooms - 옛 앱이 보내는 모르는 필드는 무시한다")
@@ -593,7 +593,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 }
                 """;
 
-        doReturn(partyResult()).when(partyService).open(eq(OPEN_COMMAND));
+        doReturn(partyResult()).when(partyService).create(eq(OPEN_COMMAND));
 
         /*
          * test
@@ -604,7 +604,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isOk());
-        verify(partyService).open(eq(OPEN_COMMAND));
+        verify(partyService).create(eq(OPEN_COMMAND));
     }
 
     @DisplayName("POST /api/v1/matching/rooms - 토큰이 없으면 401")
@@ -805,7 +805,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         final String body = OPEN_BODY.replace("\"capacity\": 3", "\"capacity\": " + capacity);
         final OpenPartyCommand command = new OpenPartyCommand(USER_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", capacity);
 
-        doReturn(partyResult()).when(partyService).open(eq(command));
+        doReturn(partyResult()).when(partyService).create(eq(command));
 
         /*
          * test
@@ -816,7 +816,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isOk());
-        verify(partyService).open(eq(command));
+        verify(partyService).create(eq(command));
     }
 
     @DisplayName("POST /api/v1/matching/rooms - Content-Type 이 JSON 이 아니면 415")
@@ -850,7 +850,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        doThrow(new BusinessException(errorCode)).when(partyService).open(eq(OPEN_COMMAND));
+        doThrow(new BusinessException(errorCode)).when(partyService).create(eq(OPEN_COMMAND));
 
         /*
          * test

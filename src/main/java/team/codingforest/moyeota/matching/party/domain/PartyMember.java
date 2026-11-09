@@ -27,7 +27,9 @@ public class PartyMember {
 
     /** 이미 도착했으면 처음 시각을 그대로 둔다 */
     void arrive(Instant now) {
-        if(arrivedAt == null) arrivedAt = now;
+        if(arrivedAt == null) {
+			arrivedAt = now;
+		}
     }
 
     public boolean isArrived() {

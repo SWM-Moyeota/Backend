@@ -79,10 +79,8 @@ public class PartyService {
     private final RideRecords rideRecords;
     private final PartyOpener partyOpener;
 
-    // ───────────────────────── 생성 ─────────────────────────
 
-    /** 경로 조회(외부 API)는 트랜잭션 밖에서 하고, 생성·저장은 PartyOpener 가 잠금 안에서 한다 */
-    public PartyResult open(OpenPartyCommand command) {
+    public PartyResult create(OpenPartyCommand command) {
         PartyConflictRule.check(parties, command.creatorId(), Instant.now());
 
         RouteEstimate estimate = routeService.estimate(command.departureLat(), command.departureLng(), command.destinationLat(), command.destinationLng());
@@ -93,8 +91,6 @@ public class PartyService {
     public PartyResult reserve(OpenReservationCommand command) {
         return partyOpener.reserve(command);
     }
-
-    // ───────────────────────── 참여·나가기 ─────────────────────────
 
     @Transactional
     public PartyStatusResponse join(Long partyId, Long memberId) {
@@ -239,8 +235,6 @@ public class PartyService {
         log.info("방 자동 정리 partyId={}, status={}, members={}, riders={}", partyId, result.status(), party.getMembers().size(), result.riderIds());
     }
 
-    // ───────────────────────── 조회 ─────────────────────────
-
     @Transactional(readOnly = true)
     public PartyDetailResult getPartyDetail(Long partyId) {
         Party party = parties.findById(partyId)
@@ -260,7 +254,9 @@ public class PartyService {
 
     @Transactional(readOnly = true)
     public List<PartySummary> findActivePartiesWithin(double swLat, double swLng, double neLat, double neLng) {
-        if(swLat >= neLat || swLng >= neLng) throw new BusinessException(MatchingErrorCode.INVALID_MAP_BOUNDS);
+        if(swLat >= neLat || swLng >= neLng) {
+			throw new BusinessException(MatchingErrorCode.INVALID_MAP_BOUNDS);
+		}
 
         return parties.findSummariesWithinBounds(PartyStatus.ACTIVE, swLat, neLat, swLng, neLng, MAP_LIST_LIMIT);
     }
@@ -268,7 +264,9 @@ public class PartyService {
     /** 출발 시각이 기간 안인 예약 방. 이미 출발한 방은 참여할 수 없어 뺀다 */
     @Transactional(readOnly = true)
     public List<ReservationSummary> findReservations(Instant from, Instant to) {
-        if(!from.isBefore(to)) throw new BusinessException(MatchingErrorCode.INVALID_TIME_RANGE);
+        if(!from.isBefore(to)) {
+			throw new BusinessException(MatchingErrorCode.INVALID_TIME_RANGE);
+		}
 
         Instant now = Instant.now();
 
@@ -277,7 +275,9 @@ public class PartyService {
 
     @Transactional(readOnly = true)
     public List<ReservationSummary> findSoonReservationsWithin(double swLat, double swLng, double neLat, double neLng) {
-        if(swLat >= neLat || swLng >= neLng) throw new BusinessException(MatchingErrorCode.INVALID_MAP_BOUNDS);
+        if(swLat >= neLat || swLng >= neLng) {
+			throw new BusinessException(MatchingErrorCode.INVALID_MAP_BOUNDS);
+		}
 
         Instant now = Instant.now();
 
@@ -290,7 +290,9 @@ public class PartyService {
      */
     @Transactional(readOnly = true)
     public List<NearbyReservation> searchReservations(double depLat, double depLng, Double destLat, Double destLng, LocalDate date) {
-        if((destLat == null) != (destLng == null)) throw new BusinessException(MatchingErrorCode.INCOMPLETE_DESTINATION);
+        if((destLat == null) != (destLng == null)) {
+			throw new BusinessException(MatchingErrorCode.INCOMPLETE_DESTINATION);
+		}
 
         Location departure = new Location(depLat, depLng);
         Location destination = destLat == null ? null : new Location(destLat, destLng);
@@ -298,7 +300,9 @@ public class PartyService {
         Instant now = Instant.now();
         LocalDate today = LocalDate.ofInstant(now, KST);
 
-        if(date.isBefore(today) || date.isAfter(today.plusDays(RESERVATION_SEARCH_DAYS))) throw new BusinessException(MatchingErrorCode.INVALID_SEARCH_DATE);
+        if(date.isBefore(today) || date.isAfter(today.plusDays(RESERVATION_SEARCH_DAYS))) {
+			throw new BusinessException(MatchingErrorCode.INVALID_SEARCH_DATE);
+		}
 
         Instant dayStart = date.atStartOfDay(KST).toInstant();
         Instant from = now.isAfter(dayStart) ? now : dayStart;
@@ -329,8 +333,6 @@ public class PartyService {
                 .sorted(Comparator.comparingInt(MatchCandidate::totalSeconds))
                 .toList();
     }
-
-    // ───────────────────────── 공통 ─────────────────────────
 
     private Party lock(Long partyId) {
         return parties.findByIdForUpdate(partyId)

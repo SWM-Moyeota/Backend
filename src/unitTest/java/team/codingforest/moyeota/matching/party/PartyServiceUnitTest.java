@@ -152,7 +152,7 @@ class PartyServiceUnitTest {
         /*
          * test
          */
-        PartyResult result = partyService.open(command);
+        PartyResult result = partyService.create(command);
 
         /*
          * verify
@@ -178,7 +178,7 @@ class PartyServiceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyService.open(createCommand(3)));
+        Throwable thrown = catchThrowable(() -> partyService.create(createCommand(3)));
 
         /*
          * verify
@@ -201,7 +201,7 @@ class PartyServiceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyService.open(createCommand(3)));
+        Throwable thrown = catchThrowable(() -> partyService.create(createCommand(3)));
 
         /*
          * verify
@@ -226,7 +226,7 @@ class PartyServiceUnitTest {
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyService.open(command));
+        Throwable thrown = catchThrowable(() -> partyService.create(command));
 
         /*
          * verify
@@ -242,7 +242,7 @@ class PartyServiceUnitTest {
         /*
          * test
          */
-        boolean transactional = PartyService.class.getMethod("open", OpenPartyCommand.class)
+        boolean transactional = PartyService.class.getMethod("create", OpenPartyCommand.class)
                 .isAnnotationPresent(Transactional.class);
 
         /*

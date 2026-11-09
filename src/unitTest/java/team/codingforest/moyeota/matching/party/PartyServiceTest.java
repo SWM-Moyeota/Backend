@@ -121,14 +121,14 @@ class PartyServiceTest {
 
     @Test
     void 실시간_방에_있으면_예약_방을_만들_수_없다() {
-        service.open(createParty(host, 3));
+        service.create(createParty(host, 3));
 
         assertFails(() -> service.reserve(reservation(host, 뒤(Duration.ofDays(1)))), MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
     }
 
     @Test
     void 실시간_방에_있으면_다른_예약_방에_참여할_수_없다() {
-        service.open(createParty(participant, 3));
+        service.create(createParty(participant, 3));
         Long 예약방 = service.reserve(reservation(host, 뒤(Duration.ofDays(1)))).id();
 
         assertFails(() -> service.join(예약방, participant), MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
@@ -162,21 +162,21 @@ class PartyServiceTest {
     void 곧_출발할_예약_방이_있으면_실시간_방을_만들_수_없다() {
         service.reserve(reservation(host, 뒤(Duration.ofHours(1))));
 
-        assertFails(() -> service.open(createParty(host, 3)), MatchingErrorCode.PARTY_TIME_CONFLICT);
+        assertFails(() -> service.create(createParty(host, 3)), MatchingErrorCode.PARTY_TIME_CONFLICT);
     }
 
     @Test
     void 예약_방의_출발이_세_시간_뒤면_실시간_방을_만들_수_있다() {
         service.reserve(reservation(host, 뒤(Duration.ofHours(3))));
 
-        PartyResult result = service.open(createParty(host, 3));
+        PartyResult result = service.create(createParty(host, 3));
 
         assertThat(result.roomType()).isEqualTo("REALTIME");
     }
 
     @Test
     void 곧_출발할_예약_방이_있으면_실시간_방에_참여할_수_없다() {
-        Long 실시간방 = service.open(createParty(anotherHost, 3)).id();
+        Long 실시간방 = service.create(createParty(anotherHost, 3)).id();
         service.reserve(reservation(host, 뒤(Duration.ofHours(1))));
 
         assertFails(() -> service.join(실시간방, host), MatchingErrorCode.PARTY_TIME_CONFLICT);
@@ -212,7 +212,7 @@ class PartyServiceTest {
 
     @Test
     void 실시간_목록에는_예약_방이_나오지_않는다() {
-        Long 실시간방 = service.open(createParty(anotherHost, 3)).id();
+        Long 실시간방 = service.create(createParty(anotherHost, 3)).id();
         service.reserve(reservation(host, 뒤(Duration.ofDays(1))));
 
         assertThat(service.findActiveParties()).extracting(PartyResult::id).containsExactly(실시간방);
@@ -261,7 +261,7 @@ class PartyServiceTest {
 
     @Test
     void 방장이_약속_시간을_확정하면_COMPLETED_가_되고_구독자에게_약속_시간과_출발지를_알린다() {
-        Long 방 = service.open(createParty(host, 3)).id();
+        Long 방 = service.create(createParty(host, 3)).id();
         service.join(방, participant);
         Instant 약속 = 뒤(Duration.ofMinutes(30));
 
@@ -277,7 +277,7 @@ class PartyServiceTest {
 
     @Test
     void 만남_장소를_주고_확정하면_출발지가_바뀌어_상세와_confirmed_에_실린다() {
-        Long 방 = service.open(createParty(host, 3)).id();
+        Long 방 = service.create(createParty(host, 3)).id();
         service.join(방, participant);
         Instant 약속 = 뒤(Duration.ofMinutes(30));
 
@@ -298,7 +298,7 @@ class PartyServiceTest {
     @Test
     void 확정한_방에서_둘_중_하나가_나가면_취소되고_closed_신호를_보낸다() {
         // 약속이 잡힌 뒤라 더 모을 수 없고 혼자서는 출발할 수 없다 - 남은 사람도 홈으로 돌아가야 한다
-        Long 방 = service.open(createParty(host, 3)).id();
+        Long 방 = service.create(createParty(host, 3)).id();
         service.join(방, participant);
         service.confirm(방, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), null, null));
         signals.sent.clear();
@@ -315,7 +315,7 @@ class PartyServiceTest {
 
     @Test
     void 확정한_방에서_방장이_나가도_취소된다() {
-        Long 방 = service.open(createParty(host, 3)).id();
+        Long 방 = service.create(createParty(host, 3)).id();
         service.join(방, participant);
         service.confirm(방, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), null, null));
 
@@ -327,7 +327,7 @@ class PartyServiceTest {
 
     @Test
     void 확정한_방에서_셋_중_하나가_나가면_그대로_COMPLETED_다() {
-        Long 방 = service.open(createParty(host, 3)).id();
+        Long 방 = service.create(createParty(host, 3)).id();
         service.join(방, participant);
         service.join(방, guest);
         service.confirm(방, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), null, null));
@@ -359,7 +359,7 @@ class PartyServiceTest {
 
     @Test
     void 모집_시간이_끝난_방에_혼자면_취소하고_닫혔다고_알린다() {
-        Long 방 = service.open(createParty(host, 3)).id();
+        Long 방 = service.create(createParty(host, 3)).id();
 
         service.expireRecruiting(방);
 
@@ -373,7 +373,7 @@ class PartyServiceTest {
 
     @Test
     void 방을_생성하면_생성자가_멤버로_포함된_ACTIVE_방이_된다() {
-        PartyResult result = service.open(createParty(host, 3));
+        PartyResult result = service.create(createParty(host, 3));
 
         assertThat(result.id()).isNotNull();
         assertThat(result.currentMembers()).isEqualTo(1);
@@ -382,7 +382,7 @@ class PartyServiceTest {
 
     @Test
     void 정원이_차도_ACTIVE_에_머문다() {
-        PartyResult party = service.open(createParty(host, 2));
+        PartyResult party = service.create(createParty(host, 2));
 
         service.join(party.id(), participant);
 
@@ -391,14 +391,14 @@ class PartyServiceTest {
 
     @Test
     void 혼자_타는_방도_ACTIVE_다() {
-        PartyResult party = service.open(createParty(host, 1));
+        PartyResult party = service.create(createParty(host, 1));
 
         assertThat(service.getPartyDetail(party.id()).status()).isEqualTo("ACTIVE");
     }
 
     @Test
     void 정원이_찬_방에는_참여할_수_없다() {
-        PartyResult party = service.open(createParty(host, 2));
+        PartyResult party = service.create(createParty(host, 2));
         service.join(party.id(), participant);
 
         assertFails(() -> service.join(party.id(), guest), MatchingErrorCode.PARTY_FULL);
@@ -406,7 +406,7 @@ class PartyServiceTest {
 
     @Test
     void 방에_참여하면_명단에_추가된다() {
-        PartyResult result = service.open(createParty(host, 3));
+        PartyResult result = service.create(createParty(host, 3));
 
         service.join(result.id(), participant);
         PartyDetailResult detail = service.getPartyDetail(result.id());
@@ -421,7 +421,7 @@ class PartyServiceTest {
 
     @Test
     void 상세_조회에는_가장_먼저_합류한_멤버가_방장으로_실린다() {
-        PartyResult party = service.open(createParty(host, 2));
+        PartyResult party = service.create(createParty(host, 2));
         service.join(party.id(), participant);
 
         assertThat(service.getPartyDetail(party.id()).members())
@@ -434,7 +434,7 @@ class PartyServiceTest {
         // host 는 한 번 완주, participant 는 처음 - 대기 화면 "탑승 N회" 의 근거
         saveFinishedRide(host, guest);
 
-        PartyResult 새방 = service.open(createParty(host, 3));
+        PartyResult 새방 = service.create(createParty(host, 3));
         service.join(새방.id(), participant);
 
         assertThat(service.getPartyDetail(새방.id()).members())
@@ -444,10 +444,10 @@ class PartyServiceTest {
 
     @Test
     void 취소된_방은_탑승_횟수에_들어가지_않는다() {
-        PartyResult 취소방 = service.open(createParty(host, 3));
+        PartyResult 취소방 = service.create(createParty(host, 3));
         service.leave(취소방.id(), host);                       // 마지막 멤버가 나가면 CANCELED
 
-        PartyResult 새방 = service.open(createParty(host, 3));
+        PartyResult 새방 = service.create(createParty(host, 3));
 
         assertThat(service.getPartyDetail(새방.id()).members())
                 .extracting(PartyDetailResult.MemberInfo::rideCount)
@@ -457,7 +457,7 @@ class PartyServiceTest {
     @Test
     void 유저_요약이_없는_멤버가_있어도_상세_조회는_깨지지_않는다() {
         // 탈퇴한 유저가 명단에 남아 있는 경우 - 조회 자체가 500 으로 죽으면 대기 화면 전체가 막힌다
-        PartyResult result = service.open(createParty(host, 3));
+        PartyResult result = service.create(createParty(host, 3));
         service.join(result.id(), guest);   // guest 는 userAccess 에 미등록
 
         PartyDetailResult detail = service.getPartyDetail(result.id());
@@ -479,7 +479,7 @@ class PartyServiceTest {
 
     @Test
     void 나가면_명단에서_빠진다() {
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
         service.join(party.id(), participant);
 
         service.leave(party.id(), participant);
@@ -490,7 +490,7 @@ class PartyServiceTest {
 
     @Test
     void 혼자_남은_사람이_나가면_방이_취소된다() {
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
 
         service.leave(party.id(), host);
         assertThat(service.getPartyDetail(party.id()).status()).isEqualTo("CANCELED");
@@ -500,7 +500,7 @@ class PartyServiceTest {
 
     @Test
     void 마지막_멤버가_나가_취소되면_닫힘_이벤트가_발행된다() {
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
 
         service.leave(party.id(), host);
 
@@ -509,7 +509,7 @@ class PartyServiceTest {
 
     @Test
     void 사람이_남아_있으면_나가도_닫힘_이벤트는_없다() {
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
         service.join(party.id(), participant);
 
         service.leave(party.id(), participant);
@@ -520,8 +520,8 @@ class PartyServiceTest {
 
     @Test
     void 활성화된_방만_목록에_나온다() {
-        PartyResult openParty = service.open(createParty(host, 3));
-        PartyResult closeParty = service.open(createParty(anotherHost, 2));
+        PartyResult openParty = service.create(createParty(host, 3));
+        PartyResult closeParty = service.create(createParty(anotherHost, 2));
 
         service.leave(closeParty.id(), anotherHost);   // 마지막 멤버가 나가면 CANCELED
 
@@ -534,9 +534,9 @@ class PartyServiceTest {
 
     @Test
     void 참여_중인_방이_있으면_새_방을_만들_수_없다() {
-        service.open(createParty(host, 3));
+        service.create(createParty(host, 3));
 
-        assertThatThrownBy(() -> service.open(createParty(host, 3)))
+        assertThatThrownBy(() -> service.create(createParty(host, 3)))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
@@ -546,7 +546,7 @@ class PartyServiceTest {
     void 경로_조회_중_다른_방에_들어갔으면_저장_단계에서_거절한다() {
         // 경로 조회는 트랜잭션 밖이라 첫 검사와 저장 사이에 다른 방에 들어갈 수 있다
         PartyOpener opener = new PartyOpener(parties, events);
-        service.open(createParty(host, 3));
+        service.create(createParty(host, 3));
 
         assertThatThrownBy(() -> opener.open(createParty(host, 3), new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC")))
                 .isInstanceOf(BusinessException.class)
@@ -556,8 +556,8 @@ class PartyServiceTest {
 
     @Test
     void 참여_중인_방이_있으면_다른_방에_참여할_수_없다() {
-        service.open(createParty(host, 3));
-        PartyResult party = service.open(createParty(anotherHost, 3));
+        service.create(createParty(host, 3));
+        PartyResult party = service.create(createParty(anotherHost, 3));
 
         assertThatThrownBy(() -> service.join(party.id(), host))
                 .isInstanceOf(BusinessException.class)
@@ -567,11 +567,11 @@ class PartyServiceTest {
 
     @Test
     void 방이_취소된_뒤에는_새_방을_만들_수_있다() {
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
 
         service.leave(party.id(), host);
 
-        PartyResult newParty = service.open(createParty(host, 3));
+        PartyResult newParty = service.create(createParty(host, 3));
 
         assertThat(newParty.id()).isNotEqualTo(party.id());
     }
@@ -580,14 +580,14 @@ class PartyServiceTest {
 
     @Test
     void 방을_만들면_방장의_참여_이벤트가_발행된다() {
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
 
         assertThat(events.joinedFor(party.id(), host)).isEqualTo(1);
     }
 
     @Test
     void 참여하면_정원_충족_여부와_무관하게_참여_이벤트가_발행된다() {
-        PartyResult party = service.open(createParty(host, 2));
+        PartyResult party = service.create(createParty(host, 2));
 
         service.join(party.id(), participant);   // 정원 충족 - 상태는 ACTIVE 그대로
 
@@ -598,7 +598,7 @@ class PartyServiceTest {
 
     @Test
     void 나가면_퇴장_이벤트가_발행된다() {
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
         service.join(party.id(), participant);
 
         service.leave(party.id(), participant);
@@ -611,7 +611,7 @@ class PartyServiceTest {
     @Test
     void 참여하면_들어온_사람_정보와_방_상태를_보낸다() {
         userAccess.등록(participant, "참가자");
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
 
         service.join(party.id(), participant);
 
@@ -624,7 +624,7 @@ class PartyServiceTest {
 
     @Test
     void 정원이_차는_참여도_방_상태는_ACTIVE_로_보낸다() {
-        PartyResult party = service.open(createParty(host, 2));
+        PartyResult party = service.create(createParty(host, 2));
 
         service.join(party.id(), participant);
 
@@ -633,7 +633,7 @@ class PartyServiceTest {
 
     @Test
     void 유저_요약이_없는_사람이_참여해도_신호는_나간다() {
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
 
         service.join(party.id(), guest);
 
@@ -642,7 +642,7 @@ class PartyServiceTest {
 
     @Test
     void 방을_만들_때는_신호를_보내지_않는다() {
-        service.open(createParty(host, 3));
+        service.create(createParty(host, 3));
 
         assertThat(signals.sent).as("방금 만든 방은 구독자가 없다").isEmpty();
     }
@@ -650,7 +650,7 @@ class PartyServiceTest {
     @Test
     void 사람이_남아_있는_방에서_나가면_나간_사람의_publicId_와_방_상태를_보낸다() {
         userAccess.등록(participant, "참가자");
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
         service.join(party.id(), participant);
         signals.sent.clear();
 
@@ -664,7 +664,7 @@ class PartyServiceTest {
 
     @Test
     void 정원이_찬_방에서_한_명이_나가도_상태는_ACTIVE_다() {
-        PartyResult party = service.open(createParty(host, 2));
+        PartyResult party = service.create(createParty(host, 2));
         service.join(party.id(), participant);
 
         service.leave(party.id(), participant);
@@ -677,7 +677,7 @@ class PartyServiceTest {
         // 남은 사람 화면의 "방장" 표시가 퇴장 즉시 바뀌어야 한다 - 이벤트에 승계 결과를 실어 보낸다.
         // 승계자는 "남은 사람 중 가장 먼저 합류한 사람" - memberId 순서(participant=2 < guest=4)가 아니라 합류 순서를 따른다
         userAccess.등록(guest, "게스트");
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
         service.join(party.id(), guest);
         service.join(party.id(), participant);
         signals.sent.clear();
@@ -690,7 +690,7 @@ class PartyServiceTest {
 
     @Test
     void 일반_멤버가_나가면_member_left의_방장은_그대로다() {
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
         service.join(party.id(), participant);
         signals.sent.clear();
 
@@ -705,7 +705,7 @@ class PartyServiceTest {
         // 나가기가 롤백됐는데 연결부터 닫으면, 아직 멤버인 사람이 방 변화를 못 받는다
         List<Runnable> deferred = new ArrayList<>();
         service = serviceWith((name, task) -> deferred.add(task));
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
         service.join(party.id(), participant);
         deferred.clear();
 
@@ -721,7 +721,7 @@ class PartyServiceTest {
         // 한 메시지라야 받는 서버에서 연결 닫기가 알림보다 항상 먼저 실행된다
         List<Runnable> deferred = new ArrayList<>();
         service = serviceWith((name, task) -> deferred.add(task));
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
         service.join(party.id(), participant);
         deferred.clear();
 
@@ -732,7 +732,7 @@ class PartyServiceTest {
 
     @Test
     void 마지막_멤버가_나가_취소되면_closed_신호만_보낸다() {
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
 
         service.leave(party.id(), host);
 
@@ -743,7 +743,7 @@ class PartyServiceTest {
 
     @Test
     void 마지막_멤버가_나가면_closed_에_CANCELED_가_실리고_version_은_오른다() {
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
 
         service.leave(party.id(), host);
 
@@ -754,7 +754,7 @@ class PartyServiceTest {
     @Test
     void 신호마다_저장된_version_이_실리고_1씩_오른다() {
         userAccess.등록(guest, "게스트");
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
 
         service.join(party.id(), participant);
         assertThat(signals.joined.getLast().version()).isEqualTo(1).isEqualTo(versionOf(party.id()));
@@ -772,7 +772,7 @@ class PartyServiceTest {
 
     @Test
     void 정원이_차도_참여_신호의_version_은_1만_오른다() {
-        PartyResult party = service.open(createParty(host, 2));
+        PartyResult party = service.create(createParty(host, 2));
 
         service.join(party.id(), participant);
 
@@ -785,7 +785,7 @@ class PartyServiceTest {
     void 신호는_직접_내지_않고_커밋_후_실행기에_맡긴다() {
         List<Runnable> deferred = new ArrayList<>();
         service = serviceWith((name, task) -> deferred.add(task));
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
 
         service.join(party.id(), participant);
 
@@ -809,7 +809,7 @@ class PartyServiceTest {
     @Test
     void 만든_지_1일이_지난_미확정_방만_자동_정리된다() {
         Long 오래된방 = saveUnconfirmedOld(Instant.now().minus(Duration.ofDays(2)));   // anotherHost·guest 가 여기 묶여 있다
-        PartyResult 방금찬방 = service.open(createParty(host, 2));
+        PartyResult 방금찬방 = service.create(createParty(host, 2));
         service.join(방금찬방.id(), participant);
 
         new CompletedPartySweeper(parties, service).sweep();
@@ -861,7 +861,7 @@ class PartyServiceTest {
 
         service.autoClose(오래된방);
 
-        PartyResult next = service.open(createParty(anotherHost, 3));
+        PartyResult next = service.create(createParty(anotherHost, 3));
 
         assertThat(next.id()).isNotEqualTo(오래된방);
     }
@@ -889,7 +889,7 @@ class PartyServiceTest {
 
     @Test
     void 이미_닫힌_방은_자동_정리가_아무것도_하지_않는다() {
-        PartyResult party = service.open(createParty(host, 2));
+        PartyResult party = service.create(createParty(host, 2));
         service.leave(party.id(), host);   // CANCELED
         signals.sent.clear();
 
@@ -903,10 +903,10 @@ class PartyServiceTest {
     @Test
     void 매칭중인_유저는_새_방을_만들_수_없다() {
         // 정원이 찬 방(ACTIVE 그대로)에도 묶여 있어야 한다
-        PartyResult party = service.open(createParty(host, 2));
+        PartyResult party = service.create(createParty(host, 2));
         service.join(party.id(), participant);   // 정원 충족
 
-        assertThatThrownBy(() -> service.open(createParty(participant, 2)))
+        assertThatThrownBy(() -> service.create(createParty(participant, 2)))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
@@ -916,7 +916,7 @@ class PartyServiceTest {
 
     @Test
     void 참여_응답은_상태와_현재_인원을_돌려준다() {
-        PartyResult party = service.open(createParty(host, 3));
+        PartyResult party = service.create(createParty(host, 3));
 
         PartyStatusResponse joined = service.join(party.id(), participant);
 
@@ -926,7 +926,7 @@ class PartyServiceTest {
 
     @Test
     void 정원이_차도_참여_응답의_상태는_ACTIVE_다() {
-        PartyResult party = service.open(createParty(host, 2));
+        PartyResult party = service.create(createParty(host, 2));
 
         PartyStatusResponse joined = service.join(party.id(), participant);
 
@@ -938,8 +938,8 @@ class PartyServiceTest {
 
     @Test
     void 영역_안에서_출발하는_방만_조회된다() {
-        service.open(createPartyAt(host, 37.4979, 127.0276, 3));        // 강남역 - 영역 안
-        service.open(createPartyAt(anotherHost, 37.5665, 126.9780, 3)); // 시청 - 영역 밖
+        service.create(createPartyAt(host, 37.4979, 127.0276, 3));        // 강남역 - 영역 안
+        service.create(createPartyAt(anotherHost, 37.5665, 126.9780, 3)); // 시청 - 영역 밖
 
         List<PartySummary> result = service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06);
 
@@ -950,7 +950,7 @@ class PartyServiceTest {
     @Test
     void 영역_모서리에_정확히_걸친_방도_조회된다() {
         // between은 양끝 포함 - 경계 좌표가 빠지면 화면 가장자리의 마커가 사라진다
-        service.open(createPartyAt(host, 37.49, 127.02, 3));
+        service.create(createPartyAt(host, 37.49, 127.02, 3));
 
         assertThat(service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06)).hasSize(1);
     }
@@ -958,7 +958,7 @@ class PartyServiceTest {
     @Test
     void 영역_안이어도_정원이_찬_방은_조회되지_않는다() {
         // 정원이 차도 ACTIVE 지만 들어갈 수 없는 방 - 지도에 마커가 남아 있으면 못 타는 방을 탭하게 된다
-        PartyResult party = service.open(createPartyAt(host, 37.4979, 127.0276, 2));
+        PartyResult party = service.create(createPartyAt(host, 37.4979, 127.0276, 2));
         service.join(party.id(), participant);   // 정원 충족
 
         assertThat(service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06)).isEmpty();
@@ -966,7 +966,7 @@ class PartyServiceTest {
 
     @Test
     void 목록의_현재_인원은_참여한_사람_수다() {
-        PartyResult party = service.open(createPartyAt(host, 37.4979, 127.0276, 3));
+        PartyResult party = service.create(createPartyAt(host, 37.4979, 127.0276, 3));
         service.join(party.id(), participant);
 
         List<PartySummary> result = service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06);
@@ -983,7 +983,7 @@ class PartyServiceTest {
         // 상한이 없으면 방이 쌓일수록 목록 쿼리가 느려져 DB 를 독점한다(부하테스트에서 DB 시간의 대부분이 이 쿼리였다)
         Long last = null;
         for(long creator = 1000; creator < 1000 + PartyService.MAP_LIST_LIMIT + 5; creator++) {
-            last = service.open(createPartyAt(creator, 37.4979, 127.0276, 3)).id();
+            last = service.create(createPartyAt(creator, 37.4979, 127.0276, 3)).id();
         }
 
         List<PartySummary> result = service.findActivePartiesWithin(37.49, 127.02, 37.51, 127.06);
