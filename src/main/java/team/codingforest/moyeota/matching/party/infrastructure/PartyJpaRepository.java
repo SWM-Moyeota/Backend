@@ -6,10 +6,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
-import team.codingforest.moyeota.matching.party.domain.RoomType;
+import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
@@ -38,7 +38,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 			       p.capacity, p.status, p.departureLat, p.departureLng
 			from PartyEntity p
 			where p.status = :status
-			    and p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.REALTIME
+			    and p.roomType = team.codingforest.moyeota.matching.party.domain.enums.RoomType.REALTIME
 			    and (select count(m) from PartyMemberEntity m where m.party = p) < p.capacity
 			    and p.departureLat between :swLat and :neLat
 			    and p.departureLng between :swLng and :neLng
@@ -76,7 +76,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 	@Query("""
 			select count(m) > 0 from PartyMemberEntity m
 			where m.memberId = :memberId
-			    and m.party.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.RESERVED
+			    and m.party.roomType = team.codingforest.moyeota.matching.party.domain.enums.RoomType.RESERVED
 			    and m.party.status in :statuses
 			    and m.party.departureAt between :from and :to
 			""")
@@ -88,7 +88,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 			       p.capacity, p.status, p.departureLat, p.departureLng, p.destinationLat, p.destinationLng, p.departureAt
 			from PartyEntity p
 			where p.status = :status
-			    and p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.RESERVED
+			    and p.roomType = team.codingforest.moyeota.matching.party.domain.enums.RoomType.RESERVED
 			    and (select count(m) from PartyMemberEntity m where m.party = p) < p.capacity
 			    and p.departureAt between :from and :to
 			order by p.departureAt asc, p.id asc
@@ -101,7 +101,7 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 			       p.capacity, p.status, p.departureLat, p.departureLng, p.destinationLat, p.destinationLng, p.departureAt
 			from PartyEntity p
 			where p.status = :status
-			    and p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.RESERVED
+			    and p.roomType = team.codingforest.moyeota.matching.party.domain.enums.RoomType.RESERVED
 			    and (select count(m) from PartyMemberEntity m where m.party = p) < p.capacity
 			    and p.departureAt between :from and :to
 			    and p.departureLat between :swLat and :neLat
@@ -129,15 +129,15 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 			select p.id from PartyEntity p
 			where p.status = :status
 			    and (select count(m) from PartyMemberEntity m where m.party = p) < 2
-			    and ((p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.REALTIME and p.createdAt < :realtimeCreatedBefore)
-			        or (p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.RESERVED and p.departureAt <= :now))
+			    and ((p.roomType = team.codingforest.moyeota.matching.party.domain.enums.RoomType.REALTIME and p.createdAt < :realtimeCreatedBefore)
+			        or (p.roomType = team.codingforest.moyeota.matching.party.domain.enums.RoomType.RESERVED and p.departureAt <= :now))
 			""")
 	List<Long> findRecruitingExpiredIds(@Param("status") PartyStatus status, @Param("realtimeCreatedBefore") Instant realtimeCreatedBefore, @Param("now") Instant now);
 
 	@Query("""
 			select p.id from PartyEntity p
-			where p.status in (team.codingforest.moyeota.matching.party.domain.PartyStatus.ACTIVE,
-			                   team.codingforest.moyeota.matching.party.domain.PartyStatus.COMPLETED)
+			where p.status in (team.codingforest.moyeota.matching.party.domain.enums.PartyStatus.ACTIVE,
+			                   team.codingforest.moyeota.matching.party.domain.enums.PartyStatus.COMPLETED)
 			    and p.departureAt is not null
 			    and p.departureAt >= :from and p.departureAt < :to
 			""")
@@ -145,10 +145,10 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 
 	@Query("""
 			select p.id from PartyEntity p
-			where p.status in (team.codingforest.moyeota.matching.party.domain.PartyStatus.ACTIVE,
-			                   team.codingforest.moyeota.matching.party.domain.PartyStatus.COMPLETED)
+			where p.status in (team.codingforest.moyeota.matching.party.domain.enums.PartyStatus.ACTIVE,
+			                   team.codingforest.moyeota.matching.party.domain.enums.PartyStatus.COMPLETED)
 			    and p.departureAt is not null
-			    and p.roomType = team.codingforest.moyeota.matching.party.domain.RoomType.RESERVED
+			    and p.roomType = team.codingforest.moyeota.matching.party.domain.enums.RoomType.RESERVED
 			    and p.departureAt >= :from and p.departureAt < :to
 			""")
 	List<Long> findOpenReservationIdsDepartingBetween(@Param("from") Instant from, @Param("to") Instant to);

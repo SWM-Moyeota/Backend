@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.matching.party.domain;
+package team.codingforest.moyeota.matching.party.domain.enums;
 
 public enum PartyStatus {
     ACTIVE, COMPLETED, FINISHED, CANCELED;

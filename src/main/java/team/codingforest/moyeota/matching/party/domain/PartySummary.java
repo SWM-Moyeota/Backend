@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.matching.party.domain;
 
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
+
 /**
  *  지도 목록용 읽기 도메인
  */

@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.matching.party.domain;
 
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
+
 import java.util.List;
 
 /**

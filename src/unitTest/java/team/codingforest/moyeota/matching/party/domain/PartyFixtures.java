@@ -2,6 +2,8 @@ package team.codingforest.moyeota.matching.party.domain;
 
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.exception.ErrorCode;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 
 import java.time.Duration;
 import java.time.Instant;
