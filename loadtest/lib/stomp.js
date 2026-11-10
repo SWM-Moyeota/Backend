@@ -19,7 +19,7 @@ const PING_SEC = 20;                  // OkHttp pingInterval
 const CLOSED = ['FINISHED', 'CANCELED'];
 const SEND_VIA = __ENV.SEND_VIA || 'rest';
 const SEQ_GAP_WAIT_MS = Number(__ENV.SEQ_GAP_WAIT_MS || 500);   // seq 정렬 흉내에서 빈 번호를 기다리는 최대 시간
-const READ_EVERY_SEC = Number(__ENV.READ_EVERY_SEC || 0);       // REST 읽음을 이 간격으로 묶는다(마지막 번호만). 0 이면 받을 때마다 - 빠른 전송 측정에서 읽음이 부하를 덮지 않게
+const READ_EVERY_SEC = Number(__ENV.READ_EVERY_SEC || 0);       // REST 읽음을 이 간격으로 묶는다(마지막 번호만). 0 이면 받을 때마다, -1 이면 보내지 않음(순서 측정에서 보내기 경로만 남길 때)
 
 export function wsUrl() {
   return `${BASE.replace(/^http/, 'ws')}/ws-chat`;
@@ -140,6 +140,7 @@ export function chatSession(token, chatRoomId, who, {
       const markRead = (id) => {
         if (!id || id === cursor) return;
         cursor = Math.max(cursor || 0, id);
+        if (READ_EVERY_SEC < 0) return;   // 읽음 끔 - cursor 는 폴링용으로 계속 올린다
         if (SEND_VIA === 'stomp') {
           socket.send(frame('SEND', { destination: `/pub/chat-rooms/${chatRoomId}/read`, 'content-type': 'application/json' },
             JSON.stringify({ lastReadMessageId: cursor })));
