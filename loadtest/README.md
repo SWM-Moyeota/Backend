@@ -88,6 +88,7 @@ k6 run -o experimental-prometheus-rw -e VUS=90 d2-journey.js              # 전�
 k6 run -o experimental-prometheus-rw -e CONNS=150 d4-chat-ws.js           # 채팅 WebSocket
 k6 run -o experimental-prometheus-rw -e CONNS=150 -e MODE=fallback d4-chat-ws.js   # 소켓이 죽어 전원 3초 폴링으로 떨어진 상황
 k6 run -o experimental-prometheus-rw -e VUS=30 d6-soak.js                 # 45분 지속 + 방치된 방 자동 종료
+k6 run -o experimental-prometheus-rw --tag testid=d9-p1-all -e CONNS=150 --summary-export=results/d9-p1-all.json d9-ws-deploy.js   # 연결 고정 15분, 3분 뒤 API 재배포 - 배포 중 WS 끊김(소켓 서버 분리 전후)
 
 # ── SSE 전환 후 (xk6-sse 바이너리로) ──
 ./k6 run -o experimental-prometheus-rw -e CONCURRENT=100 d1-polling-sse.js         # D1 과 같은 100명, 요청은 절반·연결 60개

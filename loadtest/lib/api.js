@@ -168,6 +168,11 @@ export function sendChatRest(token, chatRoomId, content) {
   return http.post(`${BASE}/api/v1/chat-rooms/${chatRoomId}/messages`, JSON.stringify({ content }), auth(token, { tags: { name: 'POST /chat-rooms/{id}/messages' } }));
 }
 
+/** 읽음 지점 올리기(REST). 소켓 서버는 SEND 를 받지 않으므로 분리 전후를 같은 조건으로 재려면 이쪽을 쓴다 */
+export function readChatRest(token, chatRoomId, messageId) {
+  return http.post(`${BASE}/api/v1/chat-rooms/${chatRoomId}/users/read/${messageId}`, null, auth(token, { tags: { name: 'POST /chat-rooms/{id}/users/read/{messageId}' } }));
+}
+
 /** 사용자는 진행 중인 방에 하나만 들어갈 수 있어 /chat-rooms/me 의 첫 항목이 곧 지금 방의 채팅방이다. 입장은 비동기라 잠깐 기다린다 */
 export function resolveChatRoomId(token, sleepFn, tries = 10) {
   for (let i = 0; i < tries; i++) {
