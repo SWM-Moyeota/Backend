@@ -88,7 +88,6 @@ class RideRecordServiceUnitTest {
         assertThat(item.partyId()).isEqualTo(10L);
         assertThat(item.departure()).isEqualTo("강남역");
         assertThat(item.destination()).isEqualTo("판교역");
-        assertThat(item.pickupTime()).isNull();
         assertThat(item.dropoffTime()).isEqualTo(BASE_TIME.plusSeconds(600));
         assertThat(item.totalFare()).isNull();
         assertThat(item.farePerPerson()).isNull();
@@ -355,7 +354,6 @@ class RideRecordServiceUnitTest {
          * verify
          */
         RideRecordResponse.RideRecordItem item = result.rides().getFirst();
-        assertThat(item.pickupTime()).isNull();
         assertThat(item.totalFare()).isNull();
         assertThat(item.farePerPerson()).isNull();
         assertThat(item.currentMembers()).isEqualTo(2);
@@ -384,7 +382,6 @@ class RideRecordServiceUnitTest {
         RideRecordResponse.RideRecordItem item = result.rides().getFirst();
         assertThat(item.totalFare()).isEqualTo(18_700);
         assertThat(item.farePerPerson()).isEqualTo(6_240);
-        assertThat(item.pickupTime()).as("탑승 시각은 여전히 채우지 않는다").isNull();
     }
 
     @DisplayName("findMyRides - 내가 받는 사람인 정산이 있으면 farePerPerson 은 정산 쪽이 준 내 몫(택시비에서 보내는 사람 몫을 뺀 금액)이다")

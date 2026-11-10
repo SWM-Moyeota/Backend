@@ -11,7 +11,8 @@ import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 import team.codingforest.moyeota.matching.party.infrastructure.PartyJpa;
 
 import java.time.Instant;
@@ -170,8 +171,8 @@ class RideRecordJpaPersistenceTest {
 
     @Test
     void 방별_멤버_id_는_합류_순으로_모이고_id_순서와_달라도_합류_순을_따른다() {
-        Long 셋방 = savedParty(List.of(PartyMember.load(동승자, 기준.plusSeconds(2)), PartyMember.load(남, 기준), PartyMember.load(나, 기준.plusSeconds(1))));
-        Long 동시합류방 = savedParty(List.of(PartyMember.load(남, 기준), PartyMember.load(나, 기준)));
+        Long 셋방 = savedParty(List.of(PartyMember.load(동승자, 기준.plusSeconds(2), 기준), PartyMember.load(남, 기준, 기준), PartyMember.load(나, 기준.plusSeconds(1), 기준)));
+        Long 동시합류방 = savedParty(List.of(PartyMember.load(남, 기준, 기준), PartyMember.load(나, 기준, 기준)));
         Long 무관한방 = party(동승자);
         clear();
 
@@ -187,17 +188,19 @@ class RideRecordJpaPersistenceTest {
         assertThat(rideRecords.findMemberIds(List.of())).isEmpty();
     }
 
+    /** 끝난(FINISHED) 방 - 탄 사람만 기록에 나오므로 멤버는 모두 도착한 것으로 둔다 */
     private Long party(Long... memberIds) {
         List<PartyMember> members = new ArrayList<>();
         for(int i = 0; i < memberIds.length; i++) {
-            members.add(PartyMember.load(memberIds[i], 기준.plusSeconds(i)));
+            members.add(PartyMember.load(memberIds[i], 기준.plusSeconds(i), 기준));
         }
         return savedParty(members);
     }
 
     private Long savedParty(List<PartyMember> members) {
         Long partyId = parties.save(Party.load(null, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
-                "강남역", "판교역", new Capacity(3), members, 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L)).getId();
+                "강남역", "판교역", new Capacity(3), members, members.getFirst().getMemberId(), 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L,
+                RoomType.REALTIME, 기준)).getId();
         em.flush();
         // 합류 시각(created_at)은 auditing 이 저장 시각으로 채운다 - 픽스처의 합류 시각을 행에 그대로 옮긴다
         members.forEach(member -> em.getEntityManager()

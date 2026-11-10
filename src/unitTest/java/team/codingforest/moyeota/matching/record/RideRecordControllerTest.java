@@ -18,7 +18,8 @@ import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 import team.codingforest.moyeota.user.api.CurrentUser;
 import team.codingforest.moyeota.user.api.MemberSummary;
 
@@ -69,9 +70,8 @@ class RideRecordControllerTest {
                 .andExpect(jsonPath("$.rides[0].partyId").value(partyId))
                 .andExpect(jsonPath("$.rides[0].departure").value("강남역"))
                 .andExpect(jsonPath("$.rides[0].destination").value("판교역"))
-                // 탑승 시각은 서버가 채우지 않고 요금은 택시비 정산이 없는 방이라 비지만, 출시 앱이 읽으므로 키는 남고 값은 null 이다
-                .andExpect(jsonPath("$.rides[0]", hasKey("pickupTime")))
-                .andExpect(jsonPath("$.rides[0].pickupTime").value(nullValue()))
+                // 요금은 택시비 정산이 없는 방이라 null 로 온다(둘 다 null 이면 앱이 요금 줄을 숨긴다). 없앤 pickupTime 키는 없다
+                .andExpect(jsonPath("$.rides[0].pickupTime").doesNotExist())
                 .andExpect(jsonPath("$.rides[0].dropoffTime").value(기준.plusSeconds(1800).toString()))
                 .andExpect(jsonPath("$.rides[0]", hasKey("totalFare")))
                 .andExpect(jsonPath("$.rides[0].totalFare").value(nullValue()))
@@ -165,10 +165,11 @@ class RideRecordControllerTest {
     private Long ride(Instant dropoffTime, Long... memberIds) {
         List<PartyMember> members = new ArrayList<>();
         for(int i = 0; i < memberIds.length; i++) {
-            members.add(PartyMember.load(memberIds[i], 기준.plusSeconds(i)));
+            members.add(PartyMember.load(memberIds[i], 기준.plusSeconds(i), null));
         }
         Long partyId = parties.save(Party.load(null, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
-                "강남역", "판교역", new Capacity(3), members, 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L)).getId();
+                "강남역", "판교역", new Capacity(3), members, members.getFirst().getMemberId(), 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L,
+                RoomType.REALTIME, 기준)).getId();
         rideRecords.save(RideRecord.load(partyId, "강남역", "판교역", dropoffTime));
         return partyId;
     }

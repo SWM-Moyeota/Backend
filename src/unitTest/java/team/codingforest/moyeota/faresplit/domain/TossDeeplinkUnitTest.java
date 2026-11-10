@@ -6,6 +6,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
+import team.codingforest.moyeota.faresplit.domain.enums.Bank;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;

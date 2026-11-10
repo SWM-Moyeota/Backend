@@ -22,12 +22,11 @@ public class PartySseController {
 
     @Operation(summary = "방 변화 구독(SSE)", description = """
             연결하면 `connected` 에 방 상세 전체(GET /matching/rooms/{partyId} 와 같은 모양)가 온다. 재연결 때도 같다.
-            이후 변경분만 온다. closed 를 뺀 모든 이벤트와 방 상세에 `version` 이 있다 - 참여·나가기·모집 마감·약속 확정·출발지 도착·동승 종료(출발) 때 1 오른다.
+            이후 변경분만 온다. closed 를 뺀 모든 이벤트와 방 상세에 `version` 이 있다 - 참여·나가기·약속 확정·출발지 도착·동승 종료(출발) 때 1 오른다.
             연결 중에 방이 바뀌면 변경분이 connected 보다 먼저 올 수 있다.
             - `member-joined`: { member, status, version }. member 는 방 상세 members 원소와 같은 모양(host·arrived 는 항상 false - 새로 들어온 사람은 방장이 아니고 아직 도착 전이다)
             - `member-left`: { publicId, status, hostPublicId, version }. hostPublicId 는 이 이벤트를 반영한 뒤의 방장 - 받을 때마다 members 의 host 표시를 이 값으로 다시 지정한다. null 이거나 목록에 없는 publicId 면 방 상세를 다시 받는다
-            - `recruiting-closed`: { status, version }. 모집 시간이 끝나 지금 인원(2명 이상)으로 모집이 마감됨(status 는 COMPLETED)
-            - `confirmed`: { status, departureAt, version }. 방장이 약속 시간을 확정함. departureAt 은 ISO-8601 약속 시간이고 장소는 방의 출발지. 모집도 끝나 status 는 COMPLETED. 이후 참여·나가기가 막히고 방 상세의 confirmed 도 true
+            - `confirmed`: { status, departureAt, departureLat, departureLng, departure, version }. 방장이 약속을 확정함(status 는 COMPLETED). departureAt 은 ISO-8601 약속 시간. 출발지는 확정 때 만남 장소로 바뀌었을 수 있으니 셋을 방 상세의 출발지로 덮어쓴다. 이후 참여가 막히고(나가기는 된다) 방 상세의 confirmed 도 true
             - `member-arrived`: { publicId, version }. 멤버가 출발지에 도착함 - members 에서 그 publicId 의 arrived 를 true 로 바꾼다. publicId 가 null 이거나 목록에 없으면 방 상세를 다시 받는다
             - `closed`: { status }. 방이 닫힘(status 는 FINISHED 또는 CANCELED - 누가 출발을 눌러 끝난 방도 FINISHED). 받으면 종료로 처리한다. 서버가 연결을 끊는다
             version 규칙: 받은 version 이 내 version+1 이면 반영, 같거나 작으면 버림, 그보다 크면 GET /matching/rooms/{partyId} 로 다시 받아 통째로 교체(스트림은 유지).

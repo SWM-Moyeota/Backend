@@ -15,9 +15,9 @@ import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.common.BaseTimeEntity;
 import team.codingforest.moyeota.common.crypto.EncryptedStringConverter;
 import team.codingforest.moyeota.faresplit.domain.AccountNumber;
-import team.codingforest.moyeota.faresplit.domain.Bank;
+import team.codingforest.moyeota.faresplit.domain.enums.Bank;
 import team.codingforest.moyeota.faresplit.domain.FareSplit;
-import team.codingforest.moyeota.faresplit.domain.FareSplitStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus;
 import team.codingforest.moyeota.faresplit.domain.FareSplitTransfer;
 
 import java.time.Instant;

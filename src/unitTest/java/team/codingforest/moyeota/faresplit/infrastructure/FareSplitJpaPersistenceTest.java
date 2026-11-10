@@ -9,14 +9,14 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DuplicateKeyException;
 import team.codingforest.moyeota.common.JpaAuditingConfig;
 import team.codingforest.moyeota.faresplit.domain.AccountNumber;
-import team.codingforest.moyeota.faresplit.domain.Bank;
+import team.codingforest.moyeota.faresplit.domain.enums.Bank;
 import team.codingforest.moyeota.faresplit.domain.FareShare;
 import team.codingforest.moyeota.faresplit.domain.FareSplit;
-import team.codingforest.moyeota.faresplit.domain.FareSplitStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus;
 import team.codingforest.moyeota.faresplit.domain.FareSplitTransfer;
 import team.codingforest.moyeota.faresplit.domain.OpenTransfer;
 import team.codingforest.moyeota.faresplit.domain.RideRoster;
-import team.codingforest.moyeota.faresplit.domain.TransferStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.TransferStatus;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -62,7 +62,7 @@ class FareSplitJpaPersistenceTest {
          * settings
          */
         RideRoster party = finishedParty(SECOND_ID, PAYER_ID, FIRST_ID);
-        FareSplit split = FareSplit.open(party, PAYER_ID, 18_700, Bank.SHINHAN, ACCOUNT, Instant.now());
+        FareSplit split = FareSplit.create(party, PAYER_ID, 18_700, Bank.SHINHAN, ACCOUNT, Instant.now());
 
         /*
          * test
@@ -102,7 +102,7 @@ class FareSplitJpaPersistenceTest {
         /*
          * test
          */
-        fareSplits.create(FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
         clearContext();
 
         /*
@@ -127,7 +127,7 @@ class FareSplitJpaPersistenceTest {
         /*
          * test
          */
-        FareSplit created = fareSplits.create(FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        FareSplit created = fareSplits.create(FareSplit.create(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
         clearContext();
         FareSplit found = fareSplits.findByPartyId(party.partyId()).orElseThrow();
 
@@ -167,13 +167,13 @@ class FareSplitJpaPersistenceTest {
          * settings
          */
         RideRoster party = finishedParty(PAYER_ID, FIRST_ID);
-        fareSplits.create(FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
         clearContext();
 
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> fareSplits.create(FareSplit.open(party, FIRST_ID, 20_000, Bank.KB, ACCOUNT, Instant.now())));
+        Throwable thrown = catchThrowable(() -> fareSplits.create(FareSplit.create(party, FIRST_ID, 20_000, Bank.KB, ACCOUNT, Instant.now())));
 
         /*
          * verify
@@ -191,7 +191,7 @@ class FareSplitJpaPersistenceTest {
          * settings
          */
         RideRoster party = finishedParty(PAYER_ID, FIRST_ID);
-        fareSplits.create(FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
         clearContext();
 
         /*
@@ -216,7 +216,7 @@ class FareSplitJpaPersistenceTest {
          * settings
          */
         RideRoster party = finishedParty(SECOND_ID, PAYER_ID, FIRST_ID);
-        fareSplits.create(FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
         clearContext();
 
         /*
@@ -242,7 +242,7 @@ class FareSplitJpaPersistenceTest {
          * settings
          */
         RideRoster party = finishedParty(PAYER_ID, FIRST_ID, SECOND_ID);
-        fareSplits.create(FareSplit.open(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, Instant.now()));
         clearContext();
         Instant sentAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
         Instant confirmedAt = sentAt.plusSeconds(60);
@@ -281,7 +281,7 @@ class FareSplitJpaPersistenceTest {
          * settings
          */
         RideRoster party = finishedParty(PAYER_ID, FIRST_ID);
-        fareSplits.create(FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
         clearContext();
         FareSplit sent = fareSplits.findByPartyIdForUpdate(party.partyId()).orElseThrow();
         sent.markSent(FIRST_ID, Instant.now());
@@ -314,7 +314,7 @@ class FareSplitJpaPersistenceTest {
          * settings
          */
         RideRoster party = finishedParty(PAYER_ID, FIRST_ID, SECOND_ID);
-        fareSplits.create(FareSplit.open(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, Instant.now()));
         clearContext();
 
         /*
@@ -347,7 +347,7 @@ class FareSplitJpaPersistenceTest {
          * settings
          */
         RideRoster party = finishedParty(PAYER_ID, FIRST_ID, SECOND_ID);
-        fareSplits.create(FareSplit.open(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, Instant.now()));
         clearContext();
         fareSplits.findByPartyIdForUpdate(party.partyId()).orElseThrow();
 
@@ -362,7 +362,7 @@ class FareSplitJpaPersistenceTest {
          */
         assertThat(fareSplits.existsByPartyId(party.partyId())).isFalse();
         assertThat(count("SELECT count(*) FROM fare_split_transfer WHERE match_id = :id", party.partyId())).isZero();
-        fareSplits.create(FareSplit.open(party, FIRST_ID, 12_000, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(party, FIRST_ID, 12_000, Bank.KB, ACCOUNT, Instant.now()));
         clearContext();
         assertThat(fareSplits.findByPartyId(party.partyId()).orElseThrow().getPayerId()).isEqualTo(FIRST_ID);
     }
@@ -381,10 +381,10 @@ class FareSplitJpaPersistenceTest {
         RideRoster newer = finishedParty(SECOND_ID, FIRST_ID);
         RideRoster completed = finishedParty(PAYER_ID, FIRST_ID);
         RideRoster mine = finishedParty(FIRST_ID, SECOND_ID);
-        fareSplits.create(FareSplit.open(older, PAYER_ID, 10_000, Bank.KB, ACCOUNT, base));
-        fareSplits.create(FareSplit.open(newer, SECOND_ID, 12_000, Bank.KB, ACCOUNT, base));
-        fareSplits.create(FareSplit.open(completed, PAYER_ID, 10_000, Bank.KB, ACCOUNT, base));
-        fareSplits.create(FareSplit.open(mine, FIRST_ID, 10_000, Bank.KB, ACCOUNT, base));
+        fareSplits.create(FareSplit.create(older, PAYER_ID, 10_000, Bank.KB, ACCOUNT, base));
+        fareSplits.create(FareSplit.create(newer, SECOND_ID, 12_000, Bank.KB, ACCOUNT, base));
+        fareSplits.create(FareSplit.create(completed, PAYER_ID, 10_000, Bank.KB, ACCOUNT, base));
+        fareSplits.create(FareSplit.create(mine, FIRST_ID, 10_000, Bank.KB, ACCOUNT, base));
         clearContext();
         setCreatedAt(older.partyId(), base.minus(Duration.ofHours(2)));
         setCreatedAt(newer.partyId(), base.minus(Duration.ofHours(1)));
@@ -429,7 +429,7 @@ class FareSplitJpaPersistenceTest {
         RideRoster party = finishedParty(PAYER_ID, FIRST_ID, SECOND_ID);
         Instant createdAt = Instant.parse("2026-11-03T03:00:00Z");
         Instant sentAt = createdAt.plus(Duration.ofMinutes(5));
-        fareSplits.create(FareSplit.open(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, createdAt));
+        fareSplits.create(FareSplit.create(party, PAYER_ID, 18_700, Bank.KAKAO, ACCOUNT, createdAt));
         clearContext();
         Instant remindAt = createdAt.plus(Duration.ofHours(4));
         Instant confirmAt = sentAt.plus(Duration.ofHours(4));
@@ -571,9 +571,9 @@ class FareSplitJpaPersistenceTest {
         RideRoster open = finishedParty(PAYER_ID, FIRST_ID);
         RideRoster closed = finishedParty(PAYER_ID, FIRST_ID);
         RideRoster asSender = finishedParty(FIRST_ID, PAYER_ID);
-        fareSplits.create(FareSplit.open(open, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
-        fareSplits.create(FareSplit.open(closed, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
-        fareSplits.create(FareSplit.open(asSender, FIRST_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(open, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(closed, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(asSender, FIRST_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
         execute("UPDATE fare_split SET status = 'COMPLETED', account_number = NULL WHERE match_id = ?1", closed.partyId());
         clearContext();
 
@@ -597,7 +597,7 @@ class FareSplitJpaPersistenceTest {
          * settings
          */
         RideRoster party = finishedParty(FIRST_ID, PAYER_ID, SECOND_ID);
-        fareSplits.create(FareSplit.open(party, PAYER_ID, 18_700, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(party, PAYER_ID, 18_700, Bank.KB, ACCOUNT, Instant.now()));
         clearContext();
 
         /*
@@ -630,10 +630,10 @@ class FareSplitJpaPersistenceTest {
         RideRoster expired = finishedParty(FIRST_ID, PAYER_ID);
         RideRoster notRequested = finishedParty(PAYER_ID, FIRST_ID);
         RideRoster noSplit = finishedParty(PAYER_ID, FIRST_ID);
-        fareSplits.create(FareSplit.open(open, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
-        fareSplits.create(FareSplit.open(completed, PAYER_ID, 10_001, Bank.KB, ACCOUNT, Instant.now()));
-        fareSplits.create(FareSplit.open(expired, FIRST_ID, 12_000, Bank.KB, ACCOUNT, Instant.now()));
-        fareSplits.create(FareSplit.open(notRequested, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(open, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(completed, PAYER_ID, 10_001, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(expired, FIRST_ID, 12_000, Bank.KB, ACCOUNT, Instant.now()));
+        fareSplits.create(FareSplit.create(notRequested, PAYER_ID, 10_000, Bank.KB, ACCOUNT, Instant.now()));
         execute("UPDATE fare_split SET status = 'COMPLETED', account_number = NULL, closed_at = now() WHERE match_id = ?1", completed.partyId());
         execute("UPDATE fare_split SET status = 'EXPIRED', account_number = NULL, closed_at = now() WHERE match_id = ?1", expired.partyId());
         clearContext();
@@ -697,7 +697,7 @@ class FareSplitJpaPersistenceTest {
     /** 받는 사람·보내는 사람 둘이 탄 방에 createdAt 에 시작한 정산. 첫 송금 요청도 그때 보냈다 */
     private Long splitCreatedAt(Instant createdAt) {
         RideRoster party = finishedParty(PAYER_ID, FIRST_ID);
-        fareSplits.create(FareSplit.open(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, createdAt));
+        fareSplits.create(FareSplit.create(party, PAYER_ID, 10_000, Bank.KB, ACCOUNT, createdAt));
         clearContext();
         setCreatedAt(party.partyId(), createdAt);
         clearContext();

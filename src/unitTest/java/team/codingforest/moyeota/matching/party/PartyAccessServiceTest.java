@@ -6,10 +6,12 @@ import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.api.dto.PartyChatSummary;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
+import team.codingforest.moyeota.matching.party.domain.MeetingPlan;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,14 +43,21 @@ class PartyAccessServiceTest {
 
     @Test
     void 모집_중인_방의_멤버는_true() {
-        Long partyId = save(openParty(3));
+        Long partyId = save(createParty(3));
 
         assertThat(access.isOnboardingMember(partyId, 방장)).isTrue();
     }
 
     @Test
     void 정원이_찬_방의_멤버는_true() {
-        Long partyId = save(completedParty());
+        Long partyId = save(fullParty());
+
+        assertThat(access.isOnboardingMember(partyId, 동승자)).isTrue();
+    }
+
+    @Test
+    void 약속을_확정한_방의_멤버는_true() {
+        Long partyId = save(confirmedParty());
 
         assertThat(access.isOnboardingMember(partyId, 동승자)).isTrue();
     }
@@ -57,22 +66,20 @@ class PartyAccessServiceTest {
 
     @Test
     void 동승이_끝난_방의_멤버는_false() {
-        Party party = completedParty();
-        party.finishUnconfirmed(방장);
-        Long partyId = save(party);
+        Long partyId = save(finishedParty());
 
-        // 멤버 명단은 그대로 남아 있지만(hasMember=true) 상태가 FINISHED 라 false - 상태 조건이 결과를 바꾸는 유일한 경우
-        assertThat(parties.findById(partyId).orElseThrow().hasMember(동승자)).isTrue();
+        // 멤버 명단은 그대로 남아 있지만(isMember=true) 상태가 FINISHED 라 false - 상태 조건이 결과를 바꾸는 유일한 경우
+        assertThat(parties.findById(partyId).orElseThrow().isMember(동승자)).isTrue();
         assertThat(access.isOnboardingMember(partyId, 동승자)).isFalse();
     }
 
     @Test
     void 마지막_멤버가_나가_취소된_방은_false() {
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.leave(방장);   // 혼자 남은 사람이 나가면 CANCELED
         Long partyId = save(party);
 
-        // CANCELED 는 멤버가 비어야 도달하는 상태라 hasMember 에서 이미 false - 상태 체크까지 가지 않는다
+        // 마지막 멤버가 나간 CANCELED 는 명단이 비어 isMember 에서 이미 false - 상태 체크까지 가지 않는다
         assertThat(parties.findById(partyId).orElseThrow().getStatus()).isEqualTo(PartyStatus.CANCELED);
         assertThat(access.isOnboardingMember(partyId, 방장)).isFalse();
     }
@@ -81,15 +88,15 @@ class PartyAccessServiceTest {
 
     @Test
     void 방에_없는_사람은_false() {
-        Long partyId = save(openParty(3));
+        Long partyId = save(createParty(3));
 
         assertThat(access.isOnboardingMember(partyId, 남남)).isFalse();
     }
 
     @Test
     void 나간_사람은_false() {
-        Party party = openParty(3);
-        party.join(동승자);
+        Party party = createParty(3);
+        party.join(동승자, 지금);
         party.leave(동승자);
         Long partyId = save(party);
 
@@ -112,7 +119,7 @@ class PartyAccessServiceTest {
      */
     @Test
     void 방장만_있는_방도_채팅_요약이_조회된다() {
-        Long partyId = save(openParty(3));
+        Long partyId = save(createParty(3));
 
         PartyChatSummary summary = access.findChatSummary(partyId);
 
@@ -124,8 +131,8 @@ class PartyAccessServiceTest {
 
     @Test
     void 정원이_덜_찬_방은_지금까지_들어온_멤버만_담긴다() {
-        Party party = openParty(3);
-        party.join(동승자);
+        Party party = createParty(3);
+        party.join(동승자, 지금);
         Long partyId = save(party);
 
         assertThat(access.findChatSummary(partyId).users()).containsExactly(방장, 동승자);
@@ -133,7 +140,7 @@ class PartyAccessServiceTest {
 
     @Test
     void 정원이_찬_방의_채팅_요약은_전원이_담긴다() {
-        Long partyId = save(completedParty());
+        Long partyId = save(fullParty());
 
         assertThat(access.findChatSummary(partyId).users()).containsExactly(방장, 동승자);
     }
@@ -153,14 +160,30 @@ class PartyAccessServiceTest {
         return parties.save(party).getId();
     }
 
-    private Party openParty(int capacity) {
-        return Party.open(방장, 강남역, 판교역, "강남역", "판교역", new Capacity(capacity), 지금, 12000, 25, "_p~iF~ps|U_ulLnnqC");
+    private Party createParty(int capacity) {
+        return Party.create(방장, 강남역, 판교역, "강남역", "판교역", new Capacity(capacity), 지금, 12000, 25, "_p~iF~ps|U_ulLnnqC");
     }
 
-    /** 정원 2명이 찬 방 */
-    private Party completedParty() {
-        Party party = openParty(2);
-        party.join(동승자);
+    /** 정원 2명이 찬 방 - 정원이 차도 ACTIVE 다 */
+    private Party fullParty() {
+        Party party = createParty(2);
+        party.join(동승자, 지금);
+        return party;
+    }
+
+    /** 방장이 10분 뒤로 약속을 확정한 방(COMPLETED) */
+    private Party confirmedParty() {
+        Party party = fullParty();
+        party.confirm(방장, new MeetingPlan(지금.plus(Duration.ofMinutes(10)), 강남역, "강남역"), 지금);
+        return party;
+    }
+
+    /** 약속 시간에 도착한 방장이 출발을 눌러 끝난 방(FINISHED) */
+    private Party finishedParty() {
+        Party party = confirmedParty();
+        Instant 약속 = party.getDepartureAt();
+        party.arrive(방장, true, 약속);
+        party.depart(방장, 약속);
         return party;
     }
 }

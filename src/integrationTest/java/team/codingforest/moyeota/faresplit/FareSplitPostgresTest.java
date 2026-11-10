@@ -10,15 +10,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.support.TransactionTemplate;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.faresplit.domain.AccountNumber;
-import team.codingforest.moyeota.faresplit.domain.Bank;
+import team.codingforest.moyeota.faresplit.domain.enums.Bank;
 import team.codingforest.moyeota.faresplit.domain.FareSplit;
-import team.codingforest.moyeota.faresplit.domain.FareSplitRole;
-import team.codingforest.moyeota.faresplit.domain.FareSplitStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitRole;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus;
 import team.codingforest.moyeota.faresplit.domain.FareSplitTransfer;
 import team.codingforest.moyeota.faresplit.domain.FareSplits;
 import team.codingforest.moyeota.faresplit.domain.RideRoster;
 import team.codingforest.moyeota.faresplit.domain.TossDeeplink;
-import team.codingforest.moyeota.faresplit.domain.TransferStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.TransferStatus;
 import team.codingforest.moyeota.faresplit.dto.FareSplitDetailResponse;
 import team.codingforest.moyeota.faresplit.dto.MyFareSplitListResponse;
 import team.codingforest.moyeota.faresplit.exception.FareSplitErrorCode;
@@ -27,8 +27,8 @@ import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.RoomType;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -125,10 +125,10 @@ class FareSplitPostgresTest {
     void 같은_방에_정산을_두_번_INSERT_하면_덮어쓰지_않고_PK_위반을_중복_키로_알린다() {
         Long room = finishedRoom(방장, 둘째);
         RideRoster party = new RideRoster(room, true, List.of(방장, 둘째), List.of(방장, 둘째));
-        tx.executeWithoutResult(status -> fareSplits.create(FareSplit.open(party, 방장, 10_000, Bank.KB, AccountNumber.of(RAW_ACCOUNT), Instant.now())));
+        tx.executeWithoutResult(status -> fareSplits.create(FareSplit.create(party, 방장, 10_000, Bank.KB, AccountNumber.of(RAW_ACCOUNT), Instant.now())));
 
         assertThatThrownBy(() -> tx.executeWithoutResult(status ->
-                fareSplits.create(FareSplit.open(party, 둘째, 20_000, Bank.KB, AccountNumber.of(RAW_ACCOUNT), Instant.now()))))
+                fareSplits.create(FareSplit.create(party, 둘째, 20_000, Bank.KB, AccountNumber.of(RAW_ACCOUNT), Instant.now()))))
                 .isInstanceOf(DuplicateKeyException.class);
         assertThat(jdbc.queryForObject("SELECT payer_id FROM fare_split WHERE match_id = ?", Long.class, room)).isEqualTo(방장);
     }
@@ -492,12 +492,12 @@ class FareSplitPostgresTest {
         Instant meetingAt = Instant.now().truncatedTo(ChronoUnit.MICROS).minus(Duration.ofHours(1));
         List<PartyMember> members = new ArrayList<>();
         for(Long memberId : memberIdsInJoinOrder) {
-            members.add(PartyMember.load(memberId, meetingAt, meetingAt, null, null));
+            members.add(PartyMember.load(memberId, meetingAt, meetingAt));
         }
 
         Long id = parties.save(Party.load(null, DEPARTURE, DESTINATION, "광주송정역", "전남대", new Capacity(3), members,
                 memberIdsInJoinOrder[0], meetingAt.minus(Duration.ofHours(1)), PartyStatus.FINISHED,
-                12000, 25, "encoded-path", 0L, RoomType.REALTIME, meetingAt, null)).getId();
+                12000, 25, "encoded-path", 0L, RoomType.REALTIME, meetingAt)).getId();
         rooms.add(id);
 
         for(int i = 0; i < memberIdsInJoinOrder.length; i++) {

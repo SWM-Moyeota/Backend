@@ -11,7 +11,7 @@ import team.codingforest.moyeota.matching.api.dto.PartyRiders;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
 import java.util.Collection;
@@ -40,7 +40,7 @@ class PartyAccessService implements PartyAccess {
     @Override
     public boolean isOnboardingMember(Long partyId, Long memberId) {
         return parties.findById(partyId)
-                .map(party -> party.hasMember(memberId) && party.getStatus().isOngoing())
+                .map(party -> party.isMember(memberId) && party.getStatus().isOpen())
                 .orElse(false);
     }
 

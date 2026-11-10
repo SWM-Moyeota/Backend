@@ -1,6 +1,10 @@
 package team.codingforest.moyeota.faresplit.domain;
 
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.faresplit.domain.enums.Bank;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitRole;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.TransferStatus;
 import team.codingforest.moyeota.faresplit.exception.FareSplitErrorCode;
 
 import java.time.Duration;
@@ -59,19 +63,28 @@ public class FareSplit {
      *  정산 시작. 동승이 끝난(FINISHED) 방의 탑승자만 payer 가 될 수 있고, payer 를 포함한 탑승자가 2명 이상이어야 한다. 탑승자가 누구인지는 matching 이 정한다.
      *  payer 를 뺀 탑승자마다 NOT_SENT 송금을 만들고, 이때 보내는 첫 송금 요청 시각을 남긴다. 같은 방에 이미 정산이 있는지는 서비스가 본다
      */
-    public static FareSplit open(RideRoster party, Long payerId, int totalFare, Bank bank, AccountNumber accountNumber, Instant now) {
+    public static FareSplit create(RideRoster party, Long payerId, int totalFare, Bank bank, AccountNumber accountNumber, Instant now) {
+		// try - catch 로 잡아서 -> nullpointexception잡는 핸들러가 없음
         Objects.requireNonNull(bank, "bank");
         Objects.requireNonNull(accountNumber, "accountNumber");
 
-        if(!party.memberIds().contains(payerId)) throw new BusinessException(FareSplitErrorCode.NOT_PARTY_MEMBER);
+        if(!party.memberIds().contains(payerId)) {
+			throw new BusinessException(FareSplitErrorCode.NOT_PARTY_MEMBER);
+		}
 
-        if(!party.finished()) throw new BusinessException(FareSplitErrorCode.PARTY_NOT_FINISHED);
+        if(!party.finished()) {
+			throw new BusinessException(FareSplitErrorCode.PARTY_NOT_FINISHED);
+		}
 
         List<Long> riderIds = party.riderIds();
 
-        if(!riderIds.contains(payerId)) throw new BusinessException(FareSplitErrorCode.NOT_A_RIDER);
+        if(!riderIds.contains(payerId)) {
+			throw new BusinessException(FareSplitErrorCode.NOT_A_RIDER);
+		}
 
-        if(riderIds.size() < MIN_RIDERS) throw new BusinessException(FareSplitErrorCode.NOT_ENOUGH_RIDERS);
+        if(riderIds.size() < MIN_RIDERS) {
+			throw new BusinessException(FareSplitErrorCode.NOT_ENOUGH_RIDERS);
+		}
 
         validateFare(totalFare);
 
@@ -108,11 +121,15 @@ public class FareSplit {
      *  보내는 사람이 보냈다고 누른다(NOT_SENT → SENT). 이미 SENT·CONFIRMED 면 그대로 두고 false - 다시 눌러도 된다
      */
     public boolean markSent(Long memberId, Instant now) {
-        if(roleOf(memberId) != FareSplitRole.SENDER) throw new BusinessException(FareSplitErrorCode.NOT_FARE_SPLIT_SENDER);
+        if(roleOf(memberId) != FareSplitRole.SENDER) {
+			throw new BusinessException(FareSplitErrorCode.NOT_FARE_SPLIT_SENDER);
+		}
 
         FareSplitTransfer transfer = transferOf(memberId);
 
-        if(transfer.status() != TransferStatus.NOT_SENT) return false;
+        if(transfer.status() != TransferStatus.NOT_SENT) {
+			return false;
+		}
 
         ensureOpen();
         transfer.markSent(now);

@@ -1,4 +1,4 @@
-package team.codingforest.moyeota.faresplit.domain;
+package team.codingforest.moyeota.faresplit.domain.enums;
 
 /**
  *  받을 계좌의 은행. 이름이 fare_split.bank_code 에 저장
@@ -27,7 +27,7 @@ public enum Bank {
     SHINHYUP("신협", "신협"),
     KDB("KDB산업은행", "산업");
 
-    private final String displayName;
+    private final String displayName;		// 은행 코드도 추가
     private final String tossName;
 
     Bank(String displayName, String tossName) {

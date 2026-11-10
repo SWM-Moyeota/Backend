@@ -26,7 +26,7 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
             select s.partyId, s.payerId, s.amountPerPerson, t.sentAt, t.confirmedAt, s.createdAt
             from FareSplitTransferEntity t
             join t.fareSplit s
-            where t.memberId = :memberId and s.status = team.codingforest.moyeota.faresplit.domain.FareSplitStatus.OPEN
+            where t.memberId = :memberId and s.status = team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus.OPEN
             order by s.createdAt desc, s.partyId desc
             """)
     List<OpenTransfer> findOpenTransfersBySender(@Param("memberId") Long memberId);
@@ -45,7 +45,7 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
     @Query("""
             select distinct s.partyId from FareSplitTransferEntity t
             join t.fareSplit s
-            where s.status = team.codingforest.moyeota.faresplit.domain.FareSplitStatus.OPEN
+            where s.status = team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus.OPEN
                 and s.accountNumber is not null
                 and t.sentAt is null
                 and t.confirmedAt is null
@@ -57,7 +57,7 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
     @Query("""
             select distinct s.partyId from FareSplitTransferEntity t
             join t.fareSplit s
-            where s.status = team.codingforest.moyeota.faresplit.domain.FareSplitStatus.OPEN
+            where s.status = team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus.OPEN
                 and t.sentAt is not null
                 and t.confirmedAt is null
                 and t.confirmRequestedAt is null
@@ -69,7 +69,7 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
     // idx_fare_split_status_created_at
     @Query("""
             select s.partyId from FareSplitEntity s
-            where s.status = team.codingforest.moyeota.faresplit.domain.FareSplitStatus.OPEN
+            where s.status = team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus.OPEN
                 and s.createdAt <= :createdBefore
             order by s.createdAt, s.partyId
             """)
@@ -78,7 +78,7 @@ public interface FareSplitJpaRepository extends JpaRepository<FareSplitEntity, L
     @Query("""
             select s.partyId from FareSplitEntity s
             where s.payerId = :payerId
-                and s.status = team.codingforest.moyeota.faresplit.domain.FareSplitStatus.OPEN
+                and s.status = team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus.OPEN
             order by s.partyId
             """)
     List<Long> findOpenIdsByPayer(@Param("payerId") Long payerId);

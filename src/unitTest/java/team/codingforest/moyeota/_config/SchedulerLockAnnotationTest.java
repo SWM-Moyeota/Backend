@@ -7,7 +7,6 @@ import team.codingforest.moyeota.common.event.EventResubmitter;
 import team.codingforest.moyeota.faresplit.FareSplitSweeper;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
 import team.codingforest.moyeota.matching.party.MeetingNotificationSweeper;
-import team.codingforest.moyeota.matching.party.PartyRecruitingSweeper;
 import team.codingforest.moyeota.matching.sse.infrastructure.PartySseRegistry;
 import team.codingforest.moyeota.user.deletion.application.UserDeletionSweeper;
 
@@ -28,8 +27,6 @@ class SchedulerLockAnnotationTest {
     void DB를_고치는_스케줄러는_전부_잠근다() {
         assertLocked(EventResubmitter.class, "run", "event-resubmit");
         assertLocked(CompletedPartySweeper.class, "sweep", "completed-party-sweep");
-        assertLocked(PartyRecruitingSweeper.class, "sweep", "party-recruiting-sweep");
-        assertLocked(PartyRecruitingSweeper.class, "remind", "reservation-reminder");
         assertLocked(MeetingNotificationSweeper.class, "sweep", "meeting-notification-sweep");
         assertLocked(FareSplitSweeper.class, "sweep", "fare-split-sweep");
     }
@@ -48,10 +45,9 @@ class SchedulerLockAnnotationTest {
         // lockAtLeastFor 는 주기보다 짧아야 한다 - 길면 매 주기 잠금이 안 풀려 건너뛴다
         for (Method m : List.of(scheduled(EventResubmitter.class, "run"),
                 scheduled(CompletedPartySweeper.class, "sweep"),
-                scheduled(PartyRecruitingSweeper.class, "sweep"), scheduled(PartyRecruitingSweeper.class, "remind"),
                 scheduled(MeetingNotificationSweeper.class, "sweep"),
                 scheduled(FareSplitSweeper.class, "sweep"))) {
-            Duration period = Duration.ofMillis(m.getAnnotation(Scheduled.class).fixedDelay());
+            Duration period = period(m.getAnnotation(Scheduled.class));
             SchedulerLock lock = m.getAnnotation(SchedulerLock.class);
 
             assertThat(Duration.parse(lock.lockAtLeastFor())).as(lock.name() + " lockAtLeastFor").isLessThan(period);
@@ -63,12 +59,25 @@ class SchedulerLockAnnotationTest {
     void 잠금_이름은_서로_다르다() {
         List<String> names = List.of(lockName(EventResubmitter.class, "run"),
                 lockName(CompletedPartySweeper.class, "sweep"),
-                lockName(PartyRecruitingSweeper.class, "sweep"), lockName(PartyRecruitingSweeper.class, "remind"),
                 lockName(MeetingNotificationSweeper.class, "sweep"),
                 lockName(FareSplitSweeper.class, "sweep"),
                 lockName(UserDeletionSweeper.class, "sweep"));
 
         assertThat(names).doesNotHaveDuplicates();
+    }
+
+    /** fixedDelay 는 그대로, cron 은 매분 0초·매시 정각·N분마다 세 모양만 쓴다 - 다른 모양을 넣으면 여기서 주기를 더해 준다 */
+    private static Duration period(Scheduled scheduled) {
+        if(scheduled.cron().isEmpty()) return Duration.ofMillis(scheduled.fixedDelay());
+
+        String cron = scheduled.cron();
+        if(cron.equals("0 * * * * *")) return Duration.ofMinutes(1);
+        if(cron.equals("0 0 * * * *")) return Duration.ofHours(1);
+
+        java.util.regex.Matcher everyMinutes = java.util.regex.Pattern.compile("0 \\*/(\\d+) \\* \\* \\* \\*").matcher(cron);
+        assertThat(everyMinutes.matches()).as("아는 cron 식: " + cron).isTrue();
+
+        return Duration.ofMinutes(Long.parseLong(everyMinutes.group(1)));
     }
 
     private static void assertLocked(Class<?> type, String method, String expectedName) {

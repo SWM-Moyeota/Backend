@@ -88,25 +88,6 @@ class OpenApiDocsTest {
     }
 
     @Test
-    void 운영자_API는_Bearer_대신_X_Operator_Token_헤더를_적고_노쇼_이의_신청은_사용자_토큰을_요구한다() throws Exception {
-        JsonNode d = docs();
-        JsonNode accept = d.at("/paths/~1api~1v1~1operator~1no-show-objections~1{objectionId}~1accept/post");
-        List<String> names = new ArrayList<>();
-        accept.path("parameters").forEach(p -> names.add(p.path("in").asText() + ":" + p.path("name").asText()));
-
-        assertThat(accept.path("security").isArray()).as("전역 Bearer 요구사항 해제").isTrue();
-        assertThat(accept.path("security")).isEmpty();
-        assertThat(names).containsExactlyInAnyOrder("header:X-Operator-Token", "path:objectionId");
-        assertThat(accept.at("/responses/401/description").asText()).contains("USER006");
-
-        JsonNode objection = d.at("/paths/~1api~1v1~1matching~1rooms~1{partyId}~1no-show-objection/post");
-        assertThat(objection.path("security").isMissingNode()).as("전역 Bearer 를 따른다").isTrue();
-        assertThat(objection.at("/responses/201").isMissingNode()).isFalse();
-        assertThat(d.at("/components/schemas/MyProfileResponse/properties/restrictedUntil").isMissingNode()).isFalse();
-        assertThat(d.at("/components/schemas/MyProfileResponse/properties/noShowCount").isMissingNode()).isFalse();
-    }
-
-    @Test
     void 탑승_기록의_멤버_스키마는_방_상세의_멤버_스키마와_따로_잡히고_기사_식별자가_없다() throws Exception {
         JsonNode schemas = docs().at("/components/schemas");
 

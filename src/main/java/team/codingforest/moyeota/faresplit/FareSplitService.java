@@ -8,15 +8,15 @@ import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.faresplit.domain.AccountNumber;
-import team.codingforest.moyeota.faresplit.domain.Bank;
+import team.codingforest.moyeota.faresplit.domain.enums.Bank;
 import team.codingforest.moyeota.faresplit.domain.FareSplit;
 import team.codingforest.moyeota.faresplit.domain.FareSplitNotifier;
-import team.codingforest.moyeota.faresplit.domain.FareSplitRole;
-import team.codingforest.moyeota.faresplit.domain.FareSplitStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitRole;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus;
 import team.codingforest.moyeota.faresplit.domain.FareSplits;
 import team.codingforest.moyeota.faresplit.domain.OpenTransfer;
 import team.codingforest.moyeota.faresplit.domain.RideRoster;
-import team.codingforest.moyeota.faresplit.domain.TransferStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.TransferStatus;
 import team.codingforest.moyeota.faresplit.dto.FareSplitDetailResponse;
 import team.codingforest.moyeota.faresplit.dto.MyFareSplitListResponse;
 import team.codingforest.moyeota.faresplit.exception.FareSplitErrorCode;
@@ -60,7 +60,7 @@ public class FareSplitService {
                 .map(riders -> new RideRoster(riders.partyId(), riders.finished(), riders.memberIds(), riders.riderIds()))
                 .orElseThrow(() -> new BusinessException(FareSplitErrorCode.PARTY_NOT_FOUND));
 
-        FareSplit split = FareSplit.open(party, payerId, totalFare, bank, account, Instant.now());
+        FareSplit split = FareSplit.create(party, payerId, totalFare, bank, account, Instant.now());
 
         if(fareSplits.existsByPartyId(partyId)) throw new BusinessException(FareSplitErrorCode.FARE_SPLIT_ALREADY_EXISTS);
 
@@ -104,11 +104,12 @@ public class FareSplitService {
     public void markSent(Long partyId, Long memberId) {
         FareSplit split = lock(partyId);
 
-        if(!split.markSent(memberId, Instant.now())) return;
+        if(split.markSent(memberId, Instant.now())) {
+			fareSplits.save(split);
 
-        fareSplits.save(split);
-
-        log.info("택시비 송금 보냄 partyId={}, memberId={}", partyId, memberId);
+			// 누가 누구한테 보냈는지 log 찍기 단순히 partyId, memberId만 찍기 X
+			log.info("택시비 송금 보냄 partyId={}, memberId={}", partyId, memberId);
+		}
     }
 
     /**

@@ -12,15 +12,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.DynamicUpdate;
 import team.codingforest.moyeota.common.BaseTimeEntity;
-import team.codingforest.moyeota.user.sanction.domain.NoShowSanction;
 import team.codingforest.moyeota.user.users.domain.User;
 import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 
 import java.time.Instant;
 import java.util.UUID;
 
-// no_show_count·no_show_count_updated_at(V27)은 테이블에 남아 있지만 매핑하지 않는다 - 노쇼 횟수는 user_no_show 에서 센다. 컬럼은 다음 릴리스에서 지운다
-// 바뀐 컬럼만 UPDATE 한다 - 프로필 편집과 노쇼 제재가 같은 행을 따로 고쳐도, 한쪽이 읽어 둔 옛 값으로 다른 쪽 컬럼을 덮어쓰지 않게
+// 바뀐 컬럼만 UPDATE 한다 - 프로필 편집과 FCM 토큰 갱신이 같은 행을 따로 고쳐도, 한쪽이 읽어 둔 옛 값으로 다른 쪽 컬럼을 덮어쓰지 않게
 @DynamicUpdate
 @Entity
 @Getter
@@ -48,8 +46,6 @@ public class UserEntity extends BaseTimeEntity {
 
     private Instant deletedAt;
 
-    private Instant restrictedUntil;
-
     private UserEntity(UUID publicId, String nickname, String imageUrl, LoginType loginType, String fcmToken) {
         this.publicId = publicId;
         this.nickname = nickname;
@@ -67,14 +63,6 @@ public class UserEntity extends BaseTimeEntity {
         this.imageUrl = user.getImageUrl();
         this.fcmToken = user.getFcmToken();
         this.deletedAt = user.getDeletedAt();
-    }
-
-    public NoShowSanction noShowSanction() {
-        return new NoShowSanction(restrictedUntil);
-    }
-
-    public void applyNoShowSanction(NoShowSanction sanction) {
-        this.restrictedUntil = sanction.restrictedUntil();
     }
 
     public User toDomain() {

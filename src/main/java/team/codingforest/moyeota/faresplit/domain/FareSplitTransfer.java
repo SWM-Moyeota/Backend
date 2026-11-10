@@ -1,5 +1,7 @@
 package team.codingforest.moyeota.faresplit.domain;
 
+import team.codingforest.moyeota.faresplit.domain.enums.TransferStatus;
+
 import java.time.Instant;
 
 /**

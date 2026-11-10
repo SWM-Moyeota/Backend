@@ -10,10 +10,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.faresplit.domain.AccountNumber;
-import team.codingforest.moyeota.faresplit.domain.Bank;
+import team.codingforest.moyeota.faresplit.domain.enums.Bank;
 import team.codingforest.moyeota.faresplit.domain.FareSplit;
 import team.codingforest.moyeota.faresplit.domain.FareSplitNotifier;
-import team.codingforest.moyeota.faresplit.domain.FareSplitStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus;
 import team.codingforest.moyeota.faresplit.domain.FareSplitTransfer;
 import team.codingforest.moyeota.faresplit.domain.FareSplits;
 

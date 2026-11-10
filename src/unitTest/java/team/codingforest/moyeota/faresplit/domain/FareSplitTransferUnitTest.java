@@ -2,6 +2,7 @@ package team.codingforest.moyeota.faresplit.domain;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import team.codingforest.moyeota.faresplit.domain.enums.TransferStatus;
 
 import java.time.Instant;
 

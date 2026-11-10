@@ -8,7 +8,7 @@ import java.util.List;
  *  @param partyId   방
  *  @param finished  동승이 끝났는지(FINISHED)
  *  @param memberIds 방 멤버, 합류 순
- *  @param riderIds  탑승자 - 출발지에 도착했고 노쇼가 아닌 멤버, 합류 순
+ *  @param riderIds  탑승자 - 출발지 도착을 누른 멤버, 합류 순
  */
 public record PartyRiders(Long partyId, boolean finished, List<Long> memberIds, List<Long> riderIds) {
 }

@@ -16,7 +16,8 @@ import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 import team.codingforest.moyeota.user.api.MemberSummary;
 import team.codingforest.moyeota.user.api.UserAccess;
 
@@ -212,8 +213,8 @@ class RideRecordServiceTest {
         MemberSummary 동승자정보 = users.등록(동승자, "지민");
         MemberSummary 내정보 = users.등록(나, "성윤");
         MemberSummary 셋째정보 = users.등록(셋째, "지우");
-        Long partyId = savedParty(List.of(PartyMember.load(셋째, 기준.plusSeconds(2)), PartyMember.load(나, 기준.plusSeconds(1)),
-                PartyMember.load(동승자, 기준)));
+        Long partyId = savedParty(List.of(PartyMember.load(셋째, 기준.plusSeconds(2), null), PartyMember.load(나, 기준.plusSeconds(1), null),
+                PartyMember.load(동승자, 기준, null)));
         dropOff(partyId, 기준.plusSeconds(600));
 
         RideRecordItem ride = service.findMyRides(나, null, 20).rides().getFirst();
@@ -257,7 +258,6 @@ class RideRecordServiceTest {
         var ride = service.findMyRides(나, null, 20).rides().getFirst();
 
         assertThat(ride.partyId()).isEqualTo(partyId);
-        assertThat(ride.pickupTime()).isNull();
         assertThat(ride.dropoffTime()).isEqualTo(기준);
         assertThat(ride.totalFare()).isNull();
         assertThat(ride.farePerPerson()).isNull();
@@ -330,14 +330,15 @@ class RideRecordServiceTest {
     private List<PartyMember> members(Long... memberIds) {
         List<PartyMember> members = new ArrayList<>();
         for(int i = 0; i < memberIds.length; i++) {
-            members.add(PartyMember.load(memberIds[i], 기준.plusSeconds(i)));
+            members.add(PartyMember.load(memberIds[i], 기준.plusSeconds(i), null));
         }
         return members;
     }
 
     private Long savedParty(List<PartyMember> members) {
         return parties.save(Party.load(null, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
-                "강남역", "판교역", new Capacity(3), members, 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L)).getId();
+                "강남역", "판교역", new Capacity(3), members, members.getFirst().getMemberId(), 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L,
+                RoomType.REALTIME, 기준)).getId();
     }
 
     static class StubUserAccess implements UserAccess {

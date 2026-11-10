@@ -1,7 +1,7 @@
 ### 변수
 @host = http://localhost:8080
 
-### 1. 택시비 정산 시작 - 동승이 끝난 방의 탑승자(도착·노쇼 아님)가 받는 사람이 된다. 201 + 정산 상세
+### 1. 택시비 정산 시작 - 동승이 끝난 방의 탑승자(출발지 도착을 누른 멤버)가 받는 사람이 된다. 201 + 정산 상세
 POST {{host}}/api/v1/matching/rooms/1/fare-split
 Content-Type: application/json
 

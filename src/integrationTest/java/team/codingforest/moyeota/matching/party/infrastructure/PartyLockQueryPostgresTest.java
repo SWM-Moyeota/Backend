@@ -11,7 +11,7 @@ import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -66,8 +66,8 @@ class PartyLockQueryPostgresTest {
 
     @Test
     void 잠금_조회가_멤버를_읽는다() {
-        Party party = open(3);
-        party.join(2L);
+        Party party = create(3);
+        party.join(2L, Instant.now());
         Long id = parties.save(party).getId();
 
         Party locked = tx.execute(status -> parties.findByIdForUpdate(id).orElseThrow());
@@ -77,7 +77,7 @@ class PartyLockQueryPostgresTest {
 
     @Test
     void 멤버가_없는_방도_잠금_조회가_된다() {
-        Long id = parties.save(open(3)).getId();
+        Long id = parties.save(create(3)).getId();
         tx.executeWithoutResult(status -> {
             Party p = parties.findByIdForUpdate(id).orElseThrow();
             p.leave(1L);
@@ -90,20 +90,20 @@ class PartyLockQueryPostgresTest {
     }
 
     @Test
-    void 잠금을_기다린_참여는_앞서_커밋된_참여를_보고_정원을_판정한다() throws Exception {
-        Long id = parties.save(open(3)).getId();
+    void 잠금을_기다린_참여는_앞서_커밋된_참여를_보고_정원을_판정하고_정원이_차도_ACTIVE_다() throws Exception {
+        Long id = parties.save(create(3)).getId();
 
-        Party result = whileLocked(id, p -> p.join(2L), p -> p.join(3L));
+        Party result = whileLocked(id, p -> p.join(2L, Instant.now()), p -> p.join(3L, Instant.now()));
 
         assertThat(result.getMembers()).extracting(PartyMember::getMemberId).containsExactlyInAnyOrder(1L, 2L, 3L);
-        assertThat(result.getStatus()).isEqualTo(PartyStatus.COMPLETED);
+        assertThat(result.getStatus()).as("정원이 차도 모집 중이다 - 참여는 PARTY_FULL 로 막힌다").isEqualTo(PartyStatus.ACTIVE);
         assertThat(result.getVersion()).as("커밋 하나에 1씩").isEqualTo(2);
     }
 
     @Test
     void 잠금을_기다린_나가기는_앞서_커밋된_나가기를_보고_방을_닫는다() throws Exception {
-        Party party = open(3);
-        party.join(2L);
+        Party party = create(3);
+        party.join(2L, Instant.now());
         Long id = parties.save(party).getId();
 
         Party result = whileLocked(id, p -> p.leave(1L), p -> p.leave(2L));
@@ -142,8 +142,8 @@ class PartyLockQueryPostgresTest {
         return waiter.get(10, TimeUnit.SECONDS);
     }
 
-    private static Party open(int capacity) {
-        return Party.open(1L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
+    private static Party create(int capacity) {
+        return Party.create(1L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
                 "강남역", "판교역", new Capacity(capacity), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC");
     }

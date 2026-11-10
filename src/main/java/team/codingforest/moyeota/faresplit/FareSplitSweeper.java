@@ -21,8 +21,8 @@ public class FareSplitSweeper {
     private final FareSplitService fareSplitService;
     private final FareSplitNotificationService notificationService;
 
-    @SchedulerLock(name = "fare-split-sweep", lockAtMostFor = "PT55S", lockAtLeastFor = "PT30S")
-    @Scheduled(fixedDelay = 60_000)
+    @SchedulerLock(name = "fare-split-sweep", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1M")
+	@Scheduled(cron = "0 */30 * * * *", zone = "Asia/Seoul")
     public void sweep() {
         sweepAt(Instant.now());
     }

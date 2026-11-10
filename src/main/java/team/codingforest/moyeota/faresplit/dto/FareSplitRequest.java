@@ -3,7 +3,7 @@ package team.codingforest.moyeota.faresplit.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import team.codingforest.moyeota.faresplit.domain.Bank;
+import team.codingforest.moyeota.faresplit.domain.enums.Bank;
 
 public record FareSplitRequest(
         @NotNull(message = "택시비는 필수입니다")
