@@ -63,4 +63,7 @@ infra/monitoring/.env
 # 증거 캡처 이미지는 레포 밖에 보관 (txt 만 커밋)
 docs/evidence/**/*.png
 
+# AI 작업용 설계·계획 문서는 로컬에만 둔다
+docs/superpowers/
+
 infra/osrm/*.osm.pbf*

@@ -1,4 +1,4 @@
--- 노쇼 기능 제거 (docs/superpowers/specs/2026-11-10-party-status-no-show-removal-design.md)
+-- 매칭 방 상태 재정의(ACTIVE=모집 중, COMPLETED=확정)와 노쇼 기능 제거
 -- 노쇼 기록·제재·이의 신청은 dev 에만 나갔던 기능이라 운영 데이터 이전은 없다. V26·V27·V34 는 dev 에 적용돼 있어 파일을 남긴다
 DROP TABLE no_show_objection;
 DROP TABLE user_no_show;
