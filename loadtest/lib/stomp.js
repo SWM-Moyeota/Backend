@@ -19,6 +19,7 @@ const PING_SEC = 20;                  // OkHttp pingInterval
 const CLOSED = ['FINISHED', 'CANCELED'];
 const SEND_VIA = __ENV.SEND_VIA || 'rest';
 const SEQ_GAP_WAIT_MS = Number(__ENV.SEQ_GAP_WAIT_MS || 500);   // seq 정렬 흉내에서 빈 번호를 기다리는 최대 시간
+const READ_EVERY_SEC = Number(__ENV.READ_EVERY_SEC || 0);       // REST 읽음을 이 간격으로 묶는다(마지막 번호만). 0 이면 받을 때마다 - 빠른 전송 측정에서 읽음이 부하를 덮지 않게
 
 export function wsUrl() {
   return `${BASE.replace(/^http/, 'ws')}/ws-chat`;
@@ -142,10 +143,15 @@ export function chatSession(token, chatRoomId, who, {
         if (SEND_VIA === 'stomp') {
           socket.send(frame('SEND', { destination: `/pub/chat-rooms/${chatRoomId}/read`, 'content-type': 'application/json' },
             JSON.stringify({ lastReadMessageId: cursor })));
+        } else if (READ_EVERY_SEC > 0 && Date.now() - lastReadAt < READ_EVERY_SEC * 1000) {
+          readPending = true;               // 1초 틱에서 묶어 보낸다
         } else {
           readChatRest(token, chatRoomId, cursor);
+          lastReadAt = Date.now();
+          readPending = false;
         }
       };
+      let lastReadAt = 0, readPending = false;
 
       const send = () => {
         const content = `lt:${Date.now()}:${who}`;
@@ -201,6 +207,11 @@ export function chatSession(token, chatRoomId, who, {
       // 1초 틱으로 두 폴링 루프를 흉내 낸다 (k6/ws 콜백 안에서는 http 호출이 된다)
       socket.setInterval(() => {
         sinceChatPoll++; sinceDetailPoll++;
+        if (readPending && Date.now() - lastReadAt >= READ_EVERY_SEC * 1000) {
+          readChatRest(token, chatRoomId, cursor);
+          lastReadAt = Date.now();
+          readPending = false;
+        }
         if (sinceChatPoll >= (realtimeAlive ? POLL_REALTIME : POLL_BEFORE_REALTIME)) {
           sinceChatPoll = 0;
           const before = cursor;
