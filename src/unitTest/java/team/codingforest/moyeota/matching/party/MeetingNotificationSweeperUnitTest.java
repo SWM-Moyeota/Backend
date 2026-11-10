@@ -29,8 +29,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
- *  매분 0초에 돌아 [직전 분, 이번 분) 에 차례가 된 방만 고른다 - 출발 전 알림은 출발 시각이 그 구간을 30분 미룬 곳인 예약 방,
- *  약속 시각 알림은 departure_at 이 그 구간인 방, 출발 재촉 차례 i 는 departure_at 이 그 구간을 OFFSETS[i] 만큼 당긴 곳인 방
+ *  매분 0초에 돌아 [이번 분, 다음 분) 에 차례가 된 방만 고른다 - 출발 시각은 분 단위(초 00)라 알림이 정시에 나간다.
+ *  출발 전 알림은 출발 시각이 그 구간을 30분 미룬 곳인 예약 방, 약속 시각 알림은 departure_at 이 그 구간인 방,
+ *  출발 재촉 차례 i 는 departure_at 이 그 구간을 OFFSETS[i] 만큼 당긴 곳인 방
  */
 @ExtendWith(MockitoExtension.class)
 class MeetingNotificationSweeperUnitTest {
@@ -44,7 +45,7 @@ class MeetingNotificationSweeperUnitTest {
     @InjectMocks
     private MeetingNotificationSweeper sweeper;
 
-    @DisplayName("sweep - 실행한 분을 끝으로 하는 1분 구간 하나로 약속 시각 알림을, 그 구간을 재촉 간격만큼 당긴 네 구간으로 출발 재촉을 고른다")
+    @DisplayName("sweep - 실행한 분에서 시작하는 1분 구간 하나로 약속 시각 알림을, 그 구간을 재촉 간격만큼 당긴 네 구간으로 출발 재촉을 고른다")
     @Test
     void sweep_windows() {
 
@@ -67,15 +68,17 @@ class MeetingNotificationSweeperUnitTest {
         ArgumentCaptor<Instant> to = ArgumentCaptor.forClass(Instant.class);
         verify(parties, times(1 + Party.DEPARTURE_REMINDER_OFFSETS.size())).findOpenConfirmedIdsDepartingBetween(from.capture(), to.capture());
 
-        Instant meetingTo = to.getAllValues().get(0);
-        assertThat(meetingTo).as("실행한 분의 0초").isEqualTo(meetingTo.truncatedTo(ChronoUnit.MINUTES))
+        // 15:30 에 돌면 약속 시각 알림은 [15:30, 15:31) - 15:30 약속인 방이 정시에 걸린다
+        Instant meetingFrom = from.getAllValues().get(0);
+        assertThat(meetingFrom).as("실행한 분의 0초").isEqualTo(meetingFrom.truncatedTo(ChronoUnit.MINUTES))
                 .isBetween(before.truncatedTo(ChronoUnit.MINUTES), after.truncatedTo(ChronoUnit.MINUTES));
-        assertThat(from.getAllValues().get(0)).isEqualTo(meetingTo.minus(Duration.ofMinutes(1)));
+        assertThat(to.getAllValues().get(0)).isEqualTo(meetingFrom.plus(Duration.ofMinutes(1)));
 
+        // 재촉 30분이면 [15:00, 15:01) - 15:00 약속인 방에 정확히 30분 뒤 나간다
         for(int i = 0; i < Party.DEPARTURE_REMINDER_OFFSETS.size(); i++) {
             Duration offset = Party.DEPARTURE_REMINDER_OFFSETS.get(i);
-            assertThat(from.getAllValues().get(i + 1)).as("재촉 %d번째 구간 시작", i).isEqualTo(meetingTo.minus(Duration.ofMinutes(1)).minus(offset));
-            assertThat(to.getAllValues().get(i + 1)).as("재촉 %d번째 구간 끝", i).isEqualTo(meetingTo.minus(offset));
+            assertThat(from.getAllValues().get(i + 1)).as("재촉 %d번째 구간 시작", i).isEqualTo(meetingFrom.minus(offset));
+            assertThat(to.getAllValues().get(i + 1)).as("재촉 %d번째 구간 끝", i).isEqualTo(meetingFrom.plus(Duration.ofMinutes(1)).minus(offset));
         }
     }
 
@@ -156,7 +159,7 @@ class MeetingNotificationSweeperUnitTest {
         verify(reminderService, never()).remind(anyLong());
     }
 
-    @DisplayName("sweep - 출발 전 알림은 실행한 분을 끝으로 하는 1분 구간을 30분 미룬 곳에서 출발하는 예약 방을 고른다")
+    @DisplayName("sweep - 출발 전 알림은 실행한 분에서 시작하는 1분 구간을 30분 미룬 곳에서 출발하는 예약 방을 고른다")
     @Test
     void sweep_reservationReminderWindow() {
 
@@ -179,7 +182,8 @@ class MeetingNotificationSweeperUnitTest {
         ArgumentCaptor<Instant> to = ArgumentCaptor.forClass(Instant.class);
         verify(parties).findOpenReservationIdsDepartingBetween(from.capture(), to.capture());
 
-        Instant tick = to.getValue().minus(Duration.ofMinutes(30));
+        // 15:30 에 돌면 [16:00, 16:01) - 16:00 출발 예약 방에 정확히 30분 전 나간다
+        Instant tick = from.getValue().minus(Duration.ofMinutes(30));
         assertThat(tick).as("실행한 분의 0초").isEqualTo(tick.truncatedTo(ChronoUnit.MINUTES))
                 .isBetween(before.truncatedTo(ChronoUnit.MINUTES), after.truncatedTo(ChronoUnit.MINUTES));
         assertThat(Duration.between(from.getValue(), to.getValue())).isEqualTo(Duration.ofMinutes(1));

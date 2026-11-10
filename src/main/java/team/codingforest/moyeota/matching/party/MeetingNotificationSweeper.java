@@ -14,7 +14,7 @@ import java.time.temporal.ChronoUnit;
 
 /**
  *  방 알림 스케줄러 - 출발 전 알림(예약 방), 약속 시각 알림, 출발 재촉.
- *  매분 0초에 돌아 [직전 분, 이번 분) 에 차례가 된 방만 고른다.
+ *  매분 0초에 돌아 [이번 분, 다음 분) 에 차례가 된 방만 고른다.
  */
 @Slf4j
 @Component
@@ -31,8 +31,8 @@ public class MeetingNotificationSweeper {
 	@Scheduled(cron = "0 * * * * *", zone = "Asia/Seoul")
 	public void sweep() {
 		Instant now = Instant.now();
-		Instant to = now.truncatedTo(ChronoUnit.MINUTES);
-		Instant from = to.minus(TICK);
+		Instant from = now.truncatedTo(ChronoUnit.MINUTES);
+		Instant to = from.plus(TICK);
 
 		// 출발 30분 전이 구간 안인 예약 방 = 출발 시각이 구간을 30분 미룬 곳인 방
 		for(Long partyId : parties.findOpenReservationIdsDepartingBetween(from.plus(REMINDER_LEAD), to.plus(REMINDER_LEAD))) {
@@ -51,7 +51,7 @@ public class MeetingNotificationSweeper {
 			}
 		}
 
-		// 재촉 차례 i 는 departure_at + OFFSETS[i] 가 구간 안인 방 - departure_at 으로 바꾸면 구간을 OFFSETS[i] 만큼 당긴 것
+		// 2중 for문을 사용하여 offset과 방을 순회하여 알림을 보냄
 		for(Duration offset : Party.DEPARTURE_REMINDER_OFFSETS) {
 			for(Long partyId : parties.findOpenConfirmedIdsDepartingBetween(from.minus(offset), to.minus(offset))) {
 				try {

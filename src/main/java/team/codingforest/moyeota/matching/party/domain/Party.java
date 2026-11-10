@@ -276,11 +276,11 @@ public class Party {
 	 * 약속이 없거나 혼자면 동승이 없었으니 CANCELED, 도착한 멤버가 있으면 그들이 탄 것으로 FINISHED, 없으면 CANCELED
 	 */
 	public AutoCloseResult autoClose() {
-		if (status.isClosed()) {
+		if (status.isClosed()) {		// 이미 방이 닫힌 경우
 			return AutoCloseResult.skipped(status);
 		}
 
-		if (!isConfirmed() || !hasCompanion()) {
+		if (!isConfirmed() || !hasCompanion()) {		// 약속 시간이 null이거나 혼자인 경우
 			close(PartyStatus.CANCELED);
 			return AutoCloseResult.closed(status, List.of());
 		}
