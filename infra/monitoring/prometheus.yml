@@ -17,6 +17,8 @@ scrape_configs:
         labels: { service: moyeota-api, instance_name: dev-api-a }
       - targets: ['172.16.1.46:9091']
         labels: { service: moyeota-api, instance_name: dev-api-c }
+      - targets: [ '172.16.1.11:9091' ]
+        labels: { service: moyeota-socket, instance_name: dev-socket }
 
   - job_name: node
     static_configs:
@@ -24,6 +26,8 @@ scrape_configs:
         labels: { role: target, instance_name: dev-api-a }
       - targets: ['172.16.1.46:9100']
         labels: { role: target, instance_name: dev-api-c }
+      - targets: [ '172.16.1.11:9100' ]
+        labels: { role: target, instance_name: dev-socket }
       - targets: ['172.16.1.21:9100']
         labels: { role: loadgen, instance_name: k6-1 }
 
