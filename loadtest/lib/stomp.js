@@ -8,6 +8,7 @@
 //   · 채팅 화면은 대기 화면 위에 쌓인다. 폴링 앱은 그 아래에서 방 상세를 4초마다 폴링해 방이 닫혔는지 본다
 //     (SSE 앱은 SSE 로 받는다 - k6 는 소켓과 SSE 를 같이 못 붙잡으므로 partyId 를 주지 않는다)
 import ws from 'k6/ws';
+import { Counter, Trend } from 'k6/metrics';
 import { BASE, pollChat, lastMessageId, roomDetail, sendChatRest, readChatRest } from './api.js';
 
 const NUL = String.fromCharCode(0);   // STOMP 프레임 종료 문자
@@ -17,6 +18,7 @@ const DETAIL_POLL = 4;                // MatchWaitingRoute.PARTY_POLL_INTERVAL_M
 const PING_SEC = 20;                  // OkHttp pingInterval
 const CLOSED = ['FINISHED', 'CANCELED'];
 const SEND_VIA = __ENV.SEND_VIA || 'rest';
+const SEQ_GAP_WAIT_MS = Number(__ENV.SEQ_GAP_WAIT_MS || 500);   // seq 정렬 흉내에서 빈 번호를 기다리는 최대 시간
 
 export function wsUrl() {
   return `${BASE.replace(/^http/, 'ws')}/ws-chat`;
@@ -25,6 +27,28 @@ export function wsUrl() {
 function frame(command, headers, body = '') {
   const head = Object.keys(headers).map((k) => `${k}:${headers[k]}`).join('\n');
   return `${command}\n${head}\n\n${body}${NUL}`;
+}
+
+/**
+ * seq 기준 순서 지표. 시나리오 맨 위(초기화 단계)에서 한 번 만들고 chatSession 옵션에 펼쳐 넣는다 - chatSession(..., { ...seqOrder })
+ *   chat_seq_inversions              도착 순서가 seq 와 뒤집힌 횟수 (서버가 보낸 그대로의 역전)
+ *   chat_seq_inversions_same_sender  그중 같은 사람이 보낸 것끼리 뒤집힌 횟수
+ *   chat_seq_wait_ms                 앱이 seq 로 정렬한다고 칠 때 메시지마다 기다린 시간 - 역전을 정렬로 가리는 비용
+ *   chat_seq_gap_timeout             빈 번호를 SEQ_GAP_WAIT_MS 넘게 기다려 건너뛴 횟수 (앱이라면 /after 호출)
+ *   chat_seq_late                    건너뛴 뒤 늦게 온 번호 - 정렬로도 사용자에게 뒤집혀 보이는 것. 목표 0
+ */
+export function seqOrderMetrics() {
+  const inversions = new Counter('chat_seq_inversions');
+  const sameSender = new Counter('chat_seq_inversions_same_sender');
+  const wait = new Trend('chat_seq_wait_ms', true);
+  const gapTimeout = new Counter('chat_seq_gap_timeout');
+  const late = new Counter('chat_seq_late');
+  return {
+    onSeqInversion: (same) => { inversions.add(1); if (same) sameSender.add(1); },
+    onSeqWait: (ms) => wait.add(ms),
+    onSeqGapTimeout: () => gapTimeout.add(1),
+    onSeqLate: () => late.add(1),
+  };
 }
 
 /** ERROR 프레임의 message 헤더 - 서버가 넣는 고정 코드(TOKEN_EXPIRED, SERVER_UNAVAILABLE, NOT_PARTICIPANT 등) */
@@ -38,7 +62,12 @@ function errorCode(data) {
  *   sendEverySec       메시지 전송 주기(0 이면 듣기만). 본문은 "lt:<보낸 시각 ms>:<보낸 사람>" - 보내는 쪽과 받는 쪽이 같은 장비라 시계가 같다
  *   cursor             채팅방을 열 때 읽은 마지막 메시지 id (openChatRoom 의 결과)
  *   partyId            주면 방 상세를 4초마다 폴링하고, FINISHED·CANCELED 를 보면 소켓을 닫는다(다른 사람이 합승 완료를 누른 경우)
- *   onInversion        소켓으로 받은 메시지 id 가 직전까지 받은 가장 큰 id 보다 작으면 호출 - 순서가 뒤집힌 것
+ *   onInversion        소켓으로 받은 메시지 id 가 직전까지 받은 가장 큰 id 보다 작으면 호출 - 순서가 뒤집힌 것 (옛 기준. id 는 순서 기준이 아니다)
+ *   seq 기준 (방마다 서버가 잠금 안에서 매기는 번호 - 순서의 기준). 세션의 첫 메시지 seq 를 출발점으로 삼는다
+ *   onSeqInversion(sameSender) 받은 seq 가 직전까지 받은 가장 큰 seq 보다 작으면 호출. sameSender 는 같은 사람이 보낸 것끼리 뒤집혔는지
+ *   onSeqWait(ms)      클라이언트가 seq 로 정렬한다고 치고, 메시지마다 "받은 뒤 화면에 내보내기까지 기다린 시간" (제 차례면 0)
+ *   onSeqGapTimeout()  빈 번호를 SEQ_GAP_WAIT_MS 넘게 기다려 건너뛴 횟수 - 앱이라면 이때 /after 로 채운다
+ *   onSeqLate()        건너뛴 번호가 그 뒤에 도착 - 정렬로도 못 고친 역전
  *   onSend(ok)         메시지를 보낼 때마다 성공 여부로 호출 (rest 일 때만 의미 있음)
  *   onPollRecovered(n) 세션이 끝날 때 한 번 - 폴링으로는 받았는데 소켓으로는 끝내 안 온 메시지 n 건 (0 이면 부르지 않는다)
  * 돌려주는 값: { res, closedBy, errorCode, cursor } - cursor 는 세션이 끝날 때까지 읽은 마지막 메시지 id(재연결 때 이어 쓴다)
@@ -51,6 +80,7 @@ function errorCode(data) {
 export function chatSession(token, chatRoomId, who, {
   holdSec = 30, sendEverySec = 15, cursor = null, partyId = null,
   onLatency, onError, onConnected, onInversion, onSend, onPollRecovered,
+  onSeqInversion, onSeqWait, onSeqGapTimeout, onSeqLate,
 } = {}) {
   let closedBy = null;
   let lastErrorCode = null;
@@ -67,6 +97,44 @@ export function chatSession(token, chatRoomId, who, {
       let realtimeAlive = false;      // 앱과 같다 - 소켓으로 메시지를 받아야 비로소 true
       let sinceChatPoll = 0, sinceDetailPoll = 0;
       let lastSeenId = 0;             // 소켓으로 받은 가장 큰 메시지 id
+
+      // seq 정렬 흉내 - 앱이 seq 로 줄 세워 보여 준다고 치면 사용자에게 무엇이 보이는가
+      let maxSeq = 0;                 // 도착 순서대로 본 가장 큰 seq
+      const maxSeqBySender = {};      // 보낸 사람별 가장 큰 seq
+      let nextSeq = null;             // 다음에 화면에 내보낼 seq
+      const held = new Map();         // seq → 도착 시각. 앞 번호가 아직 안 와서 붙잡아 둔 메시지
+      let gapSince = null;            // 지금 빈 번호를 기다리기 시작한 시각
+
+      const releaseInOrder = (now) => {
+        let moved = false;
+        while (held.has(nextSeq)) {
+          if (onSeqWait) onSeqWait(now - held.get(nextSeq));
+          held.delete(nextSeq);
+          nextSeq++;
+          moved = true;
+        }
+        if (held.size === 0) gapSince = null;
+        else if (moved || gapSince === null) gapSince = now;   // 새 빈 번호를 기다리기 시작
+      };
+
+      const onSeq = (seq, sender) => {
+        const now = Date.now();
+        if (seq < maxSeq && onSeqInversion) onSeqInversion((maxSeqBySender[sender] || 0) > seq);
+        maxSeq = Math.max(maxSeq, seq);
+        maxSeqBySender[sender] = Math.max(maxSeqBySender[sender] || 0, seq);
+        if (nextSeq === null) nextSeq = seq;
+        if (seq < nextSeq) { if (onSeqLate) onSeqLate(); return; }   // 이미 건너뛴 번호
+        held.set(seq, now);
+        releaseInOrder(now);
+      };
+
+      socket.setInterval(() => {
+        const now = Date.now();
+        if (gapSince === null || now - gapSince < SEQ_GAP_WAIT_MS) return;
+        if (onSeqGapTimeout) onSeqGapTimeout();
+        nextSeq = Math.min(...Array.from(held.keys()));    // 기다리던 번호를 포기하고 다음 있는 번호부터
+        releaseInOrder(now);
+      }, 50);
 
       const markRead = (id) => {
         if (!id || id === cursor) return;
@@ -117,6 +185,11 @@ export function chatSession(token, chatRoomId, who, {
             if (messageId < lastSeenId && onInversion) onInversion();
             lastSeenId = Math.max(lastSeenId, messageId);
             markRead(messageId);
+          }
+          const seq = data.match(/"seq":(\d+)/);
+          if (seq) {
+            const sender = data.match(/"content":"lt:\d+:([^"]+)"/);
+            onSeq(Number(seq[1]), sender ? sender[1] : 'system');
           }
         } else if (command === 'ERROR') {
           lastErrorCode = errorCode(data);

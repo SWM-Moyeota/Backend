@@ -22,7 +22,7 @@ import exec from 'k6/execution';
 import { Trend, Counter } from 'k6/metrics';
 import { SharedArray } from 'k6/data';
 import { fillRoom, groupUsers, finishRoom, resolveChatRoomId, openChatRoom } from './lib/api.js';
-import { chatSession } from './lib/stomp.js';
+import { chatSession, seqOrderMetrics } from './lib/stomp.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
 const CONNS = Number(__ENV.CONNS || 150);                    // 3의 배수 - 3명짜리 방 CONNS/3 개
@@ -43,6 +43,7 @@ const sendOk = new Counter('chat_send_ok');
 const sendFail = new Counter('chat_send_fail');
 const pollRecovered = new Counter('chat_poll_recovered');
 const inversions = new Counter('chat_order_inversions');
+const seqOrder = seqOrderMetrics();                        // seq 기준 순서 지표 (lib/stomp.js)
 
 export const options = {
   scenarios: {
@@ -105,6 +106,7 @@ export default function (data) {
     onSend: (ok) => (ok ? sendOk : sendFail).add(1),
     onPollRecovered: (n) => pollRecovered.add(n),
     onInversion: () => inversions.add(1),
+    ...seqOrder,
   });
   if (result.cursor) cursor = result.cursor;
 

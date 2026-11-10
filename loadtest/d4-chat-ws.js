@@ -3,13 +3,13 @@
 //   MODE=fallback: 소켓이 죽어 전원이 3초 폴링 + REST 전송으로 떨어진 상황 (서버 재시작 직후)
 //   k6 run -o experimental-prometheus-rw -e CONNS=150 loadtest/d4-chat-ws.js
 //   k6 run -o experimental-prometheus-rw -e CONNS=150 -e MODE=fallback loadtest/d4-chat-ws.js
-//   순서 측정: SEND_EVERY_SEC=0.2 처럼 짧게 주면 같은 방에 메시지가 몰린다. chat_order_inversions 를 본다
+//   순서 측정: SEND_EVERY_SEC=0.2 처럼 짧게 주면 같은 방에 메시지가 몰린다. chat_seq_inversions(seq 기준)·chat_seq_late(정렬로도 못 고친 것)를 본다. chat_order_inversions 는 옛 id 기준
 //   k6 run -o experimental-prometheus-rw -e CONNS=300 -e SEND_EVERY_SEC=0.2 loadtest/d4-chat-ws.js
 import { check, sleep } from 'k6';
 import { Trend, Counter } from 'k6/metrics';
 import { SharedArray } from 'k6/data';
 import { fillRoom, groupUsers, finishRoom, resolveChatRoomId, openChatRoom, pollChat, lastMessageId, roomDetail, sendChatRest } from './lib/api.js';
-import { chatSession } from './lib/stomp.js';
+import { chatSession, seqOrderMetrics } from './lib/stomp.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
 const CONNS = Number(__ENV.CONNS || 150);                   // 3의 배수
@@ -20,6 +20,7 @@ const latency = new Trend('chat_delivery_ms', true);
 const connected = new Counter('ws_connected');
 const wsErrors = new Counter('ws_errors');
 const inversions = new Counter('chat_order_inversions');   // 소켓으로 받은 메시지 id 가 직전보다 작았던 횟수
+const seqOrder = seqOrderMetrics();                        // seq 기준 순서 지표 (lib/stomp.js)
 
 export const options = {
   scenarios: {
@@ -73,6 +74,7 @@ export default function (data) {
     onConnected: () => connected.add(1),
     onLatency: (ms) => latency.add(ms),
     onInversion: () => inversions.add(1),
+    ...seqOrder,
     onError: (e) => { wsErrors.add(1); console.error(`vu${__VU}: ${e}`); },
   });
   check(res, { '핸드셰이크 101': (r) => r && r.status === 101 });
