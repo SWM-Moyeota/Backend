@@ -16,7 +16,7 @@ ulimit -n 65535
 mkdir -p results
 
 echo "사용자 150명 준비 중..."
-USERS=150 RUN_ID="$(date +%s)" node seed.mjs 2>&1 | tr '\r' '\n' | grep -E 'users.json|실패' || true
+USERS=150 RUN_ID="$(date +%s)" node seed.mjs 2>&1 | tr '\r' '\n' | grep -E 'users.json 저장|Error' || true
 
 nohup k6 run -o experimental-prometheus-rw --tag testid="$T" -e CONNS=150 -e DURATION_MIN="$MIN" \
   --summary-export="results/$T.json" d9-ws-deploy.js > "$OUT" 2>&1 &
