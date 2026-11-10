@@ -784,21 +784,22 @@ class PartyServiceTest {
     }
 
     @Test
-    void 도착자가_있는_확정_방을_자동_정리하면_FINISHED_이고_하차_기록이_남는다() {
-        Long 오래된방 = saveConfirmedOld(Instant.now().minus(Duration.ofDays(2)), true);
+    void 도착자가_있는_확정_방을_자동_정리하면_FINISHED_이고_약속_시각을_승차_시각으로_탑승_기록이_남는다() {
+        Instant 약속 = Instant.now().minus(Duration.ofDays(2));
+        Long 오래된방 = saveConfirmedOld(약속, true);
 
         service.autoClose(오래된방);
 
         assertThat(parties.findById(오래된방).orElseThrow().getStatus()).isEqualTo(PartyStatus.FINISHED);
         assertThat(events.closedFor(오래된방, "FINISHED")).isEqualTo(1);
         RideRecord rideRecord = rideRecords.findById(오래된방).orElseThrow();
-        assertThat(rideRecord.getDropoffTime()).isNotNull();
+        assertThat(rideRecord.getPickupTime()).isEqualTo(약속.truncatedTo(java.time.temporal.ChronoUnit.MICROS));
         assertThat(rideRecord.getDeparturePlace()).isEqualTo("강남역");
         assertThat(rideRecord.getDestinationPlace()).isEqualTo("판교역");
     }
 
     @Test
-    void 도착자가_없는_확정_방을_자동_정리하면_CANCELED_이고_하차_기록이_남지_않는다() {
+    void 도착자가_없는_확정_방을_자동_정리하면_CANCELED_이고_탑승_기록이_남지_않는다() {
         Long 오래된방 = saveConfirmedOld(Instant.now().minus(Duration.ofDays(2)), false);
 
         service.autoClose(오래된방);

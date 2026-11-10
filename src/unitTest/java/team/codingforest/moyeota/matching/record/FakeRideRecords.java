@@ -36,17 +36,17 @@ public class FakeRideRecords implements RideRecords {
     }
 
     @Override
-    public List<RideRecord> findDroppedOffByMember(Long memberId, int limit) {
-        return droppedOffOf(memberId)
+    public List<RideRecord> findByMember(Long memberId, int limit) {
+        return ridesOf(memberId)
                 .limit(limit)
                 .toList();
     }
 
     @Override
-    public List<RideRecord> findDroppedOffByMemberBefore(Long memberId, Instant dropoffTime, Long matchId, int limit) {
-        return droppedOffOf(memberId)
-                .filter(h -> h.getDropoffTime().isBefore(dropoffTime)
-                        || (h.getDropoffTime().equals(dropoffTime) && h.getMatchId() < matchId))
+    public List<RideRecord> findByMemberBefore(Long memberId, Instant pickupTime, Long matchId, int limit) {
+        return ridesOf(memberId)
+                .filter(h -> h.getPickupTime().isBefore(pickupTime)
+                        || (h.getPickupTime().equals(pickupTime) && h.getMatchId() < matchId))
                 .limit(limit)
                 .toList();
     }
@@ -68,11 +68,10 @@ public class FakeRideRecords implements RideRecords {
         return result;
     }
 
-    private Stream<RideRecord> droppedOffOf(Long memberId) {
+    private Stream<RideRecord> ridesOf(Long memberId) {
         return store.values().stream()
-                .filter(RideRecord::isDroppedOff)
                 .filter(h -> rode(h.getMatchId(), memberId))
-                .sorted(Comparator.comparing(RideRecord::getDropoffTime).thenComparing(RideRecord::getMatchId).reversed())
+                .sorted(Comparator.comparing(RideRecord::getPickupTime).thenComparing(RideRecord::getMatchId).reversed())
                 .map(FakeRideRecords::copy);
     }
 
@@ -83,13 +82,12 @@ public class FakeRideRecords implements RideRecords {
                 .orElse(false);
     }
 
-    /** 실제 쿼리와 같은 규칙 - 도착자가 있는 방은 도착한 멤버만, 도착 기록이 없는 옛 방은 멤버 전원 */
+    /** 실제 쿼리와 같은 규칙 - 도착한 멤버만 탄 사람이다 */
     private static List<PartyMember> riders(Party p) {
-        List<PartyMember> arrived = p.getMembers().stream().filter(PartyMember::isArrived).toList();
-        return arrived.isEmpty() ? p.getMembers() : arrived;
+        return p.getMembers().stream().filter(PartyMember::isArrived).toList();
     }
 
     private static RideRecord copy(RideRecord h) {
-        return RideRecord.load(h.getMatchId(), h.getDeparturePlace(), h.getDestinationPlace(), h.getDropoffTime());
+        return RideRecord.load(h.getMatchId(), h.getDeparturePlace(), h.getDestinationPlace(), h.getPickupTime());
     }
 }

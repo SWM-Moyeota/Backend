@@ -77,32 +77,32 @@ class RideRecordQueryPostgresTest {
         partyService.arrive(partyId, 나, DEPARTURE.latitude(), DEPARTURE.longitude());
         partyService.arrive(partyId, 동승자, DEPARTURE.latitude(), DEPARTURE.longitude());
 
+        Instant 출발전 = Instant.now().truncatedTo(ChronoUnit.MICROS);
         partyService.depart(partyId, 나);
 
         RideRecord rideRecord = rideRecords.findById(partyId).orElseThrow();
         assertThat(rideRecord.getDeparturePlace()).isEqualTo("강남역");
         assertThat(rideRecord.getDestinationPlace()).isEqualTo("판교역");
-        assertThat(rideRecord.getDropoffTime()).isNotNull();
+        assertThat(rideRecord.getPickupTime()).as("승차 시각은 출발을 누른 순간").isBetween(출발전, Instant.now());
 
         RideRecordResponse response = rideRecordService.findMyRides(동승자, null, 20);
         RideRecordItem ride = response.rides().getFirst();
         assertThat(response.rides()).hasSize(1);
         assertThat(ride.partyId()).isEqualTo(partyId);
-        assertThat(ride.dropoffTime()).isEqualTo(rideRecord.getDropoffTime());
+        assertThat(ride.pickupTime()).isEqualTo(rideRecord.getPickupTime());
         assertThat(ride.totalFare()).isNull();
         assertThat(ride.farePerPerson()).isNull();
         assertThat(ride.currentMembers()).isEqualTo(2);
     }
 
     @Test
-    void 하차_시각이_같은_기록도_커서로_빠짐없이_이어지고_남의_방과_하차_전인_방은_빠진다() {
+    void 승차_시각이_같은_기록도_커서로_빠짐없이_이어지고_남의_방은_빠진다() {
         Instant 같은시각 = Instant.now().truncatedTo(ChronoUnit.MICROS);
-        Long 이전 = droppedOff(같은시각.minusSeconds(60), 나);
-        Long 동률1 = droppedOff(같은시각, 나, 동승자);
-        Long 동률2 = droppedOff(같은시각, 동승자, 나);
-        Long 이후 = droppedOff(같은시각.plusSeconds(60), 나);
-        droppedOff(같은시각, 동승자, 남);
-        rideRecords.save(RideRecord.load(savedParty(members(같은시각, 나)), "강남역", "판교역", null));
+        Long 이전 = saveRide(같은시각.minusSeconds(60), 나);
+        Long 동률1 = saveRide(같은시각, 나, 동승자);
+        Long 동률2 = saveRide(같은시각, 동승자, 나);
+        Long 이후 = saveRide(같은시각.plusSeconds(60), 나);
+        saveRide(같은시각, 동승자, 남);
 
         List<Long> seen = new ArrayList<>();
         Long cursor = null;
@@ -131,9 +131,9 @@ class RideRecordQueryPostgresTest {
         Instant 합류 = 기준.minusSeconds(3600);
         Instant 도착 = 합류.plusSeconds(600);
         // 남은 도착을 누르지 않아 탑승자가 아니다 - 기록에도 정산에도 없다
-        Long 정산방 = droppedOff(기준, List.of(PartyMember.load(동승자, 합류, 도착), PartyMember.load(나, 합류.plusSeconds(1), 도착),
+        Long 정산방 = saveRide(기준, List.of(PartyMember.load(동승자, 합류, 도착), PartyMember.load(나, 합류.plusSeconds(1), 도착),
                 PartyMember.load(넷째, 합류.plusSeconds(2), 도착), PartyMember.load(남, 합류.plusSeconds(3), null)));
-        Long 정산없는방 = droppedOff(기준.minusSeconds(60), 나, 동승자);
+        Long 정산없는방 = saveRide(기준.minusSeconds(60), 나, 동승자);
         fareSplitService.create(정산방, 나, 18_700, Bank.KB, "3333-01-2345678");
 
         assertThat(rideOf(나, 정산방).totalFare()).isEqualTo(18_700);
@@ -157,7 +157,7 @@ class RideRecordQueryPostgresTest {
     void 택시비_정산을_취소하면_탑승_기록의_요금이_다시_null_이다() {
         Instant 기준 = Instant.now().truncatedTo(ChronoUnit.MICROS);
         Instant 합류 = 기준.minusSeconds(3600);
-        Long 정산방 = droppedOff(기준, List.of(PartyMember.load(나, 합류, 합류.plusSeconds(600)),
+        Long 정산방 = saveRide(기준, List.of(PartyMember.load(나, 합류, 합류.plusSeconds(600)),
                 PartyMember.load(동승자, 합류.plusSeconds(1), 합류.plusSeconds(600))));
         fareSplitService.create(정산방, 나, 10_001, Bank.KAKAO, "3333-01-2345678");
         assertThat(rideOf(동승자, 정산방).farePerPerson()).isEqualTo(5_010);
@@ -175,9 +175,23 @@ class RideRecordQueryPostgresTest {
         Long 없는방 = track(Long.MAX_VALUE);
 
         assertThatThrownBy(() -> jdbc.update("""
-                INSERT INTO ride_record (match_id, departure_place, destination_place, created_at) VALUES (?, ?, ?, now())
+                INSERT INTO ride_record (match_id, departure_place, destination_place, pickup_time, created_at) VALUES (?, ?, ?, now(), now())
                 """, 없는방, "강남역", "판교역"))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void V38_승차_시각이_없는_기록은_저장되지_않는다() {
+        // 하차 시각(dropoff_time)을 승차 시각(pickup_time)으로 바꾸며 NOT NULL 로 묶었다 - 끝난 탑승만 기록이 된다
+        Long partyId = savedParty(members(Instant.now().minusSeconds(3600), 나));
+
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO ride_record (match_id, departure_place, destination_place, created_at) VALUES (?, ?, ?, now())
+                """, partyId, "강남역", "판교역"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM information_schema.columns WHERE table_name = 'ride_record' AND column_name = 'dropoff_time'
+                """, Integer.class)).isZero();
     }
 
     private RideRecordItem rideOf(Long memberId, Long partyId) {
@@ -186,13 +200,13 @@ class RideRecordQueryPostgresTest {
                 .findFirst().orElseThrow();
     }
 
-    private Long droppedOff(Instant dropoffTime, Long... memberIds) {
-        return droppedOff(dropoffTime, members(dropoffTime.minusSeconds(3600), memberIds));
+    private Long saveRide(Instant pickupTime, Long... memberIds) {
+        return saveRide(pickupTime, members(pickupTime.minusSeconds(3600), memberIds));
     }
 
-    private Long droppedOff(Instant dropoffTime, List<PartyMember> members) {
+    private Long saveRide(Instant pickupTime, List<PartyMember> members) {
         Long partyId = savedParty(members);
-        rideRecords.save(RideRecord.load(partyId, "강남역", "판교역", dropoffTime));
+        rideRecords.save(RideRecord.load(partyId, "강남역", "판교역", pickupTime));
         return partyId;
     }
 

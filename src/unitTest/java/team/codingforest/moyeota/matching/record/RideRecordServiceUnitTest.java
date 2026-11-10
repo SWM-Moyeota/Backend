@@ -64,9 +64,9 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        RideRecord record = droppedOff(10L);
+        RideRecord record = finished(10L);
 
-        doReturn(List.of(record)).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
+        doReturn(List.of(record)).when(rideRecords).findByMember(eq(MEMBER_ID), eq(21));
         doReturn(Map.of(10L, List.of(MEMBER_ID, OTHER_MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(10L)));
         doReturn(Map.of(MEMBER_ID, new MemberSummary(MEMBER_PUBLIC_ID, "나", "me.png"),
                 OTHER_MEMBER_ID, new MemberSummary(OTHER_PUBLIC_ID, "동승자", "other.png")))
@@ -88,7 +88,7 @@ class RideRecordServiceUnitTest {
         assertThat(item.partyId()).isEqualTo(10L);
         assertThat(item.departure()).isEqualTo("강남역");
         assertThat(item.destination()).isEqualTo("판교역");
-        assertThat(item.dropoffTime()).isEqualTo(BASE_TIME.plusSeconds(600));
+        assertThat(item.pickupTime()).isEqualTo(BASE_TIME.plusSeconds(600));
         assertThat(item.totalFare()).isNull();
         assertThat(item.farePerPerson()).isNull();
         assertThat(item.currentMembers()).isEqualTo(2);
@@ -105,11 +105,11 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        RideRecord first = droppedOff(30L);
-        RideRecord second = droppedOff(20L);
-        RideRecord beyond = droppedOff(10L);
+        RideRecord first = finished(30L);
+        RideRecord second = finished(20L);
+        RideRecord beyond = finished(10L);
 
-        doReturn(List.of(first, second, beyond)).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(3));
+        doReturn(List.of(first, second, beyond)).when(rideRecords).findByMember(eq(MEMBER_ID), eq(3));
         doReturn(Map.of(30L, List.of(MEMBER_ID), 20L, List.of(MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(30L, 20L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
 
@@ -133,7 +133,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(droppedOff(30L), droppedOff(20L))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(3));
+        doReturn(List.of(finished(30L), finished(20L))).when(rideRecords).findByMember(eq(MEMBER_ID), eq(3));
         doReturn(Map.of(30L, List.of(MEMBER_ID), 20L, List.of(MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(30L, 20L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
 
@@ -150,18 +150,18 @@ class RideRecordServiceUnitTest {
         assertThat(result.rides()).hasSize(2);
     }
 
-    @DisplayName("findMyRides - 커서가 있으면 그 기록의 하차 시각과 ID 이전을 조회한다")
+    @DisplayName("findMyRides - 커서가 있으면 그 기록의 승차 시각과 ID 이전을 조회한다")
     @Test
     void findMyRides_withCursor() {
 
         /*
          * settings
          */
-        Instant cursorDropoff = BASE_TIME.plusSeconds(600);
-        RideRecord cursorRecord = RideRecord.load(CURSOR, "강남역", "판교역", cursorDropoff);
+        Instant cursorPickup = BASE_TIME.plusSeconds(600);
+        RideRecord cursorRecord = RideRecord.load(CURSOR, "강남역", "판교역", cursorPickup);
 
         doReturn(Optional.of(cursorRecord)).when(rideRecords).findById(eq(CURSOR));
-        doReturn(List.of(droppedOff(10L))).when(rideRecords).findDroppedOffByMemberBefore(eq(MEMBER_ID), eq(cursorDropoff), eq(CURSOR), eq(21));
+        doReturn(List.of(finished(10L))).when(rideRecords).findByMemberBefore(eq(MEMBER_ID), eq(cursorPickup), eq(CURSOR), eq(21));
         doReturn(Map.of(10L, List.of(MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(10L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
 
@@ -174,7 +174,7 @@ class RideRecordServiceUnitTest {
          * verify
          */
         assertThat(result.rides()).extracting(RideRecordResponse.RideRecordItem::partyId).containsExactly(10L);
-        verify(rideRecords, never()).findDroppedOffByMember(any(), anyInt());
+        verify(rideRecords, never()).findByMember(any(), anyInt());
     }
 
     @DisplayName("findMyRides - 기록이 없으면 빈 페이지이고 멤버·유저 조회를 하지 않는다")
@@ -184,7 +184,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of()).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
+        doReturn(List.of()).when(rideRecords).findByMember(eq(MEMBER_ID), eq(21));
 
         /*
          * test
@@ -209,7 +209,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of()).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(size + 1));
+        doReturn(List.of()).when(rideRecords).findByMember(eq(MEMBER_ID), eq(size + 1));
 
         /*
          * test
@@ -257,29 +257,7 @@ class RideRecordServiceUnitTest {
          * verify
          */
         assertBusinessException(thrown, MatchingErrorCode.INVALID_CURSOR);
-        verify(rideRecords, never()).findDroppedOffByMemberBefore(any(), any(), any(), anyInt());
-        verifyNoInteractions(userAccess, rideFares);
-    }
-
-    @DisplayName("findMyRides - 아직 하차 전인 기록을 커서로 주면 INVALID_CURSOR")
-    @Test
-    void findMyRides_cursorNotDroppedOff() {
-
-        /*
-         * settings
-         */
-        doReturn(Optional.of(RideRecord.load(CURSOR, "강남역", "판교역", null))).when(rideRecords).findById(eq(CURSOR));
-
-        /*
-         * test
-         */
-        Throwable thrown = catchThrowable(() -> rideRecordService.findMyRides(MEMBER_ID, CURSOR, 20));
-
-        /*
-         * verify
-         */
-        assertBusinessException(thrown, MatchingErrorCode.INVALID_CURSOR);
-        verify(rideRecords, never()).findDroppedOffByMemberBefore(any(), any(), any(), anyInt());
+        verify(rideRecords, never()).findByMemberBefore(any(), any(), any(), anyInt());
         verifyNoInteractions(userAccess, rideFares);
     }
 
@@ -290,10 +268,10 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        Instant cursorDropoff = BASE_TIME.plusSeconds(600);
+        Instant cursorPickup = BASE_TIME.plusSeconds(600);
 
-        doReturn(Optional.of(RideRecord.load(CURSOR, "강남역", "판교역", cursorDropoff))).when(rideRecords).findById(eq(CURSOR));
-        doReturn(List.of()).when(rideRecords).findDroppedOffByMemberBefore(eq(MEMBER_ID), eq(cursorDropoff), eq(CURSOR), eq(21));
+        doReturn(Optional.of(RideRecord.load(CURSOR, "강남역", "판교역", cursorPickup))).when(rideRecords).findById(eq(CURSOR));
+        doReturn(List.of()).when(rideRecords).findByMemberBefore(eq(MEMBER_ID), eq(cursorPickup), eq(CURSOR), eq(21));
 
         /*
          * test
@@ -316,7 +294,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(droppedOff(30L), droppedOff(20L))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
+        doReturn(List.of(finished(30L), finished(20L))).when(rideRecords).findByMember(eq(MEMBER_ID), eq(21));
         doReturn(Map.of(30L, List.of(MEMBER_ID), 20L, List.of(MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(30L, 20L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
 
@@ -340,7 +318,7 @@ class RideRecordServiceUnitTest {
          */
         RideRecord record = RideRecord.load(10L, "강남역", "판교역", BASE_TIME);
 
-        doReturn(List.of(record)).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
+        doReturn(List.of(record)).when(rideRecords).findByMember(eq(MEMBER_ID), eq(21));
         doReturn(Map.of(10L, List.of(MEMBER_ID, OTHER_MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(10L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID, OTHER_MEMBER_ID)));
         doReturn(List.of()).when(rideFares).find(eq(MEMBER_ID), eq(List.of(10L)));
@@ -366,7 +344,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(droppedOff(10L))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
+        doReturn(List.of(finished(10L))).when(rideRecords).findByMember(eq(MEMBER_ID), eq(21));
         doReturn(Map.of(10L, List.of(OTHER_MEMBER_ID, MEMBER_ID, THIRD_MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(10L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(OTHER_MEMBER_ID, MEMBER_ID, THIRD_MEMBER_ID)));
         doReturn(List.of(new RideFare(10L, 18_700, 6_240))).when(rideFares).find(eq(MEMBER_ID), eq(List.of(10L)));
@@ -391,7 +369,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(droppedOff(10L))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
+        doReturn(List.of(finished(10L))).when(rideRecords).findByMember(eq(MEMBER_ID), eq(21));
         doReturn(Map.of(10L, List.of(MEMBER_ID, OTHER_MEMBER_ID, THIRD_MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(10L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID, OTHER_MEMBER_ID, THIRD_MEMBER_ID)));
         doReturn(List.of(new RideFare(10L, 18_700, 18_700 - 6_240 * 2))).when(rideFares).find(eq(MEMBER_ID), eq(List.of(10L)));
@@ -416,7 +394,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(droppedOff(30L), droppedOff(20L), droppedOff(10L))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(3));
+        doReturn(List.of(finished(30L), finished(20L), finished(10L))).when(rideRecords).findByMember(eq(MEMBER_ID), eq(3));
         doReturn(Map.of(30L, List.of(MEMBER_ID, OTHER_MEMBER_ID), 20L, List.of(MEMBER_ID, OTHER_MEMBER_ID)))
                 .when(rideRecords).findMemberIds(eq(List.of(30L, 20L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID, OTHER_MEMBER_ID)));
@@ -445,7 +423,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(droppedOff(10L))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
+        doReturn(List.of(finished(10L))).when(rideRecords).findByMember(eq(MEMBER_ID), eq(21));
         doReturn(Map.of(10L, List.of(MEMBER_ID))).when(rideRecords).findMemberIds(eq(List.of(10L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of(MEMBER_ID)));
 
@@ -467,7 +445,7 @@ class RideRecordServiceUnitTest {
         /*
          * settings
          */
-        doReturn(List.of(droppedOff(10L))).when(rideRecords).findDroppedOffByMember(eq(MEMBER_ID), eq(21));
+        doReturn(List.of(finished(10L))).when(rideRecords).findByMember(eq(MEMBER_ID), eq(21));
         doReturn(Map.of()).when(rideRecords).findMemberIds(eq(List.of(10L)));
         doReturn(Map.of()).when(userAccess).findMemberSummaries(eq(List.of()));
 
@@ -487,7 +465,7 @@ class RideRecordServiceUnitTest {
         verify(userAccess).findMemberSummaries(anyList());
     }
 
-    private static RideRecord droppedOff(Long matchId) {
+    private static RideRecord finished(Long matchId) {
         return RideRecord.load(matchId, "강남역", "판교역", BASE_TIME.plusSeconds(600));
     }
 

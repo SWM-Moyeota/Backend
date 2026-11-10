@@ -56,13 +56,12 @@ public class RideRecordService {
 
     private List<RideRecord> fetch(Long memberId, Long cursor, int limit) {
         if(cursor == null) {
-			return rideRecords.findDroppedOffByMember(memberId, limit);
+			return rideRecords.findByMember(memberId, limit);
 		}
 
         RideRecord last = rideRecords.findById(cursor)
-                .filter(RideRecord::isDroppedOff)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.INVALID_CURSOR));
 
-        return rideRecords.findDroppedOffByMemberBefore(memberId, last.getDropoffTime(), last.getMatchId(), limit);
+        return rideRecords.findByMemberBefore(memberId, last.getPickupTime(), last.getMatchId(), limit);
     }
 }

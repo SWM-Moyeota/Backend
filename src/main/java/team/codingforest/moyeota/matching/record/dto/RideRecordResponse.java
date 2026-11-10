@@ -10,14 +10,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public record RideRecordResponse(@Schema(description = "탑승 기록. 하차 시각 최신순(같으면 partyId 큰 순)") List<RideRecordItem> rides,
+public record RideRecordResponse(@Schema(description = "탑승 기록. 승차 시각 최신순(같으면 partyId 큰 순)") List<RideRecordItem> rides,
                                   @Schema(description = "다음 페이지 커서 - 이 페이지 마지막 기록의 partyId. 그대로 다음 요청의 cursor 로 보낸다. 마지막 페이지면 null") Long nextCursor,
                                   @Schema(description = "다음 페이지가 있는지") boolean hasNext) {
 
     public record RideRecordItem(@Schema(description = "방 ID") Long partyId,
                                   @Schema(description = "출발지 이름(탑승 당시 방의 출발지)") String departure,
                                   @Schema(description = "도착지 이름(탑승 당시 방의 도착지)") String destination,
-                                  @Schema(description = "하차 시각 - 방장이 출발을 누르거나 서버가 자동 정리한 시각") Instant dropoffTime,
+                                  @Schema(description = "승차 시각 - 방장이 출발을 누른 시각. 아무도 출발을 누르지 않아 서버가 자동 정리한 방은 약속 시각") Instant pickupTime,
                                   @Schema(description = "실제 택시비(원) - 이 방의 택시비 정산에 받는 사람이 넣은 금액. 정산이 없거나(취소 포함) 내가 정산의 받는 사람·보내는 사람이 아니면 null") Integer totalFare,
                                   @Schema(description = "내 부담 금액(원). 보내는 사람은 1인당 보낼 금액(10원 단위 올림), 받는 사람은 택시비에서 다른 사람들이 보낼 금액을 뺀 금액. totalFare 가 null 이면 null") Integer farePerPerson,
                                   @Schema(description = "방이 끝날 때의 인원(나 포함)") int currentMembers,
@@ -33,7 +33,7 @@ public record RideRecordResponse(@Schema(description = "탑승 기록. 하차 �
             Integer farePerPerson = fare == null ? null : fare.myAmount();
 
             return new RideRecordItem(rideRecord.getMatchId(), rideRecord.getDeparturePlace(), rideRecord.getDestinationPlace(),
-                    rideRecord.getDropoffTime(), totalFare, farePerPerson, members.size(), members);
+                    rideRecord.getPickupTime(), totalFare, farePerPerson, members.size(), members);
         }
     }
 
