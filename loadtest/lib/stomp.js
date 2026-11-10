@@ -4,7 +4,7 @@
 //     소켓 서버(socket-app)는 SEND 를 거절하므로 분리 전후를 같은 조건으로 재려면 rest 로 둔다. stomp 는 옛 측정 재현용
 //   · WebSocket ping 을 20초마다 보낸다 - 앱(OkHttp pingInterval 20s)과 같다. 없으면 ALB 유휴 60초에 끊겨 장애로 잘못 잡힌다
 //   · 폴링 안전망: 소켓으로 메시지를 "한 번이라도 받기 전"에는 3초, 받은 뒤에는 20초
-//     폴링으로 새로 받은 메시지는 소켓이 놓친 것이다(cursor 는 소켓으로 받을 때마다 올라가므로) - onPollRecovered 로 센다
+//     폴링으로 받았는데 세션이 끝날 때까지 소켓으로 안 온 메시지가 소켓이 놓친 것이다 - onPollRecovered 로 센다
 //   · 채팅 화면은 대기 화면 위에 쌓인다. 폴링 앱은 그 아래에서 방 상세를 4초마다 폴링해 방이 닫혔는지 본다
 //     (SSE 앱은 SSE 로 받는다 - k6 는 소켓과 SSE 를 같이 못 붙잡으므로 partyId 를 주지 않는다)
 import ws from 'k6/ws';
@@ -40,7 +40,7 @@ function errorCode(data) {
  *   partyId            주면 방 상세를 4초마다 폴링하고, FINISHED·CANCELED 를 보면 소켓을 닫는다(다른 사람이 합승 완료를 누른 경우)
  *   onInversion        소켓으로 받은 메시지 id 가 직전까지 받은 가장 큰 id 보다 작으면 호출 - 순서가 뒤집힌 것
  *   onSend(ok)         메시지를 보낼 때마다 성공 여부로 호출 (rest 일 때만 의미 있음)
- *   onPollRecovered(n) 폴링에서 소켓이 놓친 메시지 n 건을 찾았을 때 호출
+ *   onPollRecovered(n) 세션이 끝날 때 한 번 - 폴링으로는 받았는데 소켓으로는 끝내 안 온 메시지 n 건 (0 이면 부르지 않는다)
  * 돌려주는 값: { res, closedBy, errorCode, cursor } - cursor 는 세션이 끝날 때까지 읽은 마지막 메시지 id(재연결 때 이어 쓴다)
  *   closedBy  'timeout'      holdSec 이 다 돼서 우리가 닫음 (정상)
  *             'party-closed' 방이 끝나서 우리가 닫음 (정상)
@@ -55,6 +55,11 @@ export function chatSession(token, chatRoomId, who, {
   let closedBy = null;
   let lastErrorCode = null;
   const closeBy = (socket, reason) => { if (!closedBy) closedBy = reason; socket.close(); };
+
+  // 폴링으로 먼저 본 메시지 id 중 아직 소켓으로 안 온 것. 소켓으로 오면 지운다.
+  // 폴링이 소켓보다 빨라 잠깐 겹치는 경우를 놓친 것으로 세지 않으려고, 세션이 끝날 때 남은 것만 onPollRecovered 로 넘긴다
+  const seenIds = new Set();
+  const pendingFromPoll = new Set();
 
   let res = null;
   try {
@@ -107,6 +112,8 @@ export function chatSession(token, chatRoomId, who, {
           const id = data.match(/"id":(\d+)/);
           if (id) {
             const messageId = Number(id[1]);
+            seenIds.add(messageId);
+            pendingFromPoll.delete(messageId);
             if (messageId < lastSeenId && onInversion) onInversion();
             lastSeenId = Math.max(lastSeenId, messageId);
             markRead(messageId);
@@ -125,9 +132,8 @@ export function chatSession(token, chatRoomId, who, {
           sinceChatPoll = 0;
           const before = cursor;
           const polled = pollChat(token, chatRoomId, cursor);
-          if (before && polled.status === 200 && onPollRecovered) {
-            const missed = polled.json('messages').filter((m) => m.id > before).length;
-            if (missed > 0) onPollRecovered(missed);
+          if (before && polled.status === 200) {
+            for (const m of polled.json('messages')) if (m.id > before && !seenIds.has(m.id)) pendingFromPoll.add(m.id);
           }
           markRead(lastMessageId(polled, cursor));
         }
@@ -148,6 +154,7 @@ export function chatSession(token, chatRoomId, who, {
     if (onError) onError(`handshake ${e}`);
   }
 
+  if (pendingFromPoll.size > 0 && onPollRecovered) onPollRecovered(pendingFromPoll.size);
   if (!res || res.status !== 101) closedBy = 'handshake';
   return { res, closedBy: closedBy || 'unexpected', errorCode: lastErrorCode, cursor };
 }
