@@ -13,7 +13,6 @@ import java.util.Optional;
 public interface Parties {
     Optional<Party> findById(Long id);
     Party save(Party party);
-    List<Party> findRealtimeByStatus(PartyStatus status);
     boolean existsOngoingByMemberId(Long memberId);
     Optional<Party> findByIdForUpdate(Long id);
     List<PartySummary> findSummariesWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng, int limit);
@@ -24,7 +23,6 @@ public interface Parties {
     void lockMember(Long memberId);
     boolean existsOngoingRealtimeByMemberId(Long memberId);
     boolean existsOngoingReservationBetween(Long memberId, Instant from, Instant to);
-    List<ReservationSummary> findReservations(Instant from, Instant to, int limit);
     List<ReservationSummary> findReservationsWithinBounds(Instant from, Instant to, double swLat, double neLat, double swLng, double neLng, int limit);
     List<NearbyReservation> findReservationsWithinRadius(Instant from, Instant to, Location departure, Location destination, int radius, int limit);
 	List<Long> findOpenConfirmedIdsDepartingBetween(Instant from, Instant to);

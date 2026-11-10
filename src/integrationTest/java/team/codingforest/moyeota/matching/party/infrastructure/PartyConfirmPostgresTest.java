@@ -62,7 +62,7 @@ class PartyConfirmPostgresTest {
 
         tx.executeWithoutResult(status -> {
             Party locked = parties.findByIdForUpdate(id).orElseThrow();
-            locked.confirm(HOST_ID, new MeetingPlan(meetingAt, null, null), Instant.now());
+            locked.confirm(HOST_ID, new MeetingPlan(meetingAt, DEPARTURE, "대전역"), Instant.now());
             parties.save(locked);
         });
 
@@ -74,7 +74,7 @@ class PartyConfirmPostgresTest {
         assertThat(found.isConfirmed()).isTrue();
         assertThat(found.getStatus()).isEqualTo(PartyStatus.COMPLETED);
         assertThat(found.getVersion()).isEqualTo(2);
-        assertThat(found.getDepartureLocation()).as("장소 없이 확정하면 출발지는 그대로다").isEqualTo(DEPARTURE);
+        assertThat(found.getDepartureLocation()).as("지금 출발지를 그대로 받아 확정하면 출발지는 그대로다").isEqualTo(DEPARTURE);
         assertThat(found.getDeparture()).isEqualTo("대전역");
     }
 
@@ -86,7 +86,7 @@ class PartyConfirmPostgresTest {
         Long id = parties.save(party).getId();
         created.add(id);
         Instant meetingAt = Instant.now().plus(Duration.ofMinutes(30)).truncatedTo(ChronoUnit.SECONDS);
-        assertThat(parties.isNearDeparture(id, MEETING_PLACE.latitude(), MEETING_PLACE.longitude(), Party.ARRIVAL_RADIUS_METERS))
+        assertThat(parties.isNearDeparture(id, MEETING_PLACE.latitude(), MEETING_PLACE.longitude(), Party.REALTIME_ARRIVAL_RADIUS_METERS))
                 .as("확정 전에는 원래 출발지 기준이라 만남 장소는 100m 밖이다").isFalse();
 
         tx.executeWithoutResult(status -> {
@@ -107,8 +107,8 @@ class PartyConfirmPostgresTest {
         assertThat(found.getDepartureAt()).isEqualTo(meetingAt);
         assertThat(found.getStatus()).isEqualTo(PartyStatus.COMPLETED);
         // departure_geog 는 생성 컬럼이라 좌표를 따라온다 - 도착 판정이 만남 장소 기준으로 바뀐다
-        assertThat(parties.isNearDeparture(id, MEETING_PLACE.latitude(), MEETING_PLACE.longitude(), Party.ARRIVAL_RADIUS_METERS)).isTrue();
-        assertThat(parties.isNearDeparture(id, DEPARTURE.latitude(), DEPARTURE.longitude(), Party.ARRIVAL_RADIUS_METERS))
+        assertThat(parties.isNearDeparture(id, MEETING_PLACE.latitude(), MEETING_PLACE.longitude(), Party.REALTIME_ARRIVAL_RADIUS_METERS)).isTrue();
+        assertThat(parties.isNearDeparture(id, DEPARTURE.latitude(), DEPARTURE.longitude(), Party.REALTIME_ARRIVAL_RADIUS_METERS))
                 .as("원래 출발지는 이제 100m 밖이다").isFalse();
     }
 }

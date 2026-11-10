@@ -226,31 +226,12 @@ public class PartyService {
     }
 
     @Transactional(readOnly = true)
-    public List<PartyResult> findActiveParties() {
-        return parties.findRealtimeByStatus(PartyStatus.ACTIVE).stream()
-                .map(PartyResult::from)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
     public List<PartySummary> findActivePartiesWithin(double swLat, double swLng, double neLat, double neLng) {
         if(swLat >= neLat || swLng >= neLng) {
 			throw new BusinessException(MatchingErrorCode.INVALID_MAP_BOUNDS);
 		}
 
         return parties.findSummariesWithinBounds(PartyStatus.ACTIVE, swLat, neLat, swLng, neLng, MAP_LIST_LIMIT);
-    }
-
-    /** 출발 시각이 기간 안인 예약 방. 이미 출발한 방은 참여할 수 없어 뺀다 */
-    @Transactional(readOnly = true)
-    public List<ReservationSummary> findReservations(Instant from, Instant to) {
-        if(!from.isBefore(to)) {
-			throw new BusinessException(MatchingErrorCode.INVALID_TIME_RANGE);
-		}
-
-        Instant now = Instant.now();
-
-        return parties.findReservations(from.isAfter(now) ? from : now, to, MAP_LIST_LIMIT);
     }
 
     @Transactional(readOnly = true)

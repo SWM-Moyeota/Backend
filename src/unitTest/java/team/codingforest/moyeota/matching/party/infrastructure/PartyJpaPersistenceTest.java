@@ -79,12 +79,11 @@ class PartyJpaPersistenceTest {
     }
 
     @Test
-    void 실시간_목록은_예약_방을_빼고_돌려준다() {
+    void 실시간_영역_목록은_예약_방을_빼고_돌려준다() {
         Long 실시간 = realtime(1L).getId();
         Long 예약 = reserve(2L, 뒤(Duration.ofDays(1))).getId();
         clearContext();
 
-        assertThat(parties.findRealtimeByStatus(PartyStatus.ACTIVE)).extracting(Party::getId).contains(실시간).doesNotContain(예약);
         assertThat(parties.findSummariesWithinBounds(PartyStatus.ACTIVE, 37.0, 38.0, 126.0, 128.0, 100))
                 .extracting(PartySummary::id).contains(실시간).doesNotContain(예약);
     }
@@ -125,7 +124,7 @@ class PartyJpaPersistenceTest {
     void 취소된_예약_방은_겹치는_것으로_보지_않는다() {
         Instant 출발 = 뒤(Duration.ofDays(1));
         Party party = reserve(1L, 출발);
-        party.expireRecruiting();
+        party.leave(1L);
         parties.save(party);
         clearContext();
 
@@ -133,7 +132,7 @@ class PartyJpaPersistenceTest {
     }
 
     @Test
-    void 예약_목록은_기간_안의_ACTIVE_방을_출발_순으로_인원과_함께_돌려준다() {
+    void 영역_예약_목록은_기간_안의_ACTIVE_방을_출발_순으로_인원과_함께_돌려준다() {
         Instant 기준 = 뒤(Duration.ofDays(3));
         Party 늦은방 = reserve(1L, 기준.plusSeconds(600));
         늦은방.join(5L, Instant.now());
@@ -141,18 +140,18 @@ class PartyJpaPersistenceTest {
         Long 이른방 = reserve(2L, 기준).getId();
         reserve(3L, 기준.plus(Duration.ofDays(2)));
         Party 취소방 = reserve(4L, 기준.plusSeconds(60));
-        취소방.expireRecruiting();
+        취소방.leave(4L);
         parties.save(취소방);
         clearContext();
 
-        List<ReservationSummary> found = parties.findReservations(기준.minusSeconds(1), 기준.plus(Duration.ofDays(1)), 100);
+        List<ReservationSummary> found = parties.findReservationsWithinBounds(기준.minusSeconds(1), 기준.plus(Duration.ofDays(1)), 37.0, 38.0, 126.0, 128.0, 100);
 
         assertThat(found).extracting(ReservationSummary::id).containsExactly(이른방, 늦은방.getId());
         assertThat(found.get(1).currentMembers()).isEqualTo(2L);
     }
 
     @Test
-    void 예약_목록은_정원이_찬_방을_빼고_돌려준다() {
+    void 영역_예약_목록은_정원이_찬_방을_빼고_돌려준다() {
         // 정원이 차도 ACTIVE 지만 들어갈 수 없는 방이다 - 목록에 남으면 못 타는 방을 탭하게 된다
         Instant 기준 = 뒤(Duration.ofDays(3));
         Party 정원찬방 = reserve(1L, 기준);
@@ -162,20 +161,18 @@ class PartyJpaPersistenceTest {
         Long 빈자리방 = reserve(4L, 기준.plusSeconds(60)).getId();
         clearContext();
 
-        assertThat(parties.findReservations(기준.minusSeconds(1), 기준.plus(Duration.ofDays(1)), 100))
-                .extracting(ReservationSummary::id).containsExactly(빈자리방);
         assertThat(parties.findReservationsWithinBounds(기준.minusSeconds(1), 기준.plus(Duration.ofDays(1)), 37.0, 38.0, 126.0, 128.0, 100))
                 .extracting(ReservationSummary::id).containsExactly(빈자리방);
     }
 
     @Test
-    void 예약_목록은_상한만큼만_돌려준다() {
+    void 영역_예약_목록은_상한만큼만_돌려준다() {
         Instant 기준 = 뒤(Duration.ofDays(3));
         Long 이른방 = reserve(1L, 기준).getId();
         reserve(2L, 기준.plusSeconds(60));
         clearContext();
 
-        assertThat(parties.findReservations(기준.minusSeconds(1), 기준.plus(Duration.ofDays(1)), 1))
+        assertThat(parties.findReservationsWithinBounds(기준.minusSeconds(1), 기준.plus(Duration.ofDays(1)), 37.0, 38.0, 126.0, 128.0, 1))
                 .extracting(ReservationSummary::id).containsExactly(이른방);
     }
 
@@ -188,19 +185,6 @@ class PartyJpaPersistenceTest {
         assertThat(parties.findReservationsWithinBounds(기준.minusSeconds(1), 기준.plusSeconds(1), 37.0, 38.0, 126.0, 128.0, 100))
                 .extracting(ReservationSummary::id).contains(강남방);
         assertThat(parties.findReservationsWithinBounds(기준.minusSeconds(1), 기준.plusSeconds(1), 36.0, 36.5, 126.0, 128.0, 100)).isEmpty();
-    }
-
-    @Test
-    void 오래된_실시간_방과_출발_시각이_지난_예약_방이_모집_만료_대상이다() {
-        Long 새실시간 = realtime(1L).getId();
-        Long 미래예약 = reserve(2L, 뒤(Duration.ofHours(1))).getId();
-        Instant 나중 = 뒤(Duration.ofMinutes(30));
-        clearContext();
-
-        assertThat(parties.findRecruitingExpired(Instant.now().minus(Duration.ofMinutes(15)), Instant.now()))
-                .doesNotContain(새실시간, 미래예약);
-        assertThat(parties.findRecruitingExpired(뒤(Duration.ofSeconds(1)), 나중)).contains(새실시간).doesNotContain(미래예약);
-        assertThat(parties.findRecruitingExpired(Instant.now().minus(Duration.ofMinutes(15)), 뒤(Duration.ofHours(2)))).contains(미래예약).doesNotContain(새실시간);
     }
 
     @Test
@@ -239,7 +223,7 @@ class PartyJpaPersistenceTest {
     private Long confirmedAt(Long memberId, Instant departureAt) {
         Party party = realtime(memberId);
         party.join(memberId + 100, Instant.now());
-        party.confirm(memberId, new MeetingPlan(departureAt, null, null), departureAt.minus(Duration.ofMinutes(10)));
+        party.confirm(memberId, new MeetingPlan(departureAt, 강남, "강남역"), departureAt.minus(Duration.ofMinutes(10)));
         return parties.save(party).getId();
     }
 
@@ -252,7 +236,7 @@ class PartyJpaPersistenceTest {
         party.join(2L, Instant.now());
         parties.save(party);
         Instant 약속 = 뒤(Duration.ofMinutes(30)).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
-        party.confirm(1L, new MeetingPlan(약속, null, null), Instant.now());
+        party.confirm(1L, new MeetingPlan(약속, 강남, "강남역"), Instant.now());
         parties.save(party);
         clearContext();
 
@@ -299,7 +283,7 @@ class PartyJpaPersistenceTest {
         Party party = realtime(1L);
         party.join(2L, Instant.now());
         parties.save(party);
-        party.confirm(1L, new MeetingPlan(Instant.now().minusSeconds(30), null, null), Instant.now().minus(Duration.ofMinutes(6)));
+        party.confirm(1L, new MeetingPlan(Instant.now().minusSeconds(30), 강남, "강남역"), Instant.now().minus(Duration.ofMinutes(6)));
         parties.save(party);
 
         return party;
@@ -624,7 +608,7 @@ class PartyJpaPersistenceTest {
         Party party = createAndSave();
         party.join(2L, Instant.now());
         party.join(3L, Instant.now());
-        party.confirm(1L, new MeetingPlan(Instant.now().minusSeconds(30), null, null), Instant.now().minus(Duration.ofMinutes(6)));
+        party.confirm(1L, new MeetingPlan(Instant.now().minusSeconds(30), 강남, "강남역"), Instant.now().minus(Duration.ofMinutes(6)));
         party.arrive(1L, true, Instant.now());
         party.arrive(2L, true, Instant.now());
         party.depart(1L, Instant.now());
@@ -643,14 +627,14 @@ class PartyJpaPersistenceTest {
     }
 
     @Test
-    void 도착_기록이_없는_옛_FINISHED_방은_멤버_전원을_탑승으로_센다() {
+    void 도착한_멤버가_없는_FINISHED_방은_아무도_세지_않는다() {
+        // 도착 기능 전에 끝난 옛 방은 V37 이 멤버 전원을 도착으로 채웠다 - 그 뒤로는 도착한 멤버만 탄 사람이다
         Party old = parties.save(Party.load(null, 강남, 판교, "강남역", "판교역", new Capacity(3),
                 List.of(PartyMember.load(1L, Instant.now(), null), PartyMember.load(2L, Instant.now(), null)), 1L, Instant.now(), PartyStatus.FINISHED,
                 9000, 20, "encoded-path", 0L, RoomType.REALTIME, null));
         clearContext();
 
-        assertThat(parties.countFinishedRides(java.util.List.of(1L, 2L)))
-                .containsOnly(entry(1L, 1), entry(2L, 1));
+        assertThat(parties.countFinishedRides(java.util.List.of(1L, 2L))).isEmpty();
     }
 
     @Test

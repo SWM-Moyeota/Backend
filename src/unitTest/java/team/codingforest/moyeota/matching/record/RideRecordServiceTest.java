@@ -258,7 +258,6 @@ class RideRecordServiceTest {
         var ride = service.findMyRides(나, null, 20).rides().getFirst();
 
         assertThat(ride.partyId()).isEqualTo(partyId);
-        assertThat(ride.pickupTime()).isNull();
         assertThat(ride.dropoffTime()).isEqualTo(기준);
         assertThat(ride.totalFare()).isNull();
         assertThat(ride.farePerPerson()).isNull();

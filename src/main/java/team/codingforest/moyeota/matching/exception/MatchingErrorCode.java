@@ -35,7 +35,6 @@ public enum MatchingErrorCode implements ErrorCode {
     INVALID_MAP_BOUNDS(HttpStatus.BAD_REQUEST, "영역 좌표가 올바르지 않습니다."),
     INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "조회 개수는 1~50 이어야 합니다."),
     INVALID_CURSOR(HttpStatus.BAD_REQUEST, "커서가 올바르지 않습니다."),
-    INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "조회 기간이 올바르지 않습니다."),
 
     // 예약 방 검색 검증
     INVALID_SEARCH_DATE(HttpStatus.BAD_REQUEST, "검색 날짜는 오늘부터 7일 뒤까지만 고를 수 있습니다."),
@@ -46,7 +45,6 @@ public enum MatchingErrorCode implements ErrorCode {
     INVALID_CAPACITY(HttpStatus.BAD_REQUEST, "방 정원은 1~4명이어야 합니다."),
     INVALID_DEPARTURE_TIME(HttpStatus.BAD_REQUEST, "출발 시각은 지금부터 7일 이내여야 합니다."),
     INVALID_MEETING_TIME(HttpStatus.BAD_REQUEST, "약속 시간은 지금부터 5분 뒤에서 1시간 사이여야 합니다."),
-    INCOMPLETE_MEETING_PLACE(HttpStatus.BAD_REQUEST, "만남 장소는 좌표와 이름을 함께 보내야 합니다."),
     OUT_OF_SERVICE_AREA(HttpStatus.BAD_REQUEST, "서비스 지역을 벗어난 좌표입니다."),
 
     // 경로(네이버)

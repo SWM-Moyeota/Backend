@@ -72,7 +72,7 @@ class RideRecordQueryPostgresTest {
         party.join(동승자, Instant.now());
         Long partyId = track(parties.save(party).getId());
         // 약속을 확정한 뒤 약속 시각을 방금 지난 시각으로 돌려 바로 도착·출발을 누른다
-        partyService.confirm(partyId, 나, new MeetingPlan(Instant.now().plus(Duration.ofMinutes(10)), null, null));
+        partyService.confirm(partyId, 나, new MeetingPlan(Instant.now().plus(Duration.ofMinutes(10)), DEPARTURE, "강남역"));
         jdbc.update("UPDATE match_room SET departure_at = now() - interval '30 seconds' WHERE id = ?", partyId);
         partyService.arrive(partyId, 나, DEPARTURE.latitude(), DEPARTURE.longitude());
         partyService.arrive(partyId, 동승자, DEPARTURE.latitude(), DEPARTURE.longitude());
@@ -88,7 +88,6 @@ class RideRecordQueryPostgresTest {
         RideRecordItem ride = response.rides().getFirst();
         assertThat(response.rides()).hasSize(1);
         assertThat(ride.partyId()).isEqualTo(partyId);
-        assertThat(ride.pickupTime()).isNull();
         assertThat(ride.dropoffTime()).isEqualTo(rideRecord.getDropoffTime());
         assertThat(ride.totalFare()).isNull();
         assertThat(ride.farePerPerson()).isNull();
@@ -119,8 +118,9 @@ class RideRecordQueryPostgresTest {
     @Test
     void 방별_멤버는_합류_순으로_모이고_id_순서와_달라도_합류_순을_따른다() {
         Instant 기준 = Instant.now().truncatedTo(ChronoUnit.MICROS);
-        Long partyId = savedParty(List.of(PartyMember.load(남, 기준.plusSeconds(2), null), PartyMember.load(나, 기준.plusSeconds(1), null),
-                PartyMember.load(동승자, 기준, null)));
+        Instant 도착 = 기준.plusSeconds(600);
+        Long partyId = savedParty(List.of(PartyMember.load(남, 기준.plusSeconds(2), 도착), PartyMember.load(나, 기준.plusSeconds(1), 도착),
+                PartyMember.load(동승자, 기준, 도착)));
 
         assertThat(rideRecords.findMemberIds(List.of(partyId)).get(partyId)).containsExactly(동승자, 나, 남);
     }
@@ -196,10 +196,11 @@ class RideRecordQueryPostgresTest {
         return partyId;
     }
 
+    /** 모두 도착한(탄) 멤버 - 탑승 기록에는 도착한 멤버만 나온다 */
     private List<PartyMember> members(Instant joinedFrom, Long... memberIds) {
         List<PartyMember> members = new ArrayList<>();
         for(int i = 0; i < memberIds.length; i++) {
-            members.add(PartyMember.load(memberIds[i], joinedFrom.plusSeconds(i), null));
+            members.add(PartyMember.load(memberIds[i], joinedFrom.plusSeconds(i), joinedFrom.plusSeconds(600)));
         }
         return members;
     }

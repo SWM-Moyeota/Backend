@@ -280,7 +280,7 @@ class ReservationSearchQueryPostgresTest {
         assertThat(withoutDestination).containsExactly(farFirst, farSecond);
     }
 
-    @DisplayName("정원이 찬 예약 방은 예약 목록·영역 조회·검색 어디에도 나오지 않는다")
+    @DisplayName("정원이 찬 예약 방은 영역 조회·검색 어디에도 나오지 않는다")
     @Test
     void fullReservation_excludedEverywhere() {
 
@@ -299,7 +299,6 @@ class ReservationSearchQueryPostgresTest {
         /*
          * test
          */
-        List<Long> list = parties.findReservations(from, to, 100).stream().map(ReservationSummary::id).toList();
         List<Long> bounds = parties.findReservationsWithinBounds(from, to,
                 DEPARTURE_LAT - 0.01, DEPARTURE_LAT + 0.01, DEPARTURE_LNG - 0.01, DEPARTURE_LNG + 0.01, 100).stream()
                 .map(ReservationSummary::id).toList();
@@ -310,7 +309,6 @@ class ReservationSearchQueryPostgresTest {
          * verify
          */
         assertThat(parties.findById(찬방).orElseThrow().getStatus()).as("정원이 차도 모집 중이다").isEqualTo(PartyStatus.ACTIVE);
-        assertThat(list).contains(남은방).doesNotContain(찬방);
         assertThat(bounds).contains(남은방).doesNotContain(찬방);
         assertThat(withDestination).contains(남은방).doesNotContain(찬방);
         assertThat(withoutDestination).contains(남은방).doesNotContain(찬방);

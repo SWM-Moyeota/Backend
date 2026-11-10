@@ -184,10 +184,10 @@ class PartyServiceTest {
 
     @Test
     void 취소된_예약_방은_시간이_겹쳐도_문제가_되지_않는다() {
-        // 혼자인 예약 방은 출발 시각에 모집 만료로 취소된다
+        // 혼자인 방장이 나가면 예약 방은 취소된다
         Instant 출발 = 뒤(Duration.ofHours(24));
         Long 예약방 = service.reserve(reservation(host, 출발)).id();
-        service.expireRecruiting(예약방);
+        service.leave(예약방, host);
 
         PartyResult result = service.reserve(reservation(host, 출발));
 
@@ -215,24 +215,7 @@ class PartyServiceTest {
         Long 실시간방 = service.create(createParty(anotherHost, 3)).id();
         service.reserve(reservation(host, 뒤(Duration.ofDays(1))));
 
-        assertThat(service.findActiveParties()).extracting(PartyResult::id).containsExactly(실시간방);
         assertThat(service.findActivePartiesWithin(37.0, 126.0, 38.0, 128.0)).extracting(PartySummary::id).containsExactly(실시간방);
-    }
-
-    @Test
-    void 예약_목록은_기간_안의_방을_출발_시각_순으로_돌려준다() {
-        Long 늦은방 = service.reserve(reservation(host, 뒤(Duration.ofHours(30)))).id();
-        Long 이른방 = service.reserve(reservation(participant, 뒤(Duration.ofHours(20)))).id();
-        service.reserve(reservation(anotherHost, 뒤(Duration.ofDays(5))));
-
-        List<ReservationSummary> found = service.findReservations(뒤(Duration.ofHours(1)), 뒤(Duration.ofDays(2)));
-
-        assertThat(found).extracting(ReservationSummary::id).containsExactly(이른방, 늦은방);
-    }
-
-    @Test
-    void 예약_목록의_시작이_끝보다_늦으면_거절한다() {
-        assertFails(() -> service.findReservations(뒤(Duration.ofDays(2)), 뒤(Duration.ofDays(1))), MatchingErrorCode.INVALID_TIME_RANGE);
     }
 
     @Test
@@ -265,7 +248,7 @@ class PartyServiceTest {
         service.join(방, participant);
         Instant 약속 = 뒤(Duration.ofMinutes(30));
 
-        service.confirm(방, host, new MeetingPlan(약속, null, null));
+        service.confirm(방, host, new MeetingPlan(약속, 강남역(), "강남역"));
 
         Party saved = parties.findById(방).orElseThrow();
         assertThat(saved.getStatus()).isEqualTo(PartyStatus.COMPLETED);
@@ -292,7 +275,7 @@ class PartyServiceTest {
 
     @Test
     void 없는_방의_약속_시간은_확정할_수_없다() {
-        assertFails(() -> service.confirm(999L, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), null, null)), MatchingErrorCode.PARTY_NOT_FOUND);
+        assertFails(() -> service.confirm(999L, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), 강남역(), "강남역")), MatchingErrorCode.PARTY_NOT_FOUND);
     }
 
     @Test
@@ -300,7 +283,7 @@ class PartyServiceTest {
         // 약속이 잡힌 뒤라 더 모을 수 없고 혼자서는 출발할 수 없다 - 남은 사람도 홈으로 돌아가야 한다
         Long 방 = service.create(createParty(host, 3)).id();
         service.join(방, participant);
-        service.confirm(방, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), null, null));
+        service.confirm(방, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), 강남역(), "강남역"));
         signals.sent.clear();
 
         service.leave(방, participant);
@@ -317,7 +300,7 @@ class PartyServiceTest {
     void 확정한_방에서_방장이_나가도_취소된다() {
         Long 방 = service.create(createParty(host, 3)).id();
         service.join(방, participant);
-        service.confirm(방, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), null, null));
+        service.confirm(방, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), 강남역(), "강남역"));
 
         service.leave(방, host);
 
@@ -330,7 +313,7 @@ class PartyServiceTest {
         Long 방 = service.create(createParty(host, 3)).id();
         service.join(방, participant);
         service.join(방, guest);
-        service.confirm(방, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), null, null));
+        service.confirm(방, host, new MeetingPlan(뒤(Duration.ofMinutes(30)), 강남역(), "강남역"));
         signals.sent.clear();
 
         service.leave(방, guest);
@@ -338,35 +321,6 @@ class PartyServiceTest {
         assertThat(parties.findById(방).orElseThrow().getStatus()).isEqualTo(PartyStatus.COMPLETED);
         assertThat(signals.sent).containsExactly(방 + ":member-left:" + guest);
         assertThat(signals.left.getLast().status()).isEqualTo("COMPLETED");
-    }
-
-    // ───────────────────────── 모집 만료 ─────────────────────────
-
-    @Test
-    void 십오분이_지난_두_명_방은_모집_만료_뒤에도_ACTIVE_다() {
-        // 15분은 "혼자면 접는다"는 기준이지 모집 마감이 아니다 - 방장이 확정할 때까지 그대로 두고 알리지도 않는다
-        Instant 이십분전 = Instant.now().minus(Duration.ofMinutes(20));
-        Party party = Party.create(host, 강남역(), 판교역(), "강남역", "판교역", new Capacity(3), 이십분전, 12000, 25, "_p~iF~ps|U_ulLnnqC");
-        party.join(participant, 이십분전.plusSeconds(60));
-        Long 방 = parties.save(party).getId();
-
-        service.expireRecruiting(방);
-
-        assertThat(parties.findById(방).orElseThrow().getStatus()).isEqualTo(PartyStatus.ACTIVE);
-        assertThat(events.closedFor(방, "CANCELED")).isZero();
-        assertThat(signals.sent).isEmpty();
-    }
-
-    @Test
-    void 모집_시간이_끝난_방에_혼자면_취소하고_닫혔다고_알린다() {
-        Long 방 = service.create(createParty(host, 3)).id();
-
-        service.expireRecruiting(방);
-
-        assertThat(parties.findById(방).orElseThrow().getStatus()).isEqualTo(PartyStatus.CANCELED);
-        assertThat(events.published).contains(new PartyClosedEvent(방, "CANCELED"));
-        assertThat(signals.sent).containsExactly(방 + ":closed");
-        assertThat(signals.closed.getLast()).isEqualTo(PartyClosed.from("CANCELED"));
     }
 
     // ───────────────────────── 생성·참여·상세 ─────────────────────────
@@ -525,10 +479,10 @@ class PartyServiceTest {
 
         service.leave(closeParty.id(), anotherHost);   // 마지막 멤버가 나가면 CANCELED
 
-        List<PartyResult> result = service.findActiveParties();
+        List<PartySummary> result = service.findActivePartiesWithin(37.0, 126.0, 38.0, 128.0);
 
         assertThat(result)
-                .extracting(PartyResult::id)
+                .extracting(PartySummary::id)
                 .containsExactly(openParty.id());
     }
 
@@ -765,7 +719,7 @@ class PartyServiceTest {
         service.leave(party.id(), guest);
         assertThat(signals.left.getLast().version()).isEqualTo(3).isEqualTo(versionOf(party.id()));
 
-        service.confirm(party.id(), host, new MeetingPlan(뒤(Duration.ofMinutes(30)), null, null));
+        service.confirm(party.id(), host, new MeetingPlan(뒤(Duration.ofMinutes(30)), 강남역(), "강남역"));
         assertThat(signals.confirmed.getLast().version()).isEqualTo(4).isEqualTo(versionOf(party.id()));
         assertThat(service.getPartyDetail(party.id()).version()).isEqualTo(4);
     }

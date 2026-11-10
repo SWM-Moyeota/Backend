@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PassengerContextTest {
     @Autowired ApplicationContext ctx;
 
-    @DisplayName("승객 스윕 - 프로퍼티 없이 띄우면 자동 종료·모집 만료·약속 알림·택시비 정산 스윕이 모두 뜬다")
+    @DisplayName("승객 스윕 - 프로퍼티 없이 띄우면 자동 종료·방 알림·택시비 정산 스윕이 모두 뜬다")
     @Test
     void passengerSweepers() {
 
@@ -27,7 +27,6 @@ class PassengerContextTest {
          * test
          */
         String[] completed = ctx.getBeanNamesForType(CompletedPartySweeper.class);
-        String[] recruiting = ctx.getBeanNamesForType(PartyRecruitingSweeper.class);
         String[] meeting = ctx.getBeanNamesForType(MeetingNotificationSweeper.class);
         String[] fareSplit = ctx.getBeanNamesForType(FareSplitSweeper.class);
 
@@ -35,8 +34,7 @@ class PassengerContextTest {
          * verify
          */
         assertThat(completed).as("없으면 아무도 닫지 않은 방의 멤버가 영영 새 방에 못 들어간다").hasSize(1);
-        assertThat(recruiting).as("없으면 모집 만료와 예약 출발 전 알림이 멈춘다").hasSize(1);
-        assertThat(meeting).as("없으면 약속 시각 알림과 출발 재촉이 멈춘다").hasSize(1);
+        assertThat(meeting).as("없으면 예약 방 출발 전 알림·약속 시각 알림·출발 재촉이 멈춘다").hasSize(1);
         assertThat(fareSplit).as("없으면 택시비 송금 재요청·입금 확인 요청·만료가 멈춘다").hasSize(1);
     }
 }

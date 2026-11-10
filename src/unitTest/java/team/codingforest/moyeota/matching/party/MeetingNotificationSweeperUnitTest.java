@@ -29,8 +29,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
- *  매분 0초에 돌아 [직전 분, 이번 분) 에 차례가 된 방만 고른다 - 약속 시각 알림은 departure_at 이 그 구간인 방,
- *  출발 재촉 차례 i 는 departure_at 이 그 구간을 OFFSETS[i] 만큼 당긴 곳인 방
+ *  매분 0초에 돌아 [직전 분, 이번 분) 에 차례가 된 방만 고른다 - 출발 전 알림은 출발 시각이 그 구간을 30분 미룬 곳인 예약 방,
+ *  약속 시각 알림은 departure_at 이 그 구간인 방, 출발 재촉 차례 i 는 departure_at 이 그 구간을 OFFSETS[i] 만큼 당긴 곳인 방
  */
 @ExtendWith(MockitoExtension.class)
 class MeetingNotificationSweeperUnitTest {
@@ -38,6 +38,8 @@ class MeetingNotificationSweeperUnitTest {
     private Parties parties;
     @Mock
     private MeetingNotificationService notificationService;
+    @Mock
+    private ReservationReminderService reminderService;
 
     @InjectMocks
     private MeetingNotificationSweeper sweeper;
@@ -151,5 +153,58 @@ class MeetingNotificationSweeperUnitTest {
          */
         verify(notificationService, never()).notifyMeetingTime(anyLong());
         verify(notificationService, never()).remindDeparture(anyLong(), any());
+        verify(reminderService, never()).remind(anyLong());
+    }
+
+    @DisplayName("sweep - 출발 전 알림은 실행한 분을 끝으로 하는 1분 구간을 30분 미룬 곳에서 출발하는 예약 방을 고른다")
+    @Test
+    void sweep_reservationReminderWindow() {
+
+        /*
+         * settings
+         */
+        doReturn(List.of()).when(parties).findOpenReservationIdsDepartingBetween(any(), any());
+        Instant before = Instant.now();
+
+        /*
+         * test
+         */
+        sweeper.sweep();
+
+        /*
+         * verify
+         */
+        Instant after = Instant.now();
+        ArgumentCaptor<Instant> from = ArgumentCaptor.forClass(Instant.class);
+        ArgumentCaptor<Instant> to = ArgumentCaptor.forClass(Instant.class);
+        verify(parties).findOpenReservationIdsDepartingBetween(from.capture(), to.capture());
+
+        Instant tick = to.getValue().minus(Duration.ofMinutes(30));
+        assertThat(tick).as("실행한 분의 0초").isEqualTo(tick.truncatedTo(ChronoUnit.MINUTES))
+                .isBetween(before.truncatedTo(ChronoUnit.MINUTES), after.truncatedTo(ChronoUnit.MINUTES));
+        assertThat(Duration.between(from.getValue(), to.getValue())).isEqualTo(Duration.ofMinutes(1));
+    }
+
+    @DisplayName("sweep - 출발 전 알림이 한 방에서 실패해도 나머지 예약 방과 약속 시각 알림을 계속 처리한다")
+    @Test
+    void sweep_reservationReminderContinuesAfterFailure() {
+
+        /*
+         * settings
+         */
+        doReturn(List.of(1L, 2L)).when(parties).findOpenReservationIdsDepartingBetween(any(), any());
+        doReturn(List.of(3L)).doReturn(List.of()).when(parties).findOpenConfirmedIdsDepartingBetween(any(), any());
+        doThrow(new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND)).when(reminderService).remind(1L);
+
+        /*
+         * test
+         */
+        sweeper.sweep();
+
+        /*
+         * verify
+         */
+        verify(reminderService).remind(2L);
+        verify(notificationService).notifyMeetingTime(3L);
     }
 }

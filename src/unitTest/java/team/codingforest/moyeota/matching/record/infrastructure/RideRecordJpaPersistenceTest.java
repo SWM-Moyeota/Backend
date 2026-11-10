@@ -171,8 +171,8 @@ class RideRecordJpaPersistenceTest {
 
     @Test
     void 방별_멤버_id_는_합류_순으로_모이고_id_순서와_달라도_합류_순을_따른다() {
-        Long 셋방 = savedParty(List.of(PartyMember.load(동승자, 기준.plusSeconds(2), null), PartyMember.load(남, 기준, null), PartyMember.load(나, 기준.plusSeconds(1), null)));
-        Long 동시합류방 = savedParty(List.of(PartyMember.load(남, 기준, null), PartyMember.load(나, 기준, null)));
+        Long 셋방 = savedParty(List.of(PartyMember.load(동승자, 기준.plusSeconds(2), 기준), PartyMember.load(남, 기준, 기준), PartyMember.load(나, 기준.plusSeconds(1), 기준)));
+        Long 동시합류방 = savedParty(List.of(PartyMember.load(남, 기준, 기준), PartyMember.load(나, 기준, 기준)));
         Long 무관한방 = party(동승자);
         clear();
 
@@ -188,10 +188,11 @@ class RideRecordJpaPersistenceTest {
         assertThat(rideRecords.findMemberIds(List.of())).isEmpty();
     }
 
+    /** 끝난(FINISHED) 방 - 탄 사람만 기록에 나오므로 멤버는 모두 도착한 것으로 둔다 */
     private Long party(Long... memberIds) {
         List<PartyMember> members = new ArrayList<>();
         for(int i = 0; i < memberIds.length; i++) {
-            members.add(PartyMember.load(memberIds[i], 기준.plusSeconds(i), null));
+            members.add(PartyMember.load(memberIds[i], 기준.plusSeconds(i), 기준));
         }
         return savedParty(members);
     }

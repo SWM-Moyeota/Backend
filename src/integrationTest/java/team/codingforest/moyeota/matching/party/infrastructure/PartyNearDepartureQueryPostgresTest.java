@@ -19,7 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  *  출발지 도착 판정(isNearDeparture)은 PostGIS 쿼리라 H2 로 흉내 낼 수 없어 Postgres 에서 확인한다.
- *  위도 0.001도는 경선을 따라 약 111m 라 0.0008도(약 89m)는 100m 안, 0.001도(약 111m)는 밖이다
+ *  위도 0.001도는 경선을 따라 약 111m 라 0.0008도(약 89m)는 100m 안, 0.001도(약 111m)는 밖이다.
+ *  예약 방 반경 400m 는 0.0032도(약 355m)가 안, 0.004도(약 444m)가 밖이다
  */
 @SpringBootTest(properties = "spring.profiles.active=dev")
 class PartyNearDepartureQueryPostgresTest {
@@ -54,7 +55,7 @@ class PartyNearDepartureQueryPostgresTest {
         /*
          * test
          */
-        boolean near = parties.isNearDeparture(id, DEPARTURE_LAT, DEPARTURE_LNG, Party.ARRIVAL_RADIUS_METERS);
+        boolean near = parties.isNearDeparture(id, DEPARTURE_LAT, DEPARTURE_LNG, Party.REALTIME_ARRIVAL_RADIUS_METERS);
 
         /*
          * verify
@@ -74,7 +75,7 @@ class PartyNearDepartureQueryPostgresTest {
         /*
          * test
          */
-        boolean near = parties.isNearDeparture(id, DEPARTURE_LAT + 0.0008, DEPARTURE_LNG, Party.ARRIVAL_RADIUS_METERS);
+        boolean near = parties.isNearDeparture(id, DEPARTURE_LAT + 0.0008, DEPARTURE_LNG, Party.REALTIME_ARRIVAL_RADIUS_METERS);
 
         /*
          * verify
@@ -94,12 +95,34 @@ class PartyNearDepartureQueryPostgresTest {
         /*
          * test
          */
-        boolean near = parties.isNearDeparture(id, DEPARTURE_LAT + 0.001, DEPARTURE_LNG, Party.ARRIVAL_RADIUS_METERS);
+        boolean near = parties.isNearDeparture(id, DEPARTURE_LAT + 0.001, DEPARTURE_LNG, Party.REALTIME_ARRIVAL_RADIUS_METERS);
 
         /*
          * verify
          */
         assertThat(near).isFalse();
+    }
+
+    @DisplayName("isNearDeparture - 예약 방 반경(400m)이면 북쪽으로 약 355m(위도 +0.0032도)는 안, 약 444m(위도 +0.004도)는 밖이다")
+    @Test
+    void isNearDeparture_reservationRadius() {
+
+        /*
+         * settings
+         */
+        Long id = savedParty();
+
+        /*
+         * test
+         */
+        boolean inside = parties.isNearDeparture(id, DEPARTURE_LAT + 0.0032, DEPARTURE_LNG, Party.RESERVATION_ARRIVAL_RADIUS_METERS);
+        boolean outside = parties.isNearDeparture(id, DEPARTURE_LAT + 0.004, DEPARTURE_LNG, Party.RESERVATION_ARRIVAL_RADIUS_METERS);
+
+        /*
+         * verify
+         */
+        assertThat(inside).isTrue();
+        assertThat(outside).isFalse();
     }
 
     @DisplayName("isNearDeparture - 없는 방이면 오류 없이 false 다")
@@ -109,7 +132,7 @@ class PartyNearDepartureQueryPostgresTest {
         /*
          * test
          */
-        boolean near = parties.isNearDeparture(-1L, DEPARTURE_LAT, DEPARTURE_LNG, Party.ARRIVAL_RADIUS_METERS);
+        boolean near = parties.isNearDeparture(-1L, DEPARTURE_LAT, DEPARTURE_LNG, Party.REALTIME_ARRIVAL_RADIUS_METERS);
 
         /*
          * verify

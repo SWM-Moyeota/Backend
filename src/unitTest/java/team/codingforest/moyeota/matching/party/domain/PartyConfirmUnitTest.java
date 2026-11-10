@@ -16,17 +16,18 @@ import static org.assertj.core.api.Assertions.catchThrowable;
 import static team.codingforest.moyeota.matching.party.domain.PartyFixtures.*;
 
 /**
- *  약속 확정 - 실시간 방의 방장이 약속 시간(지금부터 5분 이상 1시간 이하)과 만남 장소(선택)를 정하면 COMPLETED 가 된다
+ *  약속 확정 - 실시간 방의 방장이 약속 시간(지금부터 5분 이상 1시간 이하)과 만남 장소를 정하면 COMPLETED 가 된다.
+ *  만남 장소는 늘 받는다 - 바꾸지 않으면 앱이 지금 출발지를 그대로 보내 그 장소로 고정된다
  */
 class PartyConfirmUnitTest {
 
-    @DisplayName("confirm - 약속 시간이 담기고 COMPLETED 가 되며 version 이 1 오른다. 장소를 주지 않으면 출발지는 그대로다")
+    @DisplayName("confirm - 약속 시간이 담기고 COMPLETED 가 되며 version 이 1 오른다. 지금 출발지를 그대로 받으면 출발지는 그대로다")
     @Test
     void confirm() {
         Party party = realtime(3, MEMBER_ID);
         long before = party.getVersion();
 
-        party.confirm(HOST_ID, new MeetingPlan(MEETING_AT, null, null), NOW);
+        party.confirm(HOST_ID, planAt(MEETING_AT), NOW);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
         assertThat(party.getDepartureAt()).isEqualTo(MEETING_AT);
@@ -36,7 +37,7 @@ class PartyConfirmUnitTest {
         assertThat(party.getVersion()).isEqualTo(before + 1);
     }
 
-    @DisplayName("confirm - 만남 장소를 주면 출발지 좌표와 이름이 바뀐다. 목적지·경로·요금은 그대로다")
+    @DisplayName("confirm - 다른 만남 장소를 받으면 출발지 좌표와 이름이 바뀐다. 목적지·경로·요금은 그대로다")
     @Test
     void confirm_withMeetingPlace() {
         Party party = realtime(3, MEMBER_ID);
@@ -65,7 +66,7 @@ class PartyConfirmUnitTest {
     void confirm_full() {
         Party party = realtime(2, MEMBER_ID);
 
-        party.confirm(HOST_ID, new MeetingPlan(MEETING_AT, null, null), NOW);
+        party.confirm(HOST_ID, planAt(MEETING_AT), NOW);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.COMPLETED);
     }
@@ -76,8 +77,8 @@ class PartyConfirmUnitTest {
         Party inFive = realtime(3, MEMBER_ID);
         Party inAnHour = realtime(3, MEMBER_ID);
 
-        inFive.confirm(HOST_ID, new MeetingPlan(NOW.plus(Party.MIN_CONFIRM_AHEAD), null, null), NOW);
-        inAnHour.confirm(HOST_ID, new MeetingPlan(NOW.plus(Party.MAX_CONFIRM_AHEAD), null, null), NOW);
+        inFive.confirm(HOST_ID, planAt(NOW.plus(Party.MIN_CONFIRM_AHEAD)), NOW);
+        inAnHour.confirm(HOST_ID, planAt(NOW.plus(Party.MAX_CONFIRM_AHEAD)), NOW);
 
         assertThat(inFive.getDepartureAt()).isEqualTo(NOW.plus(Duration.ofMinutes(5)));
         assertThat(inAnHour.getDepartureAt()).isEqualTo(NOW.plus(Duration.ofHours(1)));
@@ -88,7 +89,7 @@ class PartyConfirmUnitTest {
     void confirm_tooSoon() {
         Party party = realtime(3, MEMBER_ID);
 
-        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, new MeetingPlan(NOW.plus(Duration.ofMinutes(5)).minusSeconds(1), null, null), NOW));
+        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, planAt(NOW.plus(Duration.ofMinutes(5)).minusSeconds(1)), NOW));
 
         assertUnchanged(thrown, MatchingErrorCode.INVALID_MEETING_TIME, party);
     }
@@ -98,7 +99,7 @@ class PartyConfirmUnitTest {
     void confirm_tooLate() {
         Party party = realtime(3, MEMBER_ID);
 
-        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, new MeetingPlan(NOW.plus(Duration.ofHours(1)).plusSeconds(1), null, null), NOW));
+        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, planAt(NOW.plus(Duration.ofHours(1)).plusSeconds(1)), NOW));
 
         assertUnchanged(thrown, MatchingErrorCode.INVALID_MEETING_TIME, party);
     }
@@ -108,7 +109,7 @@ class PartyConfirmUnitTest {
     void confirm_nullTime() {
         Party party = realtime(3, MEMBER_ID);
 
-        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, new MeetingPlan(null, null, null), NOW));
+        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, planAt(null), NOW));
 
         assertUnchanged(thrown, MatchingErrorCode.INVALID_MEETING_TIME, party);
     }
@@ -118,8 +119,8 @@ class PartyConfirmUnitTest {
     void confirm_notHost() {
         Party party = realtime(3, MEMBER_ID);
 
-        assertUnchanged(catchThrowable(() -> party.confirm(OUTSIDER_ID, new MeetingPlan(MEETING_AT, null, null), NOW)), MatchingErrorCode.NOT_PARTY_MEMBER, party);
-        assertUnchanged(catchThrowable(() -> party.confirm(MEMBER_ID, new MeetingPlan(MEETING_AT, null, null), NOW)), MatchingErrorCode.NOT_PARTY_HOST, party);
+        assertUnchanged(catchThrowable(() -> party.confirm(OUTSIDER_ID, planAt(MEETING_AT), NOW)), MatchingErrorCode.NOT_PARTY_MEMBER, party);
+        assertUnchanged(catchThrowable(() -> party.confirm(MEMBER_ID, planAt(MEETING_AT), NOW)), MatchingErrorCode.NOT_PARTY_HOST, party);
     }
 
     @DisplayName("confirm - 예약 방은 NOT_REALTIME_PARTY 이고 출발 시각은 그대로다")
@@ -127,7 +128,7 @@ class PartyConfirmUnitTest {
     void confirm_reservation() {
         Party party = reserved(3, MEMBER_ID);
 
-        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, new MeetingPlan(MEETING_AT, null, null), NOW));
+        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, planAt(MEETING_AT), NOW));
 
         assertRejected(thrown, MatchingErrorCode.NOT_REALTIME_PARTY);
         assertThat(party.getDepartureAt()).isEqualTo(RESERVED_AT);
@@ -139,7 +140,7 @@ class PartyConfirmUnitTest {
     void confirm_twice() {
         Party party = confirmed(3, MEMBER_ID);
 
-        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, new MeetingPlan(MEETING_AT.plusSeconds(60), null, null), NOW));
+        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, planAt(MEETING_AT.plusSeconds(60)), NOW));
 
         assertRejected(thrown, MatchingErrorCode.ALREADY_CONFIRMED);
         assertThat(party.getDepartureAt()).isEqualTo(MEETING_AT);
@@ -151,7 +152,7 @@ class PartyConfirmUnitTest {
     void confirm_closed(PartyStatus status) {
         Party party = restored(RoomType.REALTIME, status, null, waiting(HOST_ID, 0), waiting(MEMBER_ID, 1));
 
-        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, new MeetingPlan(MEETING_AT, null, null), NOW));
+        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, planAt(MEETING_AT), NOW));
 
         assertRejected(thrown, MatchingErrorCode.PARTY_CLOSED);
     }
@@ -161,7 +162,7 @@ class PartyConfirmUnitTest {
     void confirm_alone() {
         Party party = realtime(3);
 
-        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, new MeetingPlan(MEETING_AT, null, null), NOW));
+        Throwable thrown = catchThrowable(() -> party.confirm(HOST_ID, planAt(MEETING_AT), NOW));
 
         assertUnchanged(thrown, MatchingErrorCode.NOT_ENOUGH_MEMBERS, party);
     }

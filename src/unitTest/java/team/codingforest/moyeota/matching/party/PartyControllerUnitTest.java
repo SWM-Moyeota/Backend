@@ -38,12 +38,10 @@ import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -90,6 +88,8 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
 
     private static final java.time.Instant DEPARTURE_AT = java.time.Instant.parse("2026-11-03T08:00:00Z");
     private static final Instant CONFIRMED_AT = Instant.parse("2026-11-03T08:30:00Z");
+    private static final Location MEETING_PLACE = new Location(37.4985, 127.0290);
+    private static final String MEETING_PLACE_NAME = "강남역 2번 출구";
 
     private static String reservationBody(int capacity, String departureAtField) {
         return """
@@ -122,9 +122,9 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.route").value(nullValue()));
     }
 
-    @DisplayName("POST /api/v1/matching/reservations - 기사 기능은 없앴지만 출시된 앱이 읽는 taxiDriverId 키는 null 로 남는다")
+    @DisplayName("POST /api/v1/matching/reservations - 응답에 없앤 키(taxiDriverId·departureRadius·destinationRadius)가 없다")
     @Test
-    void reserve_taxiDriverIdKeyKeptAsNull() throws Exception {
+    void reserve_removedKeysAbsent() throws Exception {
 
         /*
          * settings
@@ -144,36 +144,9 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasKey("taxiDriverId")))
-                .andExpect(jsonPath("$.taxiDriverId").value(nullValue()));
-    }
-
-    @DisplayName("POST /api/v1/matching/reservations - 서버는 반경을 쓰지 않지만 출시된 앱이 읽는 departureRadius·destinationRadius 키는 500 으로 남는다")
-    @Test
-    void reserve_radiusKeysKeptAsFixedValue() throws Exception {
-
-        /*
-         * settings
-         */
-        OpenReservationCommand command = new OpenReservationCommand(USER_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, DEPARTURE_AT);
-        PartyResult result = new PartyResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 1, "ACTIVE", CREATED_AT, null, null, null, "RESERVED", DEPARTURE_AT);
-
-        doReturn(result).when(partyService).reserve(eq(command));
-
-        /*
-         * test
-         */
-        mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
-                        .content(reservationBody(3, ", \"departureAt\": \"2026-11-03T08:00:00Z\"")))
-
-        /*
-         * verify
-         */
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasKey("departureRadius")))
-                .andExpect(jsonPath("$", hasKey("destinationRadius")))
-                .andExpect(jsonPath("$.departureRadius").value(500))
-                .andExpect(jsonPath("$.destinationRadius").value(500));
+                .andExpect(jsonPath("$.taxiDriverId").doesNotExist())
+                .andExpect(jsonPath("$.departureRadius").doesNotExist())
+                .andExpect(jsonPath("$.destinationRadius").doesNotExist());
     }
 
     @DisplayName("POST /api/v1/matching/reservations - 출발 시각이 없으면 400")
@@ -204,24 +177,6 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         mockMvc.perform(post("/api/v1/matching/reservations").with(loginUser()).contentType(MediaType.APPLICATION_JSON)
                         .content(reservationBody(3, ", \"departureAt\": \"2026-11-03T08:00:00Z\"")))
                 .andExpect(status().isConflict());
-    }
-
-    @DisplayName("GET /api/v1/matching/reservations - 기간 안의 예약 방을 돌려준다")
-    @Test
-    void listReservations() throws Exception {
-        java.time.Instant from = java.time.Instant.parse("2026-11-03T00:00:00Z");
-        java.time.Instant to = java.time.Instant.parse("2026-11-04T00:00:00Z");
-        doReturn(List.of(new ReservationSummary(PARTY_ID, "강남역", "판교역", 2L, 3, PartyStatus.ACTIVE, 37.4979, 127.0276, 37.3948, 127.1112, DEPARTURE_AT)))
-                .when(partyService).findReservations(eq(from), eq(to));
-
-        mockMvc.perform(get("/api/v1/matching/reservations").with(loginUser())
-                        .param("from", "2026-11-03T00:00:00Z").param("to", "2026-11-04T00:00:00Z"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.list", hasSize(1)))
-                .andExpect(jsonPath("$.list[0].partyId").value(PARTY_ID))
-                .andExpect(jsonPath("$.list[0].currentMembers").value(2))
-                .andExpect(jsonPath("$.list[0].destinationLat").value(37.3948))
-                .andExpect(jsonPath("$.list[0].departureAt").value("2026-11-03T08:00:00Z"));
     }
 
     @DisplayName("GET /api/v1/matching/reservations/soon - 영역 안의 곧 출발 방을 돌려준다")
@@ -481,20 +436,17 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.destination").value("판교역"))
                 .andExpect(jsonPath("$.capacity").value(3))
                 .andExpect(jsonPath("$.currentMembers").value(1))
-                .andExpect(jsonPath("$.departureRadius").value(500))
-                .andExpect(jsonPath("$.destinationRadius").value(500))
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
                 .andExpect(jsonPath("$.createdAt").value("2026-10-01T00:00:00Z"))
                 .andExpect(jsonPath("$.estimateFare").value(12000))
                 .andExpect(jsonPath("$.estimateTime").value(25))
-                .andExpect(jsonPath("$.route").value("encoded-path"))
-                .andExpect(jsonPath("$.taxiDriverId").value(nullValue()));
+                .andExpect(jsonPath("$.route").value("encoded-path"));
         verify(partyService).create(eq(OPEN_COMMAND));
     }
 
-    @DisplayName("POST /api/v1/matching/rooms - 기사 기능은 없앴지만 출시된 앱이 읽는 taxiDriverId 키는 null 로 남는다")
+    @DisplayName("POST /api/v1/matching/rooms - 응답에 없앤 키(taxiDriverId·departureRadius·destinationRadius)가 없다")
     @Test
-    void create_taxiDriverIdKeyKeptAsNull() throws Exception {
+    void create_removedKeysAbsent() throws Exception {
 
         /*
          * settings
@@ -510,32 +462,9 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasKey("taxiDriverId")))
-                .andExpect(jsonPath("$.taxiDriverId").value(nullValue()));
-    }
-
-    @DisplayName("POST /api/v1/matching/rooms - 서버는 반경을 쓰지 않지만 출시된 앱이 읽는 departureRadius·destinationRadius 키는 500 으로 남는다")
-    @Test
-    void create_radiusKeysKeptAsFixedValue() throws Exception {
-
-        /*
-         * settings
-         */
-        doReturn(partyResult()).when(partyService).create(eq(OPEN_COMMAND));
-
-        /*
-         * test
-         */
-        mockMvc.perform(post("/api/v1/matching/rooms").with(loginUser()).contentType(MediaType.APPLICATION_JSON).content(OPEN_BODY))
-
-        /*
-         * verify
-         */
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasKey("departureRadius")))
-                .andExpect(jsonPath("$", hasKey("destinationRadius")))
-                .andExpect(jsonPath("$.departureRadius").value(500))
-                .andExpect(jsonPath("$.destinationRadius").value(500));
+                .andExpect(jsonPath("$.taxiDriverId").doesNotExist())
+                .andExpect(jsonPath("$.departureRadius").doesNotExist())
+                .andExpect(jsonPath("$.destinationRadius").doesNotExist());
     }
 
     @DisplayName("POST /api/v1/matching/rooms - 본문의 creatorId 는 무시하고 토큰의 사용자를 쓴다")
@@ -1040,10 +969,10 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        PartyDetailResult detail = new PartyDetailResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 2, 500, 500, "ACTIVE", CREATED_AT,
-                List.of(new PartyDetailResult.MemberInfo(PUBLIC_ID, "방장", "host.png", null, 4, true, false),
-                        new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", null, 0, false, false)),
-                12000, 25, "encoded-path", null, 7L, "REALTIME", null, false);
+        PartyDetailResult detail = new PartyDetailResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 2, "ACTIVE", CREATED_AT,
+                List.of(new PartyDetailResult.MemberInfo(PUBLIC_ID, "방장", "host.png", 4, true, false),
+                        new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", 0, false, false)),
+                12000, 25, "encoded-path", 7L, "REALTIME", null, false);
 
         doReturn(detail).when(partyService).getPartyDetail(eq(PARTY_ID));
 
@@ -1065,8 +994,6 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.estimateFare").value(12000))
                 .andExpect(jsonPath("$.estimateTime").value(25))
                 .andExpect(jsonPath("$.route").value("encoded-path"))
-                .andExpect(jsonPath("$", hasKey("taxiDriverId")))
-                .andExpect(jsonPath("$.taxiDriverId").value(nullValue()))
                 .andExpect(jsonPath("$.version").value(7))
                 .andExpect(jsonPath("$.roomType").value("REALTIME"))
                 .andExpect(jsonPath("$.departureAt").value(nullValue()))
@@ -1090,10 +1017,10 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        PartyDetailResult detail = new PartyDetailResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 2, 500, 500, "COMPLETED", CREATED_AT,
-                List.of(new PartyDetailResult.MemberInfo(PUBLIC_ID, "방장", "host.png", null, 4, true, false),
-                        new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", null, 0, false, true)),
-                12000, 25, "encoded-path", null, 3L, "REALTIME", CONFIRMED_AT, true);
+        PartyDetailResult detail = new PartyDetailResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 2, "COMPLETED", CREATED_AT,
+                List.of(new PartyDetailResult.MemberInfo(PUBLIC_ID, "방장", "host.png", 4, true, false),
+                        new PartyDetailResult.MemberInfo(MEMBER_PUBLIC_ID, "참가자", "member.png", 0, false, true)),
+                12000, 25, "encoded-path", 3L, "REALTIME", CONFIRMED_AT, true);
 
         doReturn(detail).when(partyService).getPartyDetail(eq(PARTY_ID));
 
@@ -1109,23 +1036,22 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.status").value("COMPLETED"))
                 .andExpect(jsonPath("$.departureAt").value("2026-11-03T08:30:00Z"))
                 .andExpect(jsonPath("$.confirmed").value(true))
-                .andExpect(jsonPath("$.members[0].badgeId").value(nullValue()))
                 .andExpect(jsonPath("$.members[0].arrived").value(false))
                 .andExpect(jsonPath("$.members[1].arrived").value(true));
     }
 
-    @DisplayName("GET /api/v1/matching/rooms/{partyId} - 뱃지는 없앴지만 출시된 앱이 읽는 members[].badgeId 키는 null 로 남는다")
+    @DisplayName("GET /api/v1/matching/rooms/{partyId} - 응답에 없앤 키(taxiDriverId·departureRadius·destinationRadius·members[].badgeId)가 없다")
     @Test
-    void detail_badgeIdKeyKeptAsNull() throws Exception {
+    void detail_removedKeysAbsent() throws Exception {
 
         /*
          * settings
          */
-        // 서비스가 만드는 그대로 MemberInfo.of 로 멤버를 채운다 - 사용자 요약에는 뱃지가 없다
-        PartyDetailResult detail = new PartyDetailResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 2, 500, 500, "ACTIVE", CREATED_AT,
+        // 서비스가 만드는 그대로 MemberInfo.of 로 멤버를 채운다
+        PartyDetailResult detail = new PartyDetailResult(PARTY_ID, 37.4979, 127.0276, 37.3948, 127.1112, "강남역", "판교역", 3, 2, "ACTIVE", CREATED_AT,
                 List.of(PartyDetailResult.MemberInfo.of(new MemberSummary(PUBLIC_ID, "방장", "host.png"), 4, true, false),
                         PartyDetailResult.MemberInfo.of(null, 0, false, false)),
-                12000, 25, "encoded-path", null, 7L, "REALTIME", null, false);
+                12000, 25, "encoded-path", 7L, "REALTIME", null, false);
 
         doReturn(detail).when(partyService).getPartyDetail(eq(PARTY_ID));
 
@@ -1139,10 +1065,11 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          */
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.members", hasSize(2)))
-                .andExpect(jsonPath("$.members[0]", hasKey("badgeId")))
-                .andExpect(jsonPath("$.members[0].badgeId").value(nullValue()))
-                .andExpect(jsonPath("$.members[1]", hasKey("badgeId")))
-                .andExpect(jsonPath("$.members[1].badgeId").value(nullValue()));
+                .andExpect(jsonPath("$.taxiDriverId").doesNotExist())
+                .andExpect(jsonPath("$.departureRadius").doesNotExist())
+                .andExpect(jsonPath("$.destinationRadius").doesNotExist())
+                .andExpect(jsonPath("$.members[0].badgeId").doesNotExist())
+                .andExpect(jsonPath("$.members[1].badgeId").doesNotExist());
     }
 
     @DisplayName("GET /api/v1/matching/rooms/{partyId} - 토큰이 없으면 401")
@@ -1200,16 +1127,11 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.code").value("PARTY_NOT_FOUND"));
     }
 
-    // ───────────────────────── GET /matching/rooms ─────────────────────────
+    // ───────────────────────── GET /matching/rooms?swLat... ─────────────────────────
 
-    @DisplayName("GET /api/v1/matching/rooms - 파라미터가 없으면 ACTIVE 전체를 돌려주고 영역 조회를 하지 않는다")
+    @DisplayName("GET /api/v1/matching/rooms - 지도 범위 좌표 없이 부르면 400 이고 서비스를 부르지 않는다(전체 목록 조회는 없앴다)")
     @Test
-    void list() throws Exception {
-
-        /*
-         * settings
-         */
-        doReturn(List.of(partyResult())).when(partyService).findActiveParties();
+    void list_withoutBounds() throws Exception {
 
         /*
          * test
@@ -1219,38 +1141,8 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * verify
          */
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.list", hasSize(1)))
-                .andExpect(jsonPath("$.list[0].partyId").value(PARTY_ID))
-                .andExpect(jsonPath("$.list[0].departure").value("강남역"))
-                .andExpect(jsonPath("$.list[0].destination").value("판교역"))
-                .andExpect(jsonPath("$.list[0].currentMembers").value(1))
-                .andExpect(jsonPath("$.list[0].capacity").value(3))
-                .andExpect(jsonPath("$.list[0].status").value("ACTIVE"))
-                .andExpect(jsonPath("$.list[0].departureLat").value(37.4979))
-                .andExpect(jsonPath("$.list[0].departureLng").value(127.0276));
-        verify(partyService, never()).findActivePartiesWithin(anyDouble(), anyDouble(), anyDouble(), anyDouble());
-    }
-
-    @DisplayName("GET /api/v1/matching/rooms - 방이 없으면 빈 목록")
-    @Test
-    void list_empty() throws Exception {
-
-        /*
-         * settings
-         */
-        doReturn(List.of()).when(partyService).findActiveParties();
-
-        /*
-         * test
-         */
-        mockMvc.perform(get("/api/v1/matching/rooms").with(loginUser()))
-
-        /*
-         * verify
-         */
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.list", hasSize(0)));
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(partyService);
     }
 
     @DisplayName("GET /api/v1/matching/rooms - 토큰이 없으면 401")
@@ -1270,9 +1162,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         verifyNoInteractions(partyService);
     }
 
-    // ───────────────────────── GET /matching/rooms?swLat... ─────────────────────────
-
-    @DisplayName("GET /api/v1/matching/rooms?swLat... - 네 좌표가 모두 있으면 영역 조회를 하고 전체 조회를 하지 않는다")
+    @DisplayName("GET /api/v1/matching/rooms?swLat... - 네 좌표로 영역 안의 방을 조회해 돌려준다")
     @Test
     void listWithin() throws Exception {
 
@@ -1302,7 +1192,6 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.list[0].status").value("ACTIVE"))
                 .andExpect(jsonPath("$.list[0].departureLat").value(37.4979))
                 .andExpect(jsonPath("$.list[0].departureLng").value(127.0276));
-        verify(partyService, never()).findActiveParties();
     }
 
     @DisplayName("GET /api/v1/matching/rooms?swLat... - 영역 안에 방이 없으면 빈 목록")
@@ -1404,7 +1293,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
 
     // ───────────────────────── POST /matching/rooms/{partyId}/confirm ─────────────────────────
 
-    @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 약속 시간만 보내면 토큰의 사용자와 장소 없는 MeetingPlan 으로 확정하고 본문 없이 204")
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 토큰의 사용자와 약속 시간·만남 장소를 담은 MeetingPlan 으로 확정하고 본문 없이 204")
     @Test
     void confirm() throws Exception {
 
@@ -1419,7 +1308,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          */
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
-        verify(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(new MeetingPlan(CONFIRMED_AT, null, null)));
+        verify(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(new MeetingPlan(CONFIRMED_AT, MEETING_PLACE, MEETING_PLACE_NAME)));
     }
 
     @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 시간대가 붙은 ISO-8601 도 같은 순간으로 읽는다")
@@ -1436,7 +1325,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isNoContent());
-        verify(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(new MeetingPlan(CONFIRMED_AT, null, null)));
+        verify(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(new MeetingPlan(CONFIRMED_AT, MEETING_PLACE, MEETING_PLACE_NAME)));
     }
 
     @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 토큰이 없으면 401")
@@ -1461,7 +1350,8 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
     @ParameterizedTest(name = "{0}")
     @CsvSource(delimiter = '|', value = {
             "빈 객체 | {}",
-            "null | {\"departureAt\": null}"
+            "없음 | {\"departureLat\": 37.4985, \"departureLng\": 127.0290, \"departure\": \"강남역 2번 출구\"}",
+            "null | {\"departureAt\": null, \"departureLat\": 37.4985, \"departureLng\": 127.0290, \"departure\": \"강남역 2번 출구\"}"
     })
     void confirm_missingDepartureAt(String name, String body) throws Exception {
 
@@ -1555,7 +1445,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        doThrow(new BusinessException(errorCode)).when(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(new MeetingPlan(CONFIRMED_AT, null, null)));
+        doThrow(new BusinessException(errorCode)).when(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(new MeetingPlan(CONFIRMED_AT, MEETING_PLACE, MEETING_PLACE_NAME)));
 
         /*
          * test
@@ -1570,45 +1460,16 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.code").value(errorCode.name()));
     }
 
-    @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 만남 장소(departureLat·departureLng·departure)를 함께 보내면 약속 시간과 장소를 담은 MeetingPlan 으로 서비스를 부른다")
-    @Test
-    void confirm_withMeetingPlace() throws Exception {
-
-        /*
-         * settings
-         */
-        final String body = """
-                {
-                  "departureAt": "2026-11-03T08:30:00Z",
-                  "departureLat": 37.4985,
-                  "departureLng": 127.0290,
-                  "departure": "강남역 2번 출구"
-                }
-                """;
-
-        /*
-         * test
-         */
-        mockMvc.perform(post("/api/v1/matching/rooms/{partyId}/confirm", PARTY_ID).with(loginUser())
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
-
-        /*
-         * verify
-         */
-                .andExpect(status().isNoContent())
-                .andExpect(content().string(""));
-        verify(partyService).confirm(eq(PARTY_ID), eq(USER_ID), eq(new MeetingPlan(CONFIRMED_AT, new Location(37.4985, 127.0290), "강남역 2번 출구")));
-    }
-
-    @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 만남 장소의 좌표·이름 중 일부만 보내면 400 INCOMPLETE_MEETING_PLACE 이고 서비스를 부르지 않는다")
+    @DisplayName("POST /api/v1/matching/rooms/{partyId}/confirm - 만남 장소의 위도·경도·이름 중 하나라도 없으면 400 이고 서비스를 부르지 않는다")
     @ParameterizedTest(name = "{0}")
     @CsvSource(delimiter = '|', value = {
-            "위도만 | {\"departureAt\": \"2026-11-03T08:30:00Z\", \"departureLat\": 37.4985}",
-            "경도만 | {\"departureAt\": \"2026-11-03T08:30:00Z\", \"departureLng\": 127.0290}",
-            "이름만 | {\"departureAt\": \"2026-11-03T08:30:00Z\", \"departure\": \"강남역 2번 출구\"}",
-            "좌표만(이름 없음) | {\"departureAt\": \"2026-11-03T08:30:00Z\", \"departureLat\": 37.4985, \"departureLng\": 127.0290}"
+            "약속 시간만(장소를 바꾸지 않아도 지금 출발지를 보내야 한다) | {\"departureAt\": \"2026-11-03T08:30:00Z\"}",
+            "위도 없음 | {\"departureAt\": \"2026-11-03T08:30:00Z\", \"departureLng\": 127.0290, \"departure\": \"강남역 2번 출구\"}",
+            "경도 없음 | {\"departureAt\": \"2026-11-03T08:30:00Z\", \"departureLat\": 37.4985, \"departure\": \"강남역 2번 출구\"}",
+            "이름 없음 | {\"departureAt\": \"2026-11-03T08:30:00Z\", \"departureLat\": 37.4985, \"departureLng\": 127.0290}",
+            "이름이 공백 | {\"departureAt\": \"2026-11-03T08:30:00Z\", \"departureLat\": 37.4985, \"departureLng\": 127.0290, \"departure\": \"  \"}"
     })
-    void confirm_incompleteMeetingPlace(String name, String body) throws Exception {
+    void confirm_missingMeetingPlace(String name, String body) throws Exception {
 
         /*
          * test
@@ -1620,8 +1481,7 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INCOMPLETE_MEETING_PLACE"))
-                .andExpect(jsonPath("$.message").value(MatchingErrorCode.INCOMPLETE_MEETING_PLACE.getMessage()));
+                .andExpect(jsonPath("$.code").value(INVALID_REQUEST));
         verifyNoInteractions(partyService);
     }
 
@@ -1697,8 +1557,9 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         verifyNoInteractions(partyService);
     }
 
+    /** 만남 장소는 늘 함께 보낸다 - 장소를 바꾸지 않을 때도 방의 지금 출발지를 그대로 보낸다 */
     private static String confirmBody(String departureAtJson) {
-        return "{\"departureAt\": " + departureAtJson + "}";
+        return "{\"departureAt\": " + departureAtJson + ", \"departureLat\": 37.4985, \"departureLng\": 127.0290, \"departure\": \"" + MEETING_PLACE_NAME + "\"}";
     }
 
     // ───────────────────────── POST /matching/rooms/{partyId}/arrive ─────────────────────────

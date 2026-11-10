@@ -27,8 +27,6 @@ class SchedulerLockAnnotationTest {
     void DB를_고치는_스케줄러는_전부_잠근다() {
         assertLocked(EventResubmitter.class, "run", "event-resubmit");
         assertLocked(CompletedPartySweeper.class, "sweep", "completed-party-sweep");
-        assertLocked(PartyRecruitingSweeper.class, "sweep", "party-recruiting-sweep");
-        assertLocked(PartyRecruitingSweeper.class, "remind", "reservation-reminder");
         assertLocked(MeetingNotificationSweeper.class, "sweep", "meeting-notification-sweep");
         assertLocked(FareSplitSweeper.class, "sweep", "fare-split-sweep");
     }
@@ -47,7 +45,6 @@ class SchedulerLockAnnotationTest {
         // lockAtLeastFor 는 주기보다 짧아야 한다 - 길면 매 주기 잠금이 안 풀려 건너뛴다
         for (Method m : List.of(scheduled(EventResubmitter.class, "run"),
                 scheduled(CompletedPartySweeper.class, "sweep"),
-                scheduled(PartyRecruitingSweeper.class, "sweep"), scheduled(PartyRecruitingSweeper.class, "remind"),
                 scheduled(MeetingNotificationSweeper.class, "sweep"),
                 scheduled(FareSplitSweeper.class, "sweep"))) {
             Duration period = period(m.getAnnotation(Scheduled.class));
@@ -62,7 +59,6 @@ class SchedulerLockAnnotationTest {
     void 잠금_이름은_서로_다르다() {
         List<String> names = List.of(lockName(EventResubmitter.class, "run"),
                 lockName(CompletedPartySweeper.class, "sweep"),
-                lockName(PartyRecruitingSweeper.class, "sweep"), lockName(PartyRecruitingSweeper.class, "remind"),
                 lockName(MeetingNotificationSweeper.class, "sweep"),
                 lockName(FareSplitSweeper.class, "sweep"),
                 lockName(UserDeletionSweeper.class, "sweep"));

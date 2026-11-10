@@ -7,8 +7,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 public record OpenPartyRequest(
-		@Schema(description = "무시됨 - 생성자는 토큰에서", deprecated = true) Long creatorId,
-
 		@NotNull(message = "출발지 위도는 필수입니다") @Schema(example = "37.4979") Double departureLat,
 		@NotNull(message = "출발지 경도는 필수입니다") @Schema(example = "127.0276") Double departureLng,
 		@NotNull(message = "도착지 위도는 필수입니다") @Schema(example = "37.3948") Double destinationLat,
@@ -22,7 +20,6 @@ public record OpenPartyRequest(
 		@Max(value = 4, message = "정원은 4명 이하입니다")
 		@Schema(description = "정원(생성자 포함) 1~4", example = "3") Integer capacity) {
 
-	/** creatorId는 토큰에서 온다. 본문의 creatorId 필드는 구버전 호환용으로 받기만 하고 무시한다 */
 	public OpenPartyCommand toCommand(Long creatorMemberId) {
 		return new OpenPartyCommand(creatorMemberId, departureLat, departureLng, destinationLat, destinationLng,
 				departure, destination, capacity);

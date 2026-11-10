@@ -11,53 +11,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static team.codingforest.moyeota.matching.party.domain.PartyFixtures.*;
 
 /**
- *  스케줄러가 닫는 두 경로 - 모집 만료(혼자인 방)와 자동 정리(아무도 출발을 누르지 않은 방).
+ *  스케줄러가 닫는 길 - 자동 정리(아무도 출발을 누르지 않은 방).
  *  언제 닫을지는 조회 쿼리가 고르고 여기서는 어떻게 닫을지만 정한다. 건너뛰기는 예외가 아니라 결과로 돌려준다
  */
 class PartyAutoCloseUnitTest {
-
-    // ───────────────────────── expireRecruiting ─────────────────────────
-
-    @DisplayName("expireRecruiting - 혼자인 ACTIVE 방은 CANCELED 로 닫고 true 를 돌려준다")
-    @ParameterizedTest(name = "{0}")
-    @EnumSource(RoomType.class)
-    void expireRecruiting_alone(RoomType roomType) {
-        Party party = roomType == RoomType.REALTIME ? realtime(3) : reserved(3);
-        long before = party.getVersion();
-
-        boolean canceled = party.expireRecruiting();
-
-        assertThat(canceled).isTrue();
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.CANCELED);
-        assertThat(party.getVersion()).isEqualTo(before + 1);
-    }
-
-    @DisplayName("expireRecruiting - 2명 이상이면 아무것도 바꾸지 않고 false 다 - 15분은 혼자면 접는 기준이지 모집 마감이 아니다")
-    @Test
-    void expireRecruiting_withCompanion() {
-        Party party = realtime(3, MEMBER_ID);
-        long before = party.getVersion();
-
-        boolean canceled = party.expireRecruiting();
-
-        assertThat(canceled).isFalse();
-        assertThat(party.getStatus()).isEqualTo(PartyStatus.ACTIVE);
-        assertThat(party.getVersion()).isEqualTo(before);
-    }
-
-    @DisplayName("expireRecruiting - ACTIVE 가 아닌 방은 아무것도 바꾸지 않고 false 다")
-    @ParameterizedTest(name = "{0}")
-    @EnumSource(value = PartyStatus.class, names = {"COMPLETED", "FINISHED", "CANCELED"})
-    void expireRecruiting_notActive(PartyStatus status) {
-        Party party = restored(RoomType.REALTIME, status, MEETING_AT, waiting(HOST_ID, 0));
-
-        boolean canceled = party.expireRecruiting();
-
-        assertThat(canceled).isFalse();
-        assertThat(party.getStatus()).isEqualTo(status);
-    }
-
-    // ───────────────────────── autoClose ─────────────────────────
 
     @DisplayName("autoClose - 도착한 멤버가 있는 확정 방은 FINISHED 이고 도착한 멤버가 탄 사람이다")
     @Test

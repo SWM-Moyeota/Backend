@@ -20,112 +20,83 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  *  방 상세(GET /matching/rooms/{partyId})와 SSE connected 가 함께 쓰는 응답 모양.
- *  기사 기능을 없앴지만 출시된 앱이 taxiDriverId 를 읽으므로, 방 도메인에 기사 번호가 없어도 키는 null 로 남아야 한다.
- *  반경도 방 도메인에 없지만 출시된 앱이 departureRadius·destinationRadius 를 null 이 될 수 없는 정수로 읽으므로 키는 500 으로 남아야 한다
+ *  옛 앱 호환용으로 남겼던 키(taxiDriverId·departureRadius·destinationRadius·members[].badgeId)는 새 앱과 함께 없앴다
  */
 class PartyDetailResultTest {
     private static final Instant CREATED_AT = Instant.parse("2026-10-01T00:00:00Z");
 
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
-    @DisplayName("from - 정원이 찬 방이어도 taxiDriverId 는 null 이고 상태는 ACTIVE 다")
+    @DisplayName("from - 정원이 찬 실시간 방도 ACTIVE 로 내보낸다")
     @Test
-    void from_taxiDriverIdIsNull() {
-
-        /*
-         * settings
-         */
-        Party party = fullParty();
+    void from_fullRealtime() {
 
         /*
          * test
          */
-        PartyDetailResult result = PartyDetailResult.from(party, Map.of(), Map.of());
+        PartyDetailResult result = PartyDetailResult.from(fullParty(), Map.of(), Map.of());
 
         /*
          * verify
          */
-        assertThat(result.taxiDriverId()).isNull();
         assertThat(result.id()).isEqualTo(100L);
         assertThat(result.status()).isEqualTo("ACTIVE");
+        assertThat(result.currentMembers()).isEqualTo(2);
+        assertThat(result.roomType()).isEqualTo("REALTIME");
+        assertThat(result.confirmed()).isFalse();
     }
 
-    @DisplayName("from - JSON 으로 내보내면 taxiDriverId 키는 남고 값은 null 이다")
+    @DisplayName("from - 예약 방은 RESERVED 와 출발 시각을 내보내고 만들 때부터 약속이 있어 confirmed 다")
     @Test
-    void from_taxiDriverIdKeyKeptAsNull() {
-
-        /*
-         * settings
-         */
-        PartyDetailResult result = PartyDetailResult.from(fullParty(), Map.of(), Map.of());
+    void from_reservation() {
 
         /*
          * test
          */
-        JsonNode json = jsonMapper.readTree(jsonMapper.writeValueAsString(result));
+        PartyDetailResult result = PartyDetailResult.from(reservation(), Map.of(), Map.of());
 
         /*
          * verify
          */
-        assertThat(json.has("taxiDriverId")).as("키가 빠지면 출시된 앱의 응답 해석이 달라진다").isTrue();
-        assertThat(json.get("taxiDriverId").isNull()).isTrue();
-    }
-
-    @DisplayName("from - 실시간 방을 JSON 으로 내보내면 departureRadius·destinationRadius 키가 500 으로 남는다")
-    @Test
-    void from_radiusKeysKeptAsFixedValue() {
-
-        /*
-         * settings
-         */
-        PartyDetailResult result = PartyDetailResult.from(fullParty(), Map.of(), Map.of());
-
-        /*
-         * test
-         */
-        JsonNode json = jsonMapper.readTree(jsonMapper.writeValueAsString(result));
-
-        /*
-         * verify
-         */
-        assertThat(json.has("departureRadius")).as("키가 빠지면 출시된 앱의 응답 해석이 깨진다").isTrue();
-        assertThat(json.has("destinationRadius")).as("키가 빠지면 출시된 앱의 응답 해석이 깨진다").isTrue();
-        assertThat(json.get("departureRadius").isInt()).isTrue();
-        assertThat(json.get("departureRadius").asInt()).isEqualTo(500);
-        assertThat(json.get("destinationRadius").isInt()).isTrue();
-        assertThat(json.get("destinationRadius").asInt()).isEqualTo(500);
-    }
-
-    @DisplayName("from - 예약 방도 departureRadius·destinationRadius 는 500 이다")
-    @Test
-    void from_reservationRadiusIsFixedValue() {
-
-        /*
-         * settings
-         */
-        Party reservation = Party.load(200L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
-                new Capacity(3), List.of(PartyMember.load(1L, CREATED_AT, null)), 1L, CREATED_AT, PartyStatus.ACTIVE, null, null, null, 0L,
-                RoomType.RESERVED, CREATED_AT.plus(Duration.ofDays(1)));
-
-        /*
-         * test
-         */
-        PartyDetailResult result = PartyDetailResult.from(reservation, Map.of(), Map.of());
-
-        /*
-         * verify
-         */
-        assertThat(result.departureRadius()).isEqualTo(500);
-        assertThat(result.destinationRadius()).isEqualTo(500);
         assertThat(result.roomType()).isEqualTo("RESERVED");
+        assertThat(result.departureAt()).isEqualTo(CREATED_AT.plus(Duration.ofDays(1)));
+        assertThat(result.confirmed()).isTrue();
     }
 
-    /** 정원이 찬 실시간 방 - 정원이 차도 ACTIVE 다. 예전에는 정원이 차면 COMPLETED 가 되고 기사가 배정됐다 */
+    @DisplayName("from - JSON 에 없앤 키(taxiDriverId·departureRadius·destinationRadius·members[].badgeId)가 없다")
+    @Test
+    void from_removedKeysAbsent() {
+
+        /*
+         * test
+         */
+        JsonNode realtime = jsonMapper.readTree(jsonMapper.writeValueAsString(PartyDetailResult.from(fullParty(), Map.of(), Map.of())));
+        JsonNode reservation = jsonMapper.readTree(jsonMapper.writeValueAsString(PartyDetailResult.from(reservation(), Map.of(), Map.of())));
+
+        /*
+         * verify
+         */
+        for (JsonNode json : List.of(realtime, reservation)) {
+            assertThat(json.has("taxiDriverId")).isFalse();
+            assertThat(json.has("departureRadius")).isFalse();
+            assertThat(json.has("destinationRadius")).isFalse();
+            assertThat(json.get("members").get(0).has("badgeId")).isFalse();
+        }
+    }
+
+    /** 정원이 찬 실시간 방 - 정원이 차도 ACTIVE 다 */
     private static Party fullParty() {
         List<PartyMember> members = List.of(PartyMember.load(1L, CREATED_AT, null), PartyMember.load(2L, CREATED_AT.plusSeconds(1), null));
 
         return Party.load(100L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
                 new Capacity(2), members, 1L, CREATED_AT, PartyStatus.ACTIVE, 12000, 25, "encoded-path", 0L,
                 RoomType.REALTIME, null);
+    }
+
+    /** 하루 뒤에 출발하는 혼자인 예약 방 */
+    private static Party reservation() {
+        return Party.load(200L, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
+                new Capacity(3), List.of(PartyMember.load(1L, CREATED_AT, null)), 1L, CREATED_AT, PartyStatus.ACTIVE, null, null, null, 0L,
+                RoomType.RESERVED, CREATED_AT.plus(Duration.ofDays(1)));
     }
 }

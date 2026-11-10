@@ -44,12 +44,6 @@ public class PartyJpaTest implements Parties {
     }
 
     @Override
-    public List<Party> findRealtimeByStatus(PartyStatus status) {
-        return store.values().stream().filter(p -> p.getStatus() == status && p.getRoomType() == RoomType.REALTIME)
-                .toList();
-    }
-
-    @Override
     public List<PartySummary> findSummariesWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng, int limit) {
         // 실제 쿼리(between: 양끝 포함, 정원이 찬 방 제외, 최신순, 상한)와 같은 규칙 - 출발지 좌표 기준. 메모리에서는 id 가 클수록 최신이다
         return store.values().stream()
@@ -79,8 +73,8 @@ public class PartyJpaTest implements Parties {
         Map<Long, Integer> counts = new HashMap<>();
         for(Party p : store.values()) {
             if(p.getStatus() != PartyStatus.FINISHED) continue;
-            // 실제 쿼리처럼 - 도착자가 있는 방은 도착한 멤버만, 도착 기록이 없는 옛 방은 멤버 전원을 센다
-            List<Long> riders = p.riderIds().isEmpty() ? p.memberIds() : p.riderIds();
+            // 실제 쿼리처럼 - 도착한 멤버만 센다
+            List<Long> riders = p.riderIds();
             for(Long id : memberIds) {
                 if(riders.contains(id)) counts.merge(id, 1, Integer::sum);
             }
@@ -117,11 +111,6 @@ public class PartyJpaTest implements Parties {
     }
 
     @Override
-    public List<ReservationSummary> findReservations(Instant from, Instant to, int limit) {
-        return activeReservations(from, to).limit(limit).toList();
-    }
-
-    @Override
     public List<ReservationSummary> findReservationsWithinBounds(Instant from, Instant to, double swLat, double neLat, double swLng, double neLng, int limit) {
         return activeReservations(from, to)
                 .filter(s -> s.departureLat() >= swLat && s.departureLat() <= neLat)
@@ -146,16 +135,6 @@ public class PartyJpaTest implements Parties {
                 .sorted(Comparator.comparing(Party::getDepartureAt).thenComparing(Party::getId))
                 .map(p -> new ReservationSummary(p.getId(), p.getDeparture(), p.getDestination(), (long) p.getMembers().size(), p.getCapacity().value(), p.getStatus(),
                         p.getDepartureLocation().latitude(), p.getDepartureLocation().longitude(), p.getDestinationLocation().latitude(), p.getDestinationLocation().longitude(), p.getDepartureAt()));
-    }
-
-    @Override
-    public List<Long> findRecruitingExpired(Instant realtimeCreatedBefore, Instant now) {
-        // 실제 JPQL 과 같은 규칙 - 멤버가 2명 미만인 ACTIVE 방만
-        return store.values().stream()
-                .filter(p -> p.getStatus() == PartyStatus.ACTIVE && !p.hasCompanion())
-                .filter(p -> p.isReservation() ? !p.getDepartureAt().isAfter(now) : p.getCreatedAt().isBefore(realtimeCreatedBefore))
-                .map(Party::getId)
-                .toList();
     }
 
     @Override

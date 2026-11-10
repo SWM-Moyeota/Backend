@@ -48,11 +48,16 @@ final class PartyFixtures {
         return party;
     }
 
-    /** 방장이 NOW 에 MEETING_AT 로 약속을 확정한 실시간 방 */
+    /** 방장이 NOW 에 MEETING_AT 로 약속을 확정한 실시간 방. 만남 장소는 출발지 그대로다 */
     static Party confirmed(int capacity, Long... others) {
         Party party = realtime(capacity, others);
-        party.confirm(HOST_ID, new MeetingPlan(MEETING_AT, null, null), NOW);
+        party.confirm(HOST_ID, planAt(MEETING_AT), NOW);
         return party;
+    }
+
+    /** 만남 장소를 바꾸지 않고 departureAt 으로 잡은 약속 - 앱은 지금 출발지(DEPARTURE·DEPARTURE_PLACE)를 그대로 보낸다 */
+    static MeetingPlan planAt(Instant departureAt) {
+        return new MeetingPlan(departureAt, DEPARTURE, DEPARTURE_PLACE);
     }
 
     /** 저장된 모양 그대로 복원한 방. members 의 첫 번째가 방장이다 */

@@ -18,9 +18,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
-	@Query("select p from PartyEntity p left join fetch p.members where p.status = :status and p.roomType = :roomType")
-	List<PartyEntity> findAllByStatusAndRoomType(@Param("status") PartyStatus status, @Param("roomType") RoomType roomType);
-
 	@Query("select count(m) > 0 from PartyMemberEntity m where m.memberId = :memberId and m.party.status in :statuses")
 	boolean existsByMemberIdAndStatusIn(@Param("memberId") Long memberId, @Param("statuses") Collection<PartyStatus> statuses);
 
@@ -47,12 +44,12 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 	List<PartySummary> findSummariesWithinBounds(@Param("status") PartyStatus status, @Param("swLat") double swLat, @Param("neLat") double neLat,
 	                                             @Param("swLng") double swLng, @Param("neLng") double neLng, Limit limit);
 
-	// 탑승 횟수 - 끝난(FINISHED) 방에서 탄 횟수. 도착자가 있는 방은 도착한 멤버만, 도착 기록이 없는 옛 방(출시 전 FINISHED)은 멤버 전원을 센다
+	// 탑승 횟수 - 끝난(FINISHED) 방에 도착한(탄) 횟수
 	@Query("""
 			        select m.memberId as memberId, count(m) as count
 			        from PartyMemberEntity m
 			        where m.memberId in :memberIds and m.party.status = :status
-			            and (m.arrivedAt is not null or not exists (select a from PartyMemberEntity a where a.party = m.party and a.arrivedAt is not null))
+			            and m.arrivedAt is not null
 			        group by m.memberId
 			""")
 	List<MemberRideCount> countByMemberIdsAndStatus(@Param("memberIds") Collection<Long> memberIds, @Param("status") PartyStatus status);
@@ -81,19 +78,6 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 			    and m.party.departureAt between :from and :to
 			""")
 	boolean existsReservationBetween(@Param("memberId") Long memberId, @Param("statuses") Collection<PartyStatus> statuses, @Param("from") Instant from, @Param("to") Instant to);
-
-	@Query("""
-			select p.id, p.departure, p.destination,
-			       (select count(m) from PartyMemberEntity m where m.party = p),
-			       p.capacity, p.status, p.departureLat, p.departureLng, p.destinationLat, p.destinationLng, p.departureAt
-			from PartyEntity p
-			where p.status = :status
-			    and p.roomType = team.codingforest.moyeota.matching.party.domain.enums.RoomType.RESERVED
-			    and (select count(m) from PartyMemberEntity m where m.party = p) < p.capacity
-			    and p.departureAt between :from and :to
-			order by p.departureAt asc, p.id asc
-			""")
-	List<ReservationSummary> findReservations(@Param("status") PartyStatus status, @Param("from") Instant from, @Param("to") Instant to, Limit limit);
 
 	@Query("""
 			select p.id, p.departure, p.destination,

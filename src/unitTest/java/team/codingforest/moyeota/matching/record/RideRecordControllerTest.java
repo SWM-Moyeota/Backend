@@ -70,9 +70,8 @@ class RideRecordControllerTest {
                 .andExpect(jsonPath("$.rides[0].partyId").value(partyId))
                 .andExpect(jsonPath("$.rides[0].departure").value("강남역"))
                 .andExpect(jsonPath("$.rides[0].destination").value("판교역"))
-                // 탑승 시각은 서버가 채우지 않고 요금은 택시비 정산이 없는 방이라 비지만, 출시 앱이 읽으므로 키는 남고 값은 null 이다
-                .andExpect(jsonPath("$.rides[0]", hasKey("pickupTime")))
-                .andExpect(jsonPath("$.rides[0].pickupTime").value(nullValue()))
+                // 요금은 택시비 정산이 없는 방이라 null 로 온다(둘 다 null 이면 앱이 요금 줄을 숨긴다). 없앤 pickupTime 키는 없다
+                .andExpect(jsonPath("$.rides[0].pickupTime").doesNotExist())
                 .andExpect(jsonPath("$.rides[0].dropoffTime").value(기준.plusSeconds(1800).toString()))
                 .andExpect(jsonPath("$.rides[0]", hasKey("totalFare")))
                 .andExpect(jsonPath("$.rides[0].totalFare").value(nullValue()))

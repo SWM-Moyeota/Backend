@@ -91,7 +91,7 @@
 | 대상 | 삭제 조건 |
 |---|---|
 | `MyProfileResponse.noShowCount`(늘 0)·`restrictedUntil`(늘 null) | 11-03 출시 앱이 필드를 읽는다. 앱이 필드를 빼고 강제 업데이트된 뒤 |
-| `PartyDetailResult.taxiDriverId`·`badgeId`·`departureRadius` | 같음(기존 결정) |
+| `PartyDetailResult.taxiDriverId`·`badgeId`·`departureRadius` 등 matching 응답의 호환용 키 | 새 서버와 새 앱을 함께 내기로 해 이 브랜치에서 삭제했다 |
 
 ### 코드 모양 규칙 (Party 애그리거트)
 

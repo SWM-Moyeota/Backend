@@ -61,9 +61,6 @@ Content-Type: application/json
   "departureAt": "2026-11-03T08:00:00Z"
 }
 
-### 5. 기간 안의 예약 방 목록
-GET {{host}}/api/v1/matching/reservations?from=2026-11-03T00:00:00Z&to=2026-11-04T00:00:00Z
-
 ### 6. 지도 영역 안에서 30분 안에 출발하는 예약 방 목록
 GET {{host}}/api/v1/matching/reservations/soon?swLat=37.0&swLng=126.0&neLat=38.0&neLng=128.0
 
@@ -73,7 +70,7 @@ GET {{host}}/api/v1/matching/reservations/search?depLat=37.4979&depLng=127.0276&
 ### 6-2. 예약 방 검색 - 도착지 없이 출발지만. 출발 시각 순, destinationNearby 는 null
 GET {{host}}/api/v1/matching/reservations/search?depLat=37.4979&depLng=127.0276&date=2026-11-06
 
-### 7. 방장이 약속 확정 - 실시간 방, 2명 이상, 지금부터 5분 뒤~1시간 사이. 만남 장소(departureLat·departureLng·departure)는 선택이고 셋을 함께 보내면 출발지가 바뀐다
+### 7. 방장이 약속 확정 - 실시간 방, 2명 이상, 지금부터 5분 뒤~1시간 사이. 만남 장소(departureLat·departureLng·departure)는 늘 보낸다. 바꾸지 않으면 지금 출발지를 그대로 보낸다
 POST {{host}}/api/v1/matching/rooms/1/confirm
 Content-Type: application/json
 
@@ -84,7 +81,7 @@ Content-Type: application/json
   "departure": "강남역 2번 출구"
 }
 
-### 8. 출발지 도착 - 약속 시간부터, 방 출발지 100m 안의 지금 위치. 다시 눌러도 204(처음 시각 유지)
+### 8. 출발지 도착 - 약속 10분 전부터, 방 출발지 반경(실시간 100m·예약 400m) 안의 지금 위치. 다시 눌러도 204(처음 시각 유지)
 POST {{host}}/api/v1/matching/rooms/1/arrive
 Content-Type: application/json
 

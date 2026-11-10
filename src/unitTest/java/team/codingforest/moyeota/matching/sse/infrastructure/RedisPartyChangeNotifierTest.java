@@ -36,7 +36,7 @@ class RedisPartyChangeNotifierTest {
     @Test
     void 참여는_들어온_사람_정보를_데이터로_실어_채널에_낸다() {
         UUID publicId = UUID.randomUUID();
-        MemberJoined event = MemberJoined.from(new PartyDetailResult.MemberInfo(publicId, "철수", null, null, 3, false, false), "ACTIVE", 2L);
+        MemberJoined event = MemberJoined.from(new PartyDetailResult.MemberInfo(publicId, "철수", null, 3, false, false), "ACTIVE", 2L);
 
         notifier.memberJoined(방, event);
 
@@ -47,9 +47,9 @@ class RedisPartyChangeNotifierTest {
         assertThat(objectMapper.readValue(sent.data(), MemberJoined.class)).isEqualTo(event);
     }
 
-    @DisplayName("memberJoined - 뱃지는 없앴지만 출시된 앱이 읽는 member.badgeId 키는 null 로 실어 낸다")
+    @DisplayName("memberJoined - 없앤 member.badgeId 키는 싣지 않는다")
     @Test
-    void memberJoined_badgeIdKeyKeptAsNull() {
+    void memberJoined_badgeIdKeyAbsent() {
 
         /*
          * settings
@@ -65,8 +65,7 @@ class RedisPartyChangeNotifierTest {
          * verify
          */
         JsonNode sentMember = objectMapper.readTree(onlySent().data()).get("member");
-        assertThat(sentMember.has("badgeId")).isTrue();
-        assertThat(sentMember.get("badgeId").isNull()).isTrue();
+        assertThat(sentMember.has("badgeId")).isFalse();
     }
 
     @Test

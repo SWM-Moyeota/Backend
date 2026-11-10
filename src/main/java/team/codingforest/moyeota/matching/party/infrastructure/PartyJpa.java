@@ -16,7 +16,6 @@ import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
 import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
@@ -57,12 +56,6 @@ public class PartyJpa implements Parties {
     }
 
     @Override
-    public List<Party> findRealtimeByStatus(PartyStatus status) {
-        return partyJpaRepository.findAllByStatusAndRoomType(status, RoomType.REALTIME).stream()
-                .map(PartyEntity::toDomain).toList();
-    }
-
-    @Override
     public boolean existsOngoingByMemberId(Long memberId) {
         return partyJpaRepository.existsByMemberIdAndStatusIn(memberId, openStatuses());
     }
@@ -80,11 +73,6 @@ public class PartyJpa implements Parties {
     @Override
     public void lockMember(Long memberId) {
         partyJpaRepository.lockMember(memberId);
-    }
-
-    @Override
-    public List<ReservationSummary> findReservations(Instant from, Instant to, int limit) {
-        return partyJpaRepository.findReservations(PartyStatus.ACTIVE, from, to, Limit.of(limit));
     }
 
     @Override

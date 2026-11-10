@@ -21,9 +21,18 @@ import static team.codingforest.moyeota.matching.party.domain.PartyFixtures.*;
 class PartyAttendanceUnitTest {
     private static final Instant ARRIVAL_OPENS_AT = MEETING_AT.minus(Party.ARRIVAL_OPENS_BEFORE);
 
+    // ───────────────────────── arrivalRadiusMeters ─────────────────────────
+
+    @DisplayName("arrivalRadiusMeters - 실시간 방은 100m, 예약 방은 400m 다 - 예약 방 출발지는 장소 검색 결과의 중심점이라 실제 만나는 출구까지 넓게 받는다")
+    @Test
+    void arrivalRadiusMeters() {
+        assertThat(realtime(3).arrivalRadiusMeters()).isEqualTo(100);
+        assertThat(reserved(3).arrivalRadiusMeters()).isEqualTo(400);
+    }
+
     // ───────────────────────── arrive ─────────────────────────
 
-    @DisplayName("arrive - 약속 10분 전부터 출발지 100m 안의 멤버는 도착 시각이 남고 version 이 1 오른다")
+    @DisplayName("arrive - 약속 10분 전부터 출발지 반경 안의 멤버는 도착 시각이 남고 version 이 1 오른다")
     @Test
     void arrive() {
         Party party = confirmed(3, MEMBER_ID);
@@ -62,7 +71,7 @@ class PartyAttendanceUnitTest {
         assertThat(party.riderIds()).isEmpty();
     }
 
-    @DisplayName("arrive - 출발지 100m 밖이면 TOO_FAR_FROM_DEPARTURE 이고 도착이 남지 않는다")
+    @DisplayName("arrive - 출발지 반경 밖이면 TOO_FAR_FROM_DEPARTURE 이고 도착이 남지 않는다")
     @Test
     void arrive_tooFar() {
         Party party = confirmed(3, MEMBER_ID);

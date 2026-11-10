@@ -212,7 +212,7 @@ class PartyAutoClosePostgresTest {
         Long id = parties.save(party).getId();
         created.add(id);
 
-        partyService.confirm(id, 방장, new MeetingPlan(Instant.now().plus(Duration.ofMinutes(10)), null, null));
+        partyService.confirm(id, 방장, new MeetingPlan(Instant.now().plus(Duration.ofMinutes(10)), DEPARTURE, "울산역"));
         jdbc.update("UPDATE match_room SET departure_at = now() - interval '30 seconds' WHERE id = ?", id);
 
         return id;

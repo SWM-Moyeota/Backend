@@ -167,7 +167,8 @@ public class Party {
 	}
 
 	/**
-	 * 출발지 도착 - 약속 10분 전부터 출발지 반경(arrivalRadiusMeters) 안에서 누른다. 이미 눌렀으면 false, 처음 도착하면 true
+	 * 실시간 방의 방장이 채팅으로 정한 약속 시간과 만남 장소를 확정한다. 장소를 바꾸지 않았어도 받은 장소로 출발지를 고정한다 -
+	 * 도착 판정이 실제 만남 장소를 기준으로 하게 하기 위해서다. 경로·요금·시간은 미리보기 값이라 다시 구하지 않는다
 	 */
 	public void confirm(Long memberId, MeetingPlan plan, Instant now) {
 		validateHost(memberId);
@@ -190,19 +191,17 @@ public class Party {
 			throw new BusinessException(MatchingErrorCode.INVALID_MEETING_TIME);
 		}
 
-		if (plan.hasPlace()) {
-			validateDifferentPlaces(plan.departure(), destinationLocation);
-			departureLocation = plan.departure();
-			departure = plan.departurePlace();
-		}
+		validateDifferentPlaces(plan.departure(), destinationLocation);
 
+		departureLocation = plan.departure();
+		departure = plan.departurePlace();
 		departureAt = meetingAt;
 		status = PartyStatus.COMPLETED;
 		version++;
 	}
 
 	/**
-	 * 출발지 도착 - 약속 10분 전부터 출발지 100m 안에서 누른다. 이미 눌렀으면 false 처음 눌러서 되면 false
+	 * 출발지 도착 - 약속 10분 전부터 출발지 반경(arrivalRadiusMeters) 안에서 누른다. 이미 눌렀으면 false, 처음 도착하면 true
 	 */
 	public boolean arrive(Long memberId, boolean nearDeparture, Instant now) {
 		PartyMember member = findMember(memberId);
@@ -292,6 +291,10 @@ public class Party {
 		return AutoCloseResult.closed(status, riderIds);
 	}
 
+	/**
+	 * 출발지 도착으로 인정하는 반경(m). 예약 방은 출발지가 장소 검색 결과의 중심점(큰 역이면 역 한가운데)이고
+	 * 확정으로 만남 장소를 옮길 수 없어 실제로 만나는 출구까지 들어오도록 넓게 잡는다
+	 */
 	public double arrivalRadiusMeters() {
 		return isReservation() ? RESERVATION_ARRIVAL_RADIUS_METERS : REALTIME_ARRIVAL_RADIUS_METERS;
 	}
