@@ -8,7 +8,6 @@ import org.springframework.context.ApplicationContext;
 import team.codingforest.moyeota.faresplit.FareSplitSweeper;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
 import team.codingforest.moyeota.matching.party.MeetingNotificationSweeper;
-import team.codingforest.moyeota.matching.party.PartyRecruitingSweeper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -27,7 +27,6 @@ public interface Parties {
     List<ReservationSummary> findReservations(Instant from, Instant to, int limit);
     List<ReservationSummary> findReservationsWithinBounds(Instant from, Instant to, double swLat, double neLat, double swLng, double neLng, int limit);
     List<NearbyReservation> findReservationsWithinRadius(Instant from, Instant to, Location departure, Location destination, int radius, int limit);
-    List<Long> findRecruitingExpired(Instant realtimeCreatedBefore, Instant now);
 	List<Long> findOpenConfirmedIdsDepartingBetween(Instant from, Instant to);
 	List<Long> findOpenReservationIdsDepartingBetween(Instant from, Instant to);
     Map<Long, PartyPlaces> findPlaces(Collection<Long> ids);

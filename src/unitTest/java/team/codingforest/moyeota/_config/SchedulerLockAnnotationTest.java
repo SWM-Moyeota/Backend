@@ -7,7 +7,6 @@ import team.codingforest.moyeota.common.event.EventResubmitter;
 import team.codingforest.moyeota.faresplit.FareSplitSweeper;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
 import team.codingforest.moyeota.matching.party.MeetingNotificationSweeper;
-import team.codingforest.moyeota.matching.party.PartyRecruitingSweeper;
 import team.codingforest.moyeota.matching.sse.infrastructure.PartySseRegistry;
 import team.codingforest.moyeota.user.deletion.application.UserDeletionSweeper;
 

@@ -13,16 +13,19 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
 /**
- *  약속 시각 알림·출발 재촉 스케줄러. 매분 0초에 돌아 [직전 분, 이번 분) 에 차례가 된 방만 고른다.
+ *  방 알림 스케줄러 - 출발 전 알림(예약 방), 약속 시각 알림, 출발 재촉.
+ *  매분 0초에 돌아 [직전 분, 이번 분) 에 차례가 된 방만 고른다.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class MeetingNotificationSweeper {
 	static final Duration TICK = Duration.ofMinutes(1);
+	static final Duration REMINDER_LEAD = Duration.ofMinutes(30);
 
 	private final Parties parties;
 	private final MeetingNotificationService notificationService;
+	private final ReservationReminderService reminderService;
 
 	@SchedulerLock(name = "meeting-notification-sweep", lockAtMostFor = "PT55S", lockAtLeastFor = "PT30S")
 	@Scheduled(cron = "0 * * * * *", zone = "Asia/Seoul")
@@ -30,6 +33,15 @@ public class MeetingNotificationSweeper {
 		Instant now = Instant.now();
 		Instant to = now.truncatedTo(ChronoUnit.MINUTES);
 		Instant from = to.minus(TICK);
+
+		// 출발 30분 전이 구간 안인 예약 방 = 출발 시각이 구간을 30분 미룬 곳인 방
+		for(Long partyId : parties.findOpenReservationIdsDepartingBetween(from.plus(REMINDER_LEAD), to.plus(REMINDER_LEAD))) {
+			try {
+				reminderService.remind(partyId);
+			} catch (RuntimeException e) {
+				log.warn("출발 전 알림 실패 partyId={}", partyId, e);
+			}
+		}
 
 		for(Long partyId : parties.findOpenConfirmedIdsDepartingBetween(from, to)) {
 			try {

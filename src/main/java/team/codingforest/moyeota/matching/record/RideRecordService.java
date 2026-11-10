@@ -30,13 +30,17 @@ public class RideRecordService {
 
     @Transactional(readOnly = true)
     public RideRecordResponse findMyRides(Long memberId, Long cursor, int size) {
-        if(size < MIN_PAGE_SIZE || size > MAX_PAGE_SIZE) throw new BusinessException(MatchingErrorCode.INVALID_PAGE_SIZE);
+        if(size < MIN_PAGE_SIZE || size > MAX_PAGE_SIZE) {
+			throw new BusinessException(MatchingErrorCode.INVALID_PAGE_SIZE);
+		}
 
         List<RideRecord> fetched = fetch(memberId, cursor, size + 1);
         boolean hasNext = fetched.size() > size;
         List<RideRecord> page = hasNext ? fetched.subList(0, size) : fetched;
 
-        if(page.isEmpty()) return RideRecordResponse.of(List.of(), Map.of(), Map.of(), Map.of(), null, false);
+        if(page.isEmpty()) {
+			return RideRecordResponse.of(List.of(), Map.of(), Map.of(), Map.of(), null, false);
+		}
 
         List<Long> partyIds = page.stream().map(RideRecord::getMatchId).toList();
         Map<Long, List<Long>> memberIds = rideRecords.findMemberIds(partyIds);
@@ -51,7 +55,9 @@ public class RideRecordService {
     }
 
     private List<RideRecord> fetch(Long memberId, Long cursor, int limit) {
-        if(cursor == null) return rideRecords.findDroppedOffByMember(memberId, limit);
+        if(cursor == null) {
+			return rideRecords.findDroppedOffByMember(memberId, limit);
+		}
 
         RideRecord last = rideRecords.findById(cursor)
                 .filter(RideRecord::isDroppedOff)

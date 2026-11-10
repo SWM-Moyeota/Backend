@@ -113,11 +113,6 @@ public class PartyJpa implements Parties {
                 .toList();
     }
 
-    @Override
-    public List<Long> findRecruitingExpired(Instant realtimeCreatedBefore, Instant now) {
-        return partyJpaRepository.findRecruitingExpiredIds(PartyStatus.ACTIVE, realtimeCreatedBefore, now);
-    }
-
 	@Override
 	public List<Long> findOpenConfirmedIdsDepartingBetween(Instant from, Instant to) {
 		return partyJpaRepository.findOpenConfirmedIdsDepartingBetween(from, to);

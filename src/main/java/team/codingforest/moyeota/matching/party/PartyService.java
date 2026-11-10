@@ -145,8 +145,6 @@ public class PartyService {
         log.info("매칭방 나감 partyId={}, memberId={}, status={}, members={}", partyId, memberId, party.getStatus(), party.getMembers().size());
     }
 
-    // ───────────────────────── 약속·도착·출발 ─────────────────────────
-
     @Transactional
     public void confirm(Long partyId, Long memberId, MeetingPlan plan) {
         Party party = lock(partyId);
@@ -166,10 +164,10 @@ public class PartyService {
         MemberSummary summary = userAccess.findMemberSummaries(List.of(memberId)).get(memberId);
         UUID publicId = summary == null ? null : summary.publicId();
 
-        Party party = lock(partyId);
-        boolean nearDeparture = parties.isNearDeparture(partyId, current.latitude(), current.longitude(), Party.ARRIVAL_RADIUS_METERS);
+		Party party = lock(partyId);
+		boolean nearDeparture = parties.isNearDeparture(partyId, current.latitude(), current.longitude(), party.arrivalRadiusMeters());
 
-        if(!party.arrive(memberId, nearDeparture, Instant.now())) {
+		if(!party.arrive(memberId, nearDeparture, Instant.now())) {
             log.info("이미 도착한 멤버가 다시 도착을 누름 partyId={}, memberId={}", partyId, memberId);
             return;
         }
@@ -193,24 +191,6 @@ public class PartyService {
         publishClosed(party);
 
         log.info("출발로 동승 종료 partyId={}, memberId={}, riders={}", partyId, memberId, party.riderIds());
-    }
-
-    // ───────────────────────── 스케줄러가 닫는 길 ─────────────────────────
-
-    /** 모집 만료 스케줄러 - 혼자인 방만 닫힌다. 2명 이상이면 Party 가 건너뛴다 */
-    @Transactional
-    public void expireRecruiting(Long partyId) {
-        Party party = lock(partyId);
-
-        if(!party.expireRecruiting()) {
-            log.info("모집 만료 건너 뜀(혼자가 아니거나 닫힌 방) partyId={}, status={}, members={}", partyId, party.getStatus(), party.getMembers().size());
-            return;
-        }
-
-        parties.save(party);
-        publishClosed(party);
-
-        log.info("모집 만료로 취소 partyId={}", partyId);
     }
 
     /** 정리 스케줄러 - 아무도 출발을 누르지 않은 방을 닫는다. 도착한 멤버가 있어 FINISHED 로 끝난 방만 탑승 기록을 남긴다 */

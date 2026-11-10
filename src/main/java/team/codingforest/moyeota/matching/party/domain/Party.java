@@ -14,22 +14,13 @@ import java.util.List;
 
 /**
  * 동승 방 애그리거트 루트. 상태 전이는 PartyStatus 주석의 표를 따른다.
- * <p>
- * 공개 메서드는 같은 순서로 검사한다 - 멤버 → 방장 → 방 열림 → 방 종류·확정 → 인원 → 시간 → 행위자 상태.
- * 같은 조건은 같은 헬퍼(findMember·ensureHost·ensureOpen·ensureConfirmed·ensureCompanion)로만 검사하고,
- * 지금 시각은 인자(now)로 받는다. 정상적인 건너뛰기는 결과로 돌려주고 예외는 규칙 위반에만 쓴다
  */
 public class Party {
-	/**
-	 * 약속 시간은 확정하는 지금부터 이만큼 뒤부터 - "지금"을 약속으로 잡아 바로 출발해 남을 떨궈 내지 못하게 한다
-	 */
 	public static final Duration MIN_CONFIRM_AHEAD = Duration.ofMinutes(5);
-	/**
-	 * 실시간 방은 모이면 바로 타는 방이라 1시간 넘게 뒤는 예약 방으로 만든다
-	 */
 	public static final Duration MAX_CONFIRM_AHEAD = Duration.ofHours(1);
 	public static final Duration MAX_RESERVATION_AHEAD = Duration.ofDays(7);
-	public static final double ARRIVAL_RADIUS_METERS = 100;
+	public static final double REALTIME_ARRIVAL_RADIUS_METERS = 100;
+	public static final double RESERVATION_ARRIVAL_RADIUS_METERS = 400;
 	public static final Duration ARRIVAL_OPENS_BEFORE = Duration.ofMinutes(10);
 	public static final int MIN_MEMBERS_TO_DEPART = 2;
 	public static final List<Duration> DEPARTURE_REMINDER_OFFSETS = List.of(
@@ -50,9 +41,6 @@ public class Party {
 	private final String route;
 	private long version;
 	private final RoomType roomType;
-	/**
-	 * 예약 방은 만들 때 정한 출발 시각, 실시간 방은 방장이 확정한 약속 시간(확정 전 null). 실시간 방은 이 값이 있을 때만 COMPLETED 다
-	 */
 	private Instant departureAt;
 
 	private Party(Long id, Location departureLocation, Location destinationLocation, String departure, String destination, Capacity capacity,
@@ -155,7 +143,7 @@ public class Party {
 
 		validateOpen();
 
-		// 도착을 누른 사람은 같이 탄 사람이다 - 나가서 정산 대상에서 빠지는 길을 막는다
+		// 도착을 누른 사람은 같이 탄 사람으로 정산 대상에서 빠지면 안됨
 		if (member.isArrived()) {
 			throw new BusinessException(MatchingErrorCode.ARRIVED_MEMBER_CANNOT_LEAVE);
 		}
@@ -179,8 +167,7 @@ public class Party {
 	}
 
 	/**
-	 * 실시간 방의 방장이 채팅으로 정한 약속 시간과 만남 장소를 확정한다. 장소를 주면 출발지가 그 자리로 바뀐다 -
-	 * 도착 판정(출발지 100m)이 실제 만남 장소를 기준으로 하게 하기 위해서다. 경로·요금·시간은 미리보기 값이라 다시 구하지 않는다
+	 * 출발지 도착 - 약속 10분 전부터 출발지 반경(arrivalRadiusMeters) 안에서 누른다. 이미 눌렀으면 false, 처음 도착하면 true
 	 */
 	public void confirm(Long memberId, MeetingPlan plan, Instant now) {
 		validateHost(memberId);
@@ -215,9 +202,7 @@ public class Party {
 	}
 
 	/**
-	 * 출발지 도착 - 약속 10분 전부터 출발지 100m 안에서 누른다. 거리는 서비스가 PostGIS 로 재서 nearDeparture 로 넘긴다.
-	 *
-	 * @return 이번에 처음 도착했으면 true, 이미 도착해 있었으면 false(아무것도 바꾸지 않는다)
+	 * 출발지 도착 - 약속 10분 전부터 출발지 100m 안에서 누른다. 이미 눌렀으면 false 처음 눌러서 되면 false
 	 */
 	public boolean arrive(Long memberId, boolean nearDeparture, Instant now) {
 		PartyMember member = findMember(memberId);
@@ -244,7 +229,7 @@ public class Party {
 	}
 
 	/**
-	 * 출발 - 도착한 방장이 약속 시간 뒤에 누르면 방이 끝난다. 도착한 멤버가 탄 사람이고 나머지는 탑승 기록에서 빠질 뿐이다
+	 * 출발 - 도착한 방장이 약속 시간 뒤에 누르면 방이 끝난다.
 	 */
 	public void depart(Long memberId, Instant now) {
 		PartyMember host = findMember(memberId);
@@ -288,21 +273,6 @@ public class Party {
 	}
 
 	/**
-	 * 모집 만료 - 실시간 방은 만든 지 15분, 예약 방은 출발 시각에 스케줄러가 부른다. 혼자인 방만 닫는다.
-	 * 2명 이상이면 방장이 확정할 때까지 그대로 둔다(15분은 혼자면 접는 기준이지 모집 마감이 아니다)
-	 *
-	 * @return 이번에 닫았으면 true
-	 */
-	public boolean expireRecruiting() {
-		if (status != PartyStatus.ACTIVE || hasCompanion()) {
-			return false;
-		}
-
-		close(PartyStatus.CANCELED);
-		return true;
-	}
-
-	/**
 	 * 자동 정리 - 아무도 출발을 누르지 않은 채 약속(또는 생성)에서 1일이 지난 방을 스케줄러가 닫는다. 언제 닫을지는 조회 쿼리가 고른다.
 	 * 약속이 없거나 혼자면 동승이 없었으니 CANCELED, 도착한 멤버가 있으면 그들이 탄 것으로 FINISHED, 없으면 CANCELED
 	 */
@@ -320,6 +290,10 @@ public class Party {
 		close(riderIds.isEmpty() ? PartyStatus.CANCELED : PartyStatus.FINISHED);
 
 		return AutoCloseResult.closed(status, riderIds);
+	}
+
+	public double arrivalRadiusMeters() {
+		return isReservation() ? RESERVATION_ARRIVAL_RADIUS_METERS : REALTIME_ARRIVAL_RADIUS_METERS;
 	}
 
 	public boolean isConfirmed() {

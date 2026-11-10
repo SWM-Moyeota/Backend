@@ -127,15 +127,6 @@ public interface PartyJpaRepository extends JpaRepository<PartyEntity, Long> {
 
 	@Query("""
 			select p.id from PartyEntity p
-			where p.status = :status
-			    and (select count(m) from PartyMemberEntity m where m.party = p) < 2
-			    and ((p.roomType = team.codingforest.moyeota.matching.party.domain.enums.RoomType.REALTIME and p.createdAt < :realtimeCreatedBefore)
-			        or (p.roomType = team.codingforest.moyeota.matching.party.domain.enums.RoomType.RESERVED and p.departureAt <= :now))
-			""")
-	List<Long> findRecruitingExpiredIds(@Param("status") PartyStatus status, @Param("realtimeCreatedBefore") Instant realtimeCreatedBefore, @Param("now") Instant now);
-
-	@Query("""
-			select p.id from PartyEntity p
 			where p.status in (team.codingforest.moyeota.matching.party.domain.enums.PartyStatus.ACTIVE,
 			                   team.codingforest.moyeota.matching.party.domain.enums.PartyStatus.COMPLETED)
 			    and p.departureAt is not null

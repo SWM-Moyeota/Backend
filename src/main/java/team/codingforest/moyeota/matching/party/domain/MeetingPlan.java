@@ -11,7 +11,9 @@ import java.time.Instant;
  */
 public record MeetingPlan(Instant departureAt, Location departure, String departurePlace) {
     public MeetingPlan {
-        if((departure == null) != (departurePlace == null)) throw new BusinessException(MatchingErrorCode.INCOMPLETE_MEETING_PLACE);
+        if((departure == null) != (departurePlace == null)) {
+			throw new BusinessException(MatchingErrorCode.INCOMPLETE_MEETING_PLACE);
+		}
     }
 
     boolean hasPlace() {
