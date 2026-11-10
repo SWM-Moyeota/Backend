@@ -6,6 +6,8 @@ on:
     branches: [develop, main]
     paths-ignore:
       - 'socket-app/**'
+      - '.github/workflows/deploy-socket.yml'
+      - 'infra/ec2/socket/**'
 
 # 같은 환경에 배포가 겹치지 않게. dev 와 prod 는 서로 독립
 concurrency:
