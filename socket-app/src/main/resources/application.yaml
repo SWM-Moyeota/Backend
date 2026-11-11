@@ -29,6 +29,9 @@ management:
         http.client.requests: 10ms, 50ms, 100ms, 300ms, 1s   # /internal 지연 구간 - timeout 1s 까지
 
 chat:
+  order:
+    max-wait: 200ms        # 빈 순번을 기다리는 최대 시간 - 5배 부하 측정(2026-11-10)에서 역전 메시지가 기다린 최대 163ms
+    idle-eviction: 10m     # 메시지가 없는 방의 줄 상태를 지우는 시간
   websocket:
     allowed-origins: http://localhost:*
   api:
