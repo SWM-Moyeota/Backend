@@ -16,6 +16,7 @@ import org.springframework.util.MimeTypeUtils;
 import team.codingforest.moyeota.chat.contract.ChatChannels;
 import team.codingforest.moyeota.chat.contract.ChatDestinations;
 import team.codingforest.moyeota.chat.contract.ChatEventEnvelope;
+import team.codingforest.moyeota.socket.order.ChatSeqOrderer;
 import team.codingforest.moyeota.socket.session.ChatSubscriptionCleaner;
 import tools.jackson.databind.ObjectMapper;
 
@@ -38,6 +39,8 @@ class ChatRedisSubscriberTest {
     private SimpMessagingTemplate messagingTemplate;
     @Mock
     private ChatSubscriptionCleaner subscriptionCleaner;
+    @Mock
+    private ChatSeqOrderer seqOrderer;
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
     @InjectMocks
@@ -54,6 +57,27 @@ class ChatRedisSubscriberTest {
         assertThat(captor.getValue().getHeaders().get(MessageHeaders.CONTENT_TYPE))
                 .isEqualTo(MimeTypeUtils.APPLICATION_JSON);
         verifyNoInteractions(subscriptionCleaner);
+    }
+
+    @Test
+    void 순번이_실린_새_메시지는_순서_맞추기를_거쳐_보낸다() {
+        subscriber.onMessage(redisMessage(ChatEventEnvelope.message(ROOM_ID, 5L, PAYLOAD)), null);
+
+        ArgumentCaptor<Runnable> delivery = ArgumentCaptor.captor();
+        verify(seqOrderer).offer(eq(ROOM_ID), eq(5L), delivery.capture());
+        verifyNoInteractions(messagingTemplate);
+
+        delivery.getValue().run();
+        verify(messagingTemplate).send(eq("/sub/chat-rooms/10"), any(Message.class));
+    }
+
+    @Test
+    void 순번이_없는_메시지는_바로_보낸다() {
+        subscriber.onMessage(redisMessage(
+                ChatEventEnvelope.of(ChatEventEnvelope.TYPE_MESSAGE, ChatDestinations.room(ROOM_ID), PAYLOAD)), null);
+
+        verify(messagingTemplate).send(eq("/sub/chat-rooms/10"), any(Message.class));
+        verifyNoInteractions(seqOrderer);
     }
 
     @Test
