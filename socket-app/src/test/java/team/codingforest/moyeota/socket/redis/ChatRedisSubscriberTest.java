@@ -68,7 +68,7 @@ class ChatRedisSubscriberTest {
     @Test
     void 목적지가_없으면_보내지_않는다() {
         subscriber.onMessage(redisMessage(
-                new ChatEventEnvelope(ChatEventEnvelope.TYPE_MESSAGE, null, null, null, PAYLOAD)), null);
+                new ChatEventEnvelope(ChatEventEnvelope.TYPE_MESSAGE, null, null, null, null, PAYLOAD)), null);
 
         verifyNoInteractions(messagingTemplate, subscriptionCleaner);
     }
