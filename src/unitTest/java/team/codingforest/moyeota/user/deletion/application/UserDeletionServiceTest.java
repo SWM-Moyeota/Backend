@@ -149,6 +149,9 @@ class UserDeletionServiceTest {
         }
 
         @Override
+        public LocalUser findByLoginIdForUpdate(String loginId) { return findByLoginId(loginId); }
+        @Override public Optional<LocalUser> findByUserIdForUpdate(Long id) { return findByUserId(id); }
+        @Override
         public LocalUser findByLoginId(String loginId) {
             return byUserId.values().stream().filter(u -> u.getLoginId().equals(loginId)).findFirst()
                     .orElseThrow(() -> new UserException(UserErrorCode.LOGIN_FAILED));

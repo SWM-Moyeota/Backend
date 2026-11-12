@@ -30,6 +30,18 @@ public class LocalUserEntity {
 
     private Instant updatedAt;
 
+    @Column(nullable = false)
+    private long passwordResetGeneration;
+
+    public void invalidatePasswordReset() { passwordResetGeneration++; }
+
+    public void resetPassword(String hash, Instant now) {
+        password = hash;
+        updatedAt = now;
+        passwordResetGeneration++;
+    }
+
+
     private LocalUserEntity(Long userId, String loginId, String password) {
         this.id = userId;
         this.loginId = loginId;

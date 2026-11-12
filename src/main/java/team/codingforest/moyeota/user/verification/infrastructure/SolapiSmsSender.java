@@ -39,7 +39,7 @@ public class SolapiSmsSender implements SmsSender {
         try {
             messageService.send(message);
         } catch (Exception e) {
-            log.warn("SOLAPI 문자 발송 실패 to={}", Masking.phone(phoneNumber), e);
+            log.warn("SOLAPI 문자 발송 실패 type={}", e.getClass().getSimpleName());
             throw new UserException(UserErrorCode.SMS_SEND_FAILED);
         }
     }

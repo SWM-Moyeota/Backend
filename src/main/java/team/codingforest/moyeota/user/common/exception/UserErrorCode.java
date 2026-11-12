@@ -26,6 +26,14 @@ public enum UserErrorCode implements ErrorCode {
     UNDER_MINIMUM_AGE(HttpStatus.BAD_REQUEST, "USER113", "만 14세 미만은 가입할 수 없습니다."),
     PHONE_NOT_REGISTERED(HttpStatus.NOT_FOUND,"USER114","가입되지 않은 사용자입니다."),
     
+    PASSWORD_RESET_VERIFICATION_FAILED(HttpStatus.BAD_REQUEST, "USER301", "인증번호를 확인하거나 다시 요청해 주세요."),
+    PASSWORD_RESET_TOKEN_INVALID(HttpStatus.BAD_REQUEST, "USER302", "인증부터 다시 진행해 주세요."),
+    PASSWORD_CONFIRM_MISMATCH(HttpStatus.BAD_REQUEST, "USER303", "새 비밀번호와 확인 값이 다릅니다."),
+    PASSWORD_POLICY_VIOLATION(HttpStatus.BAD_REQUEST, "USER304", "비밀번호 규칙을 확인해 주세요."),
+    SAME_PASSWORD(HttpStatus.BAD_REQUEST, "USER305", "현재와 다른 비밀번호를 입력해 주세요."),
+    PASSWORD_RESET_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "USER306", "잠시 후 다시 시도해 주세요."),
+    PASSWORD_RESET_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "USER307", "지금은 인증을 진행할 수 없습니다."),
+
     SMS_SEND_FAILED(HttpStatus.BAD_GATEWAY, "USER201", "인증번호 발송에 실패했습니다. 잠시 후 다시 시도해 주세요."),
     SMS_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "USER202", "인증번호는 1분에 한 번만 요청할 수 있습니다."),
     SMS_DAILY_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "USER203", "오늘 인증번호 요청 횟수를 초과했습니다."),
