@@ -47,6 +47,9 @@ server:
     mbeanregistry:
       enabled: true       # Grafana에서 tomcat 연결 수와 바쁜 스레드 수 보기위함
 
+api:
+  time-out: ${EXTERNAL_API_TIMEOUT:2}   # 외부 API 타임아웃 설정
+
 kakao:
   api:
     key: ${KAKAO_API_KEY:}

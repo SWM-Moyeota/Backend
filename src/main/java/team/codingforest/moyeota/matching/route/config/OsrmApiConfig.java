@@ -12,10 +12,10 @@ import java.time.Duration;
 public class OsrmApiConfig {
 
     @Bean
-    public RestClient osrmRestClient(@Value("${osrm.base-url}") String baseUrl) {
+    public RestClient osrmRestClient(@Value("${osrm.base-url}") String baseUrl, @Value("${api.time-out}") Integer timeOut) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofSeconds(2));
-        factory.setReadTimeout(Duration.ofSeconds(2));
+        factory.setConnectTimeout(Duration.ofSeconds(timeOut));
+        factory.setReadTimeout(Duration.ofSeconds(timeOut));
 
         return RestClient.builder()
                 .baseUrl(baseUrl)
