@@ -92,6 +92,21 @@ class LocalUserServiceTest {
     }
 
     @Test
+    void 내_정보에는_로그인_아이디가_가려지지_않고_실린다() {
+        UserResponse response = service.register(가입("hong", "길동이", "010-1234-5678"));
+        User user = users.findByPublicId(response.uuid()).orElseThrow();
+
+        assertThat(service.getProfile(user.getId()).loginId()).isEqualTo("hong");
+    }
+
+    @Test
+    void 아이디_로그인_정보가_없는_계정이면_내_정보의_로그인_아이디는_null_이다() {
+        User user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "길동이"));
+
+        assertThat(service.getProfile(user.getId()).loginId()).isNull();
+    }
+
+    @Test
     void 닉네임_앞뒤_공백은_정규화되어_저장된다() {
         service.register(가입("hong", " 길동이 ", "010-1234-5678"));
 

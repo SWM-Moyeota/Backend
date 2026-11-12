@@ -30,7 +30,7 @@ class LocalUserControllerUnitTest extends ControllerUnitTestSupport {
         /*
          * settings
          */
-        doReturn(new MyProfileResponse(PUBLIC_ID, "길동이", "https://cdn/img.png", 0, null)).when(service).getProfile(eq(USER_ID));
+        doReturn(new MyProfileResponse(PUBLIC_ID, "길동이", "https://cdn/img.png", 0, null, "tester2")).when(service).getProfile(eq(USER_ID));
 
         /*
          * test
@@ -45,7 +45,29 @@ class LocalUserControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.name").value("길동이"))
                 .andExpect(jsonPath("$.imageUrl").value("https://cdn/img.png"))
                 .andExpect(jsonPath("$.noShowCount").value(0))
-                .andExpect(jsonPath("$.restrictedUntil").value(nullValue()));
+                .andExpect(jsonPath("$.restrictedUntil").value(nullValue()))
+                .andExpect(jsonPath("$.loginId").value("tester2"));
+    }
+
+    @DisplayName("GET /api/v1/local/users/info - 아이디 로그인 정보가 없는 계정이면 loginId 키는 있고 값이 null 이다")
+    @Test
+    void getProfile_noLoginId() throws Exception {
+
+        /*
+         * settings
+         */
+        doReturn(new MyProfileResponse(PUBLIC_ID, "길동이", "https://cdn/img.png", 0, null, null)).when(service).getProfile(eq(USER_ID));
+
+        /*
+         * test
+         */
+        mockMvc.perform(get(URL).with(loginUser()))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.loginId").value(nullValue()));
     }
 
     @DisplayName("GET /api/v1/local/users/info - 토큰이 없으면 401")

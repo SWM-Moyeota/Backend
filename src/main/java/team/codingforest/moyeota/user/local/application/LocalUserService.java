@@ -92,7 +92,9 @@ public class LocalUserService {
         String name = user.getNickname() != null ? user.getNickname()
                 : userProfiles.findByUserId(userId).map(UserProfile::getName).map(Masking::name).orElse(null);
 
-        return new MyProfileResponse(user.getPublicId(), name, profileImages.toUrl(user.getImageUrl()), 0, null);
+        String loginId = localUsers.findByUserId(userId).map(LocalUser::getLoginId).orElse(null);
+
+        return new MyProfileResponse(user.getPublicId(), name, profileImages.toUrl(user.getImageUrl()), 0, null, loginId);
     }
 
     @Transactional(readOnly = true)
