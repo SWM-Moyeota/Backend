@@ -25,6 +25,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class FareSplitSweeperUnitTest {
@@ -43,7 +44,7 @@ class FareSplitSweeperUnitTest {
     @InjectMocks
     private FareSplitSweeper sweeper;
 
-    @DisplayName("sweepAt - 한 번 돌 때의 시각 하나로 대상을 찾아 만료 → 송금 재요청 → 입금 확인 요청 순으로 정산마다 서비스에 넘긴다")
+    @DisplayName("sweepAt - 한 번 돌 때의 시각 하나로 대상을 찾아 만료 → 송금 재요청 두 단계만 순서대로 정산마다 서비스에 넘긴다")
     @Test
     void sweepAt() {
 
@@ -52,7 +53,6 @@ class FareSplitSweeperUnitTest {
          */
         doReturn(List.of(1L)).when(fareSplits).findExpireTargets(any());
         doReturn(List.of(2L, 3L)).when(fareSplits).findTransferRequestTargets(any());
-        doReturn(List.of(4L)).when(fareSplits).findConfirmRequestTargets(any());
 
         /*
          * test
@@ -68,23 +68,21 @@ class FareSplitSweeperUnitTest {
         order.verify(fareSplits).findTransferRequestTargets(eq(NOON));
         order.verify(notificationService).remindTransfers(eq(2L), eq(NOON));
         order.verify(notificationService).remindTransfers(eq(3L), eq(NOON));
-        order.verify(fareSplits).findConfirmRequestTargets(eq(NOON));
-        order.verify(notificationService).requestConfirm(eq(4L), eq(NOON));
+        verifyNoMoreInteractions(fareSplits, fareSplitService, notificationService);
     }
 
-    @DisplayName("sweepAt - 한 정산이 실패해도(업무 예외·DB 예외·그 밖의 런타임 예외) 나머지 정산과 다음 작업을 계속한다")
+    @DisplayName("sweepAt - 한 정산이 실패해도(업무 예외·DB 예외·그 밖의 런타임 예외) 나머지 정산과 다음 단계를 계속한다")
     @Test
     void sweepAt_continuesAfterFailure() {
 
         /*
          * settings
          */
-        doReturn(List.of(1L, 2L)).when(fareSplits).findExpireTargets(any());
-        doReturn(List.of(3L, 4L)).when(fareSplits).findTransferRequestTargets(any());
-        doReturn(List.of(5L, 6L)).when(fareSplits).findConfirmRequestTargets(any());
+        doReturn(List.of(1L, 2L, 3L)).when(fareSplits).findExpireTargets(any());
+        doReturn(List.of(4L, 5L)).when(fareSplits).findTransferRequestTargets(any());
         doThrow(new PessimisticLockingFailureException("잠금 대기 시간 초과")).when(fareSplitService).expire(eq(1L), any());
-        doThrow(new BusinessException(FareSplitErrorCode.FARE_SPLIT_NOT_FOUND)).when(notificationService).remindTransfers(eq(3L), any());
-        doThrow(new IllegalStateException("알 수 없는 실패")).when(notificationService).requestConfirm(eq(5L), any());
+        doThrow(new IllegalStateException("알 수 없는 실패")).when(fareSplitService).expire(eq(2L), any());
+        doThrow(new BusinessException(FareSplitErrorCode.FARE_SPLIT_NOT_FOUND)).when(notificationService).remindTransfers(eq(4L), any());
 
         /*
          * test
@@ -94,12 +92,12 @@ class FareSplitSweeperUnitTest {
         /*
          * verify
          */
-        verify(fareSplitService).expire(eq(2L), eq(NOON));
+        verify(fareSplitService).expire(eq(3L), eq(NOON));
         verify(notificationService).remindTransfers(eq(4L), eq(NOON));
-        verify(notificationService).requestConfirm(eq(6L), eq(NOON));
+        verify(notificationService).remindTransfers(eq(5L), eq(NOON));
     }
 
-    @DisplayName("sweepAt - 새벽에도 만료·송금 재요청·입금 확인 요청을 모두 처리한다")
+    @DisplayName("sweepAt - 새벽에도 만료와 송금 재요청을 모두 처리한다")
     @Test
     void sweepAt_night() {
 
@@ -108,7 +106,6 @@ class FareSplitSweeperUnitTest {
          */
         doReturn(List.of(1L)).when(fareSplits).findExpireTargets(any());
         doReturn(List.of(2L)).when(fareSplits).findTransferRequestTargets(any());
-        doReturn(List.of(3L)).when(fareSplits).findConfirmRequestTargets(any());
 
         /*
          * test
@@ -120,7 +117,6 @@ class FareSplitSweeperUnitTest {
          */
         verify(fareSplitService).expire(eq(1L), eq(NIGHT));
         verify(notificationService).remindTransfers(eq(2L), eq(NIGHT));
-        verify(notificationService).requestConfirm(eq(3L), eq(NIGHT));
     }
 
     @DisplayName("sweep - 지금 시각으로 돈다")

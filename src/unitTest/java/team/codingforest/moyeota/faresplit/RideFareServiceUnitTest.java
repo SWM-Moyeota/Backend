@@ -20,7 +20,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 /**
- *  탑승 기록(matching)에 넘기는 택시비와 내 몫 - 정산마다 기록을 보는 사람의 몫을 골라 준다
+ *  탑승 기록(matching)에 넘기는 택시비와 내 몫 - 정산마다 기록을 보는 사람의 줄에 적힌 부담 금액을 그대로 준다
  */
 @ExtendWith(MockitoExtension.class)
 class RideFareServiceUnitTest {
@@ -32,14 +32,15 @@ class RideFareServiceUnitTest {
     @InjectMocks
     private RideFareService service;
 
-    @DisplayName("find - 내가 받는 사람이면 내 몫은 택시비에서 보내는 사람 몫을 뺀 금액이다")
+    @DisplayName("find - 내가 받는 사람(방장)이면 내 몫은 방장 줄에 적힌 부담 금액이다")
     @Test
     void find_payer() {
 
         /*
          * settings
          */
-        doReturn(List.of(new FareShare(10L, PAYER_ID, 18_700, 6_240, 2))).when(fareSplits).findShares(eq(PAYER_ID), eq(List.of(10L)));
+        // 받는 사람도 자기 줄이 있어 myPayment 에 방장 부담금이 온다
+        doReturn(List.of(new FareShare(10L, 18_700, 6_220))).when(fareSplits).findShares(eq(PAYER_ID), eq(List.of(10L)));
 
         /*
          * test
@@ -49,17 +50,17 @@ class RideFareServiceUnitTest {
         /*
          * verify
          */
-        assertThat(fares).containsExactly(new RideFare(10L, 18_700, 18_700 - 6_240 * 2));
+        assertThat(fares).containsExactly(new RideFare(10L, 18_700, 6_220));
     }
 
-    @DisplayName("find - 내가 보내는 사람이면 내 몫은 1인당 금액이다")
+    @DisplayName("find - 내가 보내는 사람이면 내 몫은 내 줄에 적힌 부담 금액이다")
     @Test
     void find_sender() {
 
         /*
          * settings
          */
-        doReturn(List.of(new FareShare(10L, PAYER_ID, 18_700, 6_240, 2))).when(fareSplits).findShares(eq(SENDER_ID), eq(List.of(10L)));
+        doReturn(List.of(new FareShare(10L, 18_700, 6_240))).when(fareSplits).findShares(eq(SENDER_ID), eq(List.of(10L)));
 
         /*
          * test
@@ -72,14 +73,14 @@ class RideFareServiceUnitTest {
         assertThat(fares).containsExactly(new RideFare(10L, 18_700, 6_240));
     }
 
-    @DisplayName("find - 넘긴 방들의 정산을 한 번에 읽고, 방마다 내 역할에 맞는 몫을 고른다")
+    @DisplayName("find - 넘긴 방들의 정산을 한 번에 읽고, 받아 온 순서 그대로 방마다 택시비와 내 부담 금액을 준다")
     @Test
     void find_batch() {
 
         /*
          * settings
          */
-        doReturn(List.of(new FareShare(30L, SENDER_ID, 10_001, 5_010, 1), new FareShare(20L, PAYER_ID, 12_000, 6_000, 1)))
+        doReturn(List.of(new FareShare(30L, 10_001, 5_010), new FareShare(20L, 12_000, 6_000)))
                 .when(fareSplits).findShares(eq(PAYER_ID), eq(List.of(30L, 20L, 10L)));
 
         /*

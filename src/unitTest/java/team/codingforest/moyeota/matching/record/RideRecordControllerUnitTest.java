@@ -88,7 +88,7 @@ class RideRecordControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.rides[0].partyId").value(30))
                 .andExpect(jsonPath("$.rides[0].departure").value("강남역"))
                 .andExpect(jsonPath("$.rides[0].destination").value("판교역"))
-                .andExpect(jsonPath("$.rides[0].dropoffTime").value("2026-10-01T00:30:00Z"))
+                .andExpect(jsonPath("$.rides[0].pickupTime").value("2026-10-01T00:30:00Z"))
                 .andExpect(jsonPath("$.rides[0].totalFare").value(nullValue()))
                 .andExpect(jsonPath("$.rides[0].farePerPerson").value(nullValue()))
                 .andExpect(jsonPath("$.rides[0].currentMembers").value(2))
@@ -102,7 +102,7 @@ class RideRecordControllerUnitTest extends ControllerUnitTestSupport {
         verify(rideRecordService).findMyRides(eq(USER_ID), eq(50L), eq(10));
     }
 
-    @DisplayName("GET /api/v1/users/me/parties - 택시비 정산이 없는 방은 요금 키가 null 로 오고, 없앤 pickupTime 키는 없다")
+    @DisplayName("GET /api/v1/users/me/parties - 택시비 정산이 없는 방은 요금 키가 null 로 오고, 승차 시각은 pickupTime 으로 온다(옛 dropoffTime 키는 없다)")
     @Test
     void findMyRides_fareKeysKeptAsNull() throws Exception {
 
@@ -126,10 +126,10 @@ class RideRecordControllerUnitTest extends ControllerUnitTestSupport {
                 // 요금 두 키는 값이 없어도 null 로 온다 - 둘 다 null 이면 앱이 요금 줄을 숨긴다
                 .andExpect(jsonPath("$.rides[0]", hasKey("totalFare")))
                 .andExpect(jsonPath("$.rides[0]", hasKey("farePerPerson")))
-                .andExpect(jsonPath("$.rides[0].pickupTime").doesNotExist())
+                .andExpect(jsonPath("$.rides[0].dropoffTime").doesNotExist())
                 .andExpect(jsonPath("$.rides[0].totalFare").value(nullValue()))
                 .andExpect(jsonPath("$.rides[0].farePerPerson").value(nullValue()))
-                .andExpect(jsonPath("$.rides[0].dropoffTime").value("2026-10-01T00:30:00Z"));
+                .andExpect(jsonPath("$.rides[0].pickupTime").value("2026-10-01T00:30:00Z"));
     }
 
     @DisplayName("GET /api/v1/users/me/parties - 택시비 정산이 있는 방은 totalFare·farePerPerson 을 원 단위 정수로 내려준다")

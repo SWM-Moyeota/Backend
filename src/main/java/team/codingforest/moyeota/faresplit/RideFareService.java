@@ -19,7 +19,7 @@ class RideFareService implements RideFares {
     @Override
     public List<RideFare> find(Long memberId, Collection<Long> partyIds) {
         return fareSplits.findShares(memberId, partyIds).stream()
-                .map(share -> new RideFare(share.partyId(), share.totalFare(), share.amountOf(memberId)))
+                .map(share -> new RideFare(share.partyId(), share.totalFare(), share.myPayment()))
                 .toList();
     }
 }

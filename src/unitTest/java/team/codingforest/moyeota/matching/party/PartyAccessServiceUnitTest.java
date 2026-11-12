@@ -179,14 +179,14 @@ class PartyAccessServiceUnitTest {
 
     // ───────────────────────── findRiders ─────────────────────────
 
-    @DisplayName("findRiders - 끝난 방이면 finished 이고, 멤버와 탑승자(도착한 멤버)를 합류 순으로 준다. 도착하지 않은 멤버는 탑승자가 아니다")
+    @DisplayName("findRiders - 끝난 방이면 finished 이고, 방장 번호와 멤버·탑승자(도착한 멤버)를 합류 순으로 준다. 도착하지 않은 멤버는 탑승자가 아니다")
     @Test
     void findRiders() {
 
         /*
          * settings
          */
-        Party party = attendedParty(PartyStatus.FINISHED, List.of(
+        Party party = attendedParty(PartyStatus.FINISHED, HOST_ID, List.of(
                 arrived(MEMBER_ID, 0),
                 PartyMember.load(NOT_ARRIVED_ID, BASE_TIME.plusSeconds(1), null),
                 arrived(HOST_ID, 2)));
@@ -200,7 +200,7 @@ class PartyAccessServiceUnitTest {
         /*
          * verify
          */
-        assertThat(result).contains(new PartyRiders(PARTY_ID, true, List.of(MEMBER_ID, NOT_ARRIVED_ID, HOST_ID), List.of(MEMBER_ID, HOST_ID)));
+        assertThat(result).contains(new PartyRiders(PARTY_ID, HOST_ID, true, List.of(MEMBER_ID, NOT_ARRIVED_ID, HOST_ID), List.of(MEMBER_ID, HOST_ID)));
     }
 
     @DisplayName("findRiders - 동승이 끝나지 않은(FINISHED 가 아닌) 방은 finished 가 false 다")
@@ -222,6 +222,7 @@ class PartyAccessServiceUnitTest {
          * verify
          */
         assertThat(result.finished()).isFalse();
+        assertThat(result.hostId()).isEqualTo(HOST_ID);
         assertThat(result.memberIds()).containsExactly(HOST_ID, MEMBER_ID);
     }
 
@@ -243,6 +244,7 @@ class PartyAccessServiceUnitTest {
          * verify
          */
         assertThat(result.finished()).isTrue();
+        assertThat(result.hostId()).as("방장이 타지 않았어도 방장 번호는 싣는다").isEqualTo(HOST_ID);
         assertThat(result.memberIds()).containsExactly(HOST_ID, MEMBER_ID);
         assertThat(result.riderIds()).isEmpty();
     }
@@ -305,10 +307,15 @@ class PartyAccessServiceUnitTest {
                 RoomType.REALTIME, null);
     }
 
-    /** members 순서대로 합류한 약속이 정해진 방 */
+    /** members 순서대로 합류한 약속이 정해진 방. 가장 먼저 합류한 멤버가 방장이다 */
     private static Party attendedParty(PartyStatus status, List<PartyMember> members) {
+        return attendedParty(status, members.getFirst().getMemberId(), members);
+    }
+
+    /** members 순서대로 합류한 약속이 정해진 방. 방장은 hostId 다(가장 먼저 합류한 멤버가 아닐 수 있다) */
+    private static Party attendedParty(PartyStatus status, Long hostId, List<PartyMember> members) {
         return Party.load(PARTY_ID, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
-                new Capacity(3), new ArrayList<>(members), members.getFirst().getMemberId(), BASE_TIME, status, 12000, 25, "encoded-path",
+                new Capacity(3), new ArrayList<>(members), hostId, BASE_TIME, status, 12000, 25, "encoded-path",
                 0L, RoomType.REALTIME, MEETING_AT);
     }
 

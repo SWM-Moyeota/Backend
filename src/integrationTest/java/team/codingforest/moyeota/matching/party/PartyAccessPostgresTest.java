@@ -64,6 +64,7 @@ class PartyAccessPostgresTest {
         PartyRiders riders = partyAccess.findRiders(room).orElseThrow();
 
         assertThat(riders.partyId()).isEqualTo(room);
+        assertThat(riders.hostId()).as("방장은 방을 만든 셋째다").isEqualTo(셋째);
         assertThat(riders.finished()).isTrue();
         assertThat(riders.memberIds()).containsExactly(셋째, 첫째, 둘째);
         assertThat(riders.riderIds()).as("도착하지 않은 첫째는 빠진다").containsExactly(셋째, 둘째);
@@ -79,6 +80,7 @@ class PartyAccessPostgresTest {
 
         PartyRiders riders = partyAccess.findRiders(room).orElseThrow();
 
+        assertThat(riders.hostId()).as("방장은 합류 순 맨 앞이 아니라 방에 저장된 방장이다").isEqualTo(둘째);
         assertThat(riders.memberIds()).containsExactly(첫째, 둘째);
         assertThat(riders.riderIds()).containsExactly(첫째, 둘째);
     }

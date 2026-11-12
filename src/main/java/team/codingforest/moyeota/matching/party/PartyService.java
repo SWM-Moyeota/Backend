@@ -183,11 +183,12 @@ public class PartyService {
     /** 도착한 방장이 출발을 누르면 방이 끝나고 탑승 기록이 남는다 */
     @Transactional
     public void depart(Long partyId, Long memberId) {
+        Instant now = Instant.now();
         Party party = lock(partyId);
-        party.depart(memberId, Instant.now());
+        party.depart(memberId, now);
         parties.save(party);
 
-        rideRecords.save(RideRecord.droppedOffNow(partyId, party.getDeparture(), party.getDestination()));
+        rideRecords.save(RideRecord.create(partyId, party.getDeparture(), party.getDestination(), now));
         publishClosed(party);
 
         log.info("출발로 동승 종료 partyId={}, memberId={}, riders={}", partyId, memberId, party.riderIds());
@@ -207,7 +208,8 @@ public class PartyService {
         parties.save(party);
 
         if(result.hasRiders()) {
-            rideRecords.save(RideRecord.droppedOffNow(partyId, party.getDeparture(), party.getDestination()));
+            // 아무도 출발을 누르지 않았으니 탄 시각을 모른다 - 약속 시각에 탄 것으로 본다
+            rideRecords.save(RideRecord.create(partyId, party.getDeparture(), party.getDestination(), party.getDepartureAt()));
         }
 
         publishClosed(party);

@@ -68,7 +68,9 @@ public class PartySseRegistry {
 
     public void closeAll(Long partyId, String data) {
         Set<Subscription> subscriptions = byParty.remove(partyId);
-        if (subscriptions == null) return;
+        if (subscriptions == null) {
+			return;
+		}
 
         subscriptions.forEach(s -> {
             try {
@@ -89,20 +91,20 @@ public class PartySseRegistry {
 
     private void closeMember(Long partyId, Long memberId, String reason) {
         Set<Subscription> subscriptions = byParty.get(partyId);
-        if (subscriptions == null) return;
+
+        if (subscriptions == null) {
+			return;
+		}
 
         for (Subscription s : subscriptions) {
-            if (!s.memberId().equals(memberId)) continue;
+            if (!s.memberId().equals(memberId)) {
+				continue;
+			}
             remove(partyId, s.emitter(), reason);
             completeQuietly(s.emitter());
         }
     }
 
-    /**
-     * 중간 프록시가 조용한 연결을 끊지 않게 하는 것이 유일한 목적이다 - 앱의 SSE 라이브러리는 {@code :ping} 주석을
-     * 삼켜 이벤트로 올리지 않으므로 앱은 이걸 「살아있음」 판정에 쓰지 못한다. 그래서 주기는 프록시 타임아웃보다
-     * 충분히 짧아야만 의미가 있다. 값은 설정에서 읽는다 - {@code application.yaml} 의 {@code moyeota.sse.heartbeat-ms}.
-     */
     @Scheduled(fixedRateString = "${moyeota.sse.heartbeat-ms}", scheduler = PartySseSchedulerConfig.SCHEDULER)
     public void heartbeat() {
         byParty.forEach((partyId, subscriptions) -> subscriptions.forEach(s -> {
@@ -130,7 +132,9 @@ public class PartySseRegistry {
             return set.isEmpty() ? null : set;
         });
 
-        if (removed.get()) metrics.closed(reason);
+        if (removed.get()) {
+			metrics.closed(reason);
+		}
     }
 
     private void completeQuietly(SseEmitter emitter) {

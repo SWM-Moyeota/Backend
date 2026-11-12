@@ -48,7 +48,7 @@ class PartyAccessService implements PartyAccess {
     @Override
     public Optional<PartyRiders> findRiders(Long partyId) {
         return parties.findById(partyId)
-                .map(party -> new PartyRiders(party.getId(), party.getStatus() == PartyStatus.FINISHED,
+                .map(party -> new PartyRiders(party.getId(), party.getHostId(), party.getStatus() == PartyStatus.FINISHED,
                         party.getMembers().stream().map(PartyMember::getMemberId).toList(), party.riderIds()));
     }
 

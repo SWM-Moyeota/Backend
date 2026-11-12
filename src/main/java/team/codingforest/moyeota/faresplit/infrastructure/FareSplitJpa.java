@@ -22,7 +22,6 @@ import java.util.Optional;
 @Repository
 @RequiredArgsConstructor
 public class FareSplitJpa implements FareSplits {
-    // unique 위반 에러코드(중복으로 저장될때)
     private static final String UNIQUE_VIOLATION = "23505";
 
     private final FareSplitJpaRepository repository;
@@ -32,7 +31,7 @@ public class FareSplitJpa implements FareSplits {
     public FareSplit create(FareSplit split) {
         FareSplitEntity entity = FareSplitEntity.from(split);
 
-        // 매칭방 ID와 1:1 매핑이라 저장할때 바로 쿼리문 사용할 수 있게 구성
+		// match_id 값과 1:1 매핑이기에 save가 아닌 entityManager를 사용
         try {
             em.persist(entity);
             em.flush();
@@ -51,7 +50,6 @@ public class FareSplitJpa implements FareSplits {
                 .map(FareSplitEntity::toDomain);
     }
 
-    // 송금(지연 로딩)은 잠근 뒤에 읽으므로 앞서 커밋된 변경을 본다
     @Override
     public Optional<FareSplit> findByPartyIdForUpdate(Long partyId) {
         return repository.findByPartyIdForUpdate(partyId)
@@ -59,22 +57,11 @@ public class FareSplitJpa implements FareSplits {
     }
 
     @Override
-    public boolean existsByPartyId(Long partyId) {
-        return repository.existsById(partyId);
-    }
-
-    @Override
     public void save(FareSplit split) {
         FareSplitEntity entity = repository.findById(split.getPartyId())
                 .orElseThrow(() -> new BusinessException(FareSplitErrorCode.FARE_SPLIT_NOT_FOUND));
 
-        entity.update(split);   // 더티체킹
-    }
-
-    // 송금 행은 cascade 로 정산보다 먼저 지워진다
-    @Override
-    public void delete(Long partyId) {
-        repository.findById(partyId).ifPresent(repository::delete);
+        entity.update(split);
     }
 
     @Override
@@ -91,12 +78,7 @@ public class FareSplitJpa implements FareSplits {
 
     @Override
     public List<Long> findTransferRequestTargets(Instant now) {
-        return repository.findTransferRequestTargetIds(now.minus(FareSplit.REMIND_AFTER));
-    }
-
-    @Override
-    public List<Long> findConfirmRequestTargets(Instant now) {
-        return repository.findConfirmRequestTargetIds(now.minus(FareSplit.CONFIRM_REQUEST_AFTER));
+        return repository.findTransferRequestTargetIds(now, FareSplit.MAX_TRANSFER_REQUESTS, FareSplit.REMIND_INTERVAL.toSeconds());
     }
 
     @Override

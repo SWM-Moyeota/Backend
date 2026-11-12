@@ -9,27 +9,29 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
-/** 탄 사람 기준 - 그 방에 도착한 멤버만 */
+/**
+ * 탄 사람 기준 - 그 방에 도착한 멤버만
+ **/
 public interface RideRecordJpaRepository extends JpaRepository<RideRecordEntity, Long> {
 
     @Query("""
             select h from RideRecordEntity h
             join PartyMemberEntity m on m.party.id = h.matchId
-            where m.memberId = :memberId and h.dropoffTime is not null
+            where m.memberId = :memberId
                 and m.arrivedAt is not null
-            order by h.dropoffTime desc, h.matchId desc
+            order by h.pickupTime desc, h.matchId desc
             """)
-    List<RideRecordEntity> findDroppedOffByMember(@Param("memberId") Long memberId, Limit limit);
+    List<RideRecordEntity> findByMember(@Param("memberId") Long memberId, Limit limit);
 
     @Query("""
             select h from RideRecordEntity h
             join PartyMemberEntity m on m.party.id = h.matchId
-            where m.memberId = :memberId and h.dropoffTime is not null
+            where m.memberId = :memberId
                 and m.arrivedAt is not null
-                and (h.dropoffTime < :dropoffTime or (h.dropoffTime = :dropoffTime and h.matchId < :matchId))
-            order by h.dropoffTime desc, h.matchId desc
+                and (h.pickupTime < :pickupTime or (h.pickupTime = :pickupTime and h.matchId < :matchId))
+            order by h.pickupTime desc, h.matchId desc
             """)
-    List<RideRecordEntity> findDroppedOffByMemberBefore(@Param("memberId") Long memberId, @Param("dropoffTime") Instant dropoffTime,
+    List<RideRecordEntity> findByMemberBefore(@Param("memberId") Long memberId, @Param("pickupTime") Instant pickupTime,
                                                           @Param("matchId") Long matchId, Limit limit);
 
     @Query("""

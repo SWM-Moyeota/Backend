@@ -1641,7 +1641,7 @@ class PartyServiceUnitTest {
 
     // ───────────────────────── depart ─────────────────────────
 
-    @DisplayName("depart - 도착한 방장이 누르면 FINISHED 로 저장하고 하차 기록·닫힘 이벤트를 남긴 뒤 커밋 후 closed 를 보낸다. 도착하지 않은 멤버는 탑승자에서 빠질 뿐이다")
+    @DisplayName("depart - 도착한 방장이 누르면 FINISHED 로 저장하고 탑승 기록·닫힘 이벤트를 남긴 뒤 커밋 후 closed 를 보낸다. 도착하지 않은 멤버는 탑승자에서 빠질 뿐이다")
     @Test
     void depart() {
 
@@ -1680,7 +1680,7 @@ class PartyServiceUnitTest {
         assertThat(record.getMatchId()).isEqualTo(PARTY_ID);
         assertThat(record.getDeparturePlace()).isEqualTo("강남역");
         assertThat(record.getDestinationPlace()).isEqualTo("판교역");
-        assertThat(record.isDroppedOff()).isTrue();
+        assertThat(Duration.between(record.getPickupTime(), Instant.now())).as("승차 시각은 출발을 누른 순간").isLessThan(Duration.ofSeconds(5));
 
         Runnable task = capturedAfterCommitTask();
         verifyNoInteractions(partyChangeNotifier);
@@ -1775,7 +1775,7 @@ class PartyServiceUnitTest {
 
     // ───────────────────────── autoClose ─────────────────────────
 
-    @DisplayName("autoClose - 도착한 멤버가 있는 확정 방은 FINISHED 로 저장하고 하차 기록·닫힘 이벤트를 남긴 뒤 커밋 후 closed 를 보낸다. 탑승자는 도착한 멤버뿐이다")
+    @DisplayName("autoClose - 도착한 멤버가 있는 확정 방은 FINISHED 로 저장하고 탑승 기록·닫힘 이벤트를 남긴 뒤 커밋 후 closed 를 보낸다. 탑승자는 도착한 멤버뿐이다")
     @Test
     void autoClose_someArrived() {
 
@@ -1813,7 +1813,8 @@ class PartyServiceUnitTest {
         assertThat(record.getMatchId()).isEqualTo(PARTY_ID);
         assertThat(record.getDeparturePlace()).isEqualTo("강남역");
         assertThat(record.getDestinationPlace()).isEqualTo("판교역");
-        assertThat(record.isDroppedOff()).isTrue();
+        assertThat(record.getPickupTime()).as("아무도 출발을 누르지 않아 약속 시각에 탄 것으로 본다")
+                .isEqualTo(party.getDepartureAt());
 
         Runnable task = capturedAfterCommitTask();
         verifyNoInteractions(partyChangeNotifier);
@@ -1821,7 +1822,7 @@ class PartyServiceUnitTest {
         verify(partyChangeNotifier).closed(eq(PARTY_ID), eq(new PartyClosed("FINISHED")));
     }
 
-    @DisplayName("autoClose - 아무도 도착하지 않은 확정 방은 CANCELED 이고 하차 기록 없이 닫힘 이벤트와 커밋 후 closed 를 보낸다")
+    @DisplayName("autoClose - 아무도 도착하지 않은 확정 방은 CANCELED 이고 탑승 기록 없이 닫힘 이벤트와 커밋 후 closed 를 보낸다")
     @Test
     void autoClose_nobodyArrived() {
 
@@ -1854,7 +1855,7 @@ class PartyServiceUnitTest {
         verify(partyChangeNotifier).closed(eq(PARTY_ID), eq(new PartyClosed("CANCELED")));
     }
 
-    @DisplayName("autoClose - 약속이 없거나 혼자인 방은 동승이 없었으니 CANCELED 로 닫고 하차 기록을 남기지 않는다")
+    @DisplayName("autoClose - 약속이 없거나 혼자인 방은 동승이 없었으니 CANCELED 로 닫고 탑승 기록을 남기지 않는다")
     @ParameterizedTest(name = "{1}")
     @MethodSource("autoCloseCancellations")
     void autoClose_unconfirmedOrAlone(Party party, String reason) {

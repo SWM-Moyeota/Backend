@@ -47,6 +47,9 @@ server:
     mbeanregistry:
       enabled: true       # Grafana에서 tomcat 연결 수와 바쁜 스레드 수 보기위함
 
+api:
+  time-out: ${EXTERNAL_API_TIMEOUT:2}   # 외부 API 타임아웃 설정
+
 kakao:
   api:
     key: ${KAKAO_API_KEY:}
@@ -103,9 +106,6 @@ management:
 
 moyeota:
   app:
-    # 앱 버전 게이트. 비우면 기준 없음(응답에서 키가 빠지고 앱은 통과시킨다).
-    # 값은 안드로이드 versionCode(YYMMDD*100+N). 서버 계약이 깨지는 변경을 내보내는 날에만 넣는다.
-    # 잘못된 큰 값은 전원을 업데이트 화면에 잠그고 앱에서 되돌릴 수 없다 - 그래서 코드가 아니라 환경변수로 받는다
     min-version-code: ${MIN_VERSION_CODE:}
     recommended-version-code: ${RECOMMENDED_VERSION_CODE:}
   crypto:
@@ -123,10 +123,7 @@ moyeota:
   profile-image:
     base-url: ${PROFILE_IMAGE_BASE_URL:https://cdn.moyeota.co.kr/}   # 목록은 profile-images.yaml
   sse:
-    # 매칭방 SSE heartbeat 주기(ms). 유일한 역할은 중간 프록시가 조용한 연결을 끊지 않게 하는 것이라
-    # CloudFront 오리진 응답 타임아웃(기본 30초)보다 충분히 짧아야 한다. 같은 값(30초)으로 두면
-    # ping 이 도착하기 직전에 끊기는 경쟁이 생겨 30초마다 재연결이 돌고 SSE 를 쓰는 의미가 깎인다.
-    heartbeat-ms: ${SSE_HEARTBEAT_MS:10000}
+    heartbeat-ms: ${SSE_HEARTBEAT_MS:30000}
   internal:
     # 소켓 서버가 /internal/chat/chat-rooms/** 를 부를 때 X-Internal-Token 헤더와 비교하는 공유 비밀. 비어 있으면 모두 401(꺼짐)
     # 서버는 파라미터 스토어 /moyeota/{dev|prod}/INTERNAL_API_TOKEN(SecureString)으로 넣음, prod 는 넣지 않아 닫힌 채로 둠

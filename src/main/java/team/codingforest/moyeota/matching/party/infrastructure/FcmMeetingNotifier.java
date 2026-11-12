@@ -73,7 +73,7 @@ public class FcmMeetingNotifier implements MeetingNotifier {
     }
 
     /**
-     *  iOS 는 백그라운드에서 앱 코드가 돌지 않아 시스템이 이 값을 그대로 표시한다.
+     *  iOS를 위한 설정 알림을 APNs에 전달
      */
     private ApnsConfig apnsConfig(Push push, Long partyId) {
         return ApnsConfig.builder()
