@@ -3,23 +3,28 @@ package team.codingforest.moyeota.faresplit.domain;
 import java.util.List;
 
 /**
- *  정산 알림(송금 재요청·입금 확인 요청)을 받을 사람. 비어 있으면 아직 때가 아니거나 닫힌 정산이라 아무것도 바뀌지 않았다
+ *  스케줄러가 보내는 정산 알림(송금 재요청)을 받을 사람과 그 사람이 보낼 금액
+ *
+ *  @param payments 받을 사람마다 보낼 금액. 비어 있으면 보낼 알림이 없다
  */
-public record FareSplitNotice(List<Long> recipientIds) {
-
+public record FareSplitNotice(List<FarePayment> payments) {
     public FareSplitNotice {
-        recipientIds = List.copyOf(recipientIds);
+        payments = List.copyOf(payments);
     }
 
     static FareSplitNotice notDue() {
         return new FareSplitNotice(List.of());
     }
 
-    static FareSplitNotice send(List<Long> recipientIds) {
-        return new FareSplitNotice(recipientIds);
+    static FareSplitNotice send(List<FarePayment> payments) {
+        return new FareSplitNotice(payments);
     }
 
     public boolean shouldSend() {
-        return !recipientIds.isEmpty();
+        return !payments.isEmpty();
+    }
+
+    public List<Long> recipientIds() {
+        return payments.stream().map(FarePayment::memberId).toList();
     }
 }

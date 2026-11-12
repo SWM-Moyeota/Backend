@@ -1,14 +1,37 @@
 package team.codingforest.moyeota.faresplit.domain;
 
+import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.faresplit.exception.FareSplitErrorCode;
+
 import java.util.List;
 
-/**
- *  정산을 시작할 때 보는 방 명단 - 누가 멤버이고 누가 실제로 탔는지. 탑승자 규칙은 matching 이 정하고, 서비스가 창구(PartyAccess)에서 읽어 옮겨 담는다
- *
- *  @param partyId   방
- *  @param finished  동승이 끝났는지(FINISHED)
- *  @param memberIds 방 멤버, 합류 순
- *  @param riderIds  탑승자, 합류 순
- */
-public record RideRoster(Long partyId, boolean finished, List<Long> memberIds, List<Long> riderIds) {
+public record RideRoster(Long partyId, Long hostId, boolean finished, List<Long> memberIds, List<Long> riderIds) {
+    static final int MIN_RIDERS = 2;
+
+    public void validateStarter(Long memberId) {
+        if (!isHost(memberId)) {
+            throw new BusinessException(FareSplitErrorCode.NOT_PARTY_HOST);
+        }
+
+        if (!finished) {
+            throw new BusinessException(FareSplitErrorCode.PARTY_NOT_FINISHED);
+        }
+
+        // 아무도 출발을 누르지 않아 자동 정리된 방은 방장이 타지 않았을 수 있다
+        if (!isRider(memberId)) {
+            throw new BusinessException(FareSplitErrorCode.NOT_A_RIDER);
+        }
+
+        if (riderIds.size() < MIN_RIDERS) {
+            throw new BusinessException(FareSplitErrorCode.NOT_ENOUGH_RIDERS);
+        }
+    }
+
+    public boolean isHost(Long memberId) {
+        return hostId != null && hostId.equals(memberId);
+    }
+
+    public boolean isRider(Long memberId) {
+        return riderIds.contains(memberId);
+    }
 }

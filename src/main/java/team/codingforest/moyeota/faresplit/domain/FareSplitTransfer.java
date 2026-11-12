@@ -5,77 +5,91 @@ import team.codingforest.moyeota.faresplit.domain.enums.TransferStatus;
 import java.time.Instant;
 
 /**
- *  송금 한 건 - 받는 사람(payer)을 뺀 탑승자마다 하나. 애그리거트 루트 FareSplit 을 거쳐서만 바뀐다
+ *  정산 기록에 대한 유저가 금액을 지출한 내역과 확인 시간, 방장은 결제했기에 confirmedAt이 채워짐
  */
 public class FareSplitTransfer {
-    private final Long memberId;
-    private Instant sentAt;
-    private Instant confirmedAt;
-    // 마지막 송금 요청 시각 - 첫 요청, 재요청, 못 받았어요 알림. 재요청은 이 시각부터 센다
-    private Instant lastRequestedAt;
-    private Instant confirmRequestedAt;
+	private final Long memberId;
+	private int payment;
+	private Instant sentAt;
+	private Instant confirmedAt;
+	private int requestCount;
 
-    private FareSplitTransfer(Long memberId, Instant sentAt, Instant confirmedAt, Instant lastRequestedAt, Instant confirmRequestedAt) {
-        this.memberId = memberId;
-        this.sentAt = sentAt;
-        this.confirmedAt = confirmedAt;
-        this.lastRequestedAt = lastRequestedAt;
-        this.confirmRequestedAt = confirmRequestedAt;
-    }
+	private FareSplitTransfer(Long memberId, int payment, Instant sentAt, Instant confirmedAt, int requestCount) {
+		this.memberId = memberId;
+		this.payment = payment;
+		this.sentAt = sentAt;
+		this.confirmedAt = confirmedAt;
+		this.requestCount = requestCount;
+	}
 
-    /** 정산을 시작하며 첫 송금 요청을 보낸 NOT_SENT 송금 */
-    static FareSplitTransfer requested(Long memberId, Instant now) {
-        return new FareSplitTransfer(memberId, null, null, now, null);
-    }
+	static FareSplitTransfer create(Long memberId, int payment) {
+		return new FareSplitTransfer(memberId, payment, null, null, 1);
+	}
 
-    public static FareSplitTransfer load(Long memberId, Instant sentAt, Instant confirmedAt, Instant lastRequestedAt, Instant confirmRequestedAt) {
-        return new FareSplitTransfer(memberId, sentAt, confirmedAt, lastRequestedAt, confirmRequestedAt);
-    }
+	/**
+	 *  방장은 이미 지불했기에 confirmedAt 값이 채워짐
+	 */
+	static FareSplitTransfer createPaid(Long memberId, int payment, Instant now) {
+		return new FareSplitTransfer(memberId, payment, now, now, 0);
+	}
 
-    public TransferStatus status() {
-        return TransferStatus.of(sentAt, confirmedAt);
-    }
+	public static FareSplitTransfer load(Long memberId, int payment, Instant sentAt, Instant confirmedAt, int requestCount) {
+		return new FareSplitTransfer(memberId, payment, sentAt, confirmedAt, requestCount);
+	}
 
-    void markSent(Instant now) {
-        sentAt = now;
-    }
+	public TransferStatus status() {
+		return TransferStatus.of(sentAt, confirmedAt);
+	}
 
-    void confirm(Instant now) {
-        confirmedAt = now;
-    }
+	boolean isNotSent() {
+		return status() == TransferStatus.NOT_SENT;
+	}
 
-    void markRequested(Instant now) {
-        lastRequestedAt = now;
-    }
+	boolean isSent() {
+		return status() == TransferStatus.SENT;
+	}
 
-    void markConfirmRequested(Instant now) {
-        confirmRequestedAt = now;
-    }
+	boolean isConfirmed() {
+		return status() == TransferStatus.CONFIRMED;
+	}
 
-    /** SENT → NOT_SENT. 입금 확인 요청도 다시 할 수 있게 지우고, 보내는 사람에게 가는 못 받았어요 알림을 송금 요청으로 친다 */
-    void markNotReceived(Instant now) {
-        sentAt = null;
-        confirmRequestedAt = null;
-        lastRequestedAt = now;
-    }
+	void changePayment(int payment) {
+		this.payment = payment;
+	}
 
-    public Long getMemberId() {
-        return memberId;
-    }
+	void markSent(Instant now) {
+		sentAt = now;
+	}
 
-    public Instant getSentAt() {
-        return sentAt;
-    }
+	void markNotReceived() {
+		sentAt = null;
+	}
 
-    public Instant getConfirmedAt() {
-        return confirmedAt;
-    }
+	void confirm(Instant now) {
+		confirmedAt = now;
+	}
 
-    public Instant getLastRequestedAt() {
-        return lastRequestedAt;
-    }
+	void changeRequestCount(int requestCount) {
+		this.requestCount = requestCount;
+	}
 
-    public Instant getConfirmRequestedAt() {
-        return confirmRequestedAt;
-    }
+	public Long getMemberId() {
+		return memberId;
+	}
+
+	public int getPayment() {
+		return payment;
+	}
+
+	public Instant getSentAt() {
+		return sentAt;
+	}
+
+	public Instant getConfirmedAt() {
+		return confirmedAt;
+	}
+
+	public int getRequestCount() {
+		return requestCount;
+	}
 }

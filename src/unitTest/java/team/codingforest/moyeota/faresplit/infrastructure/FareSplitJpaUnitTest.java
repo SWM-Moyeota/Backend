@@ -20,6 +20,7 @@ import team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus;
 import team.codingforest.moyeota.faresplit.domain.FareSplitTransfer;
 
 import java.sql.SQLException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -35,6 +36,7 @@ import static org.mockito.Mockito.verify;
 /**
  *  정산 INSERT 가 실패했을 때 중복 키(같은 방에 이미 있는 정산)만 DuplicateKeyException 으로 바꾸고, 다른 무결성 위반은 그대로 올리는지 본다.
  *  돌려주는 정산의 송금은 담긴 순서와 상관없이 userId 순인지도 본다 - 방 합류 순은 서비스가 응답을 만들 때 맞춘다(FareSplitServiceUnitTest).
+ *  송금 재요청 대상은 요청 횟수마다 저장소를 불러 합치는지 본다 - 쿼리 자체는 FareSplitJpaPersistenceTest 가 본다.
  *  실제 DB 의 중복 키는 FareSplitJpaPersistenceTest(H2)·FareSplitPostgresTest 가 본다
  */
 @ExtendWith(MockitoExtension.class)
@@ -117,7 +119,7 @@ class FareSplitJpaUnitTest {
         assertThat(thrown).isSameAs(violation);
     }
 
-    @DisplayName("create / findByPartyId / findByPartyIdForUpdate - 송금을 담긴 순서(userId 역순)와 상관없이 userId 순으로 돌려준다")
+    @DisplayName("create / findByPartyId / findByPartyIdForUpdate - 받는 사람의 줄을 포함한 송금을 담긴 순서(userId 역순)와 상관없이 userId 순으로 돌려준다")
     @Test
     void transfersInUserIdOrder() {
 
@@ -138,14 +140,36 @@ class FareSplitJpaUnitTest {
         /*
          * verify
          */
-        assertThat(created.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(2L, 3L);
-        assertThat(found.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(2L, 3L);
-        assertThat(locked.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(2L, 3L);
+        assertThat(created.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(1L, 2L, 3L);
+        assertThat(found.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(1L, 2L, 3L);
+        assertThat(locked.getTransfers()).extracting(FareSplitTransfer::getMemberId).containsExactly(1L, 2L, 3L);
     }
 
-    /** 보내는 사람을 userId 역순(3 → 2)으로 담았다 */
+    @DisplayName("findTransferRequestTargets - 지금 시각·요청 상한(6)·재요청 간격(4시간)을 넘겨 한 번에 찾는다")
+    @Test
+    void findTransferRequestTargets() {
+
+        /*
+         * settings
+         */
+        Instant now = Instant.parse("2026-11-05T03:00:00Z");
+        doReturn(List.of(5L, 10L)).when(repository).findTransferRequestTargetIds(now, 6, Duration.ofHours(4).toSeconds());
+
+        /*
+         * test
+         */
+        List<Long> targets = fareSplits.findTransferRequestTargets(now);
+
+        /*
+         * verify
+         */
+        assertThat(targets).containsExactly(5L, 10L);
+    }
+
+    /** 받는 사람(1, 이미 낸 것이라 CONFIRMED·요청 횟수 0)과 보내는 사람의 줄을 userId 역순(3 → 2 → 1)으로 담았다 */
     private static FareSplit split() {
-        return FareSplit.load(PARTY_ID, 1L, 18_700, 6_240, Bank.KAKAO, new AccountNumber("3333012345678"), FareSplitStatus.OPEN, CREATED_AT, null,
-                List.of(FareSplitTransfer.load(3L, null, null, CREATED_AT, null), FareSplitTransfer.load(2L, null, null, CREATED_AT, null)));
+        return FareSplit.load(PARTY_ID, 1L, 18_700, Bank.KAKAO, new AccountNumber("3333012345678"), FareSplitStatus.OPEN, CREATED_AT, null,
+                List.of(FareSplitTransfer.load(3L, 6_240, null, null, 1), FareSplitTransfer.load(2L, 6_240, null, null, 1),
+                        FareSplitTransfer.load(1L, 6_220, CREATED_AT, CREATED_AT, 0)));
     }
 }

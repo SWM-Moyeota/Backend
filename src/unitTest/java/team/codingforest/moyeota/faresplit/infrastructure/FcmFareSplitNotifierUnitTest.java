@@ -15,10 +15,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import team.codingforest.moyeota.faresplit.domain.FarePayment;
 import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -27,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -36,6 +40,7 @@ class FcmFareSplitNotifierUnitTest {
     private static final Long PAYER_ID = 1L;
     private static final Long SENDER_ID = 2L;
     private static final Long OTHER_SENDER_ID = 3L;
+    private static final Long THIRD_SENDER_ID = 4L;
     private static final List<Long> SENDER_IDS = List.of(SENDER_ID, OTHER_SENDER_ID);
 
     @Mock
@@ -49,14 +54,14 @@ class FcmFareSplitNotifierUnitTest {
 
     // ───────────────────────── requestTransfer ─────────────────────────
 
-    @DisplayName("requestTransfer - iOS 에 금액(천 단위 쉼표)을 넣은 제목·내용과 묶음 값을 보낸다")
+    @DisplayName("requestTransfer - 금액이 모두 같으면 한 번에 묶어 iOS 에 금액(천 단위 쉼표)을 넣은 제목·내용과 묶음 값을 보낸다")
     @Test
     void requestTransfer_apns() throws IOException {
 
         /*
          * test
          */
-        DocumentContext payload = send(SENDER_IDS, n -> n.requestTransfer(PARTY_ID, SENDER_IDS, 6_240));
+        DocumentContext payload = send(SENDER_IDS, n -> n.requestTransfer(PARTY_ID, payments(SENDER_ID, 6_240, OTHER_SENDER_ID, 6_240)));
 
         /*
          * verify
@@ -71,12 +76,63 @@ class FcmFareSplitNotifierUnitTest {
         /*
          * test
          */
-        DocumentContext payload = send(SENDER_IDS, n -> n.requestTransfer(PARTY_ID, SENDER_IDS, 6_240));
+        DocumentContext payload = send(SENDER_IDS, n -> n.requestTransfer(PARTY_ID, payments(SENDER_ID, 6_240, OTHER_SENDER_ID, 6_240)));
 
         /*
          * verify
          */
         assertAndroidAndData(payload, Map.of("type", "FARE_SPLIT_REQUEST", "partyId", "123456", "amount", "6240"));
+    }
+
+    @DisplayName("requestTransfer - 금액이 다르면 금액마다 한 번씩(금액 오름차순) 그 금액을 보낼 사람의 토큰으로 나가고, data 의 amount 와 iOS 본문 금액이 각자 금액이다")
+    @Test
+    void requestTransfer_differentAmounts() throws IOException {
+
+        /*
+         * settings
+         */
+        List<FarePayment> payments = List.of(new FarePayment(SENDER_ID, 7_000), new FarePayment(OTHER_SENDER_ID, 5_000), new FarePayment(THIRD_SENDER_ID, 7_000));
+
+        /*
+         * test
+         */
+        List<List<DocumentContext>> multicasts = sendByAmount(2, n -> n.requestTransfer(PARTY_ID, payments));
+
+        /*
+         * verify
+         */
+        List<DocumentContext> smaller = multicasts.get(0);
+        assertThat(smaller).extracting(message -> message.<String>read("$.token")).containsExactly("token-3");
+        assertApns(smaller.get(0), "723456", "택시비를 나눠 내요", "5,000원을 보내 주세요. 받을 계좌는 앱에서 볼 수 있어요.");
+        assertAndroidAndData(smaller.get(0), Map.of("type", "FARE_SPLIT_REQUEST", "partyId", "123456", "amount", "5000"));
+
+        List<DocumentContext> larger = multicasts.get(1);
+        assertThat(larger).extracting(message -> message.<String>read("$.token")).containsExactly("token-2", "token-4");
+        assertThat(larger).allSatisfy(message -> {
+            assertApns(message, "723456", "택시비를 나눠 내요", "7,000원을 보내 주세요. 받을 계좌는 앱에서 볼 수 있어요.");
+            assertAndroidAndData(message, Map.of("type", "FARE_SPLIT_REQUEST", "partyId", "123456", "amount", "7000"));
+        });
+    }
+
+    @DisplayName("requestTransfer - 한 금액의 사람들에게 FCM 토큰이 없어도 다른 금액의 사람들에게는 보낸다")
+    @Test
+    void requestTransfer_differentAmounts_someWithoutTokens() throws IOException {
+
+        /*
+         * settings
+         */
+        given(userAccess.findFcmTokens(List.of(OTHER_SENDER_ID))).willReturn(Map.of());
+
+        /*
+         * test
+         */
+        DocumentContext payload = send(List.of(SENDER_ID), n -> n.requestTransfer(PARTY_ID, payments(SENDER_ID, 7_000, OTHER_SENDER_ID, 5_000)));
+
+        /*
+         * verify
+         */
+        assertThat(payload.<String>read("$.token")).isEqualTo("token-2");
+        assertAndroidAndData(payload, Map.of("type", "FARE_SPLIT_REQUEST", "partyId", "123456", "amount", "7000"));
     }
 
     // ───────────────────────── remindTransfer ─────────────────────────
@@ -88,7 +144,7 @@ class FcmFareSplitNotifierUnitTest {
         /*
          * test
          */
-        DocumentContext payload = send(SENDER_IDS, n -> n.remindTransfer(PARTY_ID, SENDER_IDS, 12_000));
+        DocumentContext payload = send(SENDER_IDS, n -> n.remindTransfer(PARTY_ID, payments(SENDER_ID, 12_000, OTHER_SENDER_ID, 12_000)));
 
         /*
          * verify
@@ -103,12 +159,35 @@ class FcmFareSplitNotifierUnitTest {
         /*
          * test
          */
-        DocumentContext payload = send(SENDER_IDS, n -> n.remindTransfer(PARTY_ID, SENDER_IDS, 12_000));
+        DocumentContext payload = send(SENDER_IDS, n -> n.remindTransfer(PARTY_ID, payments(SENDER_ID, 12_000, OTHER_SENDER_ID, 12_000)));
 
         /*
          * verify
          */
         assertAndroidAndData(payload, Map.of("type", "FARE_SPLIT_REMINDER", "partyId", "123456", "amount", "12000"));
+    }
+
+    @DisplayName("remindTransfer - 금액이 다르면 금액마다 한 번씩(금액 오름차순) 그 금액을 보낼 사람의 토큰으로 나가고, data 의 amount 와 iOS 본문 금액이 각자 금액이다")
+    @Test
+    void remindTransfer_differentAmounts() throws IOException {
+
+        /*
+         * test
+         */
+        List<List<DocumentContext>> multicasts = sendByAmount(2, n -> n.remindTransfer(PARTY_ID, payments(SENDER_ID, 12_000, OTHER_SENDER_ID, 800)));
+
+        /*
+         * verify
+         */
+        List<DocumentContext> smaller = multicasts.get(0);
+        assertThat(smaller).extracting(message -> message.<String>read("$.token")).containsExactly("token-3");
+        assertApns(smaller.get(0), "723456", "택시비를 아직 보내지 않았어요", "800원을 보낸 뒤 보냈어요를 눌러 주세요.");
+        assertAndroidAndData(smaller.get(0), Map.of("type", "FARE_SPLIT_REMINDER", "partyId", "123456", "amount", "800"));
+
+        List<DocumentContext> larger = multicasts.get(1);
+        assertThat(larger).extracting(message -> message.<String>read("$.token")).containsExactly("token-2");
+        assertApns(larger.get(0), "723456", "택시비를 아직 보내지 않았어요", "12,000원을 보낸 뒤 보냈어요를 눌러 주세요.");
+        assertAndroidAndData(larger.get(0), Map.of("type", "FARE_SPLIT_REMINDER", "partyId", "123456", "amount", "12000"));
     }
 
     // ───────────────────────── requestConfirm ─────────────────────────
@@ -126,7 +205,7 @@ class FcmFareSplitNotifierUnitTest {
          * verify
          */
         assertApns(payload, "823456", "택시비가 들어왔는지 확인해 주세요",
-                "보냈다는 송금이 아직 확인을 기다리고 있어요. 입금을 확인했다면 받았어요를 눌러 주세요.");
+                "동승자가 택시비를 보냈다고 했어요. 입금을 확인했다면 받았어요를 눌러 주세요.");
         assertAndroidAndData(payload, Map.of("type", "FARE_SPLIT_CONFIRM_REQUEST", "partyId", "123456"));
     }
 
@@ -176,7 +255,7 @@ class FcmFareSplitNotifierUnitTest {
         /*
          * test
          */
-        DocumentContext payload = send(SENDER_IDS, n -> n.requestTransfer(7L, SENDER_IDS, 6_240));
+        DocumentContext payload = send(SENDER_IDS, n -> n.requestTransfer(7L, payments(SENDER_ID, 6_240, OTHER_SENDER_ID, 6_240)));
 
         /*
          * verify
@@ -220,6 +299,11 @@ class FcmFareSplitNotifierUnitTest {
         assertThat(payload.<Map<String, String>>read("$.data")).containsExactlyInAnyOrderEntriesOf(data);
     }
 
+    /** 보내는 사람마다 보낼 금액. 넘긴 순서 그대로다(같은 금액끼리 묶일 때 이 순서로 묶인다) */
+    private static List<FarePayment> payments(Long senderId, int amount, Long otherSenderId, int otherAmount) {
+        return List.of(new FarePayment(senderId, amount), new FarePayment(otherSenderId, otherAmount));
+    }
+
     /** 실제 전송되는 FCM JSON 으로 검증한다 - MulticastMessage 는 값을 꺼내는 공개 메서드가 없다. 받는 사람 수만큼 메시지가 나간다 */
     private DocumentContext send(List<Long> recipientIds, Consumer<FcmFareSplitNotifier> call) throws IOException {
         Map<Long, String> tokens = new HashMap<>();
@@ -235,5 +319,33 @@ class FcmFareSplitNotifierUnitTest {
         List<?> messages = ReflectionTestUtils.invokeMethod(captor.getValue(), "getMessageList");
         assertThat(messages).hasSize(recipientIds.size());
         return JsonPath.parse(GsonFactory.getDefaultInstance().toString(messages.get(0)));
+    }
+
+    /** 금액이 달라 여러 번 나가는 multicast 를 보낸 순서대로 돌려준다 - multicast 마다 받는 사람(토큰)별 메시지 JSON. 조회한 사람은 모두 토큰이 있다 */
+    private List<List<DocumentContext>> sendByAmount(int multicastCount, Consumer<FcmFareSplitNotifier> call) throws IOException {
+        given(userAccess.findFcmTokens(any())).willAnswer(invocation -> {
+            List<Long> recipientIds = invocation.getArgument(0);
+            Map<Long, String> tokens = new LinkedHashMap<>();
+            recipientIds.forEach(id -> tokens.put(id, "token-" + id));
+
+            return tokens;
+        });
+        given(firebaseMessaging.sendEachForMulticastAsync(any(MulticastMessage.class)))
+                .willReturn(ApiFutures.immediateFuture(mock(BatchResponse.class)));
+
+        call.accept(notifier);
+
+        ArgumentCaptor<MulticastMessage> captor = ArgumentCaptor.forClass(MulticastMessage.class);
+        verify(firebaseMessaging, times(multicastCount)).sendEachForMulticastAsync(captor.capture());
+
+        List<List<DocumentContext>> multicasts = new ArrayList<>();
+        for(MulticastMessage multicast : captor.getAllValues()) {
+            List<?> messages = ReflectionTestUtils.invokeMethod(multicast, "getMessageList");
+            List<DocumentContext> payloads = new ArrayList<>();
+            for(Object message : messages) payloads.add(JsonPath.parse(GsonFactory.getDefaultInstance().toString(message)));
+            multicasts.add(payloads);
+        }
+
+        return multicasts;
     }
 }

@@ -42,14 +42,10 @@ public class FareSplitEntity extends BaseTimeEntity {
     @Column(name = "total_fare", nullable = false)
     private int totalFare;
 
-    @Column(name = "amount_per_person", nullable = false)
-    private int amountPerPerson;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "bank_code", nullable = false, length = 20)
     private Bank bankCode;
 
-    // 계좌번호는 암호화하여 저장
     @Convert(converter = EncryptedStringConverter.class)
     @Column(name = "account_number")
     private String accountNumber;
@@ -64,12 +60,11 @@ public class FareSplitEntity extends BaseTimeEntity {
     @OneToMany(mappedBy = "fareSplit", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<FareSplitTransferEntity> transfers = new ArrayList<>();
 
-    private FareSplitEntity(Long partyId, Long payerId, int totalFare, int amountPerPerson, Bank bankCode, String accountNumber,
+    private FareSplitEntity(Long partyId, Long payerId, int totalFare, Bank bankCode, String accountNumber,
                             FareSplitStatus status, Instant closedAt) {
         this.partyId = partyId;
         this.payerId = payerId;
         this.totalFare = totalFare;
-        this.amountPerPerson = amountPerPerson;
         this.bankCode = bankCode;
         this.accountNumber = accountNumber;
         this.status = status;
@@ -78,7 +73,7 @@ public class FareSplitEntity extends BaseTimeEntity {
 
     public static FareSplitEntity from(FareSplit split) {
         AccountNumber account = split.getAccountNumber();
-        FareSplitEntity entity = new FareSplitEntity(split.getPartyId(), split.getPayerId(), split.getTotalFare(), split.getAmountPerPerson(),
+        FareSplitEntity entity = new FareSplitEntity(split.getPartyId(), split.getPayerId(), split.getTotalFare(),
                 split.getBank(), account == null ? null : account.value(), split.getStatus(), split.getClosedAt());
 
         for(FareSplitTransfer transfer : split.getTransfers()) {
@@ -88,11 +83,9 @@ public class FareSplitEntity extends BaseTimeEntity {
         return entity;
     }
 
-    // 변경될 수 있는 값들 계좌번호, 총 금액 등
     void update(FareSplit split) {
         AccountNumber account = split.getAccountNumber();
         this.totalFare = split.getTotalFare();
-        this.amountPerPerson = split.getAmountPerPerson();
         this.bankCode = split.getBank();
         this.accountNumber = account == null ? null : account.value();
         this.status = split.getStatus();
@@ -103,14 +96,13 @@ public class FareSplitEntity extends BaseTimeEntity {
         }
     }
 
-    // userId 순으로 정렬
     public FareSplit toDomain() {
         List<FareSplitTransfer> ordered = transfers.stream()
                 .sorted(Comparator.comparing(FareSplitTransferEntity::getMemberId))
                 .map(FareSplitTransferEntity::toDomain)
                 .toList();
 
-        return FareSplit.load(partyId, payerId, totalFare, amountPerPerson, bankCode,
+        return FareSplit.load(partyId, payerId, totalFare, bankCode,
                 accountNumber == null ? null : new AccountNumber(accountNumber), status, getCreatedAt(), closedAt, ordered);
     }
 }

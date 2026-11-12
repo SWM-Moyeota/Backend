@@ -16,12 +16,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
+import team.codingforest.moyeota.faresplit.domain.FarePayment;
 import team.codingforest.moyeota.faresplit.domain.FareSplitNotifier;
 import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -33,13 +36,13 @@ public class FcmFareSplitNotifier implements FareSplitNotifier {
     private final UserAccess userAccess;
 
     @Override
-    public void requestTransfer(Long partyId, List<Long> senderIds, int amount) {
-        send(Push.REQUEST, partyId, senderIds, amount);
+    public void requestTransfer(Long partyId, List<FarePayment> payments) {
+        sendByAmount(Push.REQUEST, partyId, payments);
     }
 
     @Override
-    public void remindTransfer(Long partyId, List<Long> senderIds, int amount) {
-        send(Push.REMINDER, partyId, senderIds, amount);
+    public void remindTransfer(Long partyId, List<FarePayment> payments) {
+        sendByAmount(Push.REMINDER, partyId, payments);
     }
 
     @Override
@@ -55,6 +58,14 @@ public class FcmFareSplitNotifier implements FareSplitNotifier {
     @Override
     public void notifyCompleted(Long partyId, List<Long> participantIds) {
         send(Push.COMPLETED, partyId, participantIds, null);
+    }
+
+    // 알림 문구에 보낼 금액이 들어가 금액이 같은 사람끼리 묶어 보낸다
+    private void sendByAmount(Push push, Long partyId, List<FarePayment> payments) {
+        Map<Integer, List<Long>> recipientIdsByAmount = payments.stream()
+                .collect(Collectors.groupingBy(FarePayment::amount, TreeMap::new, Collectors.mapping(FarePayment::memberId, Collectors.toList())));
+
+        recipientIdsByAmount.forEach((amount, recipientIds) -> send(push, partyId, recipientIds, amount));
     }
 
     /** amount 는 금액을 싣는 알림(송금 요청·재요청)만 넘긴다 - Android 는 data 만 받아 앱이 문구를 만든다 */
@@ -113,7 +124,7 @@ public class FcmFareSplitNotifier implements FareSplitNotifier {
     private enum Push {
         REQUEST("FARE_SPLIT_REQUEST", "택시비를 나눠 내요", "%s을 보내 주세요. 받을 계좌는 앱에서 볼 수 있어요.", 700_000, "택시비 송금 요청"),
         REMINDER("FARE_SPLIT_REMINDER", "택시비를 아직 보내지 않았어요", "%s을 보낸 뒤 보냈어요를 눌러 주세요.", 700_000, "택시비 송금 재요청"),
-        CONFIRM_REQUEST("FARE_SPLIT_CONFIRM_REQUEST", "택시비가 들어왔는지 확인해 주세요", "보냈다는 송금이 아직 확인을 기다리고 있어요. 입금을 확인했다면 받았어요를 눌러 주세요.", 800_000, "입금 확인 요청"),
+        CONFIRM_REQUEST("FARE_SPLIT_CONFIRM_REQUEST", "택시비가 들어왔는지 확인해 주세요", "동승자가 택시비를 보냈다고 했어요. 입금을 확인했다면 받았어요를 눌러 주세요.", 800_000, "입금 확인 요청"),
         NOT_RECEIVED("FARE_SPLIT_NOT_RECEIVED", "택시비가 아직 들어오지 않았대요", "받을 계좌와 금액을 확인하고 다시 보내 주세요.", 900_000, "못 받음 알림"),
         COMPLETED("FARE_SPLIT_COMPLETED", "택시비 정산이 끝났어요", "모든 송금이 확인됐어요.", 1_000_000, "정산 완료 알림");
 

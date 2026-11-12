@@ -17,14 +17,14 @@ public record MyFareSplitListResponse(@Schema(description = "내가 보내는 �
                                   @Schema(description = "출발지 이름") String departure,
                                   @Schema(description = "도착지 이름") String destination,
                                   @Schema(description = "택시비를 다 내고 받는 사람") FareSplitPayer payer,
-                                  @Schema(description = "내가 보낼 금액(원) = 1인당 금액", example = "6240") int myAmount,
+                                  @Schema(description = "내가 보낼 금액(원)", example = "6240") int myAmount,
                                   @Schema(description = "내 송금 상태") TransferStatus status,
                                   @Schema(description = "정산을 시작한 시각") Instant createdAt) {
 
         static MyFareSplitItem of(OpenTransfer transfer, PartyPlaces places, MemberSummary payer) {
             return new MyFareSplitItem(transfer.partyId(), places == null ? null : places.departure(), places == null ? null : places.destination(),
                     new FareSplitPayer(payer == null ? null : payer.publicId(), payer == null ? null : payer.nickname()),
-                    transfer.amountPerPerson(), transfer.status(), transfer.createdAt());
+                    transfer.payment(), transfer.status(), transfer.createdAt());
         }
     }
 

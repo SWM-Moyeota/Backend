@@ -8,6 +8,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import team.codingforest.moyeota.faresplit.FareSplitService;
 import team.codingforest.moyeota.faresplit.domain.enums.Bank;
+import team.codingforest.moyeota.faresplit.dto.FareSplitRequest;
 import team.codingforest.moyeota.matching.party.PartyService;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
@@ -31,6 +32,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,8 +53,8 @@ class RideRecordQueryPostgresTest {
     private final Long 나 = ThreadLocalRandom.current().nextLong(1_000_000_000L, 2_000_000_000L);
     private final Long 동승자 = 나 + 1;
     private final Long 남 = 나 + 2;
-    private final Long 넷째 = 나 + 3;
     private final List<Long> created = new ArrayList<>();
+    private final List<Long> users = new ArrayList<>();
 
     @AfterEach
     void tearDown() {
@@ -63,6 +65,7 @@ class RideRecordQueryPostgresTest {
             jdbc.update("DELETE FROM user_match_room WHERE match_id = ?", id);
             jdbc.update("DELETE FROM match_room WHERE id = ?", id);
         });
+        users.forEach(id -> jdbc.update("DELETE FROM users WHERE id = ?", id));
     }
 
     @Test
@@ -130,44 +133,34 @@ class RideRecordQueryPostgresTest {
         Instant 기준 = Instant.now().truncatedTo(ChronoUnit.MICROS);
         Instant 합류 = 기준.minusSeconds(3600);
         Instant 도착 = 합류.plusSeconds(600);
-        // 남은 도착을 누르지 않아 탑승자가 아니다 - 기록에도 정산에도 없다
-        Long 정산방 = saveRide(기준, List.of(PartyMember.load(동승자, 합류, 도착), PartyMember.load(나, 합류.plusSeconds(1), 도착),
-                PartyMember.load(넷째, 합류.plusSeconds(2), 도착), PartyMember.load(남, 합류.plusSeconds(3), null)));
-        Long 정산없는방 = saveRide(기준.minusSeconds(60), 나, 동승자);
-        fareSplitService.create(정산방, 나, 18_700, Bank.KB, "3333-01-2345678");
+        // 정산 시작 요청은 받는 사람(방장)을 포함한 탑승자를 publicId 로 가리킨다 - 탑승자 셋은 실제 users 행으로 만든다
+        Long 받는사람 = newUser();
+        Long 보내는사람 = newUser();
+        Long 적게보내는사람 = newUser();
+        // 정산은 방장만 시작한다 - 가장 먼저 합류한 받는 사람이 방장이다. 남은 도착을 누르지 않아 탑승자가 아니다 - 기록에도 정산에도 없다
+        Long 정산방 = saveRide(기준, List.of(PartyMember.load(받는사람, 합류, 도착), PartyMember.load(보내는사람, 합류.plusSeconds(1), 도착),
+                PartyMember.load(적게보내는사람, 합류.plusSeconds(2), 도착), PartyMember.load(남, 합류.plusSeconds(3), null)));
+        Long 정산없는방 = saveRide(기준.minusSeconds(60), 받는사람, 동승자);
+        fareSplitService.create(정산방, 받는사람, new FareSplitRequest(18_700, Bank.KB, "3333-01-2345678",
+                List.of(new FareSplitRequest.Payment(publicIdOf(받는사람), 7_460), new FareSplitRequest.Payment(publicIdOf(보내는사람), 6_240),
+                        new FareSplitRequest.Payment(publicIdOf(적게보내는사람), 5_000))));
 
-        assertThat(rideOf(나, 정산방).totalFare()).isEqualTo(18_700);
-        assertThat(rideOf(나, 정산방).farePerPerson()).as("받는 사람 몫 = 18,700 - 6,240 × 2").isEqualTo(6_220);
-        assertThat(rideOf(동승자, 정산방).totalFare()).isEqualTo(18_700);
-        assertThat(rideOf(동승자, 정산방).farePerPerson()).as("보내는 사람 몫 = 1인당 금액").isEqualTo(6_240);
-        assertThat(rideOf(넷째, 정산방).farePerPerson()).isEqualTo(6_240);
+        assertThat(rideOf(받는사람, 정산방).totalFare()).isEqualTo(18_700);
+        assertThat(rideOf(받는사람, 정산방).farePerPerson()).as("받는 사람 몫 = 받는 사람(방장) 줄의 부담 금액").isEqualTo(7_460);
+        assertThat(rideOf(보내는사람, 정산방).totalFare()).isEqualTo(18_700);
+        assertThat(rideOf(보내는사람, 정산방).farePerPerson()).as("보내는 사람 몫 = 자기 줄의 부담 금액").isEqualTo(6_240);
+        assertThat(rideOf(적게보내는사람, 정산방).farePerPerson()).isEqualTo(5_000);
         assertThat(rideRecordService.findMyRides(남, null, 20).rides()).as("도착하지 않은 멤버에게는 기록이 없다").isEmpty();
-        assertThat(rideOf(나, 정산없는방).totalFare()).isNull();
-        assertThat(rideOf(나, 정산없는방).farePerPerson()).isNull();
+        assertThat(rideOf(받는사람, 정산없는방).totalFare()).isNull();
+        assertThat(rideOf(받는사람, 정산없는방).farePerPerson()).isNull();
 
         // 닫힌 정산은 계좌번호가 지워져도 금액은 남는다
         jdbc.update("UPDATE fare_split SET status = 'COMPLETED', account_number = NULL, closed_at = now() WHERE match_id = ?", 정산방);
 
-        assertThat(rideOf(나, 정산방).totalFare()).isEqualTo(18_700);
-        assertThat(rideOf(나, 정산방).farePerPerson()).isEqualTo(6_220);
-        assertThat(rideOf(동승자, 정산방).farePerPerson()).isEqualTo(6_240);
-    }
-
-    @Test
-    void 택시비_정산을_취소하면_탑승_기록의_요금이_다시_null_이다() {
-        Instant 기준 = Instant.now().truncatedTo(ChronoUnit.MICROS);
-        Instant 합류 = 기준.minusSeconds(3600);
-        Long 정산방 = saveRide(기준, List.of(PartyMember.load(나, 합류, 합류.plusSeconds(600)),
-                PartyMember.load(동승자, 합류.plusSeconds(1), 합류.plusSeconds(600))));
-        fareSplitService.create(정산방, 나, 10_001, Bank.KAKAO, "3333-01-2345678");
-        assertThat(rideOf(동승자, 정산방).farePerPerson()).isEqualTo(5_010);
-
-        fareSplitService.cancel(정산방, 나);
-
-        assertThat(rideOf(나, 정산방).totalFare()).isNull();
-        assertThat(rideOf(나, 정산방).farePerPerson()).isNull();
-        assertThat(rideOf(동승자, 정산방).totalFare()).isNull();
-        assertThat(rideOf(동승자, 정산방).farePerPerson()).isNull();
+        assertThat(rideOf(받는사람, 정산방).totalFare()).isEqualTo(18_700);
+        assertThat(rideOf(받는사람, 정산방).farePerPerson()).isEqualTo(7_460);
+        assertThat(rideOf(보내는사람, 정산방).farePerPerson()).isEqualTo(6_240);
+        assertThat(rideOf(적게보내는사람, 정산방).farePerPerson()).isEqualTo(5_000);
     }
 
     @Test
@@ -237,5 +230,17 @@ class RideRecordQueryPostgresTest {
     private Long track(Long partyId) {
         created.add(partyId);
         return partyId;
+    }
+
+    /** 정산 시작 요청이 publicId 로 가리킬 실제 users 행 */
+    private Long newUser() {
+        Long id = jdbc.queryForObject("INSERT INTO users (public_id, login_type, created_at) VALUES (?, 'LOCAL', now()) RETURNING id",
+                Long.class, UUID.randomUUID());
+        users.add(id);
+        return id;
+    }
+
+    private UUID publicIdOf(Long userId) {
+        return jdbc.queryForObject("SELECT public_id FROM users WHERE id = ?", UUID.class, userId);
     }
 }

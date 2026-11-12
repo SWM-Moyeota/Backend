@@ -18,8 +18,8 @@ public record RideRecordResponse(@Schema(description = "탑승 기록. 승차 �
                                   @Schema(description = "출발지 이름(탑승 당시 방의 출발지)") String departure,
                                   @Schema(description = "도착지 이름(탑승 당시 방의 도착지)") String destination,
                                   @Schema(description = "승차 시각 - 방장이 출발을 누른 시각. 아무도 출발을 누르지 않아 서버가 자동 정리한 방은 약속 시각") Instant pickupTime,
-                                  @Schema(description = "실제 택시비(원) - 이 방의 택시비 정산에 받는 사람이 넣은 금액. 정산이 없거나(취소 포함) 내가 정산의 받는 사람·보내는 사람이 아니면 null") Integer totalFare,
-                                  @Schema(description = "내 부담 금액(원). 보내는 사람은 1인당 보낼 금액(10원 단위 올림), 받는 사람은 택시비에서 다른 사람들이 보낼 금액을 뺀 금액. totalFare 가 null 이면 null") Integer farePerPerson,
+                                  @Schema(description = "실제 택시비(원) - 이 방의 택시비 정산에 받는 사람이 넣은 금액. 정산이 없거나 내가 정산의 받는 사람·보내는 사람이 아니면 null") Integer totalFare,
+                                  @Schema(description = "내 부담 금액(원). 보내는 사람은 받는 사람이 정한 내가 보낼 금액, 받는 사람은 택시비에서 다른 사람들이 보낼 금액을 뺀 금액. totalFare 가 null 이면 null") Integer farePerPerson,
                                   @Schema(description = "방이 끝날 때의 인원(나 포함)") int currentMembers,
                                   @Schema(description = "방이 끝날 때의 멤버(나 포함, 합류 순). 본인 판별은 publicId 와 토큰 sub 비교") List<RideRecordMember> members) {
 

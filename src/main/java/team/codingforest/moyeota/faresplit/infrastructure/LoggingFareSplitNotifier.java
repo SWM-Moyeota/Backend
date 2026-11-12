@@ -2,23 +2,23 @@ package team.codingforest.moyeota.faresplit.infrastructure;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import team.codingforest.moyeota.faresplit.domain.FarePayment;
 import team.codingforest.moyeota.faresplit.domain.FareSplitNotifier;
 
 import java.util.List;
 
-// 부하 테스트 대체 구현
 @Slf4j
 @Component
 public class LoggingFareSplitNotifier implements FareSplitNotifier {
 
     @Override
-    public void requestTransfer(Long partyId, List<Long> senderIds, int amount) {
-        log.info("[택시비 송금 요청] partyId={}, 받는 사람={}명, amount={}", partyId, senderIds.size(), amount);
+    public void requestTransfer(Long partyId, List<FarePayment> payments) {
+        log.info("[택시비 송금 요청] partyId={}, 받는 사람={}명", partyId, payments.size());
     }
 
     @Override
-    public void remindTransfer(Long partyId, List<Long> senderIds, int amount) {
-        log.info("[택시비 송금 재요청] partyId={}, 받는 사람={}명, amount={}", partyId, senderIds.size(), amount);
+    public void remindTransfer(Long partyId, List<FarePayment> payments) {
+        log.info("[택시비 송금 재요청] partyId={}, 받는 사람={}명", partyId, payments.size());
     }
 
     @Override
