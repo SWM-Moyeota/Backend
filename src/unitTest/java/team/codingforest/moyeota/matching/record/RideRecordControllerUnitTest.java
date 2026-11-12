@@ -67,7 +67,7 @@ class RideRecordControllerUnitTest extends ControllerUnitTestSupport {
          * settings
          */
         RideRecordResponse.RideRecordItem item = new RideRecordResponse.RideRecordItem(30L, "강남역", "판교역",
-                null, Instant.parse("2026-10-01T00:30:00Z"), null, null, 2,
+                Instant.parse("2026-10-01T00:30:00Z"), null, null, 2,
                 List.of(new RideRecordResponse.RideRecordMember(PUBLIC_ID, "나", "me.png"),
                         new RideRecordResponse.RideRecordMember(null, null, null)));
 
@@ -88,8 +88,7 @@ class RideRecordControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.rides[0].partyId").value(30))
                 .andExpect(jsonPath("$.rides[0].departure").value("강남역"))
                 .andExpect(jsonPath("$.rides[0].destination").value("판교역"))
-                .andExpect(jsonPath("$.rides[0].pickupTime").value(nullValue()))
-                .andExpect(jsonPath("$.rides[0].dropoffTime").value("2026-10-01T00:30:00Z"))
+                .andExpect(jsonPath("$.rides[0].pickupTime").value("2026-10-01T00:30:00Z"))
                 .andExpect(jsonPath("$.rides[0].totalFare").value(nullValue()))
                 .andExpect(jsonPath("$.rides[0].farePerPerson").value(nullValue()))
                 .andExpect(jsonPath("$.rides[0].currentMembers").value(2))
@@ -103,7 +102,7 @@ class RideRecordControllerUnitTest extends ControllerUnitTestSupport {
         verify(rideRecordService).findMyRides(eq(USER_ID), eq(50L), eq(10));
     }
 
-    @DisplayName("GET /api/v1/users/me/parties - 탑승 시각·요금 키는 값 없이 null 로 남는다")
+    @DisplayName("GET /api/v1/users/me/parties - 택시비 정산이 없는 방은 요금 키가 null 로 오고, 승차 시각은 pickupTime 으로 온다(옛 dropoffTime 키는 없다)")
     @Test
     void findMyRides_fareKeysKeptAsNull() throws Exception {
 
@@ -111,7 +110,7 @@ class RideRecordControllerUnitTest extends ControllerUnitTestSupport {
          * settings
          */
         RideRecordResponse.RideRecordItem item = new RideRecordResponse.RideRecordItem(30L, "강남역", "판교역",
-                null, Instant.parse("2026-10-01T00:30:00Z"), null, null, 0, List.of());
+                Instant.parse("2026-10-01T00:30:00Z"), null, null, 0, List.of());
 
         doReturn(new RideRecordResponse(List.of(item), null, false)).when(rideRecordService).findMyRides(eq(USER_ID), isNull(), eq(20));
 
@@ -124,14 +123,38 @@ class RideRecordControllerUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isOk())
-                // 출시된 앱이 읽는 키라 값이 없어도 키는 남아야 한다 - 둘 다 null 이면 앱이 요금 줄을 숨긴다
-                .andExpect(jsonPath("$.rides[0]", hasKey("pickupTime")))
+                // 요금 두 키는 값이 없어도 null 로 온다 - 둘 다 null 이면 앱이 요금 줄을 숨긴다
                 .andExpect(jsonPath("$.rides[0]", hasKey("totalFare")))
                 .andExpect(jsonPath("$.rides[0]", hasKey("farePerPerson")))
-                .andExpect(jsonPath("$.rides[0].pickupTime").value(nullValue()))
+                .andExpect(jsonPath("$.rides[0].dropoffTime").doesNotExist())
                 .andExpect(jsonPath("$.rides[0].totalFare").value(nullValue()))
                 .andExpect(jsonPath("$.rides[0].farePerPerson").value(nullValue()))
-                .andExpect(jsonPath("$.rides[0].dropoffTime").value("2026-10-01T00:30:00Z"));
+                .andExpect(jsonPath("$.rides[0].pickupTime").value("2026-10-01T00:30:00Z"));
+    }
+
+    @DisplayName("GET /api/v1/users/me/parties - 택시비 정산이 있는 방은 totalFare·farePerPerson 을 원 단위 정수로 내려준다")
+    @Test
+    void findMyRides_fareFilled() throws Exception {
+
+        /*
+         * settings
+         */
+        RideRecordResponse.RideRecordItem item = new RideRecordResponse.RideRecordItem(30L, "강남역", "판교역",
+                Instant.parse("2026-10-01T00:30:00Z"), 18_700, 6_240, 3, List.of());
+
+        doReturn(new RideRecordResponse(List.of(item), null, false)).when(rideRecordService).findMyRides(eq(USER_ID), isNull(), eq(20));
+
+        /*
+         * test
+         */
+        mockMvc.perform(get("/api/v1/users/me/parties").with(loginUser()))
+
+        /*
+         * verify
+         */
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rides[0].totalFare").value(18_700))
+                .andExpect(jsonPath("$.rides[0].farePerPerson").value(6_240));
     }
 
     @DisplayName("GET /api/v1/users/me/parties - cursor 와 size 가 빈 값이면 생략과 같게 처리한다")

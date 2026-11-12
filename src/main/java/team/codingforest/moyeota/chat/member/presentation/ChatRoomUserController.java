@@ -40,7 +40,7 @@ public class ChatRoomUserController {
             @CurrentUser UUID publicId,
             @PathVariable Long chatRoomId
     ) {
-        chatRoomUserService.join(new ChatRoomCommand(chatRoomId, userId, publicId));
+        chatRoomUserService.joinByUser(new ChatRoomCommand(chatRoomId, userId, publicId));
     }
 
     @DeleteMapping("/{chatRoomId}/users")

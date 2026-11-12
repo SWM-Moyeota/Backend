@@ -80,7 +80,7 @@ class CompletedPartySweeperUnitTest {
         verify(partyService).autoClose(eq(2L));
     }
 
-    @DisplayName("sweep - 한 방이 BusinessException 으로 거절돼도 나머지 방을 계속 정리한다")
+    @DisplayName("sweep - 한 방이 BusinessException(조회와 잠금 사이에 지워진 방)으로 실패해도 나머지 방을 계속 정리한다")
     @Test
     void sweep_continuesAfterBusinessException() {
 
@@ -88,8 +88,7 @@ class CompletedPartySweeperUnitTest {
          * settings
          */
         doReturn(List.of(1L, 2L, 3L)).when(parties).findAutoCloseTargets(any());
-        doThrow(new BusinessException(MatchingErrorCode.PARTY_CLOSED)).when(partyService).autoClose(eq(1L));
-        doThrow(new BusinessException(MatchingErrorCode.MEETING_NOT_STARTED)).when(partyService).autoClose(eq(2L));
+        doThrow(new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND)).when(partyService).autoClose(eq(1L));
 
         /*
          * test
@@ -99,6 +98,7 @@ class CompletedPartySweeperUnitTest {
         /*
          * verify
          */
+        verify(partyService).autoClose(eq(2L));
         verify(partyService).autoClose(eq(3L));
     }
 

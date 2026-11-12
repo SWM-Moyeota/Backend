@@ -2,7 +2,7 @@ package team.codingforest.moyeota.user.deletion.infrastructure;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
-import team.codingforest.moyeota.user.common.crypto.FieldHasher;
+import team.codingforest.moyeota.common.crypto.FieldHasher;
 import team.codingforest.moyeota.user.deletion.domain.UserDeletions;
 
 import java.time.Instant;

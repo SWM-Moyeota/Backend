@@ -11,13 +11,15 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import team.codingforest.moyeota.common.exception.GlobalExceptionHandler;
+import team.codingforest.moyeota.matching.api.RideFares;
 import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.matching.party.PartyJpaTest;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 import team.codingforest.moyeota.user.api.CurrentUser;
 import team.codingforest.moyeota.user.api.MemberSummary;
 
@@ -29,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.Mockito.mock;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -49,7 +52,7 @@ class RideRecordControllerTest {
         rideRecords = new FakeRideRecords(parties);
         users = new RideRecordServiceTest.StubUserAccess();
 
-        mvc = MockMvcBuilders.standaloneSetup(new RideRecordController(new RideRecordService(rideRecords, users)))
+        mvc = MockMvcBuilders.standaloneSetup(new RideRecordController(new RideRecordService(rideRecords, users, mock(RideFares.class))))
                 .setCustomArgumentResolvers(new StubCurrentUserResolver())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -67,10 +70,9 @@ class RideRecordControllerTest {
                 .andExpect(jsonPath("$.rides[0].partyId").value(partyId))
                 .andExpect(jsonPath("$.rides[0].departure").value("강남역"))
                 .andExpect(jsonPath("$.rides[0].destination").value("판교역"))
-                // 서버가 채우지 않는 키지만 출시 앱이 읽으므로 키는 남고 값은 null 이다
-                .andExpect(jsonPath("$.rides[0]", hasKey("pickupTime")))
-                .andExpect(jsonPath("$.rides[0].pickupTime").value(nullValue()))
-                .andExpect(jsonPath("$.rides[0].dropoffTime").value(기준.plusSeconds(1800).toString()))
+                // 요금은 택시비 정산이 없는 방이라 null 로 온다(둘 다 null 이면 앱이 요금 줄을 숨긴다). 옛 dropoffTime 키는 없다
+                .andExpect(jsonPath("$.rides[0].dropoffTime").doesNotExist())
+                .andExpect(jsonPath("$.rides[0].pickupTime").value(기준.plusSeconds(1800).toString()))
                 .andExpect(jsonPath("$.rides[0]", hasKey("totalFare")))
                 .andExpect(jsonPath("$.rides[0].totalFare").value(nullValue()))
                 .andExpect(jsonPath("$.rides[0]", hasKey("farePerPerson")))
@@ -160,14 +162,15 @@ class RideRecordControllerTest {
                 .andExpect(jsonPath("$.rides[0].partyId").value(partyId));
     }
 
-    private Long ride(Instant dropoffTime, Long... memberIds) {
+    private Long ride(Instant pickupTime, Long... memberIds) {
         List<PartyMember> members = new ArrayList<>();
         for(int i = 0; i < memberIds.length; i++) {
-            members.add(PartyMember.load(memberIds[i], 기준.plusSeconds(i)));
+            members.add(PartyMember.load(memberIds[i], 기준.plusSeconds(i), 기준));   // 탄 사람은 도착한 멤버
         }
         Long partyId = parties.save(Party.load(null, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
-                "강남역", "판교역", new Capacity(3), members, 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L)).getId();
-        rideRecords.save(RideRecord.load(partyId, "강남역", "판교역", dropoffTime));
+                "강남역", "판교역", new Capacity(3), members, members.getFirst().getMemberId(), 기준, PartyStatus.FINISHED, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L,
+                RoomType.REALTIME, 기준)).getId();
+        rideRecords.save(RideRecord.load(partyId, "강남역", "판교역", pickupTime));
         return partyId;
     }
 

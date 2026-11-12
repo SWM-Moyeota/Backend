@@ -89,7 +89,7 @@ class FcmMeetingNotifierUnitTest {
         /*
          * verify
          */
-        assertApns(payload, "423456", "출발하셨나요?", "출발했다면 출발 버튼을 눌러 주세요.");
+        assertApns(payload, "423456", "출발하셨나요?", "모두 모였으면 출발 버튼을 눌러 주세요.");
     }
 
     @DisplayName("remindDeparture - Android 우선순위와 data 키(type, partyId)를 보낸다")
@@ -105,38 +105,6 @@ class FcmMeetingNotifierUnitTest {
          * verify
          */
         assertAndroidAndData(payload, "PARTY_DEPARTURE_REMINDER");
-    }
-
-    // ───────────────────────── notifyNoShow ─────────────────────────
-
-    @DisplayName("notifyNoShow - iOS 시스템이 표시할 제목·내용·묶음 값을 APNs 로 보낸다")
-    @Test
-    void notifyNoShow_apns() throws IOException {
-
-        /*
-         * test
-         */
-        DocumentContext payload = send(n -> n.notifyNoShow(PARTY_ID, MEMBER_IDS));
-
-        /*
-         * verify
-         */
-        assertApns(payload, "523456", "노쇼로 기록됐어요", "실제로 함께 탔다면 이의 신청을 해 주세요.");
-    }
-
-    @DisplayName("notifyNoShow - Android 우선순위와 data 키(type, partyId)를 보낸다")
-    @Test
-    void notifyNoShow_androidAndData() throws IOException {
-
-        /*
-         * test
-         */
-        DocumentContext payload = send(n -> n.notifyNoShow(PARTY_ID, MEMBER_IDS));
-
-        /*
-         * verify
-         */
-        assertAndroidAndData(payload, "PARTY_NO_SHOW");
     }
 
     // ───────────────────────── 공통 ─────────────────────────

@@ -14,8 +14,6 @@ import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
 import team.codingforest.moyeota.user.local.dto.UserResponse;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
-import team.codingforest.moyeota.user.sanction.domain.NoShowSanctions;
-import team.codingforest.moyeota.user.sanction.domain.NoShows;
 import team.codingforest.moyeota.user.users.domain.User;
 import team.codingforest.moyeota.user.users.domain.enums.Gender;
 import team.codingforest.moyeota.user.users.domain.enums.LoginType;
@@ -27,6 +25,7 @@ import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -60,8 +59,7 @@ class LocalUserServiceTest {
                 },
                 UUID::randomUUID,
                 smsVerificationService,
-                new ProfileImages(new ProfileImageProperties(CDN, "profile/presets/default.png", List.of("profile/presets/01.png"))),
-                mock(NoShowSanctions.class), mock(NoShows.class));   // 제재가 없는 사용자 - 프로필의 제재 필드는 LocalUserServiceUnitTest 가 본다
+                new ProfileImages(new ProfileImageProperties(CDN, "profile/presets/default.png", List.of("profile/presets/01.png"))));
     }
 
     private UserRegisterCommand 가입(String loginId, String nickname, String phone) {
@@ -91,6 +89,21 @@ class LocalUserServiceTest {
         users.save(user);
 
         assertThat(service.getProfile(user.getId()).imageUrl()).isEqualTo(CDN + "profile/presets/01.png");
+    }
+
+    @Test
+    void 내_정보에는_로그인_아이디가_가려지지_않고_실린다() {
+        UserResponse response = service.register(가입("hong", "길동이", "010-1234-5678"));
+        User user = users.findByPublicId(response.uuid()).orElseThrow();
+
+        assertThat(service.getProfile(user.getId()).loginId()).isEqualTo("hong");
+    }
+
+    @Test
+    void 아이디_로그인_정보가_없는_계정이면_내_정보의_로그인_아이디는_null_이다() {
+        User user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "길동이"));
+
+        assertThat(service.getProfile(user.getId()).loginId()).isNull();
     }
 
     @Test
@@ -225,6 +238,11 @@ class LocalUserServiceTest {
 
         @Override
         public Optional<UserProfile> findByUserId(Long userId) { return Optional.ofNullable(byUserId.get(userId)); }
+
+        @Override
+        public List<UserProfile> findAllByUserIds(List<Long> userIds) {
+            return userIds.stream().map(byUserId::get).filter(Objects::nonNull).toList();
+        }
 
         @Override
         public boolean existsByPhoneNumber(String phone) {

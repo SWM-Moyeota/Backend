@@ -12,14 +12,16 @@ import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.common.BaseTimeEntity;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.RoomType;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -33,6 +35,7 @@ import java.util.stream.Collectors;
 @Getter
 @Table(name = "match_room",
         indexes = @Index(name = "idx_match_room_status_location", columnList = "status, departure_lat, departure_lng"))
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PartyEntity extends BaseTimeEntity {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -85,24 +88,13 @@ public class PartyEntity extends BaseTimeEntity {
     @Column(name = "departure_at")
     private Instant departureAt;
 
-    @Column(name = "reminder_sent_at")
-    private Instant reminderSentAt;
-
-    @Column(name = "meeting_notified_at")
-    private Instant meetingNotifiedAt;
-
-    @Column(name = "departure_reminder_count", nullable = false)
-    private short departureReminderCount;
-
 	@Column(nullable = false)
 	private long version;
-
-    protected PartyEntity() {}
 
     private PartyEntity(Double departureLat, Double departureLng, Double destinationLat, Double destinationLng, String departure,
                        String destination, Integer capacity, Long hostId, PartyStatus status,
                         Integer estimatedFare, Integer estimatedTime, String route, long version,
-                        RoomType roomType, Instant departureAt, Instant reminderSentAt, Instant meetingNotifiedAt, int departureReminderCount) {
+                        RoomType roomType, Instant departureAt) {
         this.departureLat = departureLat;
         this.departureLng = departureLng;
         this.destinationLat = destinationLat;
@@ -118,9 +110,6 @@ public class PartyEntity extends BaseTimeEntity {
         this.version = version;
         this.roomType = roomType;
         this.departureAt = departureAt;
-        this.reminderSentAt = reminderSentAt;
-        this.meetingNotifiedAt = meetingNotifiedAt;
-        this.departureReminderCount = (short) departureReminderCount;
     }
 
     public static PartyEntity from(Party party) {
@@ -132,17 +121,14 @@ public class PartyEntity extends BaseTimeEntity {
                 party.getDeparture(),
                 party.getDestination(),
                 party.getCapacity().value(),
-                party.hostId(),
+                party.getHostId(),
                 party.getStatus(),
                 party.getEstimatedFare(),
                 party.getEstimatedTime(),
                 party.getRoute(),
                 party.getVersion(),
                 party.getRoomType(),
-                party.getDepartureAt(),
-                party.getReminderSentAt(),
-                party.getMeetingNotifiedAt(),
-                party.getDepartureReminderCount()
+                party.getDepartureAt()
         );
 
         for(PartyMember member : party.getMembers()) {
@@ -155,18 +141,17 @@ public class PartyEntity extends BaseTimeEntity {
     public Party toDomain() {
         return Party.load(getId(), new Location(departureLat, departureLng), new Location(destinationLat, destinationLng),
                 departure, destination, new Capacity(capacity),
-                members.stream().map(PartyMemberEntity::toDomain).toList(), hostId, getCreatedAt(), status, estimatedFare, estimatedTime, route, version, roomType, departureAt, reminderSentAt,
-                meetingNotifiedAt, departureReminderCount);
+                members.stream().map(PartyMemberEntity::toDomain).toList(), hostId, getCreatedAt(), status, estimatedFare, estimatedTime, route, version, roomType, departureAt);
     }
 
     public void update(Party party) {
-        this.hostId = party.hostId();   // 방장이 나가면 승계된다
+        this.hostId = party.getHostId();   // 방장이 나가면 변경됨
+        this.departureLat = party.getDepartureLocation().latitude();   // 약속 확정 때 만남 장소로 바뀔 수 있음
+        this.departureLng = party.getDepartureLocation().longitude();
+        this.departure = party.getDeparture();
         this.status = party.getStatus();
         this.version = party.getVersion();
-        this.departureAt = party.getDepartureAt();   // 실시간 방은 방장이 약속 시간을 확정하면 채워진다
-        this.reminderSentAt = party.getReminderSentAt();
-        this.meetingNotifiedAt = party.getMeetingNotifiedAt();
-        this.departureReminderCount = (short) party.getDepartureReminderCount();
+        this.departureAt = party.getDepartureAt();   // 실시간 방은 방장이 약속 시간을 확정하면 채워짐
         syncMembers(party.getMembers());
     }
 
@@ -178,7 +163,6 @@ public class PartyEntity extends BaseTimeEntity {
 
         Set<Long> existing = new HashSet<>();
 
-        // 남아 있는 멤버 행도 도착·노쇼가 바뀌었을 수 있다 - 더티체킹으로 반영된다
         for(PartyMemberEntity e : members) {
             e.update(byId.get(e.getMemberId()));
             existing.add(e.getMemberId());

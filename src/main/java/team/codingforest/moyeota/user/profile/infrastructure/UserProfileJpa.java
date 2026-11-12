@@ -4,11 +4,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.user.local.infrastructure.LocalUserRepository;
 import org.springframework.stereotype.Repository;
-import team.codingforest.moyeota.user.common.crypto.FieldHasher;
+import team.codingforest.moyeota.common.crypto.FieldHasher;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
 
 import java.util.Optional;
+import java.util.List;
 
 @Repository
 @RequiredArgsConstructor
@@ -37,6 +38,11 @@ public class UserProfileJpa implements UserProfiles {
     public Optional<UserProfile> findByPhoneNumber(String phoneNumber) {
         return userProfileRepository.findByPhoneHash(hasher.hash(phoneNumber))
                 .map(UserProfileEntity::toDomain);
+    }
+
+    @Override
+    public List<UserProfile> findAllByUserIds(List<Long> userIds) {
+        return userProfileRepository.findAllById(userIds).stream().map(UserProfileEntity::toDomain).toList();
     }
 
     @Override

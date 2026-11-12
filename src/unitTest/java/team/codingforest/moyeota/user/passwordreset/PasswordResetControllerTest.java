@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import team.codingforest.moyeota.common.ControllerUnitTestSupport;
-import team.codingforest.moyeota.user.common.crypto.FieldHasher;
+import team.codingforest.moyeota.common.crypto.FieldHasher;
 import team.codingforest.moyeota.user.passwordreset.application.*;
 import team.codingforest.moyeota.user.passwordreset.domain.*;
 import team.codingforest.moyeota.user.passwordreset.dto.*;

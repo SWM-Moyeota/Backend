@@ -11,23 +11,29 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.exception.ErrorCode;
 import team.codingforest.moyeota.matching.api.dto.PartyChatSummary;
+import team.codingforest.moyeota.matching.api.dto.PartyPlaces;
+import team.codingforest.moyeota.matching.api.dto.PartyRiders;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class PartyAccessServiceUnitTest {
@@ -35,7 +41,9 @@ class PartyAccessServiceUnitTest {
     private static final Long HOST_ID = 1L;
     private static final Long MEMBER_ID = 2L;
     private static final Long STRANGER_ID = 3L;
+    private static final Long NOT_ARRIVED_ID = 4L;
     private static final Instant BASE_TIME = Instant.parse("2026-10-01T00:00:00Z");
+    private static final Instant MEETING_AT = BASE_TIME.plus(Duration.ofHours(1));
 
     @Mock
     private Parties parties;
@@ -169,17 +177,150 @@ class PartyAccessServiceUnitTest {
         assertThat(result).isFalse();
     }
 
+    // ───────────────────────── findRiders ─────────────────────────
+
+    @DisplayName("findRiders - 끝난 방이면 finished 이고, 방장 번호와 멤버·탑승자(도착한 멤버)를 합류 순으로 준다. 도착하지 않은 멤버는 탑승자가 아니다")
+    @Test
+    void findRiders() {
+
+        /*
+         * settings
+         */
+        Party party = attendedParty(PartyStatus.FINISHED, HOST_ID, List.of(
+                arrived(MEMBER_ID, 0),
+                PartyMember.load(NOT_ARRIVED_ID, BASE_TIME.plusSeconds(1), null),
+                arrived(HOST_ID, 2)));
+        doReturn(Optional.of(party)).when(parties).findById(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Optional<PartyRiders> result = partyAccessService.findRiders(PARTY_ID);
+
+        /*
+         * verify
+         */
+        assertThat(result).contains(new PartyRiders(PARTY_ID, HOST_ID, true, List.of(MEMBER_ID, NOT_ARRIVED_ID, HOST_ID), List.of(MEMBER_ID, HOST_ID)));
+    }
+
+    @DisplayName("findRiders - 동승이 끝나지 않은(FINISHED 가 아닌) 방은 finished 가 false 다")
+    @ParameterizedTest(name = "status={0}")
+    @EnumSource(value = PartyStatus.class, names = {"FINISHED"}, mode = EnumSource.Mode.EXCLUDE)
+    void findRiders_notFinished(PartyStatus status) {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(attendedParty(status, List.of(arrived(HOST_ID, 0), arrived(MEMBER_ID, 1))))).when(parties).findById(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        PartyRiders result = partyAccessService.findRiders(PARTY_ID).orElseThrow();
+
+        /*
+         * verify
+         */
+        assertThat(result.finished()).isFalse();
+        assertThat(result.hostId()).isEqualTo(HOST_ID);
+        assertThat(result.memberIds()).containsExactly(HOST_ID, MEMBER_ID);
+    }
+
+    @DisplayName("findRiders - 도착 없이 끝난 방(약속을 정하지 않은 구버전 종료)은 탑승자가 없다")
+    @Test
+    void findRiders_noArrivals() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.of(party(PartyStatus.FINISHED, HOST_ID, MEMBER_ID))).when(parties).findById(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        PartyRiders result = partyAccessService.findRiders(PARTY_ID).orElseThrow();
+
+        /*
+         * verify
+         */
+        assertThat(result.finished()).isTrue();
+        assertThat(result.hostId()).as("방장이 타지 않았어도 방장 번호는 싣는다").isEqualTo(HOST_ID);
+        assertThat(result.memberIds()).containsExactly(HOST_ID, MEMBER_ID);
+        assertThat(result.riderIds()).isEmpty();
+    }
+
+    @DisplayName("findRiders - 없는 방이면 예외 없이 empty")
+    @Test
+    void findRiders_partyNotFound() {
+
+        /*
+         * settings
+         */
+        doReturn(Optional.empty()).when(parties).findById(eq(PARTY_ID));
+
+        /*
+         * test
+         */
+        Optional<PartyRiders> result = partyAccessService.findRiders(PARTY_ID);
+
+        /*
+         * verify
+         */
+        assertThat(result).isEmpty();
+    }
+
+    // ───────────────────────── findPlaces ─────────────────────────
+
+    @DisplayName("findPlaces - 방 id 별 출발지·도착지 이름을 한 번에 읽어 그대로 준다")
+    @Test
+    void findPlaces() {
+
+        /*
+         * settings
+         */
+        Map<Long, PartyPlaces> places = Map.of(PARTY_ID, new PartyPlaces("강남역", "판교역"), 200L, new PartyPlaces("서울역", "홍대입구역"));
+        doReturn(places).when(parties).findPlaces(eq(List.of(PARTY_ID, 200L, 300L)));
+
+        /*
+         * test
+         */
+        Map<Long, PartyPlaces> result = partyAccessService.findPlaces(List.of(PARTY_ID, 200L, 300L));
+
+        /*
+         * verify
+         */
+        assertThat(result).isEqualTo(places);
+        verify(parties).findPlaces(eq(List.of(PARTY_ID, 200L, 300L)));
+    }
+
     // ───────────────────────── 공통 도우미 ─────────────────────────
 
     /** memberIds 앞쪽일수록 먼저 합류한 멤버다. 정원은 3 으로 고정 */
     private static Party party(PartyStatus status, Long... memberIds) {
         List<PartyMember> members = new ArrayList<>();
         for (int i = 0; i < memberIds.length; i++) {
-            members.add(PartyMember.load(memberIds[i], BASE_TIME.plusSeconds(i)));
+            members.add(PartyMember.load(memberIds[i], BASE_TIME.plusSeconds(i), null));
         }
 
         return Party.load(PARTY_ID, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
-                new Capacity(3), members, BASE_TIME, status, 12000, 25, "encoded-path", 0L);
+                new Capacity(3), members, memberIds.length == 0 ? null : memberIds[0], BASE_TIME, status, 12000, 25, "encoded-path", 0L,
+                RoomType.REALTIME, null);
+    }
+
+    /** members 순서대로 합류한 약속이 정해진 방. 가장 먼저 합류한 멤버가 방장이다 */
+    private static Party attendedParty(PartyStatus status, List<PartyMember> members) {
+        return attendedParty(status, members.getFirst().getMemberId(), members);
+    }
+
+    /** members 순서대로 합류한 약속이 정해진 방. 방장은 hostId 다(가장 먼저 합류한 멤버가 아닐 수 있다) */
+    private static Party attendedParty(PartyStatus status, Long hostId, List<PartyMember> members) {
+        return Party.load(PARTY_ID, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112), "강남역", "판교역",
+                new Capacity(3), new ArrayList<>(members), hostId, BASE_TIME, status, 12000, 25, "encoded-path",
+                0L, RoomType.REALTIME, MEETING_AT);
+    }
+
+    private static PartyMember arrived(Long memberId, int joinOrder) {
+        return PartyMember.load(memberId, BASE_TIME.plusSeconds(joinOrder), MEETING_AT.minusSeconds(60));
     }
 
     private static void assertBusinessException(Throwable thrown, ErrorCode expected) {

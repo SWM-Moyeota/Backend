@@ -28,22 +28,22 @@ public class RideRecordEntity extends BaseTimeEntity {
     @Column(name = "destination_place", nullable = false)
     private String destinationPlace;
 
-    @Column(name = "dropoff_time")
-    private Instant dropoffTime;
+    @Column(name = "pickup_time", nullable = false)
+    private Instant pickupTime;
 
-    private RideRecordEntity(Long matchId, String departurePlace, String destinationPlace, Instant dropoffTime) {
+    private RideRecordEntity(Long matchId, String departurePlace, String destinationPlace, Instant pickupTime) {
         this.matchId = matchId;
         this.departurePlace = departurePlace;
         this.destinationPlace = destinationPlace;
-        this.dropoffTime = dropoffTime;
+        this.pickupTime = pickupTime;
     }
 
     public static RideRecordEntity from(RideRecord rideRecord) {
         return new RideRecordEntity(rideRecord.getMatchId(), rideRecord.getDeparturePlace(), rideRecord.getDestinationPlace(),
-                rideRecord.getDropoffTime());
+                rideRecord.getPickupTime());
     }
 
     public RideRecord toDomain() {
-        return RideRecord.load(matchId, departurePlace, destinationPlace, dropoffTime);
+        return RideRecord.load(matchId, departurePlace, destinationPlace, pickupTime);
     }
 }

@@ -6,6 +6,8 @@ import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
 public record Location(double latitude, double longitude) {
 	public Location {
-		if(!ServiceArea.contains(latitude, longitude)) throw new BusinessException(MatchingErrorCode.OUT_OF_SERVICE_AREA);
+		if(!ServiceArea.contains(latitude, longitude)) {
+			throw new BusinessException(MatchingErrorCode.OUT_OF_SERVICE_AREA);
+		}
 	}
 }

@@ -25,7 +25,25 @@ public class ChatRedisPublisher {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 새 메시지를 보냄, 봉투에 방과 순번을 실어 소켓 서버가 방마다 순번 순서로 내보내게 함
+     *
+     * @param result 저장된 새 메시지
+     */
     public void message(ChatMessageResult result) {
+        try {
+            send(ChatEventEnvelope.message(result.chatRoomId(), result.seq(), objectMapper.writeValueAsString(result)));
+        } catch (JacksonException e) {
+            log.error("메시지 직렬화 실패 chatRoomId={} seq={}", result.chatRoomId(), result.seq(), e);
+        }
+    }
+
+    /**
+     * 이미 보낸 메시지가 바뀐 것(삭제 등)을 보냄, 지난 순번이라 줄 세우기 없이 바로 전달되게 순번을 싣지 않음
+     *
+     * @param result 바뀐 메시지
+     */
+    public void messageChanged(ChatMessageResult result) {
         publish(ChatEventEnvelope.TYPE_MESSAGE, ChatDestinations.room(result.chatRoomId()), result);
     }
 

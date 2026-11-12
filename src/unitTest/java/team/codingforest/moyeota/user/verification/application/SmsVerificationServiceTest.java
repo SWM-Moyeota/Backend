@@ -3,7 +3,7 @@ package team.codingforest.moyeota.user.verification.application;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.RedisConnectionFailureException;
-import team.codingforest.moyeota.user.common.crypto.FieldHasher;
+import team.codingforest.moyeota.common.crypto.FieldHasher;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
 import team.codingforest.moyeota.user.deletion.domain.UserDeletions;
@@ -377,6 +377,9 @@ class SmsVerificationServiceTest {
 
         @Override
         public Optional<UserProfile> findByUserId(Long userId) { return Optional.empty(); }
+
+        @Override
+        public List<UserProfile> findAllByUserIds(List<Long> userIds) { return List.of(); }
 
         @Override
         public boolean existsByPhoneNumber(String normalizedPhoneNumber) { return registered.contains(normalizedPhoneNumber); }

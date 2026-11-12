@@ -13,8 +13,11 @@ import team.codingforest.moyeota.chat.contract.ChatEventEnvelope;
 import team.codingforest.moyeota.chat.member.domain.ChatMember;
 import team.codingforest.moyeota.chat.member.domain.enums.MemberChangeType;
 import team.codingforest.moyeota.chat.member.infrastructure.MemberChangedPayload;
+import team.codingforest.moyeota.chat.message.domain.enums.ChatMessageType;
+import team.codingforest.moyeota.chat.message.dto.ChatMessageResult;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,6 +34,8 @@ class ChatRedisPublisherTest {
     private static final Long USER_ID = 7L;
     private static final UUID PUBLIC_ID = UUID.fromString("3f7a1c2e-8b4d-4c1a-9f2e-1234567890ab");
     private static final ChatMember MEMBER = new ChatMember(USER_ID, PUBLIC_ID, "영희", null);
+    private static final ChatMessageResult MESSAGE = new ChatMessageResult(
+            100L, ROOM_ID, 5L, PUBLIC_ID, "안녕", ChatMessageType.TEXT, Instant.EPOCH, false, null);
 
     @Mock
     private StringRedisTemplate redisTemplate;
@@ -101,5 +106,31 @@ class ChatRedisPublisherTest {
                     assertThat(member.nickname()).isEqualTo("영희");
                     assertThat(member.type()).isEqualTo(MemberChangeType.LEFT);
                 });
+    }
+
+    @Test
+    void 새_메시지는_방과_순번을_봉투에_실어_발행한다() {
+        publisher.message(MESSAGE);
+
+        ChatEventEnvelope envelope = sentEnvelope();
+        assertThat(envelope.type()).isEqualTo(ChatEventEnvelope.TYPE_MESSAGE);
+        assertThat(envelope.destination()).isEqualTo("/sub/chat-rooms/10");
+        assertThat(envelope.chatRoomId()).isEqualTo(ROOM_ID);
+        assertThat(envelope.seq()).isEqualTo(5L);
+    }
+
+    @Test
+    void 바뀐_메시지는_순번_없이_발행해_줄_세우기를_거치지_않는다() {
+        publisher.messageChanged(MESSAGE);
+
+        ChatEventEnvelope envelope = sentEnvelope();
+        assertThat(envelope.destination()).isEqualTo("/sub/chat-rooms/10");
+        assertThat(envelope.seq()).isNull();
+    }
+
+    private ChatEventEnvelope sentEnvelope() {
+        ArgumentCaptor<String> captor = ArgumentCaptor.captor();
+        verify(redisTemplate).convertAndSend(eq(ChatChannels.CHAT), captor.capture());
+        return objectMapper.readValue(captor.getValue(), ChatEventEnvelope.class);
     }
 }

@@ -6,7 +6,7 @@ import team.codingforest.moyeota.user.passwordreset.application.*;
 import team.codingforest.moyeota.user.passwordreset.domain.*;
 import team.codingforest.moyeota.user.passwordreset.dto.*;
 import team.codingforest.moyeota.user.passwordreset.infrastructure.PasswordResetSecrets;
-import team.codingforest.moyeota.user.common.crypto.FieldHasher;
+import team.codingforest.moyeota.common.crypto.FieldHasher;
 import team.codingforest.moyeota.user.common.exception.*;
 import team.codingforest.moyeota.user.local.domain.PasswordHasher;
 import team.codingforest.moyeota.user.local.domain.PasswordPolicy;

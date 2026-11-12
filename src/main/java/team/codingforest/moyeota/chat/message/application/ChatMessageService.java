@@ -1,11 +1,16 @@
 package team.codingforest.moyeota.chat.message.application;
 
-import team.codingforest.moyeota.chat.member.application.ChatRoomUserService;
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import team.codingforest.moyeota.chat.common.exception.ChatErrorCode;
+import team.codingforest.moyeota.chat.common.exception.ChatException;
+import team.codingforest.moyeota.chat.member.application.ChatRoomUserService;
+import team.codingforest.moyeota.chat.member.domain.ChatMember;
+import team.codingforest.moyeota.chat.member.domain.MemberProvider;
+import team.codingforest.moyeota.chat.message.domain.ChatMessage;
+import team.codingforest.moyeota.chat.message.domain.ChatMessages;
 import team.codingforest.moyeota.chat.message.dto.ChatMessageResult;
 import team.codingforest.moyeota.chat.message.dto.ChatMessageSlice;
 import team.codingforest.moyeota.chat.message.dto.FindMessageCommand;
@@ -13,18 +18,13 @@ import team.codingforest.moyeota.chat.message.dto.SearchMessageCommand;
 import team.codingforest.moyeota.chat.message.dto.SendMessageCommand;
 import team.codingforest.moyeota.chat.message.event.ChatMessageDeleteEvent;
 import team.codingforest.moyeota.chat.message.event.ChatMessageSentEvent;
-import team.codingforest.moyeota.chat.member.domain.ChatMember;
-import team.codingforest.moyeota.chat.message.domain.ChatMessage;
-import team.codingforest.moyeota.chat.message.domain.ChatMessages;
 import team.codingforest.moyeota.chat.room.domain.ChatRoom;
 import team.codingforest.moyeota.chat.room.infrastructure.ChatRooms;
-import team.codingforest.moyeota.chat.member.domain.MemberProvider;
-import team.codingforest.moyeota.chat.common.exception.ChatErrorCode;
-import team.codingforest.moyeota.chat.common.exception.ChatException;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -75,9 +75,17 @@ public class ChatMessageService {
 
     /**
      * 메시지 전송
+     * 앱이 붙인 clientMessageId 로 이미 저장된 메시지가 있으면 새로 저장하지 않고 그 메시지를 돌려줌
+     * - 응답을 못 받아 같은 메시지를 다시 보낸 경우라 방송도 다시 하지 않음
+     * 같은 키의 앞 요청이 아직 처리 중이면 저장소가 CHAT_MESSAGE_SENDING 을 던지고 순번 증가까지 함께 롤백됨
      */
     @Transactional
     public ChatMessageResult sendMessage(SendMessageCommand command) {
+        Optional<ChatMessageResult> alreadySent = findAlreadySent(command);
+        if (alreadySent.isPresent()) {
+            return alreadySent.get();
+        }
+
         ChatRoom chatRoom = chatRooms.findById(command.chatRoomId())
                 .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND));
 
@@ -92,15 +100,28 @@ public class ChatMessageService {
                 command.chatRoomId(),
                 seq,
                 command.userId(),
+                command.clientMessageId(),
                 command.content(),
                 Instant.now()
         );
-        ChatMessageResult result = ChatMessageResult.from(
-                chatMessages.save(message), command.publicId());
+        ChatMessageResult result = ChatMessageResult.from(chatMessages.save(message), command.publicId());
 
         eventPublisher.publishEvent(new ChatMessageSentEvent(command.userId(), result));
 
         return result;
+    }
+
+    private Optional<ChatMessageResult> findAlreadySent(SendMessageCommand command) {
+        if (command.clientMessageId() == null) {
+            return Optional.empty();
+        }
+        return chatMessages.findByUserIdAndClientMessageId(command.userId(), command.clientMessageId())
+                .map(message -> {
+                    if (!message.getChatRoomId().equals(command.chatRoomId())) {
+                        throw new ChatException(ChatErrorCode.CHAT_CLIENT_MESSAGE_ID_CONFLICT);   // 키를 다른 방에 다시 씀 - 앱 버그
+                    }
+                    return ChatMessageResult.from(message, command.publicId());
+                });
     }
 
     /**

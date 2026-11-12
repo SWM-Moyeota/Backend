@@ -1,6 +1,5 @@
 package team.codingforest.moyeota.matching.party.dto;
 
-import io.swagger.v3.oas.annotations.media.Schema;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.user.api.MemberSummary;
 
@@ -9,26 +8,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-// taxiDriverId 는 택시(기사) 기능을 없애 늘 null 이다. 이미 출시된 앱(강제 업데이트 없음)이 이 키를 읽어 null 이 아닐 때만 기사 화면으로 가므로 응답에 남겨 둔다 - 옛 버전 앱이 사라지면 지운다
 public record PartyDetailResult(Long id,
                                 Double departureLat, Double departureLng,
                                 Double destinationLat, Double destinationLng,
                                 String departure, String destination,
                                 Integer capacity, Integer currentMembers,
-                                @Schema(description = "출발지 반경(m). 서버가 쓰지 않아 늘 500 이다(출시 앱 호환용으로 키만 남김)", example = "500") Integer departureRadius,
-                                @Schema(description = "도착지 반경(m). 서버가 쓰지 않아 늘 500 이다(출시 앱 호환용으로 키만 남김)", example = "500") Integer destinationRadius,
                                 String status, Instant createdAt,
-                                List<MemberInfo> members, Integer estimateFare, Integer estimateTime, String route, Long taxiDriverId,
+                                List<MemberInfo> members, Integer estimateFare, Integer estimateTime, String route,
                                 long version, String roomType, Instant departureAt, boolean confirmed) {
 
     // arrived 는 출발지에 도착했어요를 누른 멤버인지(약속이 정해지기 전에는 늘 false)
-    // badgeId 는 뱃지 기능을 없애 늘 null 이다. 이미 출시된 앱(강제 업데이트 없음)이 이 키를 읽으므로 응답에 남겨 둔다 - 옛 버전 앱이 사라지면 지운다
-    public record MemberInfo(UUID publicId, String nickname, String imageUrl, String badgeId, Integer rideCount, boolean host, boolean arrived) {
+    public record MemberInfo(UUID publicId, String nickname, String imageUrl, Integer rideCount, boolean host, boolean arrived) {
 
         public static MemberInfo of(MemberSummary summary, int rideCount, boolean host, boolean arrived) {
-            if(summary == null) return new MemberInfo(null, null, null, null, rideCount, host, arrived);
+            if(summary == null) return new MemberInfo(null, null, null, rideCount, host, arrived);
 
-            return new MemberInfo(summary.publicId(), summary.nickname(), summary.imageUrl(), null, rideCount, host, arrived);
+            return new MemberInfo(summary.publicId(), summary.nickname(), summary.imageUrl(), rideCount, host, arrived);
         }
     }
 
@@ -43,12 +38,11 @@ public record PartyDetailResult(Long id,
                 party.getDepartureLocation().longitude(),
                 party.getDestinationLocation().latitude(), party.getDestinationLocation().longitude(),
                 party.getDeparture(), party.getDestination(), party.getCapacity().value(),
-                party.getMembers().size(), LegacyRadius.METERS, LegacyRadius.METERS,
+                party.getMembers().size(),
                 party.getStatus().name(), party.getCreatedAt(), members,
                 party.getEstimatedFare(),
                 party.getEstimatedTime(),
                 party.getRoute(),
-                null,
                 party.getVersion(),
                 party.getRoomType().name(),
                 party.getDepartureAt(),

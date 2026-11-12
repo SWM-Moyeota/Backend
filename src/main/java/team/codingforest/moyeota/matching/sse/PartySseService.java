@@ -20,7 +20,9 @@ public class PartySseService {
     public SseEmitter subscribe(Long partyId, Long memberId) {
         Party party = parties.findById(partyId)
                 .orElseThrow(() -> new BusinessException(MatchingErrorCode.PARTY_NOT_FOUND));
-        if(!party.hasMember(memberId)) throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
+        if(!party.isMember(memberId)) {
+			throw new BusinessException(MatchingErrorCode.NOT_PARTY_MEMBER);
+		}
 
         return partySseRegistry.subscribe(partyId, memberId, () -> partyService.getPartyDetail(partyId));
     }

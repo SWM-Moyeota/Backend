@@ -4,7 +4,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import team.codingforest.moyeota.user.passwordreset.presentation.PasswordResetRequestFilter;
 import team.codingforest.moyeota.user.passwordreset.domain.ResetRequests;
-import team.codingforest.moyeota.user.common.crypto.FieldHasher;
+import team.codingforest.moyeota.common.crypto.FieldHasher;
 
 @Configuration
 public class PasswordResetWebConfig {

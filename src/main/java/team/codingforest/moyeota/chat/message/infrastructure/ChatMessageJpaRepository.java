@@ -8,8 +8,12 @@ import team.codingforest.moyeota.chat.message.domain.enums.ChatMessageStatus;
 import team.codingforest.moyeota.chat.message.infrastructure.entity.ChatMessageEntity;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 public interface ChatMessageJpaRepository extends JpaRepository<ChatMessageEntity, Long> {
+    Optional<ChatMessageEntity> findByUserIdAndClientMessageId(Long userId, UUID clientMessageId);
+
     List<ChatMessageEntity> findByChatRoomIdOrderByIdDesc(Long chatRoomId, Limit limit);
 
     List<ChatMessageEntity> findByChatRoomIdAndIdLessThanOrderByIdDesc(Long chatRoomId, Long cursor, Limit limit);

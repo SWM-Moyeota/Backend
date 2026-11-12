@@ -4,20 +4,21 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.common.exception.BusinessException;
+import team.codingforest.moyeota.matching.api.dto.PartyPlaces;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.NearbyReservation;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
-import team.codingforest.moyeota.matching.party.domain.RoomType;
+import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,34 +56,23 @@ public class PartyJpa implements Parties {
     }
 
     @Override
-    public List<Party> findRealtimeByStatus(PartyStatus status) {
-        return partyJpaRepository.findAllByStatusAndRoomType(status, RoomType.REALTIME).stream()
-                .map(PartyEntity::toDomain).toList();
-    }
-
-    @Override
     public boolean existsOngoingByMemberId(Long memberId) {
-        return partyJpaRepository.existsByMemberIdAndStatusIn(memberId, ongoingStatuses());
+        return partyJpaRepository.existsByMemberIdAndStatusIn(memberId, openStatuses());
     }
 
     @Override
     public boolean existsOngoingRealtimeByMemberId(Long memberId) {
-        return partyJpaRepository.existsByMemberIdAndRoomTypeAndStatusIn(memberId, RoomType.REALTIME, ongoingStatuses());
+        return partyJpaRepository.existsByMemberIdAndRoomTypeAndStatusIn(memberId, RoomType.REALTIME, openStatuses());
     }
 
     @Override
     public boolean existsOngoingReservationBetween(Long memberId, Instant from, Instant to) {
-        return partyJpaRepository.existsReservationBetween(memberId, ongoingStatuses(), from, to);
+        return partyJpaRepository.existsReservationBetween(memberId, openStatuses(), from, to);
     }
 
     @Override
     public void lockMember(Long memberId) {
         partyJpaRepository.lockMember(memberId);
-    }
-
-    @Override
-    public List<ReservationSummary> findReservations(Instant from, Instant to, int limit) {
-        return partyJpaRepository.findReservations(PartyStatus.ACTIVE, from, to, Limit.of(limit));
     }
 
     @Override
@@ -111,39 +101,19 @@ public class PartyJpa implements Parties {
                 .toList();
     }
 
-    @Override
-    public List<Long> findRecruitingExpired(Instant realtimeCreatedBefore, Instant now) {
-        return partyJpaRepository.findRecruitingExpiredIds(PartyStatus.ACTIVE, realtimeCreatedBefore, now);
-    }
+	@Override
+	public List<Long> findOpenConfirmedIdsDepartingBetween(Instant from, Instant to) {
+		return partyJpaRepository.findOpenConfirmedIdsDepartingBetween(from, to);
+	}
 
-    @Override
-    public List<Long> findReservationsToRemind(Instant from, Instant to) {
-        return partyJpaRepository.findIdsToRemind(List.of(PartyStatus.ACTIVE, PartyStatus.COMPLETED), from, to);
-    }
+	@Override
+	public List<Long> findOpenReservationIdsDepartingBetween(Instant from, Instant to) {
+		return partyJpaRepository.findOpenReservationIdsDepartingBetween(from, to);
+	}
 
-    @Override
-    public List<Long> findMeetingNoticeTargets(Instant now) {
-        return partyJpaRepository.findMeetingNoticeTargetIds(now);
-    }
-
-    /** 차례 i 은 departure_at <= now - DEPARTURE_REMINDER_OFFSETS[i] 이면 지났다 판정 */
-    @Override
-    public List<Long> findDepartureReminderTargets(Instant now) {
-        List<Duration> offsets = Party.DEPARTURE_REMINDER_OFFSETS;
-
-        return partyJpaRepository.findDepartureReminderTargetIds(
-                now.minus(offsets.get(0)), now.minus(offsets.get(1)), now.minus(offsets.get(2)), now.minus(offsets.get(3)));
-    }
-
-    private List<PartyStatus> ongoingStatuses() {
+	private List<PartyStatus> openStatuses() {
         return Arrays.stream(PartyStatus.values())
-                .filter(PartyStatus::isOngoing)
-                .toList();
-    }
-
-    private List<PartyStatus> recruitingStatuses() {
-        return Arrays.stream(PartyStatus.values())
-                .filter(PartyStatus::isRecruiting)
+                .filter(PartyStatus::isOpen)
                 .toList();
     }
 
@@ -173,7 +143,7 @@ public class PartyJpa implements Parties {
 
     @Override
     public List<Long> findAutoCloseTargets(Instant cutoff) {
-        return partyJpaRepository.findAutoCloseTargetIds(recruitingStatuses(), cutoff);
+        return partyJpaRepository.findAutoCloseTargetIds(openStatuses(), cutoff);
     }
 
     @Override
@@ -184,5 +154,13 @@ public class PartyJpa implements Parties {
     @Override
     public boolean isNearDeparture(Long partyId, double latitude, double longitude, double radiusMeters) {
         return partyJpaRepository.isNearDeparture(partyId, latitude, longitude, radiusMeters);
+    }
+
+    @Override
+    public Map<Long, PartyPlaces> findPlaces(Collection<Long> ids) {
+        if(ids.isEmpty()) return Map.of();
+
+        return partyJpaRepository.findPlacesByIds(ids).stream()
+                .collect(Collectors.toMap(PartyPlaceRow::id, row -> new PartyPlaces(row.departure(), row.destination())));
     }
 }

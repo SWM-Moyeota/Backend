@@ -2,7 +2,7 @@ package team.codingforest.moyeota.user.passwordreset.infrastructure;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import team.codingforest.moyeota.user.common.crypto.FieldHasher;
+import team.codingforest.moyeota.common.crypto.FieldHasher;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Locale;

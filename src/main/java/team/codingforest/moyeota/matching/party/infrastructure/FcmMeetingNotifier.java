@@ -41,11 +41,6 @@ public class FcmMeetingNotifier implements MeetingNotifier {
         send(Push.DEPARTURE_REMINDER, partyId, memberIds);
     }
 
-    @Override
-    public void notifyNoShow(Long partyId, List<Long> memberIds) {
-        send(Push.NO_SHOW, partyId, memberIds);
-    }
-
     private void send(Push push, Long partyId, List<Long> memberIds) {
         Map<Long, String> tokens = userAccess.findFcmTokens(memberIds);
 
@@ -78,7 +73,7 @@ public class FcmMeetingNotifier implements MeetingNotifier {
     }
 
     /**
-     *  iOS 는 백그라운드에서 앱 코드가 돌지 않아 시스템이 이 값을 그대로 표시한다.
+     *  iOS를 위한 설정 알림을 APNs에 전달
      */
     private ApnsConfig apnsConfig(Push push, Long partyId) {
         return ApnsConfig.builder()
@@ -96,8 +91,7 @@ public class FcmMeetingNotifier implements MeetingNotifier {
     /** collapse-id 는 채팅(200000 + chatRoomId % 100000)과 겹치지 않게 종류마다 10만 단위 구간을 쓴다 */
     private enum Push {
         MEETING_TIME("PARTY_MEETING_TIME", "약속 시간이에요", "도착하면 도착 버튼을, 모두 모이면 출발 버튼을 눌러 주세요.", 300_000, "약속 시각 알림"),
-        DEPARTURE_REMINDER("PARTY_DEPARTURE_REMINDER", "출발하셨나요?", "출발했다면 출발 버튼을 눌러 주세요.", 400_000, "출발 재촉 알림"),
-        NO_SHOW("PARTY_NO_SHOW", "노쇼로 기록됐어요", "실제로 함께 탔다면 이의 신청을 해 주세요.", 500_000, "노쇼 알림");
+        DEPARTURE_REMINDER("PARTY_DEPARTURE_REMINDER", "출발하셨나요?", "모두 모였으면 출발 버튼을 눌러 주세요.", 400_000, "출발 재촉 알림");
 
         private final String type;
         private final String title;

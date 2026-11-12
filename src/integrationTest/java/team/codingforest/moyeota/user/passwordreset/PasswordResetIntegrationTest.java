@@ -19,7 +19,7 @@ import team.codingforest.moyeota.user.auth.application.AuthService;
 import team.codingforest.moyeota.user.auth.domain.RefreshTokens;
 import team.codingforest.moyeota.user.auth.dto.UserLoginCommand;
 import team.codingforest.moyeota.user.auth.infrastructure.JwtProvider;
-import team.codingforest.moyeota.user.common.crypto.FieldHasher;
+import team.codingforest.moyeota.common.crypto.FieldHasher;
 import team.codingforest.moyeota.user.common.exception.UserException;
 import team.codingforest.moyeota.user.local.domain.*;
 import team.codingforest.moyeota.user.profile.domain.*;
@@ -117,7 +117,7 @@ class PasswordResetIntegrationTest {
             }
         }
     }
-    @Test void V36_migration은_허가증테이블과_계정세대를_추가한다() throws Exception {
+    @Test void V41_migration은_허가증테이블과_계정세대를_추가한다() throws Exception {
         String schema = SCHEMA + "_migration";
         try (var c=java.sql.DriverManager.getConnection("jdbc:postgresql://localhost:5432/moyeota", "moyeota", "moyeota");
              var statement=c.createStatement()) {
@@ -126,7 +126,7 @@ class PasswordResetIntegrationTest {
                 statement.execute("SET search_path TO " + schema);
                 statement.execute("CREATE TABLE local_user (id bigint PRIMARY KEY)");
                 org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(c,
-                        new org.springframework.core.io.ClassPathResource("db/migration/V36__password_reset.sql"));
+                        new org.springframework.core.io.ClassPathResource("db/migration/V41__password_reset.sql"));
                 statement.execute("INSERT INTO local_user(id) VALUES (1)");
                 try(var rows=statement.executeQuery("SELECT password_reset_generation FROM local_user WHERE id=1")) {
                     assertThat(rows.next()).isTrue(); assertThat(rows.getLong(1)).isZero();

@@ -36,7 +36,7 @@ class ChatRoomSyncOrderIntegrationTest {
         long leaver = base + 1;
 
         // 정원 3 - 방장 + 1명이면 모집 중이라 나갈 수 있다. 방장은 리포지토리로 직접 넣어 이벤트를 태우지 않는다
-        Party party = parties.save(Party.open(base, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
+        Party party = parties.save(Party.create(base, new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
                 "강남역", "판교역", new Capacity(3), Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC"));
 

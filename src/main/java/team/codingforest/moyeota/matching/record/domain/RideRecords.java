@@ -9,7 +9,7 @@ import java.util.Optional;
 public interface RideRecords {
     Optional<RideRecord> findById(Long matchId);
     RideRecord save(RideRecord rideRecord);
-    List<RideRecord> findDroppedOffByMember(Long memberId, int limit);
-    List<RideRecord> findDroppedOffByMemberBefore(Long memberId, Instant dropoffTime, Long matchId, int limit);
+    List<RideRecord> findByMember(Long memberId, int limit);
+    List<RideRecord> findByMemberBefore(Long memberId, Instant pickupTime, Long matchId, int limit);
     Map<Long, List<Long>> findMemberIds(Collection<Long> matchIds);
 }

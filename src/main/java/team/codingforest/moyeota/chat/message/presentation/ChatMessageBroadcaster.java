@@ -37,7 +37,7 @@ public class ChatMessageBroadcaster {
     @EventListener
     public void onMessageDeleted(ChatMessageDeleteEvent event) {
         ChatMessageResult result = event.result();
-        publishAfterCommit(result.chatRoomId(), () -> chatRedisPublisher.message(result));
+        publishAfterCommit(result.chatRoomId(), () -> chatRedisPublisher.messageChanged(result));
     }
 
     @EventListener
