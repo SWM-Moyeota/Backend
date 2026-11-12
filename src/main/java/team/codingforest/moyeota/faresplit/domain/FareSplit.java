@@ -4,6 +4,7 @@ import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.faresplit.domain.enums.Bank;
 import team.codingforest.moyeota.faresplit.domain.enums.FareSplitRole;
 import team.codingforest.moyeota.faresplit.domain.enums.FareSplitStatus;
+import team.codingforest.moyeota.faresplit.domain.enums.TransferStatus;
 import team.codingforest.moyeota.faresplit.exception.FareSplitErrorCode;
 
 import java.time.Duration;
@@ -272,6 +273,19 @@ public class FareSplit {
 		validateParticipant(memberId);
 
 		return transferOf(memberId).getPayment();
+	}
+
+	/**
+	 * 내 송금 상태 - 받는 사람은 보낼 것이 없어 비어 있다
+	 */
+	public Optional<TransferStatus> transferStatusOf(Long memberId) {
+		validateParticipant(memberId);
+
+		if (isPayer(memberId)) {
+			return Optional.empty();
+		}
+
+		return Optional.of(transferOf(memberId).status());
 	}
 
 	/**

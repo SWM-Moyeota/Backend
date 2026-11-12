@@ -667,6 +667,8 @@ class FareSplitServiceUnitTest {
         assertThat(otherSender.tossDeeplink()).isEqualTo(TossDeeplink.of(5_000, Bank.KAKAO, ACCOUNT));
         assertThat(payer.myAmount()).as("받는 사람 줄의 부담 금액").isEqualTo(6_700);
         assertThat(payer.tossDeeplink()).isNull();
+        assertThat(sender.myTransferStatus()).as("보내는 사람은 자기 줄의 송금 상태").isEqualTo(TransferStatus.NOT_SENT);
+        assertThat(payer.myTransferStatus()).as("받는 사람은 송금 상태가 없다").isNull();
         assertThat(payer.transfers()).extracting(FareSplitDetailResponse.FareSplitTransferItem::amount)
                 .containsExactly(7_000, 5_000);
         assertThat(sender.transfers()).extracting(FareSplitDetailResponse.FareSplitTransferItem::amount)

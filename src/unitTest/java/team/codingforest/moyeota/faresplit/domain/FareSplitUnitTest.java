@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -667,6 +668,56 @@ class FareSplitUnitTest {
          * test
          */
         Throwable thrown = catchThrowable(() -> split.amountOf(OUTSIDER_ID));
+
+        /*
+         * verify
+         */
+        assertBusinessException(thrown, FareSplitErrorCode.NOT_FARE_SPLIT_PARTICIPANT);
+    }
+
+    @DisplayName("transferStatusOf - 보내는 사람은 자기 줄의 송금 상태를, 받는 사람은 보낼 것이 없어 빈 값을 받는다")
+    @Test
+    void transferStatusOf() {
+
+        /*
+         * settings
+         */
+        FareSplit split = FareSplit.load(PARTY_ID, PAYER_ID, 26_240, Bank.KAKAO, ACCOUNT, FareSplitStatus.OPEN, NOW, null,
+                List.of(FareSplitTransfer.load(PAYER_ID, 6_660, NOW, NOW, 0),
+                        FareSplitTransfer.load(RIDER_ID, 7_000, null, null, 1),
+                        FareSplitTransfer.load(LATE_RIDER_ID, 6_340, SENT_AT, null, 1),
+                        FareSplitTransfer.load(CASH_RIDER_ID, 6_240, null, LATER, 1)));
+
+        /*
+         * test
+         */
+        Optional<TransferStatus> payer = split.transferStatusOf(PAYER_ID);
+        Optional<TransferStatus> notSent = split.transferStatusOf(RIDER_ID);
+        Optional<TransferStatus> sent = split.transferStatusOf(LATE_RIDER_ID);
+        Optional<TransferStatus> confirmed = split.transferStatusOf(CASH_RIDER_ID);
+
+        /*
+         * verify
+         */
+        assertThat(payer).as("받는 사람의 줄은 장부상 CONFIRMED 지만 송금 상태로는 주지 않는다").isEmpty();
+        assertThat(notSent).contains(TransferStatus.NOT_SENT);
+        assertThat(sent).contains(TransferStatus.SENT);
+        assertThat(confirmed).contains(TransferStatus.CONFIRMED);
+    }
+
+    @DisplayName("transferStatusOf - 정산에 없는 사람은 NOT_FARE_SPLIT_PARTICIPANT")
+    @Test
+    void transferStatusOf_notParticipant() {
+
+        /*
+         * settings
+         */
+        FareSplit split = openSplit();
+
+        /*
+         * test
+         */
+        Throwable thrown = catchThrowable(() -> split.transferStatusOf(OUTSIDER_ID));
 
         /*
          * verify

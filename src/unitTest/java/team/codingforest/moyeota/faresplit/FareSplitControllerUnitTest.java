@@ -95,6 +95,7 @@ class FareSplitControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(jsonPath("$.payer.nickname").value("받는사람"))
                 .andExpect(jsonPath("$.myRole").value("PAYER"))
                 .andExpect(jsonPath("$.myAmount").value(6_700))
+                .andExpect(jsonPath("$.myTransferStatus").value(nullValue()))
                 .andExpect(jsonPath("$.bank.code").value("KAKAO"))
                 .andExpect(jsonPath("$.bank.name").value("카카오뱅크"))
                 .andExpect(jsonPath("$.accountNumber").value("3333012345678"))
@@ -240,6 +241,7 @@ class FareSplitControllerUnitTest extends ControllerUnitTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.myRole").value("SENDER"))
                 .andExpect(jsonPath("$.myAmount").value(7_000))
+                .andExpect(jsonPath("$.myTransferStatus").value("NOT_SENT"))
                 .andExpect(jsonPath("$.amountPerPerson").doesNotExist())
                 .andExpect(jsonPath("$.accountNumber").value("3333012345678"))
                 .andExpect(jsonPath("$.tossDeeplink").value(DEEPLINK))
@@ -680,7 +682,7 @@ class FareSplitControllerUnitTest extends ControllerUnitTestSupport {
 
     private static FareSplitDetailResponse payerView() {
         return new FareSplitDetailResponse(PARTY_ID, FareSplitStatus.OPEN, 18_700, new FareSplitPayer(PUBLIC_ID, "받는사람"),
-                FareSplitRole.PAYER, 6_700, new FareSplitBank(Bank.KAKAO, "카카오뱅크"), "3333012345678", null,
+                FareSplitRole.PAYER, 6_700, null, new FareSplitBank(Bank.KAKAO, "카카오뱅크"), "3333012345678", null,
                 List.of(new FareSplitTransferItem(SENDER_PUBLIC_ID, "보낸사람", 7_000, TransferStatus.SENT, SENT_AT, null, "김*수"),
                         new FareSplitTransferItem(OTHER_SENDER_PUBLIC_ID, "안보낸사람", 5_000, TransferStatus.NOT_SENT, null, null, "이*희")),
                 CREATED_AT, null);
@@ -688,7 +690,7 @@ class FareSplitControllerUnitTest extends ControllerUnitTestSupport {
 
     private static FareSplitDetailResponse senderView() {
         return new FareSplitDetailResponse(PARTY_ID, FareSplitStatus.OPEN, 18_700, new FareSplitPayer(SENDER_PUBLIC_ID, "받는사람"),
-                FareSplitRole.SENDER, 7_000, new FareSplitBank(Bank.KAKAO, "카카오뱅크"), "3333012345678", DEEPLINK,
+                FareSplitRole.SENDER, 7_000, TransferStatus.NOT_SENT, new FareSplitBank(Bank.KAKAO, "카카오뱅크"), "3333012345678", DEEPLINK,
                 List.of(new FareSplitTransferItem(PUBLIC_ID, "나", 7_000, TransferStatus.NOT_SENT, null, null, null),
                         new FareSplitTransferItem(OTHER_SENDER_PUBLIC_ID, "다른사람", 5_000, TransferStatus.NOT_SENT, null, null, null)),
                 CREATED_AT, null);
