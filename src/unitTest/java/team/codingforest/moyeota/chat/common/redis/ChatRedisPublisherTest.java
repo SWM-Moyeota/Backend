@@ -35,7 +35,7 @@ class ChatRedisPublisherTest {
     private static final UUID PUBLIC_ID = UUID.fromString("3f7a1c2e-8b4d-4c1a-9f2e-1234567890ab");
     private static final ChatMember MEMBER = new ChatMember(USER_ID, PUBLIC_ID, "영희", null);
     private static final ChatMessageResult MESSAGE = new ChatMessageResult(
-            100L, ROOM_ID, 5L, PUBLIC_ID, "안녕", ChatMessageType.TEXT, Instant.EPOCH, false);
+            100L, ROOM_ID, 5L, PUBLIC_ID, "안녕", ChatMessageType.TEXT, Instant.EPOCH, false, null);
 
     @Mock
     private StringRedisTemplate redisTemplate;

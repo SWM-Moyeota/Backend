@@ -3,11 +3,14 @@ package team.codingforest.moyeota.chat.message.domain;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface ChatMessages {
     Optional<ChatMessage> findById(Long id);
 
     ChatMessage save(ChatMessage chatMessage);
+
+    Optional<ChatMessage> findByUserIdAndClientMessageId(Long userId, UUID clientMessageId);
 
     List<ChatMessage> findBefore(Long chatRoomId, Long cursor, int size);
 
