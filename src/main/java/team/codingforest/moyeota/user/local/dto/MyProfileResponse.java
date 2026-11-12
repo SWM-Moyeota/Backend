@@ -14,5 +14,6 @@ public record MyProfileResponse(
         @Schema(description = "표시 이름(닉네임, 없으면 가린 실명)") String name,
         @Schema(description = "프로필 이미지 URL") String imageUrl,
         @Schema(description = "늘 0. 노쇼 기능이 없어져 쓰지 않는다(출시 앱 호환용으로 키만 남김)", example = "0", deprecated = true) int noShowCount,
-        @Schema(description = "늘 null. 노쇼 기능이 없어져 쓰지 않는다(출시 앱 호환용으로 키만 남김)", nullable = true, deprecated = true) Instant restrictedUntil) {
+        @Schema(description = "늘 null. 노쇼 기능이 없어져 쓰지 않는다(출시 앱 호환용으로 키만 남김)", nullable = true, deprecated = true) Instant restrictedUntil,
+        @Schema(description = "로그인 아이디(가리지 않는다). 아이디 로그인 정보가 없는 계정이면 null", example = "tester2", nullable = true) String loginId) {
 }
