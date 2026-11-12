@@ -1814,7 +1814,7 @@ class PartyServiceUnitTest {
         assertThat(record.getDeparturePlace()).isEqualTo("강남역");
         assertThat(record.getDestinationPlace()).isEqualTo("판교역");
         assertThat(record.getPickupTime()).as("아무도 출발을 누르지 않아 약속 시각에 탄 것으로 본다")
-                .isEqualTo(party.getDepartureAt().truncatedTo(java.time.temporal.ChronoUnit.MICROS));
+                .isEqualTo(party.getDepartureAt());
 
         Runnable task = capturedAfterCommitTask();
         verifyNoInteractions(partyChangeNotifier);

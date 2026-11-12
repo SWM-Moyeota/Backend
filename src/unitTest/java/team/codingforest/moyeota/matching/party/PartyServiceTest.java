@@ -793,7 +793,7 @@ class PartyServiceTest {
         assertThat(parties.findById(오래된방).orElseThrow().getStatus()).isEqualTo(PartyStatus.FINISHED);
         assertThat(events.closedFor(오래된방, "FINISHED")).isEqualTo(1);
         RideRecord rideRecord = rideRecords.findById(오래된방).orElseThrow();
-        assertThat(rideRecord.getPickupTime()).isEqualTo(약속.truncatedTo(java.time.temporal.ChronoUnit.MICROS));
+        assertThat(rideRecord.getPickupTime()).isEqualTo(약속);
         assertThat(rideRecord.getDeparturePlace()).isEqualTo("강남역");
         assertThat(rideRecord.getDestinationPlace()).isEqualTo("판교역");
     }

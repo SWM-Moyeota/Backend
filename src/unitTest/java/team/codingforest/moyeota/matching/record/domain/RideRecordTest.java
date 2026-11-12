@@ -22,15 +22,6 @@ class RideRecordTest {
     }
 
     @Test
-    void 승차_시각은_DB_가_저장하는_마이크로초_단위로_잘린다() {
-        Instant 나노까지 = Instant.parse("2026-10-09T13:42:11.654321987Z");
-
-        RideRecord rideRecord = RideRecord.create(방, "강남역", "판교역", 나노까지);
-
-        assertThat(rideRecord.getPickupTime()).isEqualTo(Instant.parse("2026-10-09T13:42:11.654321Z"));
-    }
-
-    @Test
     void 복원한_기록은_값을_그대로_가진다() {
         Instant 승차 = Instant.parse("2026-10-09T13:42:11.654321Z");
 

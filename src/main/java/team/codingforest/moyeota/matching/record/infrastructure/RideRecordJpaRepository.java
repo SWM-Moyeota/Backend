@@ -9,7 +9,9 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
-/** 탄 사람 기준 - 그 방에 도착한 멤버만 */
+/**
+ * 탄 사람 기준 - 그 방에 도착한 멤버만
+ **/
 public interface RideRecordJpaRepository extends JpaRepository<RideRecordEntity, Long> {
 
     @Query("""
