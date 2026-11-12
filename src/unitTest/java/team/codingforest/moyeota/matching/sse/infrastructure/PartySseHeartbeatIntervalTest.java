@@ -19,8 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(classes = PartySseHeartbeatIntervalTest.Config.class)
 class PartySseHeartbeatIntervalTest {
 
-    /** CloudFront 오리진 응답 타임아웃 기본값. 이 앞단을 지나 앱이 api.moyeota.p-e.kr 로 붙는다 */
-    private static final Duration ORIGIN_RESPONSE_TIMEOUT = Duration.ofSeconds(30);
+    /** ALB idle timeout 기본값. 이 앞단을 지나 앱이 api.moyeota.p-e.kr 로 붙는다 */
+    private static final Duration ALB_IDLE_TIMEOUT = Duration.ofSeconds(60);
 
     @Configuration
     static class Config {
@@ -39,10 +39,10 @@ class PartySseHeartbeatIntervalTest {
     }
 
     @Test
-    void 주기는_오리진_타임아웃의_절반_이하다() {
+    void 주기는_ALB_idle_timeout_의_절반_이하다() {
         assertThat(Duration.ofMillis(heartbeatMs))
                 .as("프록시 타임아웃보다 짧지 않으면 heartbeat 가 아무 일도 하지 않는다")
                 .isGreaterThan(Duration.ZERO)
-                .isLessThanOrEqualTo(ORIGIN_RESPONSE_TIMEOUT.dividedBy(2));
+                .isLessThanOrEqualTo(ALB_IDLE_TIMEOUT.dividedBy(2));
     }
 }
