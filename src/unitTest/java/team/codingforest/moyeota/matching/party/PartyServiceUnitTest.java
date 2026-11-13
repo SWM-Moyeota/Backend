@@ -20,6 +20,7 @@ import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.exception.ErrorCode;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.matching.api.dto.PartyClosedEvent;
+import team.codingforest.moyeota.matching.api.dto.PartyConfirmedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
@@ -1303,7 +1304,8 @@ class PartyServiceUnitTest {
         order.verify(parties).save(eq(party));
         order.verify(afterCommitExecutor).execute(eq(SSE_TASK), any());
         verify(parties, never()).findById(any());
-        verifyNoInteractions(eventPublisher, rideRecords);
+        verify(eventPublisher).publishEvent(eq(new PartyConfirmedEvent(PARTY_ID, "강남역")));   // 채팅방 출발지를 맞추라는 모듈 이벤트
+        verifyNoInteractions(rideRecords);
 
         Runnable task = capturedAfterCommitTask();
         verifyNoInteractions(partyChangeNotifier);
@@ -1341,6 +1343,7 @@ class PartyServiceUnitTest {
         assertThat(party.getDestinationLocation()).isEqualTo(DESTINATION);
         assertThat(party.getVersion()).isEqualTo(3L);
         verify(parties).save(eq(party));
+        verify(eventPublisher).publishEvent(eq(new PartyConfirmedEvent(PARTY_ID, "강남역 2번 출구")));
 
         capturedAfterCommitTask().run();
         verify(partyChangeNotifier).confirmed(eq(PARTY_ID), eq(new PartyConfirmed("COMPLETED", departureAt, 37.4985, 127.0290, "강남역 2번 출구", 3L)));

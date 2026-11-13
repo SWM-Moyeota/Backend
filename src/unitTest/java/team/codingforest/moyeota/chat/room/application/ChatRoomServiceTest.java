@@ -22,6 +22,7 @@ import java.util.Optional;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
@@ -78,6 +79,26 @@ class ChatRoomServiceTest {
                 .isInstanceOf(ChatException.class)
                 .extracting("errorCode")
                 .isEqualTo(ChatErrorCode.CHAT_ROOM_ALREADY_EXISTS);
+    }
+
+    @Test
+    public void 약속_확정_장소를_채팅방_출발지로_바꾼다() {
+        given(chatRooms.changeDeparture(eq(PARTY_ID), eq("강남역 11번 출구"), any(Instant.class))).willReturn(1);
+
+        chatRoomService.changeDeparture(PARTY_ID, "강남역 11번 출구");
+
+        then(chatRooms).should().changeDeparture(eq(PARTY_ID), eq("강남역 11번 출구"), any(Instant.class));
+        then(chatRooms).should(never()).save(any(ChatRoom.class));   // 방을 통째로 저장하면 상태를 옛값으로 덮어쓸 수 있다
+    }
+
+    @Test
+    public void 채팅방이_아직_없으면_재발행되도록_출발지_변경은_예외() {
+        given(chatRooms.changeDeparture(eq(PARTY_ID), eq("강남역 11번 출구"), any(Instant.class))).willReturn(0);
+
+        assertThatThrownBy(() -> chatRoomService.changeDeparture(PARTY_ID, "강남역 11번 출구"))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_ROOM_NOT_FOUND);
     }
 
     @Test

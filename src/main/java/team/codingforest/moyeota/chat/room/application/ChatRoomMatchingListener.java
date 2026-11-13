@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
+import team.codingforest.moyeota.matching.api.dto.PartyConfirmedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
 
@@ -11,6 +12,7 @@ import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
 @RequiredArgsConstructor
 public class ChatRoomMatchingListener {
     private final MatchingChatRoomService matchingChatRoomService;
+    private final ChatRoomService chatRoomService;
 
     /**
      * 예외를 삼키지 않는다. 삼키면 event_publication 이 완료로 기록돼 재발행되지 않는다.
@@ -27,5 +29,14 @@ public class ChatRoomMatchingListener {
     @ApplicationModuleListener(propagation = Propagation.NOT_SUPPORTED)
     public void on(PartyMemberLeftEvent event) {
         matchingChatRoomService.leaveMember(event.partyId(), event.memberId());
+    }
+
+    /**
+     * 약속 확정으로 바뀐 만남 장소를 채팅방 출발지에 반영
+     * 방이 아직 없으면 예외가 그대로 나가 재발행됨
+     */
+    @ApplicationModuleListener(propagation = Propagation.NOT_SUPPORTED)
+    public void on(PartyConfirmedEvent event) {
+        chatRoomService.changeDeparture(event.partyId(), event.departure());
     }
 }
