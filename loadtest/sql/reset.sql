@@ -1,5 +1,5 @@
 -- 부하테스트 실행 전 정리. 운영 EC2 의 psql 에서 그대로 붙여 넣는다.
--- 실행을 중간에 끊었다면 반드시 다시 돌린다 - 정원이 찬 방은 자동 종료 스윕이 돌 때까지 COMPLETED 로 남는다.
+-- 실행을 중간에 끊었다면 반드시 다시 돌린다 - 닫히지 못한 방(모집 중 ACTIVE, 확정한 COMPLETED)은 자동 정리가 도는 1일 뒤까지 남는다.
 
 -- 0) 대상 확인 - 테스트 사용자(닉네임이 lt 로 시작)만 잡히는지 본다
 SELECT count(*) AS test_users FROM users WHERE nickname LIKE 'lt%';
