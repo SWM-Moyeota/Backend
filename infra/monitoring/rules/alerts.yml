@@ -7,7 +7,7 @@ groups:
         annotations: { summary: "k6 서버 CPU 80% 초과 - 이후 결과는 부하 발생기의 한계다" }
 
       - alert: PoolExhausted
-        expr: hikaricp_connections_pending > 0
+        expr: hikaricp_connections_pending{env="dev"} > 0
         for: 15s
         annotations: { summary: "커넥션 풀 대기 발생 - 데드락 또는 DB 병목" }
 
@@ -19,12 +19,12 @@ groups:
   - name: sse
     rules:
       - alert: SseSendFailureSpike
-        expr: sum(rate(party_sse_sent_total{event="connected",result="fail"}[1m])) / sum(rate(party_sse_sent_total{event="connected"}[1m])) > 0.05
+        expr: sum(rate(party_sse_sent_total{env="dev",event="connected",result="fail"}[1m])) / sum(rate(party_sse_sent_total{env="dev",event="connected"}[1m])) > 0.05
         for: 1m
         annotations: { summary: "SSE connected 쓰기 실패 5% 초과 - 구독 직후 첫 이벤트를 못 보내는 중. 그 외 이벤트의 쓰기 실패는 이미 떠난 클라이언트 정리라 보지 않는다" }
 
       - alert: SseConnectionsDropped
-        expr: sum(party_sse_connections) < 0.5 * sum(party_sse_connections offset 2m) and sum(party_sse_connections offset 2m) > 100 and on() sum(k6_vus) > 0.8 * sum(k6_vus offset 2m)
+        expr: sum(party_sse_connections{env="dev"}) < 0.5 * sum(party_sse_connections{env="dev"} offset 2m) and sum(party_sse_connections{env="dev"} offset 2m) > 100 and on() sum(k6_vus) > 0.8 * sum(k6_vus offset 2m)
         for: 30s
         annotations: { summary: "SSE 연결 수가 2분 전의 절반 아래로 급감(k6 VU 는 80% 이상 유지 - 램프다운 아님) - 서버 재시작·ALB·네트워크 확인" }
 
