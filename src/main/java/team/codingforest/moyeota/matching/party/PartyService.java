@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.matching.api.dto.PartyClosedEvent;
+import team.codingforest.moyeota.matching.api.dto.PartyConfirmedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
@@ -150,6 +151,8 @@ public class PartyService {
         Party party = lock(partyId);
         party.confirm(memberId, plan, Instant.now());
         parties.save(party);
+
+		eventPublisher.publishEvent(new PartyConfirmedEvent(partyId, party.getDeparture()));
 
         PartyConfirmed event = PartyConfirmed.from(party);
         afterCommitExecutor.execute("party.sse", () -> partyChangeNotifier.confirmed(partyId, event));
