@@ -121,7 +121,11 @@ public class LocalUserService {
      */
     public String findLoginId(String rawPhoneNumber, String code){
         smsVerificationService.checkCode(rawPhoneNumber, code); //코드가 맞아야 계정을 조회
-        return findLocalUserByPhone(new PhoneNumber(rawPhoneNumber).value()).getLoginId();
+        String loginId = findLocalUserByPhone(new PhoneNumber(rawPhoneNumber).value()).getLoginId();
+        // 찾은 아이디로 곧바로 비밀번호를 재설정할 수 있게 재전송 대기를 푼다.
+        // 풀지 않으면 재설정 요청이 1분 동안 429(USER306)로 막힌다 - 두 기능이 같은 대기 칸(sms:cooldown)을 쓴다
+        smsVerificationService.allowResend(rawPhoneNumber);
+        return loginId;
     }
 
     /*

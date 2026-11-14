@@ -359,6 +359,27 @@ class SmsVerificationServiceTest {
     }
 
     @Test
+    void allowResend는_일분을_기다리지_않고_다시_보낼_수_있게_한다() {
+        service.sendCode("01012345678");
+        assertError(() -> service.sendCode("01012345678"), UserErrorCode.SMS_COOLDOWN);
+
+        service.allowResend(PHONE);   // 하이픈이 있어도 같은 번호로 본다
+
+        service.sendCode("01012345678");
+        assertThat(sender.sent).hasSize(2);
+    }
+
+    @Test
+    void allowResend는_하루_횟수를_되돌리지_않는다() {
+        for (int i = 0; i < 5; i++) {
+            service.sendCode("01012345678");
+            service.allowResend(PHONE);
+        }
+
+        assertError(() -> service.sendCode("01012345678"), UserErrorCode.SMS_DAILY_LIMIT_EXCEEDED);
+    }
+
+    @Test
     void checkCode는_맞는_코드를_지워서_다시_쓸_수_없게_한다() {
         service.send(PHONE);
         service.checkCode(PHONE, CODE);

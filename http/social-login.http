@@ -1,0 +1,79 @@
+### 변수
+@host = http://localhost:8080
+# 앱이 구글 SDK 로 받은 idToken. 서버의 GOOGLE_CLIENT_IDS 에 들어 있는 클라이언트 ID 로 발급된 것이어야 한다
+@idToken = 여기에_구글_idToken_붙여넣기
+@phone = 010-1234-5678
+
+### 1. 구글 로그인 - 가입한 회원이면 status=LOGIN + 토큰, 처음이면 status=SIGNUP_REQUIRED + signupToken(10분)
+POST {{host}}/api/v1/auth/login/google
+Content-Type: application/json
+
+{
+  "idToken": "{{idToken}}"
+}
+
+> {%
+    client.global.set("signupToken", response.body.signupToken);
+    client.global.set("accessToken", response.body.accessToken);
+    client.global.set("refreshToken", response.body.refreshToken);
+%}
+
+### 2. (SIGNUP_REQUIRED 일 때) 문자 인증번호 발송 - 기존 API 그대로. 이미 가입된 번호면 409(USER104)
+POST {{host}}/api/v1/auth/sms/send
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phone}}"
+}
+
+### 3. 문자 인증번호 확인 - verificationToken(10분). dev 프로필은 인증번호가 000000 으로 고정된다
+POST {{host}}/api/v1/auth/sms/verify
+Content-Type: application/json
+
+{
+  "phoneNumber": "{{phone}}",
+  "code": "000000"
+}
+
+> {%
+    client.global.set("verificationToken", response.body.verificationToken);
+%}
+
+### 4. 소셜 회원가입 - signupToken 과 verificationToken 이 둘 다 있어야 한다. 201 + 토큰 쌍. 이메일은 구글 계정 것을 쓴다
+POST {{host}}/api/v1/auth/social/register
+Content-Type: application/json
+
+{
+  "signupToken": "{{signupToken}}",
+  "verificationToken": "{{verificationToken}}",
+  "phoneNumber": "{{phone}}",
+  "nickname": "길동이",
+  "name": "홍길동",
+  "birthDate": "2000-01-01T00:00:00Z",
+  "gender": "MALE"
+}
+
+> {%
+    client.global.set("accessToken", response.body.accessToken);
+    client.global.set("refreshToken", response.body.refreshToken);
+%}
+
+### 5. 받은 토큰으로 내 정보 조회 - 소셜 회원은 loginId 가 null
+GET {{host}}/api/v1/local/users/info
+Authorization: Bearer {{accessToken}}
+
+### 6. 토큰 재발급 - 소셜 회원도 된다
+POST {{host}}/api/v1/auth/reissue
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+### 7. 다시 1번을 부르면 이번에는 status=LOGIN 이다
+
+### 8. 소셜 회원 탈퇴 - 비밀번호가 없어 본문 없이 부른다(204). 아이디·비밀번호 회원은 { "password": "..." } 필수
+DELETE {{host}}/api/v1/users/me
+Authorization: Bearer {{accessToken}}
+
+### 9. 탈퇴 뒤 다시 1번을 부르면 status=SIGNUP_REQUIRED 이고, 같은 번호의 2번(문자 발송)은 30일간 409(USER109)
