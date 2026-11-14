@@ -21,10 +21,11 @@
 검증(2026-11-15 재실행):
 
 - `./gradlew :test :integrationTest :bootJar --console=plain`: 성공. 본체 1,826개 테스트 통과(실패·건너뜀 0), 실행 JAR 생성.
-- `:integrationTest`: localhost:6379/5432 미준비로 기존 Gradle 조건에 따라 **건너뜀**. PostgreSQL 전용 V42→V43 데이터 보존/제약 테스트는 컴파일만 했고 **실행하지 못함**. V43은 실제 PostgreSQL에서 한 번도 적용해 보지 않았다.
+- `./gradlew :integrationTest`: 볼륨 없는 일회용 PostGIS 16·Redis 7 컨테이너에서 **158개 통과**(실패·건너뜀 0). V42→V43 데이터 보존·유일성 제약 테스트(`SocialLoginMigrationPostgresTest`) 포함. 같은 DB에서 Flyway 이력 43 성공과 Hibernate `validate` 기동도 확인.
+- 종단 점검: dev 프로필 서버(실제 PostgreSQL·Redis)를 로컬 Apple 모의 서버에 연결해 `node postman/e2e-apple-flow.mjs` 19개 항목 통과. 만료 PENDING의 원격 철회 호출도 확인. Google 연결과 Apple 알림 수신은 이 점검에 없음.
 - AppleClientTest는 로컬 HTTP 서버와 생성한 RSA/EC 테스트 키로 검증·교환·철회의 성공/실패를 검증.
 - 실제 MVC/보안필터/H2 서비스 테스트는 가입→연결→동일 UUID 로그인→재발급→탈퇴, 다른 회원/공급자 계정 충돌, 동시 연결, 탈퇴/재발급 경합, 알림·세션 무효화 확인. 공급자·SMS·Redis 경계는 모의 처리.
-- Postman 로컬 Apple 모의 서버 smoke(`node postman/check-apple-mock.mjs`) 통과. 모의 서버 자체 점검이며 백엔드를 연결한 종단 검증은 아님.
+- Postman 로컬 Apple 모의 서버 smoke(`node postman/check-apple-mock.mjs`) 통과.
 - socket-app 테스트는 이번에 실행하지 않음(11월 14일 기록: Redis 부재로 기존 테스트 8개 실패).
 - `git diff --check` 통과.
 
@@ -37,7 +38,7 @@
 배포 전 조건과 미검증 범위:
 
 - 사용자가 Apple Developer의 앱 기능·키·알림 URL과 `APPLE_CLIENT_IDS`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`를 설정해야 함. 비밀키를 저장소에 추가하지 않음.
-- 로컬 PostgreSQL/Redis가 준비되면 `./gradlew :integrationTest`로 실제 마이그레이션과 통합 suite를 실행해야 함. 기본 docker-compose의 로컬 DB만 대상으로 하는 테스트가 포함됨.
+- 기존 데이터가 있는 개발·운영 DB에는 V43을 아직 적용해 보지 않음. 적용 전 백업 필요.
 - 실제 Apple/Google 계정 SDK·실기기 교차 로그인은 콘솔 권한/실키가 없어 실행하지 않음.
 - 운영 배포·PR 생성·push·병합을 수행하지 않음. 백엔드 배포 후 앱 PR을 적용하는 순서를 권장.
 
