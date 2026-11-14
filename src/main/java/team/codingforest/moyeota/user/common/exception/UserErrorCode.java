@@ -34,6 +34,11 @@ public enum UserErrorCode implements ErrorCode {
     PASSWORD_RESET_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "USER306", "잠시 후 다시 시도해 주세요."),
     PASSWORD_RESET_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "USER307", "지금은 인증을 진행할 수 없습니다."),
 
+    SOCIAL_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "USER401", "구글 로그인에 실패했습니다. 다시 시도해 주세요."),
+    SOCIAL_SIGNUP_EXPIRED(HttpStatus.UNAUTHORIZED, "USER402", "가입 시간이 만료되었습니다. 구글 로그인부터 다시 진행해 주세요."),
+    SOCIAL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "USER403", "이미 가입된 계정입니다. 다시 로그인해 주세요."),
+    SOCIAL_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "USER404", "지금은 로그인을 진행할 수 없습니다. 잠시 후 다시 시도해 주세요."),
+
     SMS_SEND_FAILED(HttpStatus.BAD_GATEWAY, "USER201", "인증번호 발송에 실패했습니다. 잠시 후 다시 시도해 주세요."),
     SMS_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "USER202", "인증번호는 1분에 한 번만 요청할 수 있습니다."),
     SMS_DAILY_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "USER203", "오늘 인증번호 요청 횟수를 초과했습니다."),

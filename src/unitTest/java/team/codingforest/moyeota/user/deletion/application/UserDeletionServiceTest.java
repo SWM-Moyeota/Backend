@@ -15,6 +15,8 @@ import team.codingforest.moyeota.user.local.domain.LocalUsers;
 import team.codingforest.moyeota.user.local.domain.PasswordHasher;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
+import team.codingforest.moyeota.user.social.FakeSocialUsers;
+import team.codingforest.moyeota.user.social.domain.enums.SocialType;
 import team.codingforest.moyeota.user.users.application.FakeUsers;
 import team.codingforest.moyeota.user.users.domain.User;
 import team.codingforest.moyeota.user.users.domain.enums.Gender;
@@ -39,6 +41,7 @@ class UserDeletionServiceTest {
 
     private FakeUsers users;
     private FakeLocalUsers localUsers;
+    private FakeSocialUsers socialUsers;
     private FakeUserProfiles userProfiles;
     private FakeUserDeletions userDeletions;
     private FakeRefreshTokens refreshTokens;
@@ -52,6 +55,7 @@ class UserDeletionServiceTest {
     void setUp() {
         users = new FakeUsers();
         localUsers = new FakeLocalUsers();
+        socialUsers = new FakeSocialUsers();
         userProfiles = new FakeUserProfiles();
         userDeletions = new FakeUserDeletions();
         refreshTokens = new FakeRefreshTokens();
@@ -60,7 +64,7 @@ class UserDeletionServiceTest {
         events = new ArrayList<>();
         AfterCommitExecutor runNow = (name, task) -> task.run();   // 커밋 후 작업은 바로 실행해 결과만 본다
 
-        service = new UserDeletionService(users, localUsers, userProfiles, userDeletions, refreshTokens, principalCache,
+        service = new UserDeletionService(users, localUsers, socialUsers, userProfiles, userDeletions, refreshTokens, principalCache,
                 new PrefixPasswordHasher(), inOngoingParty::contains, events::add, runNow);
 
         user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "모여타"));
@@ -91,6 +95,16 @@ class UserDeletionServiceTest {
     }
 
     @Test
+    void 탈퇴하면_소셜_연동도_끊는다() {
+        // 남겨 두면 같은 소셜 계정이 탈퇴한 회원으로 계속 로그인된다
+        socialUsers.register(user.getId(), SocialType.GOOGLE, "google-sub-1");
+
+        service.delete(user.getId(), PASSWORD);
+
+        assertThat(socialUsers.exists(SocialType.GOOGLE, "google-sub-1")).isFalse();
+    }
+
+    @Test
     void 비밀번호가_틀리면_아무것도_바꾸지_않는다() {
         assertError(() -> service.delete(user.getId(), "wrong"), UserErrorCode.PASSWORD_MISMATCH);
 
@@ -107,12 +121,65 @@ class UserDeletionServiceTest {
     }
 
     @Test
-    void 로컬_계정이_없으면_본인_확인을_못_해서_거절한다() {
-        // 소셜 가입자 - 비밀번호가 없어 아직 탈퇴 경로가 없다
-        User social = users.save(User.from(UUID.randomUUID(), LoginType.SOCIAL));
+    void 로컬_회원이_비밀번호를_보내지_않으면_요청_오류다() {
+        // 소셜 회원은 비밀번호 없이 보내므로 검증 애노테이션 대신 서비스가 로컬 회원일 때만 본다
+        for (String blank : new String[]{null, "", "  "}) {
+            assertThatThrownBy(() -> service.delete(user.getId(), blank))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
 
-        assertError(() -> service.delete(social.getId(), PASSWORD), UserErrorCode.PASSWORD_MISMATCH);
+        assertNothingChanged();
+    }
+
+    // ───────────────────────── 소셜 회원 ─────────────────────────
+
+    @Test
+    void 소셜_회원은_비밀번호_없이_탈퇴한다() {
+        User social = 소셜_회원("google-sub-9", "010-9999-8888");
+
+        service.delete(social.getId(), null);
+
+        assertThat(users.findById(social.getId()).isDeleted()).isTrue();
+        assertThat(userProfiles.findByUserId(social.getId())).isEmpty();
+        assertThat(socialUsers.exists(SocialType.GOOGLE, "google-sub-9")).as("같은 구글 계정으로 다시 오면 처음 온 사람이다").isFalse();
+        assertThat(userDeletions.deletedAt).as("30일 재가입 제한은 로컬 회원과 같다").containsKey("01099998888");
+        assertThat(refreshTokens.cancelledUserIds).containsExactly(social.getId());
+        assertThat(events).containsExactly(new UserDeletedEvent(social.getId(), social.getPublicId()));
+    }
+
+    @Test
+    void 소셜_회원이_비밀번호를_같이_보내도_무시하고_탈퇴한다() {
+        User social = 소셜_회원("google-sub-9", "010-9999-8888");
+
+        service.delete(social.getId(), "anything");
+
+        assertThat(users.findById(social.getId()).isDeleted()).isTrue();
+    }
+
+    @Test
+    void 소셜_회원도_진행_중인_동승이_있으면_탈퇴할_수_없다() {
+        User social = 소셜_회원("google-sub-9", "010-9999-8888");
+        inOngoingParty.add(social.getId());
+
+        assertError(() -> service.delete(social.getId(), null), UserErrorCode.ONGOING_PARTY_EXISTS);
+
         assertThat(users.findById(social.getId()).isDeleted()).isFalse();
+        assertThat(socialUsers.exists(SocialType.GOOGLE, "google-sub-9")).isTrue();
+    }
+
+    @Test
+    void 로그인_수단이_하나도_없으면_본인_확인을_못_해서_거절한다() {
+        User orphan = users.save(User.from(UUID.randomUUID(), LoginType.SOCIAL));
+
+        assertError(() -> service.delete(orphan.getId(), PASSWORD), UserErrorCode.PASSWORD_MISMATCH);
+        assertThat(users.findById(orphan.getId()).isDeleted()).isFalse();
+    }
+
+    private User 소셜_회원(String socialId, String phone) {
+        User social = users.save(User.from(UUID.randomUUID(), LoginType.SOCIAL, "구글회원"));
+        socialUsers.register(social.getId(), SocialType.GOOGLE, socialId);
+        userProfiles.save(UserProfile.of(social.getId(), "김구글", Instant.now(), phone, Gender.FEMALE, "g@gmail.com"));
+        return social;
     }
 
     private void assertNothingChanged() {

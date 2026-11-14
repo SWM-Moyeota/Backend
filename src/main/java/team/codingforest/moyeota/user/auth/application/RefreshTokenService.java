@@ -14,6 +14,7 @@ import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
 import team.codingforest.moyeota.user.users.domain.IdGenerator;
 import team.codingforest.moyeota.user.local.domain.LocalUsers;
+import team.codingforest.moyeota.user.social.domain.SocialUsers;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -27,6 +28,7 @@ public class RefreshTokenService {
     private final RefreshTokens refreshTokens;
     private final IdGenerator idGenerator;
     private final LocalUsers localUsers;
+    private final SocialUsers socialUsers;
 
     @Transactional
     public TokenResponse issue(Long userId, UUID publicId) {
@@ -39,9 +41,11 @@ public class RefreshTokenService {
 
         Long ownerId = refreshTokens.findByJti(claims.jti())
                 .orElseThrow(() -> new UserException(UserErrorCode.TOKEN_INVALID)).getUserId();
-        // 현재 발급 경로는 로컬 로그인뿐이다. 재설정·탈퇴와 같은 잠금 순서를 사용한다.
-        localUsers.findByUserIdForUpdate(ownerId)
-                .orElseThrow(() -> new UserException(UserErrorCode.TOKEN_INVALID));
+        // 로그인 수단 행을 잠근다. 재설정·탈퇴와 같은 잠금 순서를 사용한다.
+        // 로컬 회원은 local_user, 소셜 회원은 social_user 행이다. 둘 다 없으면 탈퇴 등으로 로그인 수단이 사라진 것이다
+        if (localUsers.findByUserIdForUpdate(ownerId).isEmpty() && socialUsers.findByUserIdForUpdate(ownerId).isEmpty()) {
+            throw new UserException(UserErrorCode.TOKEN_INVALID);
+        }
         Optional<Long> consumed = refreshTokens.consume(claims.jti(), Instant.now());
 
         if (consumed.isEmpty()) {
