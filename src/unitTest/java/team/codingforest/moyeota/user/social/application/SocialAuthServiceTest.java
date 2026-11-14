@@ -70,7 +70,7 @@ class SocialAuthServiceTest {
         service = new SocialAuthService(
                 idToken -> Optional.ofNullable(googleAccounts.get(idToken))
                         .orElseThrow(() -> new UserException(UserErrorCode.SOCIAL_TOKEN_INVALID)),
-                socialUsers, signupTickets, users, userProfiles, UUID::randomUUID, smsVerificationService, refreshTokenService);
+                socialUsers, signupTickets, users, userProfiles, UUID::randomUUID, smsVerificationService, refreshTokenService, org.mockito.Mockito.mock(team.codingforest.moyeota.user.social.apple.AppleCredentialStore.class));
     }
 
     private SocialRegisterCommand 가입(String signupToken, String nickname, String phone) {

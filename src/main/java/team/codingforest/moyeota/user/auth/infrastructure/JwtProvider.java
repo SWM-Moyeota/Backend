@@ -55,6 +55,7 @@ public class JwtProvider {
         JwtBuilder builder = Jwts.builder()
                 .subject(publicId.toString())
                 .claim(TOKEN_TYPE_CLAIM, type.name())
+                .claim("issuedAtMs", now.toEpochMilli())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(validates.get(type))))
                 .signWith(key);
@@ -64,6 +65,12 @@ public class JwtProvider {
         }
 
         return builder.compact();
+    }
+
+    public Instant accessIssuedAt(String token) {
+        Claims claims = parser.parseSignedClaims(token).getPayload();
+        Number millis = claims.get("issuedAtMs", Number.class);
+        return millis == null ? claims.getIssuedAt().toInstant() : Instant.ofEpochMilli(millis.longValue());
     }
 
     public UUID parseAccess(String token) {

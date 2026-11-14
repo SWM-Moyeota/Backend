@@ -65,7 +65,7 @@ class UserDeletionServiceTest {
         AfterCommitExecutor runNow = (name, task) -> task.run();   // 커밋 후 작업은 바로 실행해 결과만 본다
 
         service = new UserDeletionService(users, localUsers, socialUsers, userProfiles, userDeletions, refreshTokens, principalCache,
-                new PrefixPasswordHasher(), inOngoingParty::contains, events::add, runNow);
+                new PrefixPasswordHasher(), inOngoingParty::contains, events::add, runNow, org.mockito.Mockito.mock(team.codingforest.moyeota.user.social.apple.AppleCredentialStore.class));
 
         user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "모여타"));
         localUsers.register(user.getId(), "moyeota", "hashed:" + PASSWORD);

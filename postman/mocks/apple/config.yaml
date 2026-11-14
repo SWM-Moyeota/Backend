@@ -1,0 +1,11 @@
+version: 1
+name: apple-auth-local
+slug: apple-auth-local
+protocol: http
+description: "Apple 공식 토큰 계약을 따르는 로컬 검증용 모의 서버. 실제 계정 인증을 증명하지 않는다."
+origin: appleid.apple.com
+interceptRequests: true
+scenarios:
+  - name: default
+    path: default.js
+    default: true

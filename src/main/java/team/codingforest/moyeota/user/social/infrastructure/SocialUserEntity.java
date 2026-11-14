@@ -5,6 +5,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
@@ -17,13 +19,16 @@ import java.time.Instant;
 
 @Entity
 @Getter
-@Table(name = "social_user", uniqueConstraints = @UniqueConstraint(
-        name = "uk_social_user_type_social_id", columnNames = {"social_type", "social_id"}))
+@Table(name = "social_user", uniqueConstraints = { @UniqueConstraint(
+        name = "uk_social_user_type_social_id", columnNames = {"social_type", "social_id"}),
+        @UniqueConstraint(name = "uk_social_user_user_type", columnNames = {"user_id", "social_type"}) })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SocialUserEntity {
-    // users.id 와 같은 값 - LocalUserEntity 와 같은 방식
     @Id
-    @Column(name = "user_id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "user_id", nullable = false)
     private Long userId;
 
     @Column(nullable = false)
@@ -31,6 +36,12 @@ public class SocialUserEntity {
 
     // 본인인증 연계정보. 구글은 주지 않아 null
     private String socialCi;
+
+    @Column(nullable = false, length = 20)
+    private String status = "ACTIVE";
+
+    public void activate() { status = "ACTIVE"; }
+    public void revoke() { status = "REVOKED"; }
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

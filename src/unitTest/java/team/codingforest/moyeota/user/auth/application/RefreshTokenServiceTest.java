@@ -37,7 +37,9 @@ class RefreshTokenServiceTest {
     private final MemoryRefreshTokens refreshTokens = new MemoryRefreshTokens();
     private final LocalUsers localUsers = mock(LocalUsers.class);   // 기본은 로컬 계정 없음(Optional.empty)
     private final FakeSocialUsers socialUsers = new FakeSocialUsers();
-    private final RefreshTokenService service = new RefreshTokenService(jwtProvider, refreshTokens, UUID::randomUUID, localUsers, socialUsers);
+    private final team.codingforest.moyeota.user.users.domain.Users users = mock(team.codingforest.moyeota.user.users.domain.Users.class);
+    @org.junit.jupiter.api.BeforeEach void 사용자_설정() { given(users.findByIdForUpdate(USER_ID)).willReturn(mock(team.codingforest.moyeota.user.users.domain.User.class)); }
+    private final RefreshTokenService service = new RefreshTokenService(jwtProvider, refreshTokens, UUID::randomUUID, localUsers, socialUsers, users);
 
     @Test
     void 로컬_회원은_재발급된다() {

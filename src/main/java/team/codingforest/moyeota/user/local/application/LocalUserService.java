@@ -78,6 +78,9 @@ public class LocalUserService {
 
     @Transactional
     public AuthenticatedUser authenticate(UserLoginCommand command) {
+        LocalUser candidate = localUsers.findByLoginId(command.loginId());
+        User locked = users.findByIdForUpdate(candidate.getUserId());
+        if (locked.isDeleted()) throw new UserException(UserErrorCode.LOGIN_FAILED);
         LocalUser localUser = localUsers.findByLoginIdForUpdate(command.loginId());
         if (!passwordHasher.matches(command.password(), localUser.getPassword())) {
             throw new UserException(UserErrorCode.LOGIN_FAILED);
