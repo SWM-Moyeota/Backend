@@ -34,6 +34,11 @@ public class UserJpa implements Users {
     }
 
     @Override
+    public User findByIdForUpdate(Long id) {
+        return userRepository.findByIdForUpdate(id).map(UserEntity::toDomain).orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+    }
+
+    @Override
     public User findById(Long id) {
         return userRepository.findById(id).map(UserEntity::toDomain).orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
     }

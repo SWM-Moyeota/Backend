@@ -53,16 +53,21 @@ public class SocialAuthService {
     private final IdGenerator idGenerator;
     private final SmsVerificationService smsVerificationService;
     private final RefreshTokenService refreshTokenService;
+    private final team.codingforest.moyeota.user.social.apple.AppleCredentialStore appleCredentials;
 
     /**
      * 가입한 회원이면 토큰, 처음이면 가입 대기표를 준다.
      * 트랜잭션을 걸지 않는다 - idToken 검사가 구글 공개키를 받아오느라 느려질 수 있어 그동안 DB 연결을 잡지 않는다
      */
     public SocialLoginResponse loginWithGoogle(String idToken) {
-        SocialProfile profile = googleTokenVerifier.verify(idToken);
+        return loginVerified(googleTokenVerifier.verify(idToken));
+    }
+
+    public SocialLoginResponse loginVerified(SocialProfile profile) {
 
         Optional<SocialUser> socialUser = socialUsers.find(profile.socialType(), profile.socialId());
         if (socialUser.isEmpty()) {
+            if (profile.email() == null || profile.email().isBlank()) throw new UserException(UserErrorCode.SOCIAL_TOKEN_INVALID);
             return SocialLoginResponse.signupRequired(issueSignupTicket(profile), profile);
         }
 
@@ -97,7 +102,12 @@ public class SocialAuthService {
 
         User user = users.save(User.from(idGenerator.generate(), LoginType.SOCIAL, command.nickname()));
 
-        socialUsers.register(user.getId(), profile.socialType(), profile.socialId());
+        try {
+            socialUsers.register(user.getId(), profile.socialType(), profile.socialId());
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new UserException(UserErrorCode.SOCIAL_ALREADY_REGISTERED);
+        }
+        if (profile.socialType() == team.codingforest.moyeota.user.social.domain.enums.SocialType.APPLE) appleCredentials.attachSignup(command.signupToken(), user.getId());
 
         // 이메일은 요청이 아니라 대기표에서 꺼낸다 - 소셜 서비스가 확인해 준 값만 쓴다
         userProfiles.save(UserProfile.of(user.getId(), command.name(), command.birthDate(), command.phoneNumber(), command.gender(), profile.email()));

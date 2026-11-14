@@ -30,11 +30,11 @@ public class SocialUserJpa implements SocialUsers {
 
     @Override
     public Optional<SocialUser> findByUserIdForUpdate(Long userId) {
-        return socialUserRepository.findByIdForUpdate(userId).map(SocialUserEntity::toDomain);
+        return socialUserRepository.findByIdForUpdate(userId).stream().findFirst().map(SocialUserEntity::toDomain);
     }
 
     @Override
     public void deleteByUserId(Long userId) {
-        socialUserRepository.deleteById(userId);
+        socialUserRepository.deleteAllByUserId(userId);
     }
 }

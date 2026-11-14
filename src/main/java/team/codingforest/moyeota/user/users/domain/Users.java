@@ -8,6 +8,7 @@ import java.util.UUID;
 public interface Users {
     User save(User user);
     User findById(Long id);
+    default User findByIdForUpdate(Long id) { return findById(id); }
     Optional<User> findByPublicId(UUID publicId);
     Map<Long, String> findFcmTokens(List<Long> userIds);
     List<User> findAllByIds(List<Long> ids);

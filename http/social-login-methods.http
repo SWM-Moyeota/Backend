@@ -1,0 +1,41 @@
+### Apple 로그인 nonce 요청 (응답 nonce를 SDK 요청에 그대로 지정)
+POST {{baseUrl}}/api/v1/auth/apple/challenge
+
+### SDK 응답으로 로그인. 실제 토큰을 파일에 저장하지 않는다.
+POST {{baseUrl}}/api/v1/auth/login/apple
+Content-Type: application/json
+
+{"identityToken":"{{appleIdentityToken}}","authorizationCode":"{{appleAuthorizationCode}}","challengeToken":"{{appleChallengeToken}}","name":"홍길동"}
+
+### 로그인 수단 조회
+GET {{baseUrl}}/api/v1/users/me/login-methods
+Authorization: Bearer {{accessToken}}
+
+### 등록된 휴대폰으로 연결 인증번호 발송
+POST {{baseUrl}}/api/v1/users/me/login-methods/sms/send
+Authorization: Bearer {{accessToken}}
+
+### 연결 인증번호 확인
+POST {{baseUrl}}/api/v1/users/me/login-methods/sms/verify
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{"code":"{{smsCode}}"}
+
+### 구글 계정 추가
+POST {{baseUrl}}/api/v1/users/me/login-methods/google
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{"idToken":"{{googleIdToken}}","verificationToken":"{{linkVerificationToken}}"}
+
+### Apple 연결 전용 nonce 요청
+POST {{baseUrl}}/api/v1/users/me/login-methods/apple/challenge
+Authorization: Bearer {{accessToken}}
+
+### Apple 계정 추가
+POST {{baseUrl}}/api/v1/users/me/login-methods/apple
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{"identityToken":"{{appleIdentityToken}}","authorizationCode":"{{appleAuthorizationCode}}","challengeToken":"{{appleLinkChallengeToken}}","verificationToken":"{{linkVerificationToken}}"}

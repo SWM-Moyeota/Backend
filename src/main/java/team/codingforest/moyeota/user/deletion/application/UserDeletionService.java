@@ -41,9 +41,11 @@ public class UserDeletionService {
     private final OngoingPartyChecker ongoingPartyChecker;
     private final ApplicationEventPublisher eventPublisher;
     private final AfterCommitExecutor afterCommitExecutor;
+    private final team.codingforest.moyeota.user.social.apple.AppleCredentialStore appleCredentials;
 
     @Transactional
     public void delete(Long userId, String rawPassword) {
+        users.findByIdForUpdate(userId);
         confirmIdentity(userId, rawPassword);
 
         if (ongoingPartyChecker.hasOngoingParty(userId)) {
@@ -61,6 +63,7 @@ public class UserDeletionService {
         userProfiles.deleteByUserId(userId);
         localUsers.deleteByUserId(userId);
         // 소셜 연동도 끊는다 - 남겨 두면 같은 소셜 계정이 탈퇴한 회원으로 계속 로그인된다
+        appleCredentials.queueUser(userId);
         socialUsers.deleteByUserId(userId);
         refreshTokens.cancelAllByUserId(userId, now);
 

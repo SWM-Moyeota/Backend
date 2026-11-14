@@ -1,0 +1,8 @@
+simulation: social-auth-local
+routing: path
+mocks:
+  - name: apple
+    routeKey: apple
+    origin:
+      - appleid.apple.com
+    path: postman/mocks/apple/config.yaml

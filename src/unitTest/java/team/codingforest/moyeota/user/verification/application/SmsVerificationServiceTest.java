@@ -61,6 +61,21 @@ class SmsVerificationServiceTest {
                 .isEqualTo(expected);
     }
 
+    @Test
+    void 연결_문자는_가입된_번호에_보내되_가입_용도로_검증할_수_없다() {
+        userProfiles.registered.add("01012345678");
+        service.sendLinkCode("01012345678");
+        assertError(() -> service.checkCode("01012345678", CODE), UserErrorCode.SMS_CODE_EXPIRED);
+        service.checkLinkCode("01012345678", CODE);
+        assertError(() -> service.checkLinkCode("01012345678", CODE), UserErrorCode.SMS_CODE_EXPIRED);
+    }
+
+    @Test
+    void 연결_문자도_기존_발송량과_쿨다운을_공유한다() {
+        service.sendLinkCode("01012345678");
+        assertError(() -> service.sendCode("01012345678"), UserErrorCode.SMS_COOLDOWN);
+    }
+
     // ───────────────────────── 발송 ─────────────────────────
 
     @Test

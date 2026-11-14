@@ -32,7 +32,7 @@ class AuthServiceTest {
     private final CountingUsers users = new CountingUsers();
     private final MemoryPrincipalCache cache = new MemoryPrincipalCache();
     // 로그인·재발급 협력자는 authenticate 가 쓰지 않는다
-    private final AuthService service = new AuthService(null, null, jwtProvider, users, cache);
+    private final AuthService service = new AuthService(null, null, jwtProvider, users, cache, org.mockito.Mockito.mock(team.codingforest.moyeota.user.auth.infrastructure.SessionRevocations.class));
 
     @Test
     void 캐시에_없으면_DB에서_찾고_캐시에_적어_둔다() {
