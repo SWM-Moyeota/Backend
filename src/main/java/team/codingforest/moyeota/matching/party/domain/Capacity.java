@@ -5,7 +5,8 @@ import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
 public record Capacity(int value) {
     private static final int MIN_CAPACITY = 1;
-    private static final int MAX_CAPACITY = 3;
+    private static final int MAX_CAPACITY = 4;
+
     public Capacity {
         if(value < MIN_CAPACITY || value > MAX_CAPACITY) throw new BusinessException(MatchingErrorCode.INVALID_CAPACITY);
     }

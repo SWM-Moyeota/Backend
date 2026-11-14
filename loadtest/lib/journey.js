@@ -1,4 +1,4 @@
-// 1차 배포(택시 꺼짐) 사용자 여정 - 앱(frontend develop)의 화면별 호출을 그대로 따른다. D2(전체 여정)와 D6(지속)가 같이 쓴다.
+// 1차 배포 사용자 여정 - 앱(frontend develop)의 화면별 호출을 그대로 따른다. D2(전체 여정)와 D6(지속)가 같이 쓴다.
 //
 //   앱 시작     GET /config · /local/users/info · /users/me/favorite-places · /chat-rooms/me(진행 중인 방 찾기)
 //   17 합승탭   GET /matching/rooms?bounds 즉시 + 4초 폴링

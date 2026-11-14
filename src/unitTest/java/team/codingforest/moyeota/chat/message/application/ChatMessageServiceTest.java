@@ -39,7 +39,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class ChatMessageServiceTest {
@@ -67,6 +69,16 @@ class ChatMessageServiceTest {
 
     private ChatRoom room(ChatRoomStatus status) {
         return ChatRoom.restore(ROOM_ID, 1L, 0L, "서울시청", "강남역", NOW, NOW, status);
+    }
+
+    private static final UUID KEY = UUID.fromString("6f1c2b9e-3d4a-4e7b-9c1d-2a3b4c5d6e7f");
+
+    private SendMessageCommand commandWithKey() {
+        return new SendMessageCommand(ROOM_ID, USER_ID, PUBLIC_ID, "지금 출발", KEY);
+    }
+
+    private ChatMessage sentWithKey(Long roomId) {
+        return ChatMessage.restore(10L, roomId, 5L, USER_ID, KEY, "지금 출발", ChatMessageType.TEXT, ChatMessageStatus.ACTIVE, NOW, null);
     }
 
     private SendMessageCommand command() {
@@ -126,6 +138,68 @@ class ChatMessageServiceTest {
         assertThat(result.chatRoomId()).isEqualTo(ROOM_ID);
 
         verify(eventPublisher).publishEvent(new ChatMessageSentEvent(USER_ID, result));
+    }
+
+    @Test
+    void 앱이_보낸_메시지_키를_함께_저장한다() {
+        UUID key = KEY;
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
+        given(chatRooms.nextMessageSeq(ROOM_ID)).willReturn(Optional.of(1L));
+        given(chatMessages.save(any(ChatMessage.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+        ChatMessageResult result = chatMessageService.sendMessage(new SendMessageCommand(ROOM_ID, USER_ID, PUBLIC_ID, "안녕", key));
+
+        assertThat(result.clientMessageId()).isEqualTo(key);
+    }
+
+    @Test
+    void 키_없이_보내면_중복_확인을_하지_않는다() {
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
+        given(chatRooms.nextMessageSeq(ROOM_ID)).willReturn(Optional.of(1L));
+        given(chatMessages.save(any(ChatMessage.class))).willReturn(message(1L));
+
+        chatMessageService.sendMessage(command());
+
+        verify(chatMessages, never()).findByUserIdAndClientMessageId(any(), any());
+    }
+
+    @Test
+    void 같은_키로_다시_보내면_저장도_방송도_하지_않고_처음_메시지를_돌려준다() {
+        given(chatMessages.findByUserIdAndClientMessageId(USER_ID, KEY)).willReturn(Optional.of(sentWithKey(ROOM_ID)));
+
+        ChatMessageResult result = chatMessageService.sendMessage(commandWithKey());
+
+        assertThat(result.id()).isEqualTo(10L);
+        assertThat(result.seq()).isEqualTo(5L);
+        assertThat(result.clientMessageId()).isEqualTo(KEY);
+        verify(chatMessages, never()).save(any(ChatMessage.class));
+        verify(chatRooms, never()).nextMessageSeq(any());
+        verifyNoInteractions(eventPublisher);
+    }
+
+    @Test
+    void 같은_키를_다른_방에_다시_쓰면_예외() {
+        given(chatMessages.findByUserIdAndClientMessageId(USER_ID, KEY)).willReturn(Optional.of(sentWithKey(2L)));
+
+        assertThatThrownBy(() -> chatMessageService.sendMessage(commandWithKey()))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_CLIENT_MESSAGE_ID_CONFLICT);
+    }
+
+    @Test
+    void 같은_키의_앞_요청이_처리_중이면_처리_중_예외를_그대로_던지고_방송하지_않는다() {
+        given(chatMessages.findByUserIdAndClientMessageId(USER_ID, KEY)).willReturn(Optional.empty());
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
+        given(chatRooms.nextMessageSeq(ROOM_ID)).willReturn(Optional.of(6L));
+        given(chatMessages.save(any(ChatMessage.class)))
+                .willThrow(new ChatException(ChatErrorCode.CHAT_MESSAGE_SENDING));
+
+        assertThatThrownBy(() -> chatMessageService.sendMessage(commandWithKey()))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_MESSAGE_SENDING);
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test

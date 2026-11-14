@@ -3,6 +3,7 @@ package team.codingforest.moyeota.matching.record;
 import team.codingforest.moyeota.matching.record.domain.RideRecords;
 import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.matching.party.domain.Parties;
+import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
 
 import java.time.Instant;
@@ -35,17 +36,17 @@ public class FakeRideRecords implements RideRecords {
     }
 
     @Override
-    public List<RideRecord> findDroppedOffByMember(Long memberId, int limit) {
-        return droppedOffOf(memberId)
+    public List<RideRecord> findByMember(Long memberId, int limit) {
+        return ridesOf(memberId)
                 .limit(limit)
                 .toList();
     }
 
     @Override
-    public List<RideRecord> findDroppedOffByMemberBefore(Long memberId, Instant dropoffTime, Long matchId, int limit) {
-        return droppedOffOf(memberId)
-                .filter(h -> h.getDropoffTime().isBefore(dropoffTime)
-                        || (h.getDropoffTime().equals(dropoffTime) && h.getMatchId() < matchId))
+    public List<RideRecord> findByMemberBefore(Long memberId, Instant pickupTime, Long matchId, int limit) {
+        return ridesOf(memberId)
+                .filter(h -> h.getPickupTime().isBefore(pickupTime)
+                        || (h.getPickupTime().equals(pickupTime) && h.getMatchId() < matchId))
                 .limit(limit)
                 .toList();
     }
@@ -58,7 +59,7 @@ public class FakeRideRecords implements RideRecords {
         for(Long matchId : matchIds) {
             parties.findById(matchId)
                     .filter(p -> !p.getMembers().isEmpty())
-                    .ifPresent(p -> result.put(matchId, p.getMembers().stream()
+                    .ifPresent(p -> result.put(matchId, riders(p).stream()
                             .sorted(Comparator.comparing(PartyMember::getJoinedAt).thenComparing(PartyMember::getMemberId))
                             .map(PartyMember::getMemberId)
                             .toList()));
@@ -67,16 +68,26 @@ public class FakeRideRecords implements RideRecords {
         return result;
     }
 
-    private Stream<RideRecord> droppedOffOf(Long memberId) {
+    private Stream<RideRecord> ridesOf(Long memberId) {
         return store.values().stream()
-                .filter(RideRecord::isDroppedOff)
-                .filter(h -> parties.hasMember(h.getMatchId(), memberId))
-                .sorted(Comparator.comparing(RideRecord::getDropoffTime).thenComparing(RideRecord::getMatchId).reversed())
+                .filter(h -> rode(h.getMatchId(), memberId))
+                .sorted(Comparator.comparing(RideRecord::getPickupTime).thenComparing(RideRecord::getMatchId).reversed())
                 .map(FakeRideRecords::copy);
     }
 
+    /** 실제 쿼리처럼 방 멤버에게만 기록이 있다 */
+    private boolean rode(Long matchId, Long memberId) {
+        return parties.findById(matchId)
+                .map(p -> riders(p).stream().anyMatch(m -> m.getMemberId().equals(memberId)))
+                .orElse(false);
+    }
+
+    /** 실제 쿼리와 같은 규칙 - 도착한 멤버만 탄 사람이다 */
+    private static List<PartyMember> riders(Party p) {
+        return p.getMembers().stream().filter(PartyMember::isArrived).toList();
+    }
+
     private static RideRecord copy(RideRecord h) {
-        return RideRecord.load(h.getMatchId(), h.getTaxiDriverId(), h.getDeparturePlace(), h.getDestinationPlace(),
-                h.getPickupTime(), h.getDropoffTime(), h.getTotalFare());
+        return RideRecord.load(h.getMatchId(), h.getDeparturePlace(), h.getDestinationPlace(), h.getPickupTime());
     }
 }

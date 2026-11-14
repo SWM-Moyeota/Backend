@@ -20,18 +20,24 @@ import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 import team.codingforest.moyeota.user.verification.application.SmsVerificationService;
 
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 class LocalUserServiceTest {
     private static final String CDN = "https://cdn.example.com/";
@@ -88,6 +94,21 @@ class LocalUserServiceTest {
     }
 
     @Test
+    void 내_정보에는_로그인_아이디가_가려지지_않고_실린다() {
+        UserResponse response = service.register(가입("hong", "길동이", "010-1234-5678"));
+        User user = users.findByPublicId(response.uuid()).orElseThrow();
+
+        assertThat(service.getProfile(user.getId()).loginId()).isEqualTo("hong");
+    }
+
+    @Test
+    void 아이디_로그인_정보가_없는_계정이면_내_정보의_로그인_아이디는_null_이다() {
+        User user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "길동이"));
+
+        assertThat(service.getProfile(user.getId()).loginId()).isNull();
+    }
+
+    @Test
     void 닉네임_앞뒤_공백은_정규화되어_저장된다() {
         service.register(가입("hong", " 길동이 ", "010-1234-5678"));
 
@@ -131,6 +152,22 @@ class LocalUserServiceTest {
     }
 
     @Test
+    void 만_14세_미만이면_문자_인증을_확인하기도_전에_거부된다() {
+        // 앱에서만 막으면 API 를 직접 부르는 쪽이 그대로 통과한다
+        Instant 열세_살 = ZonedDateTime.now(ZoneId.of("Asia/Seoul")).minusYears(13).toInstant();
+
+        assertThatThrownBy(() -> service.register(new UserRegisterCommand("hong", "Passw0rd!", "길동이", "홍길동",
+                열세_살, "010-1234-5678", Gender.MALE, "hong@test.com", "token")))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.UNDER_MINIMUM_AGE);
+        // 부수효과가 없는 입력 검증이라 문자 인증 확인·중복 조회보다 먼저 본다 - 인증 토큰이 남아 다시 시도할 수 있다
+        verifyNoInteractions(smsVerificationService);
+        assertThat(localUsers.existsByLoginId("hong")).isFalse();
+        assertThat(users.existsByNickname("길동이")).isFalse();
+    }
+
+    @Test
     void 문자_인증이_안_됐으면_가입하지_않는다() {
         willThrow(new UserException(UserErrorCode.SMS_NOT_VERIFIED))
                 .given(smsVerificationService).checkVerified("token", "010-1234-5678");
@@ -158,6 +195,69 @@ class LocalUserServiceTest {
         then(smsVerificationService).should(times(1)).consume("token");   // 성공한 첫 가입에서만
     }
 
+    // ───────────────────────── 아이디 찾기 ─────────────────────────
+
+    private static final String PHONE = "01012345678";
+
+    private User 프로필만_있는_회원() {
+        User user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "길동이"));
+        userProfiles.save(UserProfile.of(user.getId(), "홍길동",
+                Instant.parse("2000-01-01T00:00:00Z"), PHONE, Gender.MALE, "hong@test.com"));
+        return user;
+    }
+
+    private void 아이디로_가입한_회원() {
+        localUsers.register(프로필만_있는_회원().getId(), "hong123", "hashed");
+    }
+
+    @Test
+    void 아이디_찾기_발송은_가입된_번호면_정규화한_번호로_문자를_보낸다() {
+        아이디로_가입한_회원();
+
+        service.sendFindLoginIdCode("010-1234-5678");
+
+        then(smsVerificationService).should().sendCode(PHONE);
+    }
+
+    @Test
+    void 아이디_찾기_발송은_미가입_번호면_문자_없이_거절한다() {
+        assertThatThrownBy(() -> service.sendFindLoginIdCode(PHONE))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.PHONE_NOT_REGISTERED);
+        then(smsVerificationService).should(never()).sendCode(any());
+    }
+
+    @Test
+    void 아이디_찾기_발송은_아이디_로그인_정보가_없는_번호도_미가입으로_처리한다() {
+        프로필만_있는_회원();
+
+        assertThatThrownBy(() -> service.sendFindLoginIdCode(PHONE))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.PHONE_NOT_REGISTERED);
+        then(smsVerificationService).should(never()).sendCode(any());
+    }
+
+    @Test
+    void 아이디_찾기_확인은_코드가_맞으면_아이디를_돌려준다() {
+        아이디로_가입한_회원();
+
+        assertThat(service.findLoginId(PHONE, "123456")).isEqualTo("hong123");
+    }
+
+    @Test
+    void 아이디_찾기_확인은_코드가_틀리면_아이디를_돌려주지_않는다() {
+        아이디로_가입한_회원();
+        willThrow(new UserException(UserErrorCode.SMS_CODE_MISMATCH))
+                .given(smsVerificationService).checkCode(PHONE, "000000");
+
+        assertThatThrownBy(() -> service.findLoginId(PHONE, "000000"))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.SMS_CODE_MISMATCH);
+    }
+
     // ───────────────────────── 페이크 ─────────────────────────
 
     static class FakeLocalUsers implements LocalUsers {
@@ -168,6 +268,9 @@ class LocalUserServiceTest {
             byLoginId.put(loginId, LocalUser.from(userId, loginId, password, Instant.now(), Instant.now()));
         }
 
+        @Override
+        public LocalUser findByLoginIdForUpdate(String loginId) { return findByLoginId(loginId); }
+        @Override public Optional<LocalUser> findByUserIdForUpdate(Long id) { return findByUserId(id); }
         @Override
         public LocalUser findByLoginId(String loginId) {
             LocalUser u = byLoginId.get(loginId);
@@ -188,6 +291,11 @@ class LocalUserServiceTest {
     }
 
     static class FakeUserProfiles implements UserProfiles {
+        @Override
+        public Optional<UserProfile> findByPhoneNumber(String phone) {
+            return byUserId.values().stream().filter(p -> p.getPhoneNumber().equals(phone)).findFirst();
+        }
+
         private final Map<Long, UserProfile> byUserId = new HashMap<>();
 
         @Override
@@ -195,6 +303,11 @@ class LocalUserServiceTest {
 
         @Override
         public Optional<UserProfile> findByUserId(Long userId) { return Optional.ofNullable(byUserId.get(userId)); }
+
+        @Override
+        public List<UserProfile> findAllByUserIds(List<Long> userIds) {
+            return userIds.stream().map(byUserId::get).filter(Objects::nonNull).toList();
+        }
 
         @Override
         public boolean existsByPhoneNumber(String phone) {

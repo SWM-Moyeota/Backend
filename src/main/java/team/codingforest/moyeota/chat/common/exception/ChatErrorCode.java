@@ -21,6 +21,8 @@ public enum ChatErrorCode {
     CHAT_MESSAGE_ALREADY_DELETED(HttpStatus.CONFLICT, "이미 삭제된 메시지입니다."),
     CHAT_MESSAGE_TOO_LONG(HttpStatus.BAD_REQUEST, "메시지는 1000자를 넘을 수 없습니다."),
     CHAT_MESSAGE_BLANK(HttpStatus.BAD_REQUEST, "메시지 내용이 비어 있습니다."),
+    CHAT_CLIENT_MESSAGE_ID_CONFLICT(HttpStatus.CONFLICT, "다른 채팅방에서 이미 쓴 메시지 키입니다."),
+    CHAT_MESSAGE_SENDING(HttpStatus.CONFLICT, "같은 메시지를 처리하고 있습니다. 잠시 뒤 다시 보내 주세요."),
 
     CHAT_CANNOT_REPORT_SELF(HttpStatus.BAD_REQUEST, "본인이 보낸 메시지는 신고할 수 없습니다."),
     CHAT_ALREADY_REPORTED(HttpStatus.CONFLICT, "이미 신고한 메시지입니다."),

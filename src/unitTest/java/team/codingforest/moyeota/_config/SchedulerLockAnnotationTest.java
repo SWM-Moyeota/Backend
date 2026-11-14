@@ -4,12 +4,10 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.junit.jupiter.api.Test;
 import org.springframework.scheduling.annotation.Scheduled;
 import team.codingforest.moyeota.common.event.EventResubmitter;
-import team.codingforest.moyeota.dispatch.call.MatchingSweeper;
-import team.codingforest.moyeota.driver.DriverRetentionSweeper;
+import team.codingforest.moyeota.faresplit.FareSplitSweeper;
 import team.codingforest.moyeota.matching.party.CompletedPartySweeper;
+import team.codingforest.moyeota.matching.party.MeetingNotificationSweeper;
 import team.codingforest.moyeota.matching.sse.infrastructure.PartySseRegistry;
-import team.codingforest.moyeota.settlement.ledger.PayoutScheduler;
-import team.codingforest.moyeota.settlement.ledger.SettlementCloseScheduler;
 import team.codingforest.moyeota.user.deletion.application.UserDeletionSweeper;
 
 import java.lang.reflect.Method;
@@ -29,11 +27,8 @@ class SchedulerLockAnnotationTest {
     void DB를_고치는_스케줄러는_전부_잠근다() {
         assertLocked(EventResubmitter.class, "run", "event-resubmit");
         assertLocked(CompletedPartySweeper.class, "sweep", "completed-party-sweep");
-        assertLocked(MatchingSweeper.class, "sweep", "matching-sweep");
-        assertLocked(DriverRetentionSweeper.class, "sweep", "driver-retention-sweep");
-        assertLocked(SettlementCloseScheduler.class, "close", "settlement-close");
-        assertLocked(PayoutScheduler.class, "pay", "settlement-payout");
-        assertLocked(PayoutScheduler.class, "reconcile", "settlement-payout-reconcile");
+        assertLocked(MeetingNotificationSweeper.class, "sweep", "meeting-notification-sweep");
+        assertLocked(FareSplitSweeper.class, "sweep", "fare-split-sweep");
     }
 
     @Test
@@ -49,9 +44,10 @@ class SchedulerLockAnnotationTest {
         // lockAtMostFor 가 주기보다 길면 돌던 서버가 죽었을 때 다음 실행이 그만큼 늦어진다.
         // lockAtLeastFor 는 주기보다 짧아야 한다 - 길면 매 주기 잠금이 안 풀려 건너뛴다
         for (Method m : List.of(scheduled(EventResubmitter.class, "run"),
-                scheduled(CompletedPartySweeper.class, "sweep"), scheduled(MatchingSweeper.class, "sweep"),
-                scheduled(PayoutScheduler.class, "reconcile"))) {
-            Duration period = Duration.ofMillis(m.getAnnotation(Scheduled.class).fixedDelay());
+                scheduled(CompletedPartySweeper.class, "sweep"),
+                scheduled(MeetingNotificationSweeper.class, "sweep"),
+                scheduled(FareSplitSweeper.class, "sweep"))) {
+            Duration period = period(m.getAnnotation(Scheduled.class));
             SchedulerLock lock = m.getAnnotation(SchedulerLock.class);
 
             assertThat(Duration.parse(lock.lockAtLeastFor())).as(lock.name() + " lockAtLeastFor").isLessThan(period);
@@ -62,12 +58,26 @@ class SchedulerLockAnnotationTest {
     @Test
     void 잠금_이름은_서로_다르다() {
         List<String> names = List.of(lockName(EventResubmitter.class, "run"),
-                lockName(CompletedPartySweeper.class, "sweep"), lockName(MatchingSweeper.class, "sweep"),
-                lockName(UserDeletionSweeper.class, "sweep"), lockName(DriverRetentionSweeper.class, "sweep"),
-                lockName(SettlementCloseScheduler.class, "close"), lockName(PayoutScheduler.class, "pay"),
-                lockName(PayoutScheduler.class, "reconcile"));
+                lockName(CompletedPartySweeper.class, "sweep"),
+                lockName(MeetingNotificationSweeper.class, "sweep"),
+                lockName(FareSplitSweeper.class, "sweep"),
+                lockName(UserDeletionSweeper.class, "sweep"));
 
         assertThat(names).doesNotHaveDuplicates();
+    }
+
+    /** fixedDelay 는 그대로, cron 은 매분 0초·매시 정각·N분마다 세 모양만 쓴다 - 다른 모양을 넣으면 여기서 주기를 더해 준다 */
+    private static Duration period(Scheduled scheduled) {
+        if(scheduled.cron().isEmpty()) return Duration.ofMillis(scheduled.fixedDelay());
+
+        String cron = scheduled.cron();
+        if(cron.equals("0 * * * * *")) return Duration.ofMinutes(1);
+        if(cron.equals("0 0 * * * *")) return Duration.ofHours(1);
+
+        java.util.regex.Matcher everyMinutes = java.util.regex.Pattern.compile("0 \\*/(\\d+) \\* \\* \\* \\*").matcher(cron);
+        assertThat(everyMinutes.matches()).as("아는 cron 식: " + cron).isTrue();
+
+        return Duration.ofMinutes(Long.parseLong(everyMinutes.group(1)));
     }
 
     private static void assertLocked(Class<?> type, String method, String expectedName) {

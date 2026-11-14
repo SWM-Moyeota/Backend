@@ -44,8 +44,6 @@ management:
     port: 9091   # 지표·헬스는 앱 포트(8080)와 분리 - 외부에 열지 않는다
 
 moyeota:
-  taxi:
-    enabled: ${TAXI_ENABLED:false}
   crypto:
     field-key: ${FIELD_ENCRYPTION_KEY}
     hash-key: ${FIELD_HASH_KEY}

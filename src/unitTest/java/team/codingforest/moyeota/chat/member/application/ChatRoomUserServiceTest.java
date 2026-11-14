@@ -22,6 +22,7 @@ import team.codingforest.moyeota.chat.member.domain.MemberProvider;
 import team.codingforest.moyeota.chat.message.domain.enums.ChatMessageStatus;
 import team.codingforest.moyeota.chat.message.domain.enums.ChatMessageType;
 import team.codingforest.moyeota.chat.room.domain.ChatRoomStatus;
+import team.codingforest.moyeota.chat.room.domain.PartyProvider;
 import team.codingforest.moyeota.chat.common.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.common.exception.ChatException;
 
@@ -39,6 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -59,6 +61,7 @@ class ChatRoomUserServiceTest {
     private MemberProvider memberProvider;
     private ApplicationEventPublisher eventPublisher;
     private ChatReadBuffer chatReadBuffer;
+    private PartyProvider partyProvider;
 
     private ChatRoomUser activeUser(Long chatRoomId, Long userId) {
         return ChatRoomUser.restore(userId, chatRoomId, null, false, NOW, NOW, null);
@@ -83,7 +86,8 @@ class ChatRoomUserServiceTest {
         eventPublisher = mock(ApplicationEventPublisher.class);
         memberProvider = mock(MemberProvider.class);
         chatReadBuffer = mock(ChatReadBuffer.class);
-        chatRoomUserService = new ChatRoomUserService(eventPublisher, chatRoomUsers, chatRooms, chatMessages, memberProvider, chatReadBuffer);
+        partyProvider = mock(PartyProvider.class);
+        chatRoomUserService = new ChatRoomUserService(eventPublisher, chatRoomUsers, chatRooms, chatMessages, memberProvider, chatReadBuffer, partyProvider);
     }
 
     private ChatRoom room(ChatRoomStatus status) {
@@ -103,6 +107,71 @@ class ChatRoomUserServiceTest {
 
         verify(chatRoomUsers).save(any(ChatRoomUser.class));
         verify(eventPublisher).publishEvent(new ChatRoomJoinedEvent(USER_ID, ROOM_ID));
+    }
+
+    @Test
+    void 매칭_동기화가_부르는_참여는_합승_멤버를_다시_확인하지_않는다() {
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
+        given(chatRoomUsers.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.empty());
+
+        chatRoomUserService.join(new ChatRoomCommand(ROOM_ID, USER_ID, null));
+
+        verifyNoInteractions(partyProvider);
+        verify(chatRoomUsers).save(any(ChatRoomUser.class));
+    }
+
+    @Test
+    void 사용자가_직접_참여할_때_합승_멤버가_아니면_CHAT_NOT_PARTY_MEMBER_이고_참여시키지_않는다() {
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
+        given(partyProvider.isActiveMember(USER_ID, PARTY_ID)).willReturn(false);
+
+        assertThatThrownBy(() -> chatRoomUserService.joinByUser(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID)))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_NOT_PARTY_MEMBER);
+
+        verify(chatRoomUsers, never()).save(any(ChatRoomUser.class));
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void 사용자가_직접_참여할_때_합승_멤버면_채팅방의_파티로_확인하고_참여한다() {
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
+        given(partyProvider.isActiveMember(USER_ID, PARTY_ID)).willReturn(true);
+        given(chatRoomUsers.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.empty());
+
+        chatRoomUserService.joinByUser(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID));
+
+        verify(partyProvider).isActiveMember(USER_ID, PARTY_ID);
+        verify(chatRoomUsers).save(any(ChatRoomUser.class));
+        verify(eventPublisher).publishEvent(new ChatRoomJoinedEvent(USER_ID, ROOM_ID));
+    }
+
+    @Test
+    void 사용자가_직접_참여할_때_합승_멤버여도_이미_참여_중이면_CHAT_ROOM_ALREADY_JOINED_이다() {
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
+        given(partyProvider.isActiveMember(USER_ID, PARTY_ID)).willReturn(true);
+        given(chatRoomUsers.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID))
+                .willReturn(Optional.of(activeUser(ROOM_ID)));
+
+        assertThatThrownBy(() -> chatRoomUserService.joinByUser(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID)))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_ROOM_ALREADY_JOINED);
+
+        verify(chatRoomUsers, never()).save(any(ChatRoomUser.class));
+    }
+
+    @Test
+    void 사용자가_없는_채팅방에_직접_참여하면_CHAT_ROOM_NOT_FOUND_이고_파티를_조회하지_않는다() {
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> chatRoomUserService.joinByUser(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID)))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_ROOM_NOT_FOUND);
+
+        verifyNoInteractions(partyProvider);
     }
 
     @Test

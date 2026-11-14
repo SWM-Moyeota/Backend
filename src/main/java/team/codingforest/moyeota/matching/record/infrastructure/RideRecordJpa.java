@@ -28,21 +28,18 @@ public class RideRecordJpa implements RideRecords {
 
     @Override
     public RideRecord save(RideRecord rideRecord) {
-        return rideRecordJpaRepository.findById(rideRecord.getMatchId())
-                .map(entity -> entity.update(rideRecord))
-                .orElseGet(() -> rideRecordJpaRepository.save(RideRecordEntity.from(rideRecord)))
-                .toDomain();
+        return rideRecordJpaRepository.save(RideRecordEntity.from(rideRecord)).toDomain();
     }
 
     @Override
-    public List<RideRecord> findDroppedOffByMember(Long memberId, int limit) {
-        return rideRecordJpaRepository.findDroppedOffByMember(memberId, Limit.of(limit)).stream()
+    public List<RideRecord> findByMember(Long memberId, int limit) {
+        return rideRecordJpaRepository.findByMember(memberId, Limit.of(limit)).stream()
                 .map(RideRecordEntity::toDomain).toList();
     }
 
     @Override
-    public List<RideRecord> findDroppedOffByMemberBefore(Long memberId, Instant dropoffTime, Long matchId, int limit) {
-        return rideRecordJpaRepository.findDroppedOffByMemberBefore(memberId, dropoffTime, matchId, Limit.of(limit)).stream()
+    public List<RideRecord> findByMemberBefore(Long memberId, Instant pickupTime, Long matchId, int limit) {
+        return rideRecordJpaRepository.findByMemberBefore(memberId, pickupTime, matchId, Limit.of(limit)).stream()
                 .map(RideRecordEntity::toDomain).toList();
     }
 

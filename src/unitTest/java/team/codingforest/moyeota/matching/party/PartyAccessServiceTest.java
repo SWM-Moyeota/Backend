@@ -1,91 +1,63 @@
 package team.codingforest.moyeota.matching.party;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import team.codingforest.moyeota.common.exception.BusinessException;
-import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.matching.api.dto.PartyChatSummary;
-import team.codingforest.moyeota.matching.record.FakeRideRecords;
-import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
+import team.codingforest.moyeota.matching.party.domain.MeetingPlan;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.Radius;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
+import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  *  isOnboardingMember - "종료(FINISHED/CANCELED)되지 않은 방의 현재 멤버인가".
- *  방이 없거나 멤버가 아니면 예외 없이 false 를 돌려준다는 점에서 hasMemberOnParty(PARTY_NOT_FOUND 예외)와 다르다.
+ *  방이 없거나 멤버가 아니면 예외 없이 false 를 돌려준다.
  */
 class PartyAccessServiceTest {
     private static final Long 방장 = 1L;
     private static final Long 동승자 = 2L;
     private static final Long 남남 = 3L;
-    private static final Long 기사 = 9L;
     private static final Long 없는방 = 999L;
     private static final Location 강남역 = new Location(37.4979, 127.0276);
     private static final Location 판교역 = new Location(37.3948, 127.1112);
-    private static final Radius 기본반경 = new Radius(100);
     private static final Instant 지금 = Instant.now();
 
-    private static final AfterCommitExecutor IMMEDIATE = (name, task) -> task.run();
-
     private PartyJpaTest parties;
-    private PartyServiceTest.RecordingPartyChangeNotifier signals;
-    private FakeRideRecords rideRecords;
     private PartyAccessService access;
 
     @BeforeEach
     void setUp() {
         parties = new PartyJpaTest();
-        signals = new PartyServiceTest.RecordingPartyChangeNotifier();
-        rideRecords = new FakeRideRecords(parties);
-        access = new PartyAccessService(parties, IMMEDIATE, signals, rideRecords);
+        access = new PartyAccessService(parties);
     }
 
     // ───────────────────────── 종료 전 상태는 전부 true ─────────────────────────
 
     @Test
     void 모집_중인_방의_멤버는_true() {
-        Long partyId = save(openParty(3));
+        Long partyId = save(createParty(3));
 
         assertThat(access.isOnboardingMember(partyId, 방장)).isTrue();
     }
 
     @Test
     void 정원이_찬_방의_멤버는_true() {
-        Long partyId = save(completedParty());
+        Long partyId = save(fullParty());
 
         assertThat(access.isOnboardingMember(partyId, 동승자)).isTrue();
     }
 
     @Test
-    void 매칭_중인_방의_멤버는_true() {
-        Long partyId = save(matchingParty());
-
-        assertThat(access.isOnboardingMember(partyId, 방장)).isTrue();
-    }
-
-    @Test
-    void 기사가_배정된_방의_멤버는_true() {
-        Long partyId = save(assignedParty());
-
-        assertThat(access.isOnboardingMember(partyId, 방장)).isTrue();
-    }
-
-    @Test
-    void 운행_중인_방의_멤버는_true() {
-        Long partyId = save(ridingParty());
+    void 약속을_확정한_방의_멤버는_true() {
+        Long partyId = save(confirmedParty());
 
         assertThat(access.isOnboardingMember(partyId, 동승자)).isTrue();
     }
@@ -93,23 +65,21 @@ class PartyAccessServiceTest {
     // ───────────────────────── 종료되면 false ─────────────────────────
 
     @Test
-    void 운행이_끝난_방의_멤버는_false() {
-        Party party = ridingParty();
-        party.completeRide(기사, 12000);
-        Long partyId = save(party);
+    void 동승이_끝난_방의_멤버는_false() {
+        Long partyId = save(finishedParty());
 
-        // 멤버 명단은 그대로 남아 있지만(hasMember=true) 상태가 FINISHED 라 false - 상태 조건이 결과를 바꾸는 유일한 경우
-        assertThat(parties.findById(partyId).orElseThrow().hasMember(동승자)).isTrue();
+        // 멤버 명단은 그대로 남아 있지만(isMember=true) 상태가 FINISHED 라 false - 상태 조건이 결과를 바꾸는 유일한 경우
+        assertThat(parties.findById(partyId).orElseThrow().isMember(동승자)).isTrue();
         assertThat(access.isOnboardingMember(partyId, 동승자)).isFalse();
     }
 
     @Test
     void 마지막_멤버가_나가_취소된_방은_false() {
-        Party party = openParty(2);
+        Party party = createParty(2);
         party.leave(방장);   // 혼자 남은 사람이 나가면 CANCELED
         Long partyId = save(party);
 
-        // CANCELED 는 멤버가 비어야 도달하는 상태라 hasMember 에서 이미 false - 상태 체크까지 가지 않는다
+        // 마지막 멤버가 나간 CANCELED 는 명단이 비어 isMember 에서 이미 false - 상태 체크까지 가지 않는다
         assertThat(parties.findById(partyId).orElseThrow().getStatus()).isEqualTo(PartyStatus.CANCELED);
         assertThat(access.isOnboardingMember(partyId, 방장)).isFalse();
     }
@@ -118,15 +88,15 @@ class PartyAccessServiceTest {
 
     @Test
     void 방에_없는_사람은_false() {
-        Long partyId = save(openParty(3));
+        Long partyId = save(createParty(3));
 
         assertThat(access.isOnboardingMember(partyId, 남남)).isFalse();
     }
 
     @Test
     void 나간_사람은_false() {
-        Party party = openParty(3);
-        party.join(동승자);
+        Party party = createParty(3);
+        party.join(동승자, 지금);
         party.leave(동승자);
         Long partyId = save(party);
 
@@ -141,15 +111,6 @@ class PartyAccessServiceTest {
         assertThat(access.isOnboardingMember(없는방, 방장)).isFalse();
     }
 
-    @Test
-    void 같은_상황에서_hasMemberOnParty_는_예외를_던진다() {
-        // 두 메서드의 계약 차이를 못박아 둔다 - 소비처가 어느 쪽을 써야 하는지 판단 근거
-        assertThatThrownBy(() -> access.hasMemberOnParty(없는방, 방장))
-                .isInstanceOf(BusinessException.class)
-                .extracting("errorCode")
-                .isEqualTo(MatchingErrorCode.PARTY_NOT_FOUND);
-    }
-
     // ───────────────────────── findChatSummary - 정원이 차기 전에도 조회된다 ─────────────────────────
 
     /**
@@ -158,7 +119,7 @@ class PartyAccessServiceTest {
      */
     @Test
     void 방장만_있는_방도_채팅_요약이_조회된다() {
-        Long partyId = save(openParty(3));
+        Long partyId = save(createParty(3));
 
         PartyChatSummary summary = access.findChatSummary(partyId);
 
@@ -170,8 +131,8 @@ class PartyAccessServiceTest {
 
     @Test
     void 정원이_덜_찬_방은_지금까지_들어온_멤버만_담긴다() {
-        Party party = openParty(3);
-        party.join(동승자);
+        Party party = createParty(3);
+        party.join(동승자, 지금);
         Long partyId = save(party);
 
         assertThat(access.findChatSummary(partyId).users()).containsExactly(방장, 동승자);
@@ -179,7 +140,7 @@ class PartyAccessServiceTest {
 
     @Test
     void 정원이_찬_방의_채팅_요약은_전원이_담긴다() {
-        Long partyId = save(completedParty());
+        Long partyId = save(fullParty());
 
         assertThat(access.findChatSummary(partyId).users()).containsExactly(방장, 동승자);
     }
@@ -192,176 +153,6 @@ class PartyAccessServiceTest {
                 .isEqualTo(MatchingErrorCode.PARTY_NOT_FOUND);
     }
 
-    // ───────────────────────── 배차 실패·운행 완료도 SSE 로 closed 를 보낸다 ─────────────────────────
-
-    @Test
-    void 배차에_실패하면_closed_를_보낸다() {
-        Long partyId = save(matchingParty());
-
-        access.failMatching(partyId);
-
-        assertThat(signals.sent).containsExactly(partyId + ":closed");
-        assertThat(signals.closed.getLast().status()).isEqualTo("CANCELED");
-    }
-
-    @Test
-    void 운행이_끝나면_closed_를_보낸다() {
-        Long partyId = save(ridingParty());
-
-        access.completeRide(partyId, 기사, 12000);
-
-        assertThat(signals.sent).containsExactly(partyId + ":closed");
-        assertThat(signals.closed.getLast().status()).isEqualTo("FINISHED");
-    }
-
-    @Test
-    void closed_는_커밋_뒤에_나간다() {
-        List<Runnable> afterCommit = new ArrayList<>();
-        PartyAccessService deferred = new PartyAccessService(parties, (name, task) -> afterCommit.add(task), signals, rideRecords);
-        Long partyId = save(matchingParty());
-
-        deferred.failMatching(partyId);
-
-        assertThat(signals.sent).isEmpty();
-        afterCommit.forEach(Runnable::run);
-        assertThat(signals.sent).containsExactly(partyId + ":closed");
-    }
-
-    @Test
-    void 상태가_맞지_않아_거절되면_closed_를_보내지_않는다() {
-        Long partyId = save(openParty(3));
-
-        assertThatThrownBy(() -> access.failMatching(partyId)).isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> access.completeRide(partyId, 기사, 12000)).isInstanceOf(BusinessException.class);
-        assertThat(signals.sent).isEmpty();
-    }
-
-    @Test
-    void 기사_배정과_운행_시작은_closed_를_보내지_않는다() {
-        Long partyId = save(matchingParty());
-
-        access.assignDriver(partyId, 기사);
-        access.startRide(partyId, 기사);
-
-        assertThat(signals.sent).isEmpty();
-    }
-
-    @Nested
-    class 탑승_기록 {
-        private static final Long 다른기사 = 8L;
-
-        @Test
-        void 기사가_탑승_처리하면_기록이_생기고_탑승_시각이_찍힌다() {
-            Long partyId = save(assignedParty());
-            Instant 직전 = Instant.now().truncatedTo(ChronoUnit.MICROS);
-
-            access.startRide(partyId, 기사);
-
-            RideRecord rideRecord = rideRecords.findById(partyId).orElseThrow();
-            assertThat(rideRecord.getTaxiDriverId()).isEqualTo(기사);
-            assertThat(rideRecord.getDeparturePlace()).isEqualTo("강남역");
-            assertThat(rideRecord.getDestinationPlace()).isEqualTo("판교역");
-            assertThat(rideRecord.getPickupTime()).isBetween(직전, Instant.now());
-            assertThat(rideRecord.getDropoffTime()).isNull();
-            assertThat(rideRecord.getTotalFare()).isNull();
-        }
-
-        @Test
-        void 기사가_요금을_입력해_운행을_마치면_하차_시각과_실제_요금이_채워진다() {
-            Long partyId = save(assignedParty());
-            access.startRide(partyId, 기사);
-            Instant 탑승시각 = rideRecords.findById(partyId).orElseThrow().getPickupTime();
-
-            access.completeRide(partyId, 기사, 15000);
-
-            RideRecord rideRecord = rideRecords.findById(partyId).orElseThrow();
-            assertThat(rideRecord.getPickupTime()).isEqualTo(탑승시각);
-            assertThat(rideRecord.getDropoffTime()).isAfterOrEqualTo(탑승시각);
-            assertThat(rideRecord.getTotalFare()).isEqualTo(15000);
-        }
-
-        @Test
-        void 기록_없이_운행_중이던_방이_끝나면_탑승_시각_없이_기록이_생긴다() {
-            Long partyId = save(ridingParty());
-
-            access.completeRide(partyId, 기사, 15000);
-
-            RideRecord rideRecord = rideRecords.findById(partyId).orElseThrow();
-            assertThat(rideRecord.getPickupTime()).isNull();
-            assertThat(rideRecord.getDropoffTime()).isNotNull();
-            assertThat(rideRecord.getTotalFare()).isEqualTo(15000);
-            assertThat(rideRecord.getTaxiDriverId()).isEqualTo(기사);
-            assertThat(rideRecord.getDeparturePlace()).isEqualTo("강남역");
-            assertThat(rideRecord.getDestinationPlace()).isEqualTo("판교역");
-        }
-
-        @Test
-        void 기사_배정만으로는_기록이_생기지_않는다() {
-            Long partyId = save(matchingParty());
-
-            access.assignDriver(partyId, 기사);
-
-            assertThat(rideRecords.findById(partyId)).isEmpty();
-        }
-
-        @Test
-        void 기사를_못_구해_해산된_방은_기록이_없다() {
-            Long partyId = save(matchingParty());
-
-            access.failMatching(partyId);
-
-            assertThat(rideRecords.findById(partyId)).isEmpty();
-        }
-
-        @Test
-        void 기사_없이_합승_종료된_방은_운행_완료가_거절된다() {
-            Party party = completedParty();
-            party.finishWithoutDriver(방장);
-            Long partyId = save(party);
-
-            assertThatThrownBy(() -> access.completeRide(partyId, 기사, 15000)).isInstanceOf(BusinessException.class);
-            assertThat(rideRecords.findById(partyId)).isEmpty();
-        }
-
-        @Test
-        void 자동_만료된_방은_기록이_없고_운행_완료도_거절된다() {
-            Party party = completedParty();
-            party.expireCompleted();
-            Long partyId = save(party);
-
-            assertThatThrownBy(() -> access.completeRide(partyId, 기사, 15000)).isInstanceOf(BusinessException.class);
-            assertThat(rideRecords.findById(partyId)).isEmpty();
-        }
-
-        @Test
-        void 배정_기사가_아니면_탑승_처리가_거절되고_기록이_없다() {
-            Long partyId = save(assignedParty());
-
-            assertThatThrownBy(() -> access.startRide(partyId, 다른기사))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(MatchingErrorCode.NOT_ASSIGNED_DRIVER);
-            assertThat(rideRecords.findById(partyId)).isEmpty();
-        }
-
-        @Test
-        void 이미_끝난_운행을_다시_마치려_하면_거절되고_기록은_그대로다() {
-            Long partyId = save(assignedParty());
-            access.startRide(partyId, 기사);
-            access.completeRide(partyId, 기사, 15000);
-            RideRecord 완료 = rideRecords.findById(partyId).orElseThrow();
-
-            assertThatThrownBy(() -> access.completeRide(partyId, 기사, 20000))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting("errorCode")
-                    .isEqualTo(MatchingErrorCode.NOT_RIDING);
-
-            RideRecord 그대로 = rideRecords.findById(partyId).orElseThrow();
-            assertThat(그대로.getDropoffTime()).isEqualTo(완료.getDropoffTime());
-            assertThat(그대로.getTotalFare()).isEqualTo(15000);
-        }
-    }
-
     // ───────────────────────── 헬퍼 ─────────────────────────
 
     /** PartyJpaTest.save 는 id 가 박힌 새 인스턴스를 돌려주므로 원본의 getId() 는 null 이다 */
@@ -369,32 +160,30 @@ class PartyAccessServiceTest {
         return parties.save(party).getId();
     }
 
-    private Party openParty(int capacity) {
-        return Party.open(방장, 강남역, 판교역, "강남역", "판교역", new Capacity(capacity), 지금, 기본반경, 기본반경, 12000, 25, "_p~iF~ps|U_ulLnnqC");
+    private Party createParty(int capacity) {
+        return Party.create(방장, 강남역, 판교역, "강남역", "판교역", new Capacity(capacity), 지금, 12000, 25, "_p~iF~ps|U_ulLnnqC");
     }
 
-    /** 정원 2명이 찬 방 */
-    private Party completedParty() {
-        Party party = openParty(2);
-        party.join(동승자);
+    /** 정원 2명이 찬 방 - 정원이 차도 ACTIVE 다 */
+    private Party fullParty() {
+        Party party = createParty(2);
+        party.join(동승자, 지금);
         return party;
     }
 
-    private Party matchingParty() {
-        Party party = completedParty();
-        party.startMatching(지금);
+    /** 방장이 10분 뒤로 약속을 확정한 방(COMPLETED) */
+    private Party confirmedParty() {
+        Party party = fullParty();
+        party.confirm(방장, new MeetingPlan(지금.plus(Duration.ofMinutes(10)), 강남역, "강남역"), 지금);
         return party;
     }
 
-    private Party assignedParty() {
-        Party party = matchingParty();
-        party.assignDriver(기사);
-        return party;
-    }
-
-    private Party ridingParty() {
-        Party party = assignedParty();
-        party.startRide(기사);
+    /** 약속 시간에 도착한 방장이 출발을 눌러 끝난 방(FINISHED) */
+    private Party finishedParty() {
+        Party party = confirmedParty();
+        Instant 약속 = party.getDepartureAt();
+        party.arrive(방장, true, 약속);
+        party.depart(방장, 약속);
         return party;
     }
 }

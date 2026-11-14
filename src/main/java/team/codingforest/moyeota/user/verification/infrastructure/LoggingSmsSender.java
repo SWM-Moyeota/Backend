@@ -13,6 +13,6 @@ public class LoggingSmsSender implements SmsSender {
 
     @Override
     public void send(String phoneNumber, String text) {
-        log.info("[SMS 미발송] to={} text={}", Masking.phone(phoneNumber), text);
+        log.info("[SMS 미발송] to={} (인증번호 본문 생략)", Masking.phone(phoneNumber));
     }
 }

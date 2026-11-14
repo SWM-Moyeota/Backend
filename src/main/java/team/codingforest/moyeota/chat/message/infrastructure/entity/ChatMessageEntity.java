@@ -16,6 +16,7 @@ import team.codingforest.moyeota.chat.message.domain.enums.ChatMessageStatus;
 import team.codingforest.moyeota.chat.message.domain.enums.ChatMessageType;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Getter
@@ -25,10 +26,14 @@ import java.time.Instant;
                 @Index(name = "idx_chat_message_room_id", columnList = "chat_room_id, id")
         },
         uniqueConstraints = {
-            @UniqueConstraint(name = "uk_chat_message_room_seq", columnNames = {"chat_room_id", "seq"})
+            @UniqueConstraint(name = "uk_chat_message_room_seq", columnNames = {"chat_room_id", "seq"}),
+            @UniqueConstraint(name = ChatMessageEntity.CLIENT_MESSAGE_ID_UNIQUE, columnNames = {"user_id", "client_message_id"})
         }
 )
 public class ChatMessageEntity {
+
+    // V40 의 (user_id, client_message_id) 유일 제약 이름 - 저장소가 키 중복을 구분할 때도 씀
+    public static final String CLIENT_MESSAGE_ID_UNIQUE = "uk_chat_message_user_client_message";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,6 +48,10 @@ public class ChatMessageEntity {
 
     @Column(nullable = false)
     private Long userId;
+
+    // 앱이 메시지마다 만든 UUID - 재시도로 같은 메시지가 두 번 저장되지 않게 사용자 단위로 유일함. 옛 앱은 비어 있음
+    @Column(updatable = false)
+    private UUID clientMessageId;
 
     @Column(length = 1000)
     private String content;
@@ -63,13 +72,14 @@ public class ChatMessageEntity {
     protected ChatMessageEntity() {
     }
 
-    private ChatMessageEntity(Long id, Long chatRoomId, Long seq, Long userId, String content,
+    private ChatMessageEntity(Long id, Long chatRoomId, Long seq, Long userId, UUID clientMessageId, String content,
                               ChatMessageType type, ChatMessageStatus status,
                               Instant createdAt, Instant deletedAt) {
         this.id = id;
         this.chatRoomId = chatRoomId;
         this.seq = seq;
         this.userId = userId;
+        this.clientMessageId = clientMessageId;
         this.content = content;
         this.type = type;
         this.status = status;
@@ -83,6 +93,7 @@ public class ChatMessageEntity {
                 message.getChatRoomId(),
                 message.getSeq(),
                 message.getUserId(),
+                message.getClientMessageId(),
                 message.getContent(),
                 message.getType(),
                 message.getStatus(),
@@ -97,6 +108,7 @@ public class ChatMessageEntity {
                 chatRoomId,
                 seq,
                 userId,
+                clientMessageId,
                 content,
                 type,
                 status,

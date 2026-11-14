@@ -60,7 +60,7 @@ public class ChatMessageController {
             @Valid @RequestBody SendMessageRequest request
     ) {
         return chatMessageService.sendMessage(
-                new SendMessageCommand(chatRoomId, userId, publicId, request.content()));
+                new SendMessageCommand(chatRoomId, userId, publicId, request.content(), request.clientMessageId()));
     }
 
 

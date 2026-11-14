@@ -17,14 +17,13 @@ import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.exception.ErrorCode;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
-import team.codingforest.moyeota.matching.party.completion.PartyCompletionPolicy;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
-import team.codingforest.moyeota.matching.party.domain.Radius;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 import team.codingforest.moyeota.matching.party.dto.OpenPartyCommand;
 import team.codingforest.moyeota.matching.party.dto.PartyResult;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
@@ -37,7 +36,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -61,28 +59,26 @@ class PartyOpenerUnitTest {
     private Parties parties;
     @Mock
     private ApplicationEventPublisher eventPublisher;
-    @Mock
-    private PartyCompletionPolicy partyCompletionPolicy;
 
     @InjectMocks
     private PartyOpener partyOpener;
 
     @DisplayName("open - 정원이 남으면 생성자가 멤버인 ACTIVE 방을 저장하고 참여 이벤트를 발행한다")
     @Test
-    void open() {
+    void create() {
 
         /*
          * settings
          */
         Party saved = party(PartyStatus.ACTIVE, 3);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
         doReturn(saved).when(parties).save(any(Party.class));
 
         /*
          * test
          */
-        PartyResult result = partyOpener.open(openCommand(3), ESTIMATE);
+        PartyResult result = partyOpener.open(createCommand(3), ESTIMATE);
 
         /*
          * verify
@@ -92,15 +88,13 @@ class PartyOpenerUnitTest {
         Party opened = captor.getValue();
         assertThat(opened.getId()).isNull();
         assertThat(opened.getStatus()).isEqualTo(PartyStatus.ACTIVE);
-        assertThat(opened.hasMember(HOST_ID)).isTrue();
+        assertThat(opened.isMember(HOST_ID)).isTrue();
         assertThat(opened.getMembers()).hasSize(1);
         assertThat(opened.getDepartureLocation()).isEqualTo(DEPARTURE);
         assertThat(opened.getDestinationLocation()).isEqualTo(DESTINATION);
         assertThat(opened.getDeparture()).isEqualTo("강남역");
         assertThat(opened.getDestination()).isEqualTo("판교역");
         assertThat(opened.getCapacity().value()).isEqualTo(3);
-        assertThat(opened.getDepartureRadius()).isEqualTo(Radius.DEFAULT);
-        assertThat(opened.getDestinationRadius()).isEqualTo(Radius.DEFAULT);
         assertThat(opened.getEstimatedFare()).isEqualTo(12000);
         assertThat(opened.getEstimatedTime()).isEqualTo(25);
         assertThat(opened.getRoute()).isEqualTo("encoded-path");
@@ -110,73 +104,66 @@ class PartyOpenerUnitTest {
         assertThat(result.currentMembers()).isEqualTo(1);
 
         verify(eventPublisher).publishEvent(eq(new PartyMemberJoinedEvent(PARTY_ID, HOST_ID)));
-        verifyNoInteractions(partyCompletionPolicy);
     }
 
-    @DisplayName("open - 혼자 타는 방은 완료 정책을 돌려 다시 저장하고 참여 이벤트는 내지 않는다")
+    @DisplayName("open - 혼자 타는 방(정원 1)도 정원이 찼다고 달리 처리하지 않고 ACTIVE 로 한 번 저장하고 참여 이벤트를 발행한다")
     @Test
-    void open_fullOnCreate() {
+    void create_fullOnCreate() {
 
         /*
          * settings
          */
-        Party saved = party(PartyStatus.COMPLETED, 1);
+        Party saved = party(PartyStatus.ACTIVE, 1);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
         doReturn(saved).when(parties).save(any(Party.class));
-        doAnswer(invocation -> {
-            saved.startMatching(BASE_TIME);
-            return null;
-        }).when(partyCompletionPolicy).onCompleted(eq(saved));
 
         /*
          * test
          */
-        PartyResult result = partyOpener.open(openCommand(1), ESTIMATE);
+        PartyResult result = partyOpener.open(createCommand(1), ESTIMATE);
 
         /*
          * verify
          */
-        assertThat(result.status()).as("완료 정책이 바꾼 상태가 응답에 실린다").isEqualTo("MATCHING");
-        verify(parties, times(2)).save(any(Party.class));
-        verify(parties).save(eq(saved));
-        verify(partyCompletionPolicy).onCompleted(eq(saved));
-        verifyNoInteractions(eventPublisher);
+        assertThat(result.status()).isEqualTo("ACTIVE");
+        verify(parties, times(1)).save(any(Party.class));
+        verify(eventPublisher).publishEvent(eq(new PartyMemberJoinedEvent(PARTY_ID, HOST_ID)));
     }
 
     /** 경로 조회는 트랜잭션 밖이라 PartyService 의 첫 검사와 저장 사이에 다른 방에 들어갈 수 있다 */
     @DisplayName("open - 경로 조회 중 다른 방에 들어갔으면 ALREADY_JOINED_OTHER_PARTY 이고 저장하지 않는다")
     @Test
-    void open_joinedOtherPartyDuringRouteSearch() {
+    void create_joinedOtherPartyDuringRouteSearch() {
 
         /*
          * settings
          */
-        doReturn(true).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(true).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
 
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyOpener.open(openCommand(3), ESTIMATE));
+        Throwable thrown = catchThrowable(() -> partyOpener.open(createCommand(3), ESTIMATE));
 
         /*
          * verify
          */
         assertBusinessException(thrown, MatchingErrorCode.ALREADY_JOINED_OTHER_PARTY);
         verify(parties, never()).save(any());
-        verifyNoInteractions(eventPublisher, partyCompletionPolicy);
+        verifyNoInteractions(eventPublisher);
     }
 
     @DisplayName("open - 출발지와 도착지가 같으면 SAME_DEPARTURE_DESTINATION")
     @Test
-    void open_sameLocation() {
+    void create_sameLocation() {
 
         /*
          * settings
          */
         OpenPartyCommand command = new OpenPartyCommand(HOST_ID, DEPARTURE_LAT, DEPARTURE_LNG, DEPARTURE_LAT, DEPARTURE_LNG, "강남역", "강남역", 3);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
 
         /*
          * test
@@ -207,14 +194,14 @@ class PartyOpenerUnitTest {
             "37.0, 127.0, NaN, 127.0",
             "37.0, 127.0, 37.0, NaN"
     })
-    void open_outOfServiceArea(double departureLat, double departureLng, double destinationLat, double destinationLng) {
+    void create_outOfServiceArea(double departureLat, double departureLng, double destinationLat, double destinationLng) {
 
         /*
          * settings
          */
         OpenPartyCommand command = new OpenPartyCommand(HOST_ID, departureLat, departureLng, destinationLat, destinationLng, "출발", "도착", 3);
 
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
 
         /*
          * test
@@ -228,20 +215,20 @@ class PartyOpenerUnitTest {
         verify(parties, never()).save(any());
     }
 
-    @DisplayName("open - 정원이 1~3 밖이면 INVALID_CAPACITY")
+    @DisplayName("open - 정원이 1~4 밖이면 INVALID_CAPACITY")
     @ParameterizedTest(name = "capacity={0}")
-    @ValueSource(ints = {-1, 0, 4})
-    void open_invalidCapacity(int capacity) {
+    @ValueSource(ints = {-1, 0, 5})
+    void create_invalidCapacity(int capacity) {
 
         /*
          * settings
          */
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
 
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyOpener.open(openCommand(capacity), ESTIMATE));
+        Throwable thrown = catchThrowable(() -> partyOpener.open(createCommand(capacity), ESTIMATE));
 
         /*
          * verify
@@ -253,17 +240,17 @@ class PartyOpenerUnitTest {
     @DisplayName("open - 경로 산출값이 null 이거나 음수면 INVALID_ROUTE_ESTIMATE")
     @ParameterizedTest(name = "{0}")
     @MethodSource("invalidEstimates")
-    void open_invalidRouteEstimate(RouteEstimate estimate) {
+    void create_invalidRouteEstimate(RouteEstimate estimate) {
 
         /*
          * settings
          */
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
 
         /*
          * test
          */
-        Throwable thrown = catchThrowable(() -> partyOpener.open(openCommand(3), estimate));
+        Throwable thrown = catchThrowable(() -> partyOpener.open(createCommand(3), estimate));
 
         /*
          * verify
@@ -283,18 +270,18 @@ class PartyOpenerUnitTest {
 
     @DisplayName("open - 요금과 시간이 경계값 0 이면 생성된다")
     @Test
-    void open_zeroEstimate() {
+    void create_zeroEstimate() {
 
         /*
          * settings
          */
-        doReturn(false).when(parties).existsOngoingByMemberId(eq(HOST_ID));
+        doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
         doReturn(party(PartyStatus.ACTIVE, 3)).when(parties).save(any(Party.class));
 
         /*
          * test
          */
-        partyOpener.open(openCommand(3), new RouteEstimate(0, 0, ""));
+        partyOpener.open(createCommand(3), new RouteEstimate(0, 0, ""));
 
         /*
          * verify
@@ -308,7 +295,7 @@ class PartyOpenerUnitTest {
 
     @DisplayName("open - 방 저장은 트랜잭션 안에서 돈다")
     @Test
-    void open_transactional() throws Exception {
+    void create_transactional() throws Exception {
 
         /*
          * test
@@ -322,14 +309,15 @@ class PartyOpenerUnitTest {
         assertThat(transactional).isTrue();
     }
 
-    private static OpenPartyCommand openCommand(int capacity) {
+    private static OpenPartyCommand createCommand(int capacity) {
         return new OpenPartyCommand(HOST_ID, DEPARTURE_LAT, DEPARTURE_LNG, DESTINATION_LAT, DESTINATION_LNG, "강남역", "판교역", capacity);
     }
 
     private static Party party(PartyStatus status, int capacity) {
-        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, Radius.DEFAULT, Radius.DEFAULT, "강남역", "판교역", new Capacity(capacity),
-                List.of(PartyMember.load(HOST_ID, BASE_TIME)),
-                BASE_TIME, status, 12000, 25, "encoded-path", null, null, null, 0L);
+        return Party.load(PARTY_ID, DEPARTURE, DESTINATION, "강남역", "판교역", new Capacity(capacity),
+                List.of(PartyMember.load(HOST_ID, BASE_TIME, null)), HOST_ID,
+                BASE_TIME, status, 12000, 25, "encoded-path", 0L,
+                RoomType.REALTIME, null);
     }
 
     private static void assertBusinessException(Throwable thrown, ErrorCode expected) {

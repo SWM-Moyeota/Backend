@@ -43,11 +43,6 @@ class OpenApiDocsTest {
         join.path("parameters").forEach(p -> names.add(p.path("name").asText()));
 
         assertThat(names).as("@CurrentUser memberId 가 쿼리 파라미터로 잡히면 프론트가 헛값을 보낸다").containsExactly("partyId");
-
-        JsonNode accept = docs().at("/paths/~1api~1v1~1dispatch~1calls~1{partyId}~1accept/post");
-        List<String> driverParams = new ArrayList<>();
-        accept.path("parameters").forEach(p -> driverParams.add(p.path("name").asText()));
-        assertThat(driverParams).as("@CurrentDriver driverId 도 마찬가지").containsExactly("partyId");
     }
 
     @Test

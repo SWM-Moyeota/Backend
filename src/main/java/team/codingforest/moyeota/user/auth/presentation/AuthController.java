@@ -18,12 +18,15 @@ import team.codingforest.moyeota.user.auth.dto.TokenRequest;
 import team.codingforest.moyeota.user.auth.dto.TokenResponse;
 import team.codingforest.moyeota.user.auth.dto.UserLoginRequest;
 import team.codingforest.moyeota.user.local.application.LocalUserService;
+import team.codingforest.moyeota.user.local.dto.FindLoginIdResponse;
 import team.codingforest.moyeota.user.local.dto.NicknameCheckRequest;
 import team.codingforest.moyeota.user.local.dto.NicknameCheckResponse;
 import team.codingforest.moyeota.user.local.dto.PhoneCheckRequest;
 import team.codingforest.moyeota.user.local.dto.PhoneCheckResponse;
 import team.codingforest.moyeota.user.local.dto.UserRegisterRequest;
 import team.codingforest.moyeota.user.local.dto.UserResponse;
+import team.codingforest.moyeota.user.verification.dto.SmsSendRequest;
+import team.codingforest.moyeota.user.verification.dto.SmsVerifyRequest;
 
 @Tag(name = "인증", description = "회원가입·로그인·토큰 재발급·로그아웃. 이 그룹은 토큰 없이 호출")
 @SecurityRequirements   // 전역 Bearer 요구사항 해제
@@ -35,8 +38,12 @@ public class AuthController {
     private final AuthService authService;
     private final LocalUserService localUserService;
 
-    @Operation(summary = "로컬 회원가입", description = "users / local_user / user_profile 한 트랜잭션. 전화번호는 하이픈 제거 후 저장")
-    @ApiResponses({@ApiResponse(responseCode = "201", description = "가입된 유저 publicId·닉네임"), @ApiResponse(responseCode = "400", description = "입력 검증 실패 / INVALID_PHONE_NUMBER(USER105) / INVALID_NICKNAME(USER107)"), @ApiResponse(responseCode = "409", description = "LOGIN_ID_DUPLICATED(USER101) / PHONE_NUMBER_DUPLICATED(USER104) / NICKNAME_DUPLICATED(USER108)")})
+    @Operation(summary = "로컬 회원가입", description = """
+            users / local_user / user_profile 한 트랜잭션. 전화번호는 하이픈 제거 후 저장
+            - 만 14세 미만은 가입 불가(UNDER_MINIMUM_AGE, USER113). 한국 시각(KST) 날짜로 센 만 나이이고 14번째 생일 당일부터 가입 가능
+            - 나이는 문자 인증 확인·중복 조회보다 먼저 보므로 거부되어도 인증 토큰은 남는다
+            """)
+    @ApiResponses({@ApiResponse(responseCode = "201", description = "가입된 유저 publicId·닉네임"), @ApiResponse(responseCode = "400", description = "입력 검증 실패 / UNDER_MINIMUM_AGE(USER113) - 만 14세 미만 / INVALID_PHONE_NUMBER(USER105) / INVALID_NICKNAME(USER107)"), @ApiResponse(responseCode = "409", description = "LOGIN_ID_DUPLICATED(USER101) / PHONE_NUMBER_DUPLICATED(USER104) / NICKNAME_DUPLICATED(USER108)")})
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse register(@Valid @RequestBody UserRegisterRequest request) {
@@ -65,7 +72,7 @@ public class AuthController {
         authService.logout(request.refreshToken());
     }
 
-    @Operation(summary = "전화번호 가입 여부", description = "기사 phone-first 온보딩 1단계. exists=false 면 회원가입으로, true 면 로그인으로")
+    @Operation(summary = "전화번호 가입 여부", description = "가입 전 전화번호 가입 여부 확인. exists=false 면 회원가입으로, true 면 로그인으로")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "exists"), @ApiResponse(responseCode = "400", description = "INVALID_PHONE_NUMBER(USER105)")})
     @PostMapping("/phone/check")
     public PhoneCheckResponse checkPhone(@Valid @RequestBody PhoneCheckRequest request) {
@@ -78,5 +85,28 @@ public class AuthController {
     @PostMapping("/nickname/check")
     public NicknameCheckResponse checkNickname(@Valid @RequestBody NicknameCheckRequest request) {
         return new NicknameCheckResponse(localUserService.existsByNickname(request.nickname()));
+    }
+
+    @Operation(summary="아이디 찾기 인증번호 발송", description = "가입된 번호로만 발송. 쿨다운과 일일 횟수는 가입 인증과 함께 센다")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "발송됨"),
+            @ApiResponse(responseCode = "404", description = "PHONE_NOT_REGISTERED(USER114)"),
+            @ApiResponse(responseCode = "429", description = "SMS_COOLDOWN(USER202) / SMS_DAILY_LIMIT_EXCEEDED(USER203)")})
+    @PostMapping("/find-id/send")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void sendFindLoginIdCode(@Valid @RequestBody SmsSendRequest request){
+        localUserService.sendFindLoginIdCode(request.phoneNumber());
+    }
+
+
+    @Operation(summary = "아이디 찾기 확인", description = "인증번호가 맞으면 아이디 전체를 돌려준다")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "loginId"),
+            @ApiResponse(responseCode = "400", description = "SMS_CODE_EXPIRED(USER204) / SMS_CODE_MISMATCH(USER205)"),
+            @ApiResponse(responseCode = "404", description = "PHONE_NOT_REGISTERED(USER114)"),
+            @ApiResponse(responseCode = "429", description = "SMS_TOO_MANY_ATTEMPTS(USER206)")})
+    @PostMapping("/find-id/verify")
+    public FindLoginIdResponse findLoginId(@Valid @RequestBody SmsVerifyRequest request){
+        return new FindLoginIdResponse(localUserService.findLoginId(request.phoneNumber(), request.code()));
     }
 }

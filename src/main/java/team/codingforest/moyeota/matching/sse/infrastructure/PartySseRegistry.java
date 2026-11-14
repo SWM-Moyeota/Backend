@@ -15,7 +15,6 @@ import java.util.function.Supplier;
 @Slf4j
 @Component
 public class PartySseRegistry {
-    private static final int HEARTBEAT_MS = 30_000;
 
     private final Map<Long, Set<Subscription>> byParty = new ConcurrentHashMap<>();
     private final PartySseMetrics metrics;
@@ -69,7 +68,9 @@ public class PartySseRegistry {
 
     public void closeAll(Long partyId, String data) {
         Set<Subscription> subscriptions = byParty.remove(partyId);
-        if (subscriptions == null) return;
+        if (subscriptions == null) {
+			return;
+		}
 
         subscriptions.forEach(s -> {
             try {
@@ -90,16 +91,21 @@ public class PartySseRegistry {
 
     private void closeMember(Long partyId, Long memberId, String reason) {
         Set<Subscription> subscriptions = byParty.get(partyId);
-        if (subscriptions == null) return;
+
+        if (subscriptions == null) {
+			return;
+		}
 
         for (Subscription s : subscriptions) {
-            if (!s.memberId().equals(memberId)) continue;
+            if (!s.memberId().equals(memberId)) {
+				continue;
+			}
             remove(partyId, s.emitter(), reason);
             completeQuietly(s.emitter());
         }
     }
 
-    @Scheduled(fixedRate = HEARTBEAT_MS, scheduler = PartySseSchedulerConfig.SCHEDULER)
+    @Scheduled(fixedRateString = "${moyeota.sse.heartbeat-ms}", scheduler = PartySseSchedulerConfig.SCHEDULER)
     public void heartbeat() {
         byParty.forEach((partyId, subscriptions) -> subscriptions.forEach(s -> {
             try {
@@ -126,7 +132,9 @@ public class PartySseRegistry {
             return set.isEmpty() ? null : set;
         });
 
-        if (removed.get()) metrics.closed(reason);
+        if (removed.get()) {
+			metrics.closed(reason);
+		}
     }
 
     private void completeQuietly(SseEmitter emitter) {

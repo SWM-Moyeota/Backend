@@ -6,7 +6,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
-import team.codingforest.moyeota.user.common.crypto.FieldHasher;
+import team.codingforest.moyeota.common.crypto.FieldHasher;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
 import team.codingforest.moyeota.user.deletion.domain.UserDeletions;
@@ -82,7 +82,10 @@ public class SmsVerificationService {
         if (userDeletions.existsDeletedSince(phone, Instant.now().minus(UserDeletions.RETENTION))) {
             throw new UserException(UserErrorCode.REJOIN_RESTRICTED);   // 탈퇴 후 바로 재가입해 제재를 피하는 것을 막는다
         }
+        sendCode(phone);
+    }
 
+    public void sendCode(String phone){
         String phoneHash = fieldHasher.hash(phone);
         boolean reviewPhone = reviewPhones.contains(phone);
         String code = reviewPhone ? reviewCode : newCode();
@@ -110,7 +113,20 @@ public class SmsVerificationService {
         }
     }
 
-    public String verify(String rawPhoneNumber, String code) {
+
+    public String verify(String rawPhoneNumber, String code){
+        checkCode(rawPhoneNumber, code);
+        String phoneHash = fieldHasher.hash(new PhoneNumber(rawPhoneNumber).value());
+        try{
+            String token = UUID.randomUUID().toString();
+            smsVerifications.saveVerified(token, phoneHash, VERIFIED_TTL);
+            return token;
+        }catch(DataAccessException e){
+            throw unavailable(e);
+        }
+    }
+
+    public void checkCode(String rawPhoneNumber, String code) {
         String phoneHash = fieldHasher.hash(new PhoneNumber(rawPhoneNumber).value());
         try {
             String saved = smsVerifications.findCode(phoneHash)
@@ -132,9 +148,6 @@ public class SmsVerificationService {
             }
 
             smsVerifications.deleteCode(phoneHash);
-            String token = UUID.randomUUID().toString();
-            smsVerifications.saveVerified(token, phoneHash, VERIFIED_TTL);
-            return token;
         } catch (DataAccessException e) {
             throw unavailable(e);
         }

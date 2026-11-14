@@ -1,0 +1,17 @@
+version: 0.0
+os: linux
+# image.env 는 저장소에 없음 - deploy-socket.yml 이 이번에 올린 이미지 주소로 만들어 번들에 넣음
+files:
+  - source: image.env
+    destination: /opt/moyeota-socket
+file_exists_behavior: OVERWRITE
+# ApplicationStop 을 쓰지 않음 - 이미지를 받은 뒤에 옛 컨테이너를 내리려고 start.sh 에서 함께 처리함
+hooks:
+  ApplicationStart:
+    - location: scripts/start.sh
+      timeout: 300
+      runas: root
+  ValidateService:
+    - location: scripts/validate.sh
+      timeout: 180
+      runas: root

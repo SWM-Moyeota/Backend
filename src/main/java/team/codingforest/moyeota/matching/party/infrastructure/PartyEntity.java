@@ -12,18 +12,20 @@ import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import team.codingforest.moyeota.common.BaseTimeEntity;
-import team.codingforest.moyeota.matching.api.dto.MatchingTarget;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,10 +35,14 @@ import java.util.stream.Collectors;
 @Getter
 @Table(name = "match_room",
         indexes = @Index(name = "idx_match_room_status_location", columnList = "status, departure_lat, departure_lng"))
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PartyEntity extends BaseTimeEntity {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+	@Column(name = "host_id")
+	private Long hostId;
 
     @Column(nullable = false)
     private Double departureLat;
@@ -50,54 +56,45 @@ public class PartyEntity extends BaseTimeEntity {
     @Column(nullable = false)
     private Double destinationLng;
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "departure_place")
     private String departure;
 
-    @Column(nullable = false)
+    @Column(nullable = false, name = "destination_place")
     private String destination;
 
     @Column(nullable = false)
     private Integer capacity;
 
-    @Column(nullable = false)
-    private Integer departureRadius;
-
-    @Column(nullable = false)
-    private Integer destinationRadius;
-
     @OneToMany(mappedBy = "party", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("joinedAt ASC, memberId ASC")
+    @OrderBy("createdAt ASC, memberId ASC")
     private List<PartyMemberEntity> members = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     private PartyStatus status;
 
-    @Column(name = "estimated_fare", nullable = false)
+    @Column(name = "estimated_fare")
     private Integer estimatedFare;
 
-    @Column(name = "estimated_time", nullable = false)
+    @Column(name = "estimated_time")
     private Integer estimatedTime;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String route;
 
-    @Column(name = "taxi_driver_id")
-    private Long taxiDriverId;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "room_type", nullable = false, length = 20)
+    private RoomType roomType;
 
-    @Column(name = "match_started_at")
-    private Instant matchingStartedAt;
+    @Column(name = "departure_at")
+    private Instant departureAt;
 
-    @Column(name = "completed_at")
-    private Instant completedAt;
-
-    @Column(nullable = false)
-    private long version;
-
-    protected PartyEntity() {}
+	@Column(nullable = false)
+	private long version;
 
     private PartyEntity(Double departureLat, Double departureLng, Double destinationLat, Double destinationLng, String departure,
-                       String destination, Integer capacity, Integer departureRadius, Integer destinationRadius, PartyStatus status,
-                        Integer estimatedFare, Integer estimatedTime, String route, Long taxiDriverId, Instant matchingStartedAt, Instant completedAt, long version) {
+                       String destination, Integer capacity, Long hostId, PartyStatus status,
+                        Integer estimatedFare, Integer estimatedTime, String route, long version,
+                        RoomType roomType, Instant departureAt) {
         this.departureLat = departureLat;
         this.departureLng = departureLng;
         this.destinationLat = destinationLat;
@@ -105,16 +102,14 @@ public class PartyEntity extends BaseTimeEntity {
         this.departure = departure;
         this.destination = destination;
         this.capacity = capacity;
-        this.departureRadius = departureRadius;
-        this.destinationRadius = destinationRadius;
+        this.hostId = hostId;
         this.status = status;
         this.estimatedFare = estimatedFare;
         this.estimatedTime = estimatedTime;
         this.route = route;
-        this.taxiDriverId = taxiDriverId;
-        this.matchingStartedAt = matchingStartedAt;
-        this.completedAt = completedAt;
         this.version = version;
+        this.roomType = roomType;
+        this.departureAt = departureAt;
     }
 
     public static PartyEntity from(Party party) {
@@ -126,16 +121,14 @@ public class PartyEntity extends BaseTimeEntity {
                 party.getDeparture(),
                 party.getDestination(),
                 party.getCapacity().value(),
-                party.getDepartureRadius().meters(),
-                party.getDestinationRadius().meters(),
+                party.getHostId(),
                 party.getStatus(),
                 party.getEstimatedFare(),
                 party.getEstimatedTime(),
                 party.getRoute(),
-                party.getTaxiDriverId(),
-                party.getMatchingStartedAt(),
-                party.getCompletedAt(),
-                party.getVersion()
+                party.getVersion(),
+                party.getRoomType(),
+                party.getDepartureAt()
         );
 
         for(PartyMember member : party.getMembers()) {
@@ -147,21 +140,19 @@ public class PartyEntity extends BaseTimeEntity {
 
     public Party toDomain() {
         return Party.load(getId(), new Location(departureLat, departureLng), new Location(destinationLat, destinationLng),
-                new Radius(departureRadius), new Radius(destinationRadius), departure, destination, new Capacity(capacity),
-                members.stream().map(PartyMemberEntity::toDomain).toList(), getCreatedAt(), status, estimatedFare, estimatedTime, route, taxiDriverId, matchingStartedAt, completedAt, version);
+                departure, destination, new Capacity(capacity),
+                members.stream().map(PartyMemberEntity::toDomain).toList(), hostId, getCreatedAt(), status, estimatedFare, estimatedTime, route, version, roomType, departureAt);
     }
 
     public void update(Party party) {
+        this.hostId = party.getHostId();   // 방장이 나가면 변경됨
+        this.departureLat = party.getDepartureLocation().latitude();   // 약속 확정 때 만남 장소로 바뀔 수 있음
+        this.departureLng = party.getDepartureLocation().longitude();
+        this.departure = party.getDeparture();
         this.status = party.getStatus();
-        this.taxiDriverId = party.getTaxiDriverId();
-        this.matchingStartedAt = party.getMatchingStartedAt();
-        this.completedAt = party.getCompletedAt();
         this.version = party.getVersion();
+        this.departureAt = party.getDepartureAt();   // 실시간 방은 방장이 약속 시간을 확정하면 채워짐
         syncMembers(party.getMembers());
-    }
-
-    public MatchingTarget toMatchTarget() {
-        return new MatchingTarget(getId(), matchingStartedAt);
     }
 
     private void syncMembers(List<PartyMember> domainMembers) {
@@ -170,9 +161,12 @@ public class PartyEntity extends BaseTimeEntity {
 
         members.removeIf(e -> !byId.containsKey(e.getMemberId()));
 
-        Set<Long> existing = members.stream()
-                .map(PartyMemberEntity::getMemberId)
-                .collect(Collectors.toSet());
+        Set<Long> existing = new HashSet<>();
+
+        for(PartyMemberEntity e : members) {
+            e.update(byId.get(e.getMemberId()));
+            existing.add(e.getMemberId());
+        }
 
         for(PartyMember m : domainMembers) {
             if(!existing.contains(m.getMemberId())) {

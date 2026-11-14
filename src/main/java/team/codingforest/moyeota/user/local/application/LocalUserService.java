@@ -11,8 +11,11 @@ import team.codingforest.moyeota.user.common.masking.Masking;
 import team.codingforest.moyeota.user.local.domain.LocalUser;
 import team.codingforest.moyeota.user.local.domain.LocalUsers;
 import team.codingforest.moyeota.user.local.domain.PasswordHasher;
+import team.codingforest.moyeota.user.local.domain.PasswordPolicy;
+import team.codingforest.moyeota.user.local.dto.MyProfileResponse;
 import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
 import team.codingforest.moyeota.user.local.dto.UserResponse;
+import team.codingforest.moyeota.user.profile.domain.AgeLimit;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
 import team.codingforest.moyeota.user.users.application.ProfileImages;
@@ -23,6 +26,8 @@ import team.codingforest.moyeota.user.users.domain.User;
 import team.codingforest.moyeota.user.users.domain.Users;
 import team.codingforest.moyeota.user.users.domain.enums.LoginType;
 import team.codingforest.moyeota.user.verification.application.SmsVerificationService;
+
+import java.time.Instant;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +42,11 @@ public class LocalUserService {
 
     @Transactional // users / local_user / profile 3개 테이블 원자 저장
     public UserResponse register(UserRegisterCommand command) {
+        PasswordPolicy.validate(command.password());
+
+        // 만 14세 미만은 가입 불가 - 부수효과가 없는 입력 검증이라 문자 인증 확인·중복 조회보다 먼저 본다
+        AgeLimit.check(command.birthDate(), Instant.now());
+
         // 인증 안 된 요청이면 중복 조회 전에 끊음
         smsVerificationService.checkVerified(command.verificationToken(), command.phoneNumber());
 
@@ -66,8 +76,9 @@ public class LocalUserService {
         return new UserResponse(user.getPublicId(), user.getNickname(), profileImages.toUrl(user.getImageUrl()));
     }
 
+    @Transactional
     public AuthenticatedUser authenticate(UserLoginCommand command) {
-        LocalUser localUser = localUsers.findByLoginId(command.loginId());
+        LocalUser localUser = localUsers.findByLoginIdForUpdate(command.loginId());
         if (!passwordHasher.matches(command.password(), localUser.getPassword())) {
             throw new UserException(UserErrorCode.LOGIN_FAILED);
         }
@@ -77,12 +88,51 @@ public class LocalUserService {
         return new AuthenticatedUser(user.getId(), user.getPublicId());
     }
 
-    public UserResponse getProfile(Long userId) {
+    // 같은 users 행을 두 번 읽는다 - 한 트랜잭션이라 두 번째는 영속성 컨텍스트에서 나온다
+    @Transactional(readOnly = true)
+    public MyProfileResponse getProfile(Long userId) {
         User user = users.findById(userId);
         // 닉네임 미설정(가입 직후 기본 상태)이면 가린 실명으로 폴백한다
         String name = user.getNickname() != null ? user.getNickname()
                 : userProfiles.findByUserId(userId).map(UserProfile::getName).map(Masking::name).orElse(null);
-        return new UserResponse(user.getPublicId(), name, profileImages.toUrl(user.getImageUrl()));
+
+        String loginId = localUsers.findByUserId(userId).map(LocalUser::getLoginId).orElse(null);
+
+        return new MyProfileResponse(user.getPublicId(), name, profileImages.toUrl(user.getImageUrl()), 0, null, loginId);
+    }
+
+    /*
+     ** 인증번호 보내기
+     * 1. 번호를 01012345678형식으로 정리합니다.
+     * 2. 가입된 번호인지 확인합니다. 미가입이면 여기서 에러가 나서 문자가 나가지 않습니다.
+     * 3. SmsVerificationService의 sendCode()로 문자를 보냅니다.
+     */
+    public void sendFindLoginIdCode(String rawPhoneNumber){
+        String phone=new PhoneNumber(rawPhoneNumber).value();
+        findLocalUserByPhone(phone); //미가입이면 문자 비용을 쓰기 전에 거절
+        smsVerificationService.sendCode(phone);
+    }
+
+
+    /*
+     ** 아이디 찾기
+     * 1. SmsVerificationService에서 만든 checkCode()로 인증번호를 확인합니다. 틀리면 여기서 에러가 납니다.
+     * 2. 번호로 계정을 찾아 아이디를 돌려줍니다.
+     */
+    public String findLoginId(String rawPhoneNumber, String code){
+        smsVerificationService.checkCode(rawPhoneNumber, code); //코드가 맞아야 계정을 조회
+        return findLocalUserByPhone(new PhoneNumber(rawPhoneNumber).value()).getLoginId();
+    }
+
+    /*
+     ** 번호로 계정 찾기
+     * 1. 아이디는 local_user 테이블에 있어서, 번호로 프로필을 찾은 뒤, 그 회원 번호로 계정을 한 번 더 찾습니다.
+     * 번호 -> user_profile에서 프로필 찾기 -> userId로 local_user에서 계정 찾기
+     */
+    private LocalUser findLocalUserByPhone(String phone){
+        return userProfiles.findByPhoneNumber(phone)
+                .flatMap(profile->localUsers.findByUserId(profile.getUserId()))
+                .orElseThrow(()->new UserException(UserErrorCode.PHONE_NOT_REGISTERED));
     }
 
     @Transactional(readOnly = true)

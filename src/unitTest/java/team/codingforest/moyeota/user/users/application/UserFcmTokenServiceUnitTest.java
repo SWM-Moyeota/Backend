@@ -40,7 +40,7 @@ class UserFcmTokenServiceUnitTest {
     private UserFcmTokenService service;
 
     private static User userWithToken(String token) {
-        return User.restore(USER_ID, PUBLIC_ID, "모여타", null, LoginType.LOCAL, null, token, Instant.EPOCH, null);
+        return User.restore(USER_ID, PUBLIC_ID, "모여타", null, LoginType.LOCAL, token, Instant.EPOCH, null);
     }
 
     @DisplayName("register - 토큰이 없던 사용자에게 저장")

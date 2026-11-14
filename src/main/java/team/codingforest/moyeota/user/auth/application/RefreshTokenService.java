@@ -13,6 +13,7 @@ import team.codingforest.moyeota.user.auth.infrastructure.JwtProvider;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
 import team.codingforest.moyeota.user.users.domain.IdGenerator;
+import team.codingforest.moyeota.user.local.domain.LocalUsers;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -25,6 +26,7 @@ public class RefreshTokenService {
     private final JwtProvider jwtProvider;
     private final RefreshTokens refreshTokens;
     private final IdGenerator idGenerator;
+    private final LocalUsers localUsers;
 
     @Transactional
     public TokenResponse issue(Long userId, UUID publicId) {
@@ -35,6 +37,11 @@ public class RefreshTokenService {
     public TokenResponse reissue(String refreshToken) {
         TokenClaims claims = jwtProvider.parseRefresh(refreshToken);
 
+        Long ownerId = refreshTokens.findByJti(claims.jti())
+                .orElseThrow(() -> new UserException(UserErrorCode.TOKEN_INVALID)).getUserId();
+        // 현재 발급 경로는 로컬 로그인뿐이다. 재설정·탈퇴와 같은 잠금 순서를 사용한다.
+        localUsers.findByUserIdForUpdate(ownerId)
+                .orElseThrow(() -> new UserException(UserErrorCode.TOKEN_INVALID));
         Optional<Long> consumed = refreshTokens.consume(claims.jti(), Instant.now());
 
         if (consumed.isEmpty()) {

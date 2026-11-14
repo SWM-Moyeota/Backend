@@ -10,7 +10,6 @@ import team.codingforest.moyeota.matching.party.PartyJpaTest;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.Radius;
 import team.codingforest.moyeota.matching.sse.infrastructure.PartySseMetrics;
 import team.codingforest.moyeota.matching.sse.infrastructure.PartySseRegistry;
 
@@ -42,8 +41,8 @@ class PartySseServiceTest {
 
     @Test
     void 멤버는_방_변화를_구독할_수_있다() {
-        Party party = parties.save(openParty(host));
-        party.join(participant);
+        Party party = parties.save(createParty(host));
+        party.join(participant, Instant.now());
         parties.save(party);
 
         assertThat(service.subscribe(party.getId(), participant)).isNotNull();
@@ -53,7 +52,7 @@ class PartySseServiceTest {
     @Test
     void 구독하면_방_상세를_만들어_connected_로_보낸다() {
         // 처음 연결이든 재연결이든 이 상세로 화면을 통째로 다시 그린다 - 끊긴 동안 놓친 변화가 여기서 메워진다
-        Party party = parties.save(openParty(host));
+        Party party = parties.save(createParty(host));
 
         service.subscribe(party.getId(), host);
 
@@ -62,7 +61,7 @@ class PartySseServiceTest {
 
     @Test
     void 멤버가_아니면_구독할_수_없다() {
-        Party party = parties.save(openParty(host));
+        Party party = parties.save(createParty(host));
 
         assertThatThrownBy(() -> service.subscribe(party.getId(), guest))
                 .isInstanceOf(BusinessException.class)
@@ -80,11 +79,11 @@ class PartySseServiceTest {
                 .isEqualTo(MatchingErrorCode.PARTY_NOT_FOUND);
     }
 
-    private Party openParty(Long creatorId) {
-        return Party.open(creatorId,
+    private Party createParty(Long creatorId) {
+        return Party.create(creatorId,
                 new Location(37.4979, 127.0276), new Location(37.3948, 127.1112),
                 "강남역", "판교역", new Capacity(3),
-                Instant.now(), new Radius(100), new Radius(100),
+                Instant.now(),
                 12000, 25, "_p~iF~ps|U_ulLnnqC");
     }
 }

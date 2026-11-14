@@ -3,8 +3,10 @@ package team.codingforest.moyeota.user.auth.presentation.security;
 import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.utils.SpringDocUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -30,8 +32,29 @@ public class SecurityConfig implements WebMvcConfigurer {
     }
 
 
+    static final String INTERNAL_PATH = "/internal/chat/chat-rooms/**";
+
     private final AuthService authService;
     private final JsonAuthenticationEntryPoint entryPoint;
+
+    /**
+     * 소켓 서버 전용 내부 API 체인 - 사용자 JWT 없이 부르므로 InternalTokenFilter 를 통과해야 INTERNAL 권한이 붙음
+     * 사용자 체인보다 먼저 골라지도록 순서를 앞에 둠, /internal/chat/principal 은 사용자 JWT 로 확인하므로 여기 넣지 않음
+     */
+    @Bean
+    @Order(1)
+    public SecurityFilterChain internalSecurityFilterChain(HttpSecurity http, @Value("${moyeota.internal.token:}") String internalToken) throws Exception {
+        return http
+                .securityMatcher(INTERNAL_PATH)
+                .csrf(csrf -> csrf.disable())
+                .formLogin(form -> form.disable())
+                .httpBasic(basic -> basic.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(entryPoint))
+                .authorizeHttpRequests(auth -> auth.anyRequest().hasRole(InternalTokenFilter.ROLE))
+                .addFilterBefore(new InternalTokenFilter(internalToken, entryPoint), AuthorizationFilter.class)
+                .build();
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

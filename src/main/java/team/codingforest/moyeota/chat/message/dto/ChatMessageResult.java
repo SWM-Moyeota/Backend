@@ -14,7 +14,8 @@ public record ChatMessageResult(
         String content,
         ChatMessageType type,
         Instant createdAt,
-        boolean deleted
+        boolean deleted,
+        UUID clientMessageId
 ) {
     private static final String DELETED_CONTENT = "삭제된 메시지입니다";
 
@@ -27,7 +28,8 @@ public record ChatMessageResult(
                 message.isDeleted() ? DELETED_CONTENT : message.getContent(),
                 message.getType(),
                 message.getCreatedAt(),
-                message.isDeleted()
+                message.isDeleted(),
+                message.getClientMessageId()
         );
     }
 }

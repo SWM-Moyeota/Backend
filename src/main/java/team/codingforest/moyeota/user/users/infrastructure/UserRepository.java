@@ -11,4 +11,5 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     Optional<UserEntity> findByPublicId(UUID publicId);
     List<UserEntity> findAllByIdInAndFcmTokenIsNotNull(Collection<Long> ids);
     boolean existsByNickname(String nickname);
+
 }
