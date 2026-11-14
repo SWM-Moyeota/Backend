@@ -40,7 +40,7 @@ public class UserDeletionService {
     @Transactional
     public void delete(Long userId, String rawPassword) {
         // 비밀번호가 없는 계정(소셜)은 아직 탈퇴 경로가 없다 - 소셜 로그인이 붙을 때 본인 확인 수단과 함께 연다
-        LocalUser localUser = localUsers.findByUserId(userId)
+        LocalUser localUser = localUsers.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> new UserException(UserErrorCode.PASSWORD_MISMATCH));
 
         if (!passwordHasher.matches(rawPassword, localUser.getPassword())) {

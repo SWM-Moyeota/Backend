@@ -269,6 +269,9 @@ class LocalUserServiceTest {
         }
 
         @Override
+        public LocalUser findByLoginIdForUpdate(String loginId) { return findByLoginId(loginId); }
+        @Override public Optional<LocalUser> findByUserIdForUpdate(Long id) { return findByUserId(id); }
+        @Override
         public LocalUser findByLoginId(String loginId) {
             LocalUser u = byLoginId.get(loginId);
             if(u == null) throw new UserException(UserErrorCode.LOGIN_FAILED);

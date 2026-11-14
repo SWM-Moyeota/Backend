@@ -11,6 +11,7 @@ import team.codingforest.moyeota.user.common.masking.Masking;
 import team.codingforest.moyeota.user.local.domain.LocalUser;
 import team.codingforest.moyeota.user.local.domain.LocalUsers;
 import team.codingforest.moyeota.user.local.domain.PasswordHasher;
+import team.codingforest.moyeota.user.local.domain.PasswordPolicy;
 import team.codingforest.moyeota.user.local.dto.MyProfileResponse;
 import team.codingforest.moyeota.user.local.dto.UserRegisterCommand;
 import team.codingforest.moyeota.user.local.dto.UserResponse;
@@ -41,6 +42,8 @@ public class LocalUserService {
 
     @Transactional // users / local_user / profile 3개 테이블 원자 저장
     public UserResponse register(UserRegisterCommand command) {
+        PasswordPolicy.validate(command.password());
+
         // 만 14세 미만은 가입 불가 - 부수효과가 없는 입력 검증이라 문자 인증 확인·중복 조회보다 먼저 본다
         AgeLimit.check(command.birthDate(), Instant.now());
 
@@ -73,8 +76,9 @@ public class LocalUserService {
         return new UserResponse(user.getPublicId(), user.getNickname(), profileImages.toUrl(user.getImageUrl()));
     }
 
+    @Transactional
     public AuthenticatedUser authenticate(UserLoginCommand command) {
-        LocalUser localUser = localUsers.findByLoginId(command.loginId());
+        LocalUser localUser = localUsers.findByLoginIdForUpdate(command.loginId());
         if (!passwordHasher.matches(command.password(), localUser.getPassword())) {
             throw new UserException(UserErrorCode.LOGIN_FAILED);
         }
