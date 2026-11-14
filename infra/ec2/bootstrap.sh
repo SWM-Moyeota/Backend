@@ -60,6 +60,9 @@ aws s3 cp "$S3/alloy/config.alloy" /etc/alloy/config.alloy
 
 # 6. Parameter Store → env. 앱은 전체, Alloy는 필요한 값만 (비밀값을 Alloy에 넘기지 않는다)
 /opt/moyeota/bin/load-env.sh
+# 추적에 어느 환경인지 붙인다. load-env.sh 가 EC2 태그 Env 로 적어 둔 값을 쓴다(위에서 otel.env 를 매번 새로 받으므로 여러 번 실행해도 한 줄만 남는다)
+DEPLOY_ENV_NAME=$(grep -E '^SPRING_PROFILES_ACTIVE=' /etc/moyeota/moyeota.env | cut -d= -f2-)
+printf 'OTEL_RESOURCE_ATTRIBUTES=deployment.environment=%s\n' "$DEPLOY_ENV_NAME" >> /etc/moyeota/otel.env
 grep -E '^(LOKI_URL|DEPLOY_ENV|TEMPO_URL)=' /etc/moyeota/moyeota.env > /etc/alloy/env
 # Redis 지표 수집기는 ElastiCache 를 본다. 전송 중 암호화가 켜져 있어 rediss:// 로 붙는다 (인증서는 Amazon CA, 시스템 신뢰 저장소로 검증)
 REDIS_HOST=$(grep -E '^REDIS_HOST=' /etc/moyeota/moyeota.env | cut -d= -f2- | tr -d '"')

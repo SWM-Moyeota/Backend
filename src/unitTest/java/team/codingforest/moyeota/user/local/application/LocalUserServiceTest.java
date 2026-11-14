@@ -31,9 +31,11 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -191,6 +193,69 @@ class LocalUserServiceTest {
         assertThatThrownBy(() -> service.register(가입("kim", "길동이", "010-9999-8888")))
                 .isInstanceOf(UserException.class);
         then(smsVerificationService).should(times(1)).consume("token");   // 성공한 첫 가입에서만
+    }
+
+    // ───────────────────────── 아이디 찾기 ─────────────────────────
+
+    private static final String PHONE = "01012345678";
+
+    private User 프로필만_있는_회원() {
+        User user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "길동이"));
+        userProfiles.save(UserProfile.of(user.getId(), "홍길동",
+                Instant.parse("2000-01-01T00:00:00Z"), PHONE, Gender.MALE, "hong@test.com"));
+        return user;
+    }
+
+    private void 아이디로_가입한_회원() {
+        localUsers.register(프로필만_있는_회원().getId(), "hong123", "hashed");
+    }
+
+    @Test
+    void 아이디_찾기_발송은_가입된_번호면_정규화한_번호로_문자를_보낸다() {
+        아이디로_가입한_회원();
+
+        service.sendFindLoginIdCode("010-1234-5678");
+
+        then(smsVerificationService).should().sendCode(PHONE);
+    }
+
+    @Test
+    void 아이디_찾기_발송은_미가입_번호면_문자_없이_거절한다() {
+        assertThatThrownBy(() -> service.sendFindLoginIdCode(PHONE))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.PHONE_NOT_REGISTERED);
+        then(smsVerificationService).should(never()).sendCode(any());
+    }
+
+    @Test
+    void 아이디_찾기_발송은_아이디_로그인_정보가_없는_번호도_미가입으로_처리한다() {
+        프로필만_있는_회원();
+
+        assertThatThrownBy(() -> service.sendFindLoginIdCode(PHONE))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.PHONE_NOT_REGISTERED);
+        then(smsVerificationService).should(never()).sendCode(any());
+    }
+
+    @Test
+    void 아이디_찾기_확인은_코드가_맞으면_아이디를_돌려준다() {
+        아이디로_가입한_회원();
+
+        assertThat(service.findLoginId(PHONE, "123456")).isEqualTo("hong123");
+    }
+
+    @Test
+    void 아이디_찾기_확인은_코드가_틀리면_아이디를_돌려주지_않는다() {
+        아이디로_가입한_회원();
+        willThrow(new UserException(UserErrorCode.SMS_CODE_MISMATCH))
+                .given(smsVerificationService).checkCode(PHONE, "000000");
+
+        assertThatThrownBy(() -> service.findLoginId(PHONE, "000000"))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode")
+                .isEqualTo(UserErrorCode.SMS_CODE_MISMATCH);
     }
 
     // ───────────────────────── 페이크 ─────────────────────────
