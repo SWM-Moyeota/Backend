@@ -135,8 +135,37 @@ export function appConfig() {
   return http.get(`${BASE}/api/v1/config`, { tags: { name: 'GET /config' } });
 }
 
-export function finishRoom(token, partyId) {
-  return http.post(`${BASE}/api/v1/matching/rooms/${partyId}/finish`, null, auth(token, { tags: { name: 'POST /matching/rooms/{id}/finish' } }));
+// ───────── 약속 확정 → 출발지 도착 → 출발 (방을 끝내는 길은 이것 하나다) ─────────
+
+// 서버는 약속 시간을 "확정하는 지금부터 5분 뒤 ~ 1시간" 으로만 받는다. k6 서버와 시계가 조금 달라도 걸리지 않게 10초 넉넉히 잡는다
+export const CONFIRM_AHEAD_SEC = Number(__ENV.CONFIRM_AHEAD_SEC || 310);
+
+/** 방장이 약속을 확정한다(ACTIVE → COMPLETED). 만남 장소는 방의 출발지 그대로 보낸다. 돌려주는 값에 약속 시각(ms)을 붙인다 */
+export function confirmRoom(token, partyId, from = 강남역, aheadSec = CONFIRM_AHEAD_SEC) {
+  const departureAt = Date.now() + aheadSec * 1000;
+  const res = http.post(`${BASE}/api/v1/matching/rooms/${partyId}/confirm`, JSON.stringify({
+    departureAt: new Date(departureAt).toISOString(), departureLat: from.lat, departureLng: from.lng, departure: from.name,
+  }), auth(token, { tags: { name: 'POST /matching/rooms/{id}/confirm' } }));
+  return { status: res.status, body: res.body, departureAt };
+}
+
+/** 출발지 도착 - 약속 10분 전부터 출발지 반경(실시간 방 100m) 안에서. 출발지 좌표를 그대로 보낸다 */
+export function arriveRoom(token, partyId, at = 강남역) {
+  return http.post(`${BASE}/api/v1/matching/rooms/${partyId}/arrive`, JSON.stringify({ latitude: at.lat, longitude: at.lng }),
+    auth(token, { tags: { name: 'POST /matching/rooms/{id}/arrive' } }));
+}
+
+/** 출발 - 도착한 방장이 약속 시간 뒤에 누르면 방이 끝난다(FINISHED) */
+export function departRoom(token, partyId) {
+  return http.post(`${BASE}/api/v1/matching/rooms/${partyId}/depart`, null, auth(token, { tags: { name: 'POST /matching/rooms/{id}/depart' } }));
+}
+
+/**
+ * 정리용 - 멤버를 모두 내보내 방을 CANCELED 로 닫는다. 출발(depart)은 약속 시간까지 5분을 기다려야 해서 teardown 에는 쓰지 않는다.
+ * members 는 방장을 맨 앞에 둔다 - 참여자부터 나가고 방장이 마지막에 나간다. 멤버가 아닌 사람의 403 은 무시한다
+ */
+export function disbandRoom(members, partyId) {
+  for (const u of members.slice().reverse()) leaveRoom(u.token, partyId);
 }
 
 export function chatMembers(token, chatRoomId) {
@@ -185,7 +214,7 @@ export function resolveChatRoomId(token, sleepFn, tries = 10) {
 export const GROUP = 3;
 export function groupUsers(users, g) { return [users[g * GROUP], users[g * GROUP + 1], users[g * GROUP + 2]]; }
 
-/** 조 g 로 정원 3인 방을 채워 COMPLETED 로 만든다. setup 전용 */
+/** 조 g 로 정원 3인 방을 채운다. 정원이 차도 방은 ACTIVE 그대로다(목록에서만 빠진다) - 약속 확정은 하지 않는다. setup 전용 */
 export function fillRoom(users, g, destName) {
   const [host, a, b] = groupUsers(users, g);
   const from = spotOf(g);

@@ -8,7 +8,7 @@
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import {
-  listRooms, myChatRooms, pollChat, sendChatRest, finishRoom,
+  listRooms, myChatRooms, pollChat, sendChatRest, disbandRoom,
   fillRoom, groupUsers, resolveChatRoomId, spotOf, viewportAround,
 } from './lib/api.js';
 import { watchParty } from './lib/sse.js';
@@ -78,5 +78,5 @@ export function sseHolder(data) {
 }
 
 export function teardown(data) {
-  for (const grp of data.groups) finishRoom(groupUsers(users, grp.g)[0].token, grp.partyId);
+  for (const grp of data.groups) disbandRoom(groupUsers(users, grp.g), grp.partyId);
 }

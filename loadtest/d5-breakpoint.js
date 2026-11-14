@@ -1,9 +1,9 @@
 // D5 - 한계 찾기. D1 의 읽기 비율에 쓰기 10%(채팅 메시지 전송)를 섞어 10 → 200 RPS 로 올린다. 통과 기준 없음 - 꺾이는 지점을 본다.
-//   꺾일 때 hikaricp_connections_pending 이 오르면 DB(Neon), system_cpu_usage 가 오르면 앱이 병목.
+//   꺾일 때 hikaricp_connections_pending 이 오르면 DB, system_cpu_usage 가 오르면 앱이 병목.
 //   k6 run -o experimental-prometheus-rw loadtest/d5-breakpoint.js
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
-import { listRooms, roomDetail, myChatRooms, pollChat, sendChatRest, fillRoom, groupUsers, finishRoom, resolveChatRoomId, spotOf, viewportAround } from './lib/api.js';
+import { listRooms, roomDetail, myChatRooms, pollChat, sendChatRest, fillRoom, groupUsers, disbandRoom, resolveChatRoomId, spotOf, viewportAround } from './lib/api.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
 const GROUPS = Number(__ENV.GROUPS || 20);
@@ -50,5 +50,5 @@ export default function (data) {
 }
 
 export function teardown(data) {
-  for (const grp of data.groups) finishRoom(groupUsers(users, grp.g)[0].token, grp.partyId);
+  for (const grp of data.groups) disbandRoom(groupUsers(users, grp.g), grp.partyId);
 }
