@@ -8,6 +8,7 @@ public interface UserProfiles {
     Optional<UserProfile> findByUserId(Long userId);
     /** 프로필이 없는 userId(탈퇴 등)는 결과에서 빠진다 */
     List<UserProfile> findAllByUserIds(List<Long> userIds);
+    Optional<UserProfile> findByPhoneNumber(String normalizedPhoneNumber);
     boolean existsByPhoneNumber(String normalizedPhoneNumber);
     void deleteByUserId(Long userId);
 }

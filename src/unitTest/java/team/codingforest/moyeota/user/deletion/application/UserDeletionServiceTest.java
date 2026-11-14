@@ -168,6 +168,11 @@ class UserDeletionServiceTest {
     }
 
     static class FakeUserProfiles implements UserProfiles {
+        @Override
+        public Optional<UserProfile> findByPhoneNumber(String phone) {
+            return byUserId.values().stream().filter(p -> p.getPhoneNumber().equals(phone)).findFirst();
+        }
+
         final Map<Long, UserProfile> byUserId = new HashMap<>();
 
         @Override

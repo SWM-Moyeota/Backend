@@ -7,6 +7,7 @@ import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
@@ -27,6 +28,12 @@ public class UserProfileJpa implements UserProfiles {
     @Override
     public List<UserProfile> findAllByUserIds(List<Long> userIds) {
         return userProfileRepository.findAllById(userIds).stream().map(UserProfileEntity::toDomain).toList();
+    }
+
+    @Override
+    public Optional<UserProfile> findByPhoneNumber(String phoneNumber) {
+        return userProfileRepository.findByPhoneHash(hasher.hash(phoneNumber))
+                .map(UserProfileEntity::toDomain);
     }
 
     @Override
