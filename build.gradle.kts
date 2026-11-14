@@ -66,6 +66,7 @@ dependencies {
     // 외부 서비스
     implementation("com.google.firebase:firebase-admin:9.10.0")                  // FCM
     implementation("com.solapi:sdk:1.0.3")                              //SOLAPI
+    implementation("com.google.api-client:google-api-client:2.7.2")             // 구글 로그인 idToken 검증. firebase-admin 이 끌어오는 버전과 맞춤
 
     // DB 드라이버
     implementation("org.flywaydb:flyway-database-postgresql")
