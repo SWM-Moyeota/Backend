@@ -15,6 +15,8 @@ import team.codingforest.moyeota.user.local.domain.LocalUsers;
 import team.codingforest.moyeota.user.local.domain.PasswordHasher;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
+import team.codingforest.moyeota.user.social.FakeSocialUsers;
+import team.codingforest.moyeota.user.social.domain.enums.SocialType;
 import team.codingforest.moyeota.user.users.application.FakeUsers;
 import team.codingforest.moyeota.user.users.domain.User;
 import team.codingforest.moyeota.user.users.domain.enums.Gender;
@@ -39,6 +41,7 @@ class UserDeletionServiceTest {
 
     private FakeUsers users;
     private FakeLocalUsers localUsers;
+    private FakeSocialUsers socialUsers;
     private FakeUserProfiles userProfiles;
     private FakeUserDeletions userDeletions;
     private FakeRefreshTokens refreshTokens;
@@ -52,6 +55,7 @@ class UserDeletionServiceTest {
     void setUp() {
         users = new FakeUsers();
         localUsers = new FakeLocalUsers();
+        socialUsers = new FakeSocialUsers();
         userProfiles = new FakeUserProfiles();
         userDeletions = new FakeUserDeletions();
         refreshTokens = new FakeRefreshTokens();
@@ -60,7 +64,7 @@ class UserDeletionServiceTest {
         events = new ArrayList<>();
         AfterCommitExecutor runNow = (name, task) -> task.run();   // 커밋 후 작업은 바로 실행해 결과만 본다
 
-        service = new UserDeletionService(users, localUsers, userProfiles, userDeletions, refreshTokens, principalCache,
+        service = new UserDeletionService(users, localUsers, socialUsers, userProfiles, userDeletions, refreshTokens, principalCache,
                 new PrefixPasswordHasher(), inOngoingParty::contains, events::add, runNow);
 
         user = users.save(User.from(UUID.randomUUID(), LoginType.LOCAL, "모여타"));
@@ -88,6 +92,16 @@ class UserDeletionServiceTest {
         assertThat(refreshTokens.cancelledUserIds).containsExactly(user.getId());
         assertThat(principalCache.store).doesNotContainKey(user.getPublicId());
         assertThat(events).containsExactly(new UserDeletedEvent(user.getId(), user.getPublicId()));
+    }
+
+    @Test
+    void 탈퇴하면_소셜_연동도_끊는다() {
+        // 남겨 두면 같은 소셜 계정이 탈퇴한 회원으로 계속 로그인된다
+        socialUsers.register(user.getId(), SocialType.GOOGLE, "google-sub-1");
+
+        service.delete(user.getId(), PASSWORD);
+
+        assertThat(socialUsers.exists(SocialType.GOOGLE, "google-sub-1")).isFalse();
     }
 
     @Test

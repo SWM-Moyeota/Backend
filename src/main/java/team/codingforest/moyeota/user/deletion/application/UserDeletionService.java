@@ -17,6 +17,7 @@ import team.codingforest.moyeota.user.local.domain.LocalUser;
 import team.codingforest.moyeota.user.local.domain.LocalUsers;
 import team.codingforest.moyeota.user.local.domain.PasswordHasher;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
+import team.codingforest.moyeota.user.social.domain.SocialUsers;
 import team.codingforest.moyeota.user.users.domain.User;
 import team.codingforest.moyeota.user.users.domain.Users;
 
@@ -28,6 +29,7 @@ import java.time.Instant;
 public class UserDeletionService {
     private final Users users;
     private final LocalUsers localUsers;
+    private final SocialUsers socialUsers;
     private final UserProfiles userProfiles;
     private final UserDeletions userDeletions;
     private final RefreshTokens refreshTokens;
@@ -39,7 +41,7 @@ public class UserDeletionService {
 
     @Transactional
     public void delete(Long userId, String rawPassword) {
-        // 비밀번호가 없는 계정(소셜)은 아직 탈퇴 경로가 없다 - 소셜 로그인이 붙을 때 본인 확인 수단과 함께 연다
+        // 비밀번호가 없는 계정(소셜)은 아직 탈퇴 경로가 없다 - 본인 확인 수단을 정한 뒤 연다
         LocalUser localUser = localUsers.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> new UserException(UserErrorCode.PASSWORD_MISMATCH));
 
@@ -61,6 +63,8 @@ public class UserDeletionService {
                 .ifPresent(profile -> userDeletions.record(profile.getPhoneNumber(), now));
         userProfiles.deleteByUserId(userId);
         localUsers.deleteByUserId(userId);
+        // 소셜 연동도 끊는다 - 남겨 두면 같은 소셜 계정이 탈퇴한 회원으로 계속 로그인된다
+        socialUsers.deleteByUserId(userId);
         refreshTokens.cancelAllByUserId(userId, now);
 
         eventPublisher.publishEvent(new UserDeletedEvent(userId, user.getPublicId()));
