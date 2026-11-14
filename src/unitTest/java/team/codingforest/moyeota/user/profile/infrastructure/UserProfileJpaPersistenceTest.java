@@ -6,14 +6,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
-import team.codingforest.moyeota.user.common.crypto.FieldHasher;
+import team.codingforest.moyeota.common.crypto.FieldHasher;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.users.domain.enums.Gender;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 @DataJpaTest
 @Import({UserProfileJpa.class, FieldHasher.class})
@@ -53,6 +55,19 @@ class UserProfileJpaPersistenceTest {
         assertThat(found.getName()).isEqualTo("홍길동");
         assertThat(found.getEmail()).isEqualTo("hong@example.com");
         assertThat(found.getPhoneNumber()).isEqualTo("01012345678");
+    }
+
+    @Test
+    void 여러_사용자의_프로필을_한_번에_읽고_없는_사용자는_뺀다() {
+        profiles.save(프로필(1L, "010-1234-5678"));
+        profiles.save(UserProfile.of(2L, "김민수", Instant.parse("2000-01-01T00:00:00Z"), "010-2222-3333", Gender.FEMALE, "kim@example.com"));
+        em.flush();
+        em.clear();
+
+        List<UserProfile> found = profiles.findAllByUserIds(List.of(1L, 2L, 99L));
+
+        assertThat(found).extracting(UserProfile::getUserId, UserProfile::getName)
+                .containsExactlyInAnyOrder(tuple(1L, "홍길동"), tuple(2L, "김민수"));
     }
 
     @Test

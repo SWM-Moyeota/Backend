@@ -13,10 +13,8 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 import team.codingforest.moyeota.common.exception.GlobalExceptionHandler;
-import team.codingforest.moyeota.matching.party.completion.ChatOnlyCompletionPolicy;
 import team.codingforest.moyeota.matching.route.RouteService;
 import team.codingforest.moyeota.matching.route.domain.RouteEstimate;
-import team.codingforest.moyeota.matching.party.infrastructure.LoggingMeetingNotifier;
 import team.codingforest.moyeota.user.api.CurrentUser;
 
 import java.time.Duration;
@@ -38,13 +36,11 @@ class PartyControllerTest {
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),
                 new RouteCacheTest());
         PartyJpaTest parties = new PartyJpaTest();
-        ChatOnlyCompletionPolicy policy = new ChatOnlyCompletionPolicy();
         PartyService service = new PartyService(parties, events, routeService,
-                new FakeUserAccess(), policy,
+                new FakeUserAccess(),
                 (name, task) -> task.run(), new PartyServiceTest.RecordingPartyChangeNotifier(),
                 new PartyServiceTest.FakeWalkRouteFinder(), new FakeRideRecords(new PartyJpaTest()),
-                new PartyOpener(parties, events, policy), new FakeNoShowPenalty(),
-                new MeetingNotificationService(parties, (name, task) -> task.run(), new LoggingMeetingNotifier()));
+                new PartyOpener(parties, events));
 
         mvc = MockMvcBuilders.standaloneSetup(new PartyController(service))
                 .setCustomArgumentResolvers(new StubCurrentUserResolver())
@@ -53,7 +49,7 @@ class PartyControllerTest {
     }
 
     @Test
-    void 옛_앱이_반경을_보내도_무시하고_고정값으로_방을_만든다() throws Exception {
+    void 모르는_반경_필드를_보내도_무시하고_방을_만든다() throws Exception {
         String body = """
                 {"departureLat": 37.4979, "departureLng": 127.0276,
                  "destinationLat": 37.3948, "destinationLng": 127.1112,
@@ -63,13 +59,13 @@ class PartyControllerTest {
 
         mvc.perform(post("/api/v1/matching/rooms").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.departureRadius").value(500))
-                .andExpect(jsonPath("$.destinationRadius").value(500));
+                .andExpect(jsonPath("$.departureRadius").doesNotExist())
+                .andExpect(jsonPath("$.destinationRadius").doesNotExist());
     }
 
-    @DisplayName("POST /api/v1/matching/reservations - 예약 방도 응답의 departureRadius·destinationRadius 는 500 이다")
+    @DisplayName("POST /api/v1/matching/reservations - 예약 방 응답에도 없앤 departureRadius·destinationRadius 키가 없다")
     @Test
-    void reserve_radiusKeysKeptAsFixedValue() throws Exception {
+    void reserve_radiusKeysAbsent() throws Exception {
 
         /*
          * settings
@@ -91,13 +87,13 @@ class PartyControllerTest {
          */
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.roomType").value("RESERVED"))
-                .andExpect(jsonPath("$.departureRadius").value(500))
-                .andExpect(jsonPath("$.destinationRadius").value(500));
+                .andExpect(jsonPath("$.departureRadius").doesNotExist())
+                .andExpect(jsonPath("$.destinationRadius").doesNotExist());
     }
 
-    @DisplayName("GET /api/v1/matching/rooms/{partyId} - 방에 반경을 저장하지 않아도 상세의 departureRadius·destinationRadius 는 500 이다")
+    @DisplayName("GET /api/v1/matching/rooms/{partyId} - 상세에도 없앤 departureRadius·destinationRadius 키가 없다")
     @Test
-    void detail_radiusKeysKeptAsFixedValue() throws Exception {
+    void detail_radiusKeysAbsent() throws Exception {
 
         /*
          * settings
@@ -120,8 +116,8 @@ class PartyControllerTest {
          * verify
          */
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.departureRadius").value(500))
-                .andExpect(jsonPath("$.destinationRadius").value(500));
+                .andExpect(jsonPath("$.departureRadius").doesNotExist())
+                .andExpect(jsonPath("$.destinationRadius").doesNotExist());
     }
 
     /** 인증 없이 @CurrentUser=1 주입 */

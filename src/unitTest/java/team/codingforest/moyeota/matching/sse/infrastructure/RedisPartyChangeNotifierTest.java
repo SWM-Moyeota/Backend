@@ -36,7 +36,7 @@ class RedisPartyChangeNotifierTest {
     @Test
     void 참여는_들어온_사람_정보를_데이터로_실어_채널에_낸다() {
         UUID publicId = UUID.randomUUID();
-        MemberJoined event = MemberJoined.from(new PartyDetailResult.MemberInfo(publicId, "철수", null, null, 3, false, false), "ACTIVE", 2L);
+        MemberJoined event = MemberJoined.from(new PartyDetailResult.MemberInfo(publicId, "철수", null, 3, false, false), "ACTIVE", 2L);
 
         notifier.memberJoined(방, event);
 
@@ -47,9 +47,9 @@ class RedisPartyChangeNotifierTest {
         assertThat(objectMapper.readValue(sent.data(), MemberJoined.class)).isEqualTo(event);
     }
 
-    @DisplayName("memberJoined - 뱃지는 없앴지만 출시된 앱이 읽는 member.badgeId 키는 null 로 실어 낸다")
+    @DisplayName("memberJoined - 없앤 member.badgeId 키는 싣지 않는다")
     @Test
-    void memberJoined_badgeIdKeyKeptAsNull() {
+    void memberJoined_badgeIdKeyAbsent() {
 
         /*
          * settings
@@ -65,8 +65,7 @@ class RedisPartyChangeNotifierTest {
          * verify
          */
         JsonNode sentMember = objectMapper.readTree(onlySent().data()).get("member");
-        assertThat(sentMember.has("badgeId")).isTrue();
-        assertThat(sentMember.get("badgeId").isNull()).isTrue();
+        assertThat(sentMember.has("badgeId")).isFalse();
     }
 
     @Test
@@ -97,8 +96,9 @@ class RedisPartyChangeNotifierTest {
     }
 
     @Test
-    void 약속_확정은_상태와_약속_시간과_version_을_실어_채널에_낸다() {
-        PartyConfirmed event = PartyConfirmed.from("COMPLETED", Instant.parse("2026-11-03T08:30:00Z"), 4L);
+    void 약속_확정은_상태와_약속_시간과_출발지와_version_을_실어_채널에_낸다() {
+        // 출발지는 확정 때 만남 장소로 바뀌었을 수 있어 함께 싣는다
+        PartyConfirmed event = new PartyConfirmed("COMPLETED", Instant.parse("2026-11-03T08:30:00Z"), 37.4985, 127.0290, "강남역 2번 출구", 4L);
 
         notifier.confirmed(방, event);
 
@@ -107,6 +107,7 @@ class RedisPartyChangeNotifierTest {
         assertThat(sent.event()).isEqualTo("confirmed");
         assertThat(sent.leftMemberId()).as("확정은 닫을 연결이 없다").isNull();
         assertThat(sent.data()).contains("\"departureAt\":\"2026-11-03T08:30:00Z\"");
+        assertThat(sent.data()).contains("\"departureLat\":37.4985", "\"departureLng\":127.029", "\"departure\":\"강남역 2번 출구\"");
         assertThat(objectMapper.readValue(sent.data(), PartyConfirmed.class)).isEqualTo(event);
     }
 

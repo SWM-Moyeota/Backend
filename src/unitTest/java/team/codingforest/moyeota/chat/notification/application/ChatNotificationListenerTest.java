@@ -60,7 +60,7 @@ class ChatNotificationListenerTest {
     }
 
     private ChatMessageResult textResult(String content) {
-        return new ChatMessageResult(100L, ROOM_ID, 1L, UUID.randomUUID(), content, ChatMessageType.TEXT, NOW, false);
+        return new ChatMessageResult(100L, ROOM_ID, 1L, UUID.randomUUID(), content, ChatMessageType.TEXT, NOW, false, null);
     }
 
     private ChatRoomUser active(Long userId) {
@@ -105,7 +105,7 @@ class ChatNotificationListenerTest {
                 .willReturn(Map.of(SENDER_ID, new ChatMember(SENDER_ID, UUID.randomUUID(), "영희", null)));
 
         listener.onMessageSent(event(new ChatMessageResult(
-                100L, ROOM_ID, 1L, UUID.randomUUID(), "37.5665,126.9780", ChatMessageType.LOCATION, NOW, false)));
+                100L, ROOM_ID, 1L, UUID.randomUUID(), "37.5665,126.9780", ChatMessageType.LOCATION, NOW, false, null)));
 
         ArgumentCaptor<ChatMessageNotification> captor = ArgumentCaptor.captor();
         verify(chatNotifier).notifyNewMessage(anyList(), captor.capture());

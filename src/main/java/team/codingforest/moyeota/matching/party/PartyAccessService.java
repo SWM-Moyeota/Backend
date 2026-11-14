@@ -6,12 +6,18 @@ import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.matching.api.PartyAccess;
 import team.codingforest.moyeota.matching.api.dto.PartyChatSummary;
+import team.codingforest.moyeota.matching.api.dto.PartyPlaces;
+import team.codingforest.moyeota.matching.api.dto.PartyRiders;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -34,7 +40,21 @@ class PartyAccessService implements PartyAccess {
     @Override
     public boolean isOnboardingMember(Long partyId, Long memberId) {
         return parties.findById(partyId)
-                .map(party -> party.hasMember(memberId) && party.getStatus().isOngoing())
+                .map(party -> party.isMember(memberId) && party.getStatus().isOpen())
                 .orElse(false);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public Optional<PartyRiders> findRiders(Long partyId) {
+        return parties.findById(partyId)
+                .map(party -> new PartyRiders(party.getId(), party.getHostId(), party.getStatus() == PartyStatus.FINISHED,
+                        party.getMembers().stream().map(PartyMember::getMemberId).toList(), party.riderIds()));
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public Map<Long, PartyPlaces> findPlaces(Collection<Long> partyIds) {
+        return parties.findPlaces(partyIds);
     }
 }

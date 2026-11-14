@@ -1,3 +1,16 @@
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}   # API dev 와 같은 파라미터
+
 management:
   server:
     port: 9091   # API 와 같게 - 지표·헬스는 앱 포트(8081)와 분리, 대상 그룹 헬스체크가 9091/health 를 봄
+
+chat:
+  websocket:
+    allowed-origins: ${WS_ALLOWED_ORIGINS:http://localhost:*}
+  api:
+    base-url: ${CHAT_API_BASE_URL:http://localhost:8080}   # dev 서버에선 API 사설 IP:8080

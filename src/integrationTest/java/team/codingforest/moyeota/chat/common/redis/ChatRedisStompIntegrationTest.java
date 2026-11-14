@@ -102,7 +102,7 @@ class ChatRedisStompIntegrationTest {
     void 방_메시지는_바꾸기_전과_같은_본문과_content_type_으로_도착한다() throws Exception {
         BlockingQueue<Frame> frames = subscribe("/sub/chat-rooms/" + ROOM_ID);
         ChatMessageResult result = new ChatMessageResult(1L, ROOM_ID, 1L, PUBLIC_ID, "안녕하세요",
-                ChatMessageType.TEXT, Instant.parse("2026-10-29T06:00:00.123456Z"), false);
+                ChatMessageType.TEXT, Instant.parse("2026-10-29T06:00:00.123456Z"), false, null);
 
         publisher.message(result);
 
@@ -125,7 +125,7 @@ class ChatRedisStompIntegrationTest {
         // 구독 해제는 브로커에만 반영되고 SimpUserRegistry 에는 남아서, 메시지가 더 안 오는 것으로 확인한다
         room.clear();
         publisher.message(new ChatMessageResult(2L, ROOM_ID, 2L, PUBLIC_ID, "나간 뒤 메시지",
-                ChatMessageType.TEXT, Instant.now(), false));
+                ChatMessageType.TEXT, Instant.now(), false, null));
         assertThat(room.poll(1, TimeUnit.SECONDS)).as("나간 방 메시지는 더 오지 않아야 한다").isNull();
     }
 

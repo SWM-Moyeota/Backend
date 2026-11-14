@@ -13,9 +13,9 @@ import team.codingforest.moyeota.matching.party.domain.NearbyReservation;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
 import team.codingforest.moyeota.matching.party.domain.PartyMember;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
-import team.codingforest.moyeota.matching.party.domain.RoomType;
+import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -132,7 +132,7 @@ class ReservationSearchQueryPostgresTest {
                 .doesNotContain(departed);
     }
 
-    @DisplayName("searchReservations - 모집 중(ACTIVE)인 예약 방만 나오고 COMPLETED·CANCELED 예약 방과 실시간 방은 빠진다")
+    @DisplayName("searchReservations - 모집 중(ACTIVE)인 예약 방만 나오고 FINISHED·CANCELED 예약 방과 실시간 방은 빠진다")
     @Test
     void searchReservations_onlyActiveReservations() {
 
@@ -142,11 +142,11 @@ class ReservationSearchQueryPostgresTest {
         LocalDate date = todayKst().plusDays(1);
         Instant departureAt = kst(date, 15, 0);
         Long active = reserved(DEPARTURE, DESTINATION, departureAt);
-        Long completed = reserved(DEPARTURE, DESTINATION, departureAt, PartyStatus.COMPLETED);
+        Long finished = reserved(DEPARTURE, DESTINATION, departureAt, PartyStatus.FINISHED);
         Long canceled = reserved(DEPARTURE, DESTINATION, departureAt, PartyStatus.CANCELED);
         // 상태 조건에 걸리지 않게 ACTIVE 로 두고 departure_at 을 같은 날로 채운 실시간 방 - 방 종류 조건만으로 빠지는지 본다
         Long realtime = save(Party.load(null, DEPARTURE, DESTINATION, "강릉역", "경포해변", new Capacity(3), members(1L), 1L, Instant.now(),
-                PartyStatus.ACTIVE, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L, RoomType.REALTIME, departureAt, null));
+                PartyStatus.ACTIVE, 12000, 25, "_p~iF~ps|U_ulLnnqC", 0L, RoomType.REALTIME, departureAt));
 
         /*
          * test
@@ -157,7 +157,7 @@ class ReservationSearchQueryPostgresTest {
          * verify
          */
         assertThat(found).containsExactly(active)
-                .doesNotContain(completed, canceled, realtime);
+                .doesNotContain(finished, canceled, realtime);
     }
 
     @DisplayName("searchReservations - 도착지를 넣으면 도착지도 1km 안인 방이 먼저 오고, 그 안에서 출발 시각·id 순이다")
@@ -226,7 +226,7 @@ class ReservationSearchQueryPostgresTest {
         LocalDate date = todayKst().plusDays(1);
         Instant departureAt = kst(date, 18, 30);
         Long id = save(Party.load(null, DEPARTURE_900M, DESTINATION, "강릉역", "경포해변", new Capacity(3), members(1L, 2L), 1L, Instant.now(),
-                PartyStatus.ACTIVE, null, null, null, 0L, RoomType.RESERVED, departureAt, null));
+                PartyStatus.ACTIVE, null, null, null, 0L, RoomType.RESERVED, departureAt));
 
         /*
          * test
@@ -280,13 +280,47 @@ class ReservationSearchQueryPostgresTest {
         assertThat(withoutDestination).containsExactly(farFirst, farSecond);
     }
 
+    @DisplayName("정원이 찬 예약 방은 영역 조회·검색 어디에도 나오지 않는다")
+    @Test
+    void fullReservation_excludedEverywhere() {
+
+        /*
+         * settings
+         */
+        // 구간을 직접 넘기는 포트 호출이라 다른 방과 섞이지 않게 먼 날짜를 쓴다
+        LocalDate date = LocalDate.of(2099, 1, 2);
+        Instant from = kst(date, 0, 0);
+        Instant to = kst(date.plusDays(1), 0, 0);
+        Long 남은방 = save(Party.load(null, DEPARTURE, DESTINATION, "강릉역", "경포해변", new Capacity(3), members(1L, 2L), 1L, Instant.now(),
+                PartyStatus.ACTIVE, null, null, null, 0L, RoomType.RESERVED, kst(date, 9, 0)));
+        Long 찬방 = save(Party.load(null, DEPARTURE, DESTINATION, "강릉역", "경포해변", new Capacity(3), members(1L, 2L, 3L), 1L, Instant.now(),
+                PartyStatus.ACTIVE, null, null, null, 0L, RoomType.RESERVED, kst(date, 9, 0)));
+
+        /*
+         * test
+         */
+        List<Long> bounds = parties.findReservationsWithinBounds(from, to,
+                DEPARTURE_LAT - 0.01, DEPARTURE_LAT + 0.01, DEPARTURE_LNG - 0.01, DEPARTURE_LNG + 0.01, 100).stream()
+                .map(ReservationSummary::id).toList();
+        List<Long> withDestination = ids(parties.findReservationsWithinRadius(from, to, DEPARTURE, DESTINATION, RADIUS, 100));
+        List<Long> withoutDestination = ids(parties.findReservationsWithinRadius(from, to, DEPARTURE, null, RADIUS, 100));
+
+        /*
+         * verify
+         */
+        assertThat(parties.findById(찬방).orElseThrow().getStatus()).as("정원이 차도 모집 중이다").isEqualTo(PartyStatus.ACTIVE);
+        assertThat(bounds).contains(남은방).doesNotContain(찬방);
+        assertThat(withDestination).contains(남은방).doesNotContain(찬방);
+        assertThat(withoutDestination).contains(남은방).doesNotContain(찬방);
+    }
+
     private Long reserved(Location departure, Location destination, Instant departureAt) {
         return reserved(departure, destination, departureAt, PartyStatus.ACTIVE);
     }
 
     private Long reserved(Location departure, Location destination, Instant departureAt, PartyStatus status) {
         return save(Party.load(null, departure, destination, "강릉역", "경포해변", new Capacity(3), members(1L), 1L, Instant.now(),
-                status, null, null, null, 0L, RoomType.RESERVED, departureAt, null));
+                status, null, null, null, 0L, RoomType.RESERVED, departureAt));
     }
 
     private Long save(Party party) {
@@ -299,7 +333,7 @@ class ReservationSearchQueryPostgresTest {
         List<PartyMember> members = new ArrayList<>();
         Instant joinedAt = Instant.now();
         for (int i = 0; i < memberIds.length; i++) {
-            members.add(PartyMember.load(memberIds[i], joinedAt.plusSeconds(i)));
+            members.add(PartyMember.load(memberIds[i], joinedAt.plusSeconds(i), null));
         }
         return members;
     }

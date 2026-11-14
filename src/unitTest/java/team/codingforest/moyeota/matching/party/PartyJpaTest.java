@@ -1,16 +1,18 @@
 package team.codingforest.moyeota.matching.party;
 
+import team.codingforest.moyeota.matching.api.dto.PartyPlaces;
 import team.codingforest.moyeota.matching.party.domain.Location;
 import team.codingforest.moyeota.matching.party.domain.NearbyReservation;
 import team.codingforest.moyeota.matching.party.domain.Parties;
 import team.codingforest.moyeota.matching.party.domain.Party;
-import team.codingforest.moyeota.matching.party.domain.PartyStatus;
+import team.codingforest.moyeota.matching.party.domain.enums.PartyStatus;
 import team.codingforest.moyeota.matching.party.domain.PartySummary;
 import team.codingforest.moyeota.matching.party.domain.ReservationSummary;
-import team.codingforest.moyeota.matching.party.domain.RoomType;
+import team.codingforest.moyeota.matching.party.domain.enums.RoomType;
 import team.codingforest.moyeota.matching.party.dto.NearbyPartySummary;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -33,25 +35,19 @@ public class PartyJpaTest implements Parties {
         Party saved = Party.load(id,
                 party.getDepartureLocation(), party.getDestinationLocation(),
                 party.getDeparture(), party.getDestination(), party.getCapacity(),
-                party.getMembers(), party.hostId(), party.getCreatedAt(), party.getStatus(),
+                party.getMembers(), party.getHostId(), party.getCreatedAt(), party.getStatus(),
                 party.getEstimatedFare(), party.getEstimatedTime(), party.getRoute(), party.getVersion(),
-                party.getRoomType(), party.getDepartureAt(), party.getReminderSentAt(), party.getMeetingNotifiedAt(), party.getDepartureReminderCount());
+                party.getRoomType(), party.getDepartureAt());
 
         store.put(id, saved);
         return saved;
     }
 
     @Override
-    public List<Party> findRealtimeByStatus(PartyStatus status) {
-        return store.values().stream().filter(p -> p.getStatus() == status && p.getRoomType() == RoomType.REALTIME)
-                .toList();
-    }
-
-    @Override
     public List<PartySummary> findSummariesWithinBounds(PartyStatus status, double swLat, double neLat, double swLng, double neLng, int limit) {
-        // 실제 쿼리(between: 양끝 포함, 최신순, 상한)와 같은 규칙 - 출발지 좌표 기준. 메모리에서는 id 가 클수록 최신이다
+        // 실제 쿼리(between: 양끝 포함, 정원이 찬 방 제외, 최신순, 상한)와 같은 규칙 - 출발지 좌표 기준. 메모리에서는 id 가 클수록 최신이다
         return store.values().stream()
-                .filter(p -> p.getStatus() == status && p.getRoomType() == RoomType.REALTIME)
+                .filter(p -> p.getStatus() == status && p.getRoomType() == RoomType.REALTIME && !p.isFull())
                 .filter(p -> p.getDepartureLocation().latitude() >= swLat && p.getDepartureLocation().latitude() <= neLat)
                 .filter(p -> p.getDepartureLocation().longitude() >= swLng && p.getDepartureLocation().longitude() <= neLng)
                 .sorted(Comparator.comparing(Party::getId).reversed())
@@ -64,7 +60,7 @@ public class PartyJpaTest implements Parties {
     @Override
     public boolean existsOngoingByMemberId(Long memberId) {
         return store.values().stream()
-                .anyMatch(p -> p.getStatus().isOngoing() && p.hasMember(memberId));
+                .anyMatch(p -> p.getStatus().isOpen() && p.isMember(memberId));
     }
 
     @Override
@@ -77,10 +73,10 @@ public class PartyJpaTest implements Parties {
         Map<Long, Integer> counts = new HashMap<>();
         for(Party p : store.values()) {
             if(p.getStatus() != PartyStatus.FINISHED) continue;
+            // 실제 쿼리처럼 - 도착한 멤버만 센다
+            List<Long> riders = p.riderIds();
             for(Long id : memberIds) {
-                // 실제 쿼리처럼 노쇼(무효로 돌린 노쇼는 빼고)는 세지 않는다
-                boolean rode = p.getMembers().stream().anyMatch(m -> m.getMemberId().equals(id) && !m.isNoShow());
-                if(rode) counts.merge(id, 1, Integer::sum);
+                if(riders.contains(id)) counts.merge(id, 1, Integer::sum);
             }
         }
         return counts;
@@ -88,10 +84,10 @@ public class PartyJpaTest implements Parties {
 
     @Override
     public List<Long> findAutoCloseTargets(Instant cutoff) {
-        // 실제 JPQL 과 같은 규칙 - 열린 방(ACTIVE·COMPLETED) 중 실시간 방은 createdAt < cutoff, 예약 방은 departureAt < cutoff
+        // 실제 JPQL 과 같은 규칙 - 열린 방(ACTIVE·COMPLETED) 중 약속이 있으면 departureAt < cutoff, 없으면 createdAt < cutoff
         return store.values().stream()
-                .filter(p -> p.getStatus().isRecruiting())
-                .filter(p -> p.isReservation() ? p.getDepartureAt().isBefore(cutoff) : p.getCreatedAt().isBefore(cutoff))
+                .filter(p -> p.getStatus().isOpen())
+                .filter(p -> p.getDepartureAt() != null ? p.getDepartureAt().isBefore(cutoff) : p.getCreatedAt().isBefore(cutoff))
                 .map(Party::getId)
                 .toList();
     }
@@ -103,20 +99,15 @@ public class PartyJpaTest implements Parties {
     @Override
     public boolean existsOngoingRealtimeByMemberId(Long memberId) {
         return store.values().stream()
-                .anyMatch(p -> p.getRoomType() == RoomType.REALTIME && p.getStatus().isOngoing() && p.hasMember(memberId));
+                .anyMatch(p -> p.getRoomType() == RoomType.REALTIME && p.getStatus().isOpen() && p.isMember(memberId));
     }
 
     @Override
     public boolean existsOngoingReservationBetween(Long memberId, Instant from, Instant to) {
         return store.values().stream()
                 .filter(Party::isReservation)
-                .filter(p -> p.getStatus().isOngoing() && p.hasMember(memberId))
+                .filter(p -> p.getStatus().isOpen() && p.isMember(memberId))
                 .anyMatch(p -> !p.getDepartureAt().isBefore(from) && !p.getDepartureAt().isAfter(to));
-    }
-
-    @Override
-    public List<ReservationSummary> findReservations(Instant from, Instant to, int limit) {
-        return activeReservations(from, to).limit(limit).toList();
     }
 
     @Override
@@ -135,10 +126,11 @@ public class PartyJpaTest implements Parties {
         throw new UnsupportedOperationException("예약 방 반경 검색은 PostGIS 몫이라 메모리 가짜로 흉내 내지 않는다");
     }
 
+    /** 실제 쿼리와 같은 규칙 - 정원이 찬 예약 방은 뺀다 */
     private java.util.stream.Stream<ReservationSummary> activeReservations(Instant from, Instant to) {
         return store.values().stream()
                 .filter(Party::isReservation)
-                .filter(p -> p.getStatus() == PartyStatus.ACTIVE)
+                .filter(p -> p.getStatus() == PartyStatus.ACTIVE && !p.isFull())
                 .filter(p -> !p.getDepartureAt().isBefore(from) && !p.getDepartureAt().isAfter(to))
                 .sorted(Comparator.comparing(Party::getDepartureAt).thenComparing(Party::getId))
                 .map(p -> new ReservationSummary(p.getId(), p.getDeparture(), p.getDestination(), (long) p.getMembers().size(), p.getCapacity().value(), p.getStatus(),
@@ -146,40 +138,19 @@ public class PartyJpaTest implements Parties {
     }
 
     @Override
-    public List<Long> findRecruitingExpired(Instant realtimeCreatedBefore, Instant now) {
+    public List<Long> findOpenConfirmedIdsDepartingBetween(Instant from, Instant to) {
+        // 실제 JPQL 과 같은 규칙 - 열린 확정 방 중 departure_at 이 [from, to)
         return store.values().stream()
-                .filter(p -> p.getStatus() == PartyStatus.ACTIVE)
-                .filter(p -> p.isReservation() ? !p.getDepartureAt().isAfter(now) : p.getCreatedAt().isBefore(realtimeCreatedBefore))
+                .filter(p -> p.getStatus().isOpen() && p.getDepartureAt() != null)
+                .filter(p -> !p.getDepartureAt().isBefore(from) && p.getDepartureAt().isBefore(to))
                 .map(Party::getId)
                 .toList();
     }
 
     @Override
-    public List<Long> findReservationsToRemind(Instant from, Instant to) {
-        return store.values().stream()
-                .filter(Party::isReservation)
-                .filter(p -> p.getStatus().isRecruiting() && p.getReminderSentAt() == null)
-                .filter(p -> !p.getDepartureAt().isBefore(from) && !p.getDepartureAt().isAfter(to))
-                .map(Party::getId)
-                .toList();
-    }
-
-    @Override
-    public List<Long> findMeetingNoticeTargets(Instant now) {
-        // 실제 JPQL 과 같은 규칙 - 약속이 정해진 열린 방 중 약속 시각이 now 이전이고 알림을 처리하지 않은 방
-        return store.values().stream()
-                .filter(p -> p.getStatus().isRecruiting() && p.getDepartureAt() != null)
-                .filter(p -> !p.getDepartureAt().isAfter(now) && p.getMeetingNotifiedAt() == null)
-                .map(Party::getId)
-                .toList();
-    }
-
-    @Override
-    public List<Long> findDepartureReminderTargets(Instant now) {
-        // 실제 JPQL 과 같은 규칙 - departure_at + 재촉 간격[처리한 차례 수] 가 now 이전인 열린 방
-        return store.values().stream()
-                .filter(p -> p.nextDepartureReminderDue().filter(due -> !due.isAfter(now)).isPresent())
-                .map(Party::getId)
+    public List<Long> findOpenReservationIdsDepartingBetween(Instant from, Instant to) {
+        return findOpenConfirmedIdsDepartingBetween(from, to).stream()
+                .filter(id -> store.get(id).isReservation())
                 .toList();
     }
 
@@ -194,5 +165,16 @@ public class PartyJpaTest implements Parties {
         // 거리 공식을 여기서 다시 짜면 걷어낸 하버사인이 테스트 쪽에 되살아나고, 늘 true/false 로 답하면 도착 결과가 조용히 틀어진다.
         // 그래서 답하지 않고 바로 실패한다 - 도착 흐름은 서비스 유닛 테스트(mock)와 Postgres 통합 테스트가 본다
         throw new UnsupportedOperationException("출발지 반경 판정은 PostGIS 몫이라 메모리 가짜로 흉내 내지 않는다");
+    }
+
+    @Override
+    public Map<Long, PartyPlaces> findPlaces(Collection<Long> ids) {
+        Map<Long, PartyPlaces> places = new HashMap<>();
+        for(Long id : ids) {
+            Party party = store.get(id);
+            if(party != null) places.put(id, new PartyPlaces(party.getDeparture(), party.getDestination()));
+        }
+
+        return places;
     }
 }
