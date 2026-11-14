@@ -21,7 +21,10 @@ import team.codingforest.moyeota.user.social.domain.SocialUsers;
 import team.codingforest.moyeota.user.users.domain.User;
 import team.codingforest.moyeota.user.users.domain.Users;
 
+import org.springframework.util.StringUtils;
+
 import java.time.Instant;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -41,13 +44,7 @@ public class UserDeletionService {
 
     @Transactional
     public void delete(Long userId, String rawPassword) {
-        // 비밀번호가 없는 계정(소셜)은 아직 탈퇴 경로가 없다 - 본인 확인 수단을 정한 뒤 연다
-        LocalUser localUser = localUsers.findByUserIdForUpdate(userId)
-                .orElseThrow(() -> new UserException(UserErrorCode.PASSWORD_MISMATCH));
-
-        if (!passwordHasher.matches(rawPassword, localUser.getPassword())) {
-            throw new UserException(UserErrorCode.PASSWORD_MISMATCH);
-        }
+        confirmIdentity(userId, rawPassword);
 
         if (ongoingPartyChecker.hasOngoingParty(userId)) {
             throw new UserException(UserErrorCode.ONGOING_PARTY_EXISTS);
@@ -72,5 +69,28 @@ public class UserDeletionService {
         afterCommitExecutor.execute("user.principal-evict", () -> principalCache.evict(user.getPublicId()));
 
         log.info("회원 탈퇴 userId={}", userId);
+    }
+
+    /**
+     * 본인 확인. 로그인 수단 행을 잠그고 본다 - 재발급·비밀번호 재설정과 같은 잠금 순서
+     * - 로컬 회원: 현재 비밀번호가 맞아야 한다
+     * - 소셜 회원: 비밀번호가 없다. 로그인 토큰으로 요청한 것 자체를 본인 확인으로 본다
+     */
+    private void confirmIdentity(Long userId, String rawPassword) {
+        Optional<LocalUser> localUser = localUsers.findByUserIdForUpdate(userId);
+        if (localUser.isPresent()) {
+            if (!StringUtils.hasText(rawPassword)) {
+                // 검증 애노테이션으로 막던 경우 - 소셜 회원은 비밀번호 없이 보내므로 로컬 회원일 때만 여기서 본다
+                throw new IllegalArgumentException("비밀번호는 필수입니다.");
+            }
+            if (!passwordHasher.matches(rawPassword, localUser.get().getPassword())) {
+                throw new UserException(UserErrorCode.PASSWORD_MISMATCH);
+            }
+            return;
+        }
+
+        // 로그인 수단이 하나도 없는 계정 - 본인 확인을 할 수 없어 거절한다
+        socialUsers.findByUserIdForUpdate(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.PASSWORD_MISMATCH));
     }
 }

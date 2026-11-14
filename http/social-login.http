@@ -71,3 +71,9 @@ Content-Type: application/json
 }
 
 ### 7. 다시 1번을 부르면 이번에는 status=LOGIN 이다
+
+### 8. 소셜 회원 탈퇴 - 비밀번호가 없어 본문 없이 부른다(204). 아이디·비밀번호 회원은 { "password": "..." } 필수
+DELETE {{host}}/api/v1/users/me
+Authorization: Bearer {{accessToken}}
+
+### 9. 탈퇴 뒤 다시 1번을 부르면 status=SIGNUP_REQUIRED 이고, 같은 번호의 2번(문자 발송)은 30일간 409(USER109)

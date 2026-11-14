@@ -121,12 +121,65 @@ class UserDeletionServiceTest {
     }
 
     @Test
-    void 로컬_계정이_없으면_본인_확인을_못_해서_거절한다() {
-        // 소셜 가입자 - 비밀번호가 없어 아직 탈퇴 경로가 없다
-        User social = users.save(User.from(UUID.randomUUID(), LoginType.SOCIAL));
+    void 로컬_회원이_비밀번호를_보내지_않으면_요청_오류다() {
+        // 소셜 회원은 비밀번호 없이 보내므로 검증 애노테이션 대신 서비스가 로컬 회원일 때만 본다
+        for (String blank : new String[]{null, "", "  "}) {
+            assertThatThrownBy(() -> service.delete(user.getId(), blank))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
 
-        assertError(() -> service.delete(social.getId(), PASSWORD), UserErrorCode.PASSWORD_MISMATCH);
+        assertNothingChanged();
+    }
+
+    // ───────────────────────── 소셜 회원 ─────────────────────────
+
+    @Test
+    void 소셜_회원은_비밀번호_없이_탈퇴한다() {
+        User social = 소셜_회원("google-sub-9", "010-9999-8888");
+
+        service.delete(social.getId(), null);
+
+        assertThat(users.findById(social.getId()).isDeleted()).isTrue();
+        assertThat(userProfiles.findByUserId(social.getId())).isEmpty();
+        assertThat(socialUsers.exists(SocialType.GOOGLE, "google-sub-9")).as("같은 구글 계정으로 다시 오면 처음 온 사람이다").isFalse();
+        assertThat(userDeletions.deletedAt).as("30일 재가입 제한은 로컬 회원과 같다").containsKey("01099998888");
+        assertThat(refreshTokens.cancelledUserIds).containsExactly(social.getId());
+        assertThat(events).containsExactly(new UserDeletedEvent(social.getId(), social.getPublicId()));
+    }
+
+    @Test
+    void 소셜_회원이_비밀번호를_같이_보내도_무시하고_탈퇴한다() {
+        User social = 소셜_회원("google-sub-9", "010-9999-8888");
+
+        service.delete(social.getId(), "anything");
+
+        assertThat(users.findById(social.getId()).isDeleted()).isTrue();
+    }
+
+    @Test
+    void 소셜_회원도_진행_중인_동승이_있으면_탈퇴할_수_없다() {
+        User social = 소셜_회원("google-sub-9", "010-9999-8888");
+        inOngoingParty.add(social.getId());
+
+        assertError(() -> service.delete(social.getId(), null), UserErrorCode.ONGOING_PARTY_EXISTS);
+
         assertThat(users.findById(social.getId()).isDeleted()).isFalse();
+        assertThat(socialUsers.exists(SocialType.GOOGLE, "google-sub-9")).isTrue();
+    }
+
+    @Test
+    void 로그인_수단이_하나도_없으면_본인_확인을_못_해서_거절한다() {
+        User orphan = users.save(User.from(UUID.randomUUID(), LoginType.SOCIAL));
+
+        assertError(() -> service.delete(orphan.getId(), PASSWORD), UserErrorCode.PASSWORD_MISMATCH);
+        assertThat(users.findById(orphan.getId()).isDeleted()).isFalse();
+    }
+
+    private User 소셜_회원(String socialId, String phone) {
+        User social = users.save(User.from(UUID.randomUUID(), LoginType.SOCIAL, "구글회원"));
+        socialUsers.register(social.getId(), SocialType.GOOGLE, socialId);
+        userProfiles.save(UserProfile.of(social.getId(), "김구글", Instant.now(), phone, Gender.FEMALE, "g@gmail.com"));
+        return social;
     }
 
     private void assertNothingChanged() {

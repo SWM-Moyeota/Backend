@@ -9,6 +9,7 @@ import team.codingforest.moyeota.user.auth.application.AuthService;
 import team.codingforest.moyeota.user.auth.dto.TokenResponse;
 import team.codingforest.moyeota.user.common.exception.UserErrorCode;
 import team.codingforest.moyeota.user.common.exception.UserException;
+import team.codingforest.moyeota.user.deletion.application.UserDeletionService;
 import team.codingforest.moyeota.user.profile.domain.UserProfile;
 import team.codingforest.moyeota.user.profile.domain.UserProfiles;
 import team.codingforest.moyeota.user.social.application.SocialAuthService;
@@ -31,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
 /**
- *  구글 로그인 → 가입 대기표 → 문자 인증 → 소셜 가입 → 재로그인·재발급을 실제 DB·Redis 로 한 번에 본다.
+ *  구글 로그인 → 가입 대기표 → 문자 인증 → 소셜 가입 → 재로그인·재발급 → 탈퇴를 실제 DB·Redis 로 한 번에 본다.
  *  진짜 구글 idToken 은 테스트에서 만들 수 없어 검사기(GoogleTokenVerifier)만 바꿔 끼운다
  */
 @SpringBootTest(properties = {"moyeota.sms.provider=log", "moyeota.sms.fixed-code=000000",
@@ -47,9 +48,10 @@ class SocialLoginFlowIntegrationTest {
     @Autowired AuthService authService;
     @Autowired Users users;
     @Autowired UserProfiles userProfiles;
+    @Autowired UserDeletionService userDeletionService;
 
     @Test
-    void 처음_온_구글_계정은_휴대폰_인증을_거쳐_가입하고_다음부터는_바로_로그인된다() {
+    void 처음_온_구글_계정은_휴대폰_인증을_거쳐_가입하고_로그인_재발급_탈퇴까지_된다() {
         long base = System.currentTimeMillis() % 100_000_000L;
         String phone = "010" + String.format("%08d", base);
         String nickname = "soc" + base % 1_000_000;
@@ -95,6 +97,21 @@ class SocialLoginFlowIntegrationTest {
         // ⑥ 비밀번호가 없는 소셜 회원도 토큰을 재발급받는다 (social_user 행을 잠근다)
         TokenResponse reissued = authService.reissue(tokens.refreshToken());
         assertThat(authService.authenticate(reissued.accessToken()).userId()).isEqualTo(user.getId());
+
+        // ⑦ 소셜 회원은 비밀번호 없이 탈퇴한다 - 토큰이 막히고 소셜 연동도 끊긴다
+        userDeletionService.delete(user.getId(), null);
+        assertThatThrownBy(() -> authService.authenticate(reissued.accessToken()))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode").isEqualTo(UserErrorCode.TOKEN_INVALID);
+        assertThatThrownBy(() -> authService.reissue(reissued.refreshToken()))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode").isEqualTo(UserErrorCode.TOKEN_INVALID);
+
+        // ⑧ 같은 구글 계정으로 다시 오면 처음 온 사람이고, 같은 번호는 30일 재가입 제한에 걸린다
+        assertThat(socialAuthService.loginWithGoogle(ID_TOKEN).status()).isEqualTo(SocialLoginStatus.SIGNUP_REQUIRED);
+        assertThatThrownBy(() -> smsVerificationService.send(phone))
+                .isInstanceOf(UserException.class)
+                .extracting("errorCode").isEqualTo(UserErrorCode.REJOIN_RESTRICTED);
     }
 
     private SocialRegisterCommand 가입(String signupToken, String verificationToken, String phone, String nickname) {
