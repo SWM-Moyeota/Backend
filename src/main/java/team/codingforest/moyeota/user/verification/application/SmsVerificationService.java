@@ -153,6 +153,12 @@ public class SmsVerificationService {
         }
     }
 
+    // 인증을 통과한 번호의 재전송 대기를 푼다 - 아이디를 찾자마자 같은 번호로 비밀번호 재설정 문자를 받을 수 있게.
+    // 대기는 문자 폭탄을 막는 장치인데 방금 본인 확인이 끝난 번호라 풀어도 그 구멍이 되지 않고, 하루 횟수는 그대로 센다
+    public void allowResend(String rawPhoneNumber) {
+        releaseCooldown(fieldHasher.hash(new PhoneNumber(rawPhoneNumber).value()));
+    }
+
     // 가입 직전 확인 - 이 번호로 인증한 토큰인지
     public void checkVerified(String verificationToken, String rawPhoneNumber) {
         String phoneHash = fieldHasher.hash(new PhoneNumber(rawPhoneNumber).value());

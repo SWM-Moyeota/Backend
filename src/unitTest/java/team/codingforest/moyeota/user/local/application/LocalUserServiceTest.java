@@ -247,6 +247,26 @@ class LocalUserServiceTest {
     }
 
     @Test
+    void 아이디_찾기_확인이_끝나면_바로_재설정_문자를_받을_수_있게_재전송_대기를_푼다() {
+        아이디로_가입한_회원();
+
+        service.findLoginId(PHONE, "123456");
+
+        then(smsVerificationService).should().allowResend(PHONE);
+    }
+
+    @Test
+    void 아이디_찾기_확인은_코드가_틀리면_재전송_대기를_풀지_않는다() {
+        아이디로_가입한_회원();
+        willThrow(new UserException(UserErrorCode.SMS_CODE_MISMATCH))
+                .given(smsVerificationService).checkCode(PHONE, "000000");
+
+        assertThatThrownBy(() -> service.findLoginId(PHONE, "000000")).isInstanceOf(UserException.class);
+
+        then(smsVerificationService).should(never()).allowResend(any());
+    }
+
+    @Test
     void 아이디_찾기_확인은_코드가_틀리면_아이디를_돌려주지_않는다() {
         아이디로_가입한_회원();
         willThrow(new UserException(UserErrorCode.SMS_CODE_MISMATCH))
