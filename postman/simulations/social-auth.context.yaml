@@ -1,0 +1,27 @@
+purpose:
+  stands_in_for: "Apple의 공개키 조회, 인증 코드 교환, 토큰 철회 HTTP 응답"
+  unblocks: "실제 Apple 계정·개발자 키 없이 백엔드 HTTP 경로와 장애 처리를 검증"
+assumptions:
+  - id: local-signing-and-code-consumption
+    status: partially-verified
+    claim: "모의 서버의 JWT·일회용 코드는 실제 Apple 토큰 형식과 코드 교환의 검증 대상 필드를 재현한다."
+    reason: "공식 문서의 필드를 따르지만 실제 Apple 계정이나 개발자 client_secret 검증은 수행하지 않는다."
+    verification: "2026-11-15 `node postman/check-apple-mock.mjs` 통과(RSA/JWKS 서명, nonce, 코드 교환·재사용 차단, 키 서버 503, 미구현 501). 같은 날 dev 프로필 백엔드(실제 PostgreSQL·Redis)를 연결한 `node postman/e2e-apple-flow.mjs` 19개 항목 통과. 실제 Apple 응답과의 일치는 미검증."
+    source: "https://developer.apple.com/documentation/signinwithapple/verifying-a-user; postman/mocks/apple/default.js"
+    updated_at: "2026-11-15"
+  - id: revoke-failure
+    status: partially-verified
+    claim: "토큰 철회 503 응답 뒤에 백엔드가 안전하게 작업을 재시도한다."
+    reason: "모의 서버의 503→200 응답과 백엔드의 재시도 예약은 각각 따로 확인했다. 백엔드를 이 모의 서버에 연결한 실행에서는 철회 성공 경로만 확인했고 503 뒤 재시도 경로는 실행하지 않았다."
+    verification: "2026-11-15 모의 서버 철회 503→200은 `check-apple-mock.mjs`로 확인. 백엔드 재시도는 `SocialStatePersistenceTest`(H2, AppleClient 모의)와 `AppleClientTest`(로컬 HTTP 서버)로 확인. 백엔드↔모의 서버 연결 실행에서 만료 PENDING 4건(subject 2개)이 `/auth/revoke` 2회 호출 뒤 모두 정리됨을 확인."
+    source: "postman/mocks/apple/default.js; https://developer.apple.com/documentation/signinwithapplerestapi/revoke-tokens"
+    updated_at: "2026-11-15"
+fingerprints:
+  - id: initial-local
+    date: "2026-11-14"
+    commit: "2ab1cb9d 기반 작업 중 트리"
+    cli: "1.75.0"
+  - id: smoke-rerun
+    date: "2026-11-15"
+    commit: "2ab1cb9d 기반 작업 트리(커밋 직전)"
+    cli: "1.75.0"

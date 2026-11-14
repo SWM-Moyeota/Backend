@@ -85,7 +85,11 @@ public class SmsVerificationService {
         sendCode(phone);
     }
 
-    public void sendCode(String phone){
+    public void sendLinkCode(String phone) { sendCode(phone, "link:"); }
+    public void checkLinkCode(String phone, String code) { checkCode(phone, code, "link:"); }
+
+    public void sendCode(String phone) { sendCode(phone, ""); }
+    private void sendCode(String phone, String purpose){
         String phoneHash = fieldHasher.hash(phone);
         boolean reviewPhone = reviewPhones.contains(phone);
         String code = reviewPhone ? reviewCode : newCode();
@@ -96,7 +100,7 @@ public class SmsVerificationService {
             if (smsVerifications.increaseDailyCount(phoneHash, DAILY_WINDOW) > DAILY_LIMIT) {
                 throw new UserException(UserErrorCode.SMS_DAILY_LIMIT_EXCEEDED);
             }
-            smsVerifications.saveCode(phoneHash, code, CODE_TTL);
+            smsVerifications.saveCode(purpose + phoneHash, code, CODE_TTL);
         } catch (DataAccessException e) {
             throw unavailable(e);
         }
@@ -126,8 +130,9 @@ public class SmsVerificationService {
         }
     }
 
-    public void checkCode(String rawPhoneNumber, String code) {
-        String phoneHash = fieldHasher.hash(new PhoneNumber(rawPhoneNumber).value());
+    public void checkCode(String rawPhoneNumber, String code) { checkCode(rawPhoneNumber, code, ""); }
+    private void checkCode(String rawPhoneNumber, String code, String purpose) {
+        String phoneHash = purpose + fieldHasher.hash(new PhoneNumber(rawPhoneNumber).value());
         try {
             String saved = smsVerifications.findCode(phoneHash)
                     .orElseThrow(() -> new UserException(UserErrorCode.SMS_CODE_EXPIRED));

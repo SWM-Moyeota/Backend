@@ -128,6 +128,11 @@ moyeota:
     # 소켓 서버가 /internal/chat/chat-rooms/** 를 부를 때 X-Internal-Token 헤더와 비교하는 공유 비밀. 비어 있으면 모두 401(꺼짐)
     # 서버는 파라미터 스토어 /moyeota/{dev|prod}/INTERNAL_API_TOKEN(SecureString)으로 넣음, prod 는 넣지 않아 닫힌 채로 둠
     token: ${INTERNAL_API_TOKEN:}
+  apple:
+    client-ids: ${APPLE_CLIENT_IDS:}
+    team-id: ${APPLE_TEAM_ID:}
+    key-id: ${APPLE_KEY_ID:}
+    private-key: ${APPLE_PRIVATE_KEY:}
   google:
     # 구글 로그인 idToken 의 aud 로 허용할 OAuth 클라이언트 ID 목록(쉼표 구분). 비어 있으면 구글 로그인은 모두 401(꺼짐)
     # Android 는 웹 클라이언트 ID, iOS 는 iOS 클라이언트 ID 가 aud 로 들어오므로 둘 다 넣는다. client-secret 은 쓰지 않는다

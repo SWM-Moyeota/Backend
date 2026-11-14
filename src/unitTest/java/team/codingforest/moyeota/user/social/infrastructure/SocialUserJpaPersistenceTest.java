@@ -25,6 +25,25 @@ class SocialUserJpaPersistenceTest {
     }
 
     @Test
+    void 같은_회원은_구글과_애플을_동시에_연결한다() {
+        socialUsers.register(9L, SocialType.GOOGLE, "google-multi");
+        socialUsers.register(9L, SocialType.APPLE, "apple-multi");
+        em.flush(); em.clear();
+        assertThat(socialUsers.find(SocialType.GOOGLE,"google-multi").orElseThrow().getUserId()).isEqualTo(9L);
+        assertThat(socialUsers.find(SocialType.APPLE,"apple-multi").orElseThrow().getUserId()).isEqualTo(9L);
+        socialUsers.deleteByUserId(9L); em.flush();
+        assertThat(socialUsers.find(SocialType.APPLE,"apple-multi")).isEmpty();
+        assertThat(socialUsers.find(SocialType.GOOGLE,"google-multi")).isEmpty();
+    }
+
+    @Test
+    void 같은_회원의_같은_공급자_중복은_DB에서_막는다() {
+        socialUsers.register(9L, SocialType.GOOGLE, "google-first"); em.flush();
+        assertThatThrownBy(() -> { socialUsers.register(9L,SocialType.GOOGLE,"google-second");em.flush(); })
+                .isInstanceOfAny(DataIntegrityViolationException.class,jakarta.persistence.PersistenceException.class);
+    }
+
+    @Test
     void 소셜_종류와_소셜_아이디로_회원을_찾는다() {
         socialUsers.register(1L, SocialType.GOOGLE, "google-sub-1");
         em.flush();

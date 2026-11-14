@@ -26,6 +26,7 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final Users users;
     private final PrincipalCache principalCache;
+    private final team.codingforest.moyeota.user.auth.infrastructure.SessionRevocations sessionRevocations;
 
     @Transactional
     public TokenResponse login(UserLoginCommand command) {
@@ -53,6 +54,7 @@ public class AuthService {
         Long userId = principalCache.findUserId(publicId)
                 .orElseGet(() -> loadAndCache(publicId));
 
+        sessionRevocations.check(userId, jwtProvider.accessIssuedAt(accessToken));
         return new AuthenticatedPrincipal(userId, publicId);
     }
 

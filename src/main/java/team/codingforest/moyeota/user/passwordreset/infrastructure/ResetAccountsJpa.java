@@ -25,6 +25,7 @@ public class ResetAccountsJpa implements ResetAccounts {
 
  @Override @Transactional(propagation = Propagation.MANDATORY)
  public Optional<ResetAccount> lockEligible(Long id) {
+   if (users.findByIdForUpdate(id).filter(u -> u.getDeletedAt() == null).isEmpty()) return Optional.empty();
    return local.findByIdForUpdate(id).flatMap(this::eligible);
  }
 
