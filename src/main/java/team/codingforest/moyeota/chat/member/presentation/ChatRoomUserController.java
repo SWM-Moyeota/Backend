@@ -50,7 +50,7 @@ public class ChatRoomUserController {
             @CurrentUser UUID publicId,
             @PathVariable Long chatRoomId
     ) {
-        chatRoomUserService.leave(new ChatRoomCommand(chatRoomId, userId, publicId));
+        chatRoomUserService.leaveByUser(new ChatRoomCommand(chatRoomId, userId, publicId));
     }
 
     @PostMapping("/{chatRoomId}/users/read/{readMessageId}")

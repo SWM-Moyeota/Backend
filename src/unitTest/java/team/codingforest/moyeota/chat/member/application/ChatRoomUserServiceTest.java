@@ -228,6 +228,45 @@ class ChatRoomUserServiceTest {
     }
 
     @Test
+    void 진행_중인_합승의_멤버가_직접_나가면_CHAT_PARTY_IN_PROGRESS_이고_나가지_않는다() {
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
+        given(partyProvider.isActiveMember(USER_ID, PARTY_ID)).willReturn(true);
+
+        assertThatThrownBy(() -> chatRoomUserService.leaveByUser(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID)))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_PARTY_IN_PROGRESS);
+
+        verify(chatRoomUsers, never()).save(any(ChatRoomUser.class));
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
+    void 합승이_끝났거나_합승_멤버가_아니면_직접_나갈_수_있다() {
+        ChatRoomUser user = activeUser(ROOM_ID);
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(room(ChatRoomStatus.ACTIVE)));
+        given(partyProvider.isActiveMember(USER_ID, PARTY_ID)).willReturn(false);
+        given(chatRoomUsers.findActiveByUserIdAndChatRoomId(USER_ID, ROOM_ID)).willReturn(Optional.of(user));
+
+        chatRoomUserService.leaveByUser(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID));
+
+        assertThat(user.hasLeft()).isTrue();
+        verify(chatRoomUsers).save(user);
+    }
+
+    @Test
+    void 없는_채팅방을_직접_나가면_CHAT_ROOM_NOT_FOUND() {
+        given(chatRooms.findById(ROOM_ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> chatRoomUserService.leaveByUser(new ChatRoomCommand(ROOM_ID, USER_ID, PUBLIC_ID)))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_ROOM_NOT_FOUND);
+
+        verifyNoInteractions(partyProvider);
+    }
+
+    @Test
     void 읽음_처리는_버퍼에_기록만_한다() {
         chatRoomUserService.read(new ReadChatCommand(USER_ID, ROOM_ID, 5L));
 
