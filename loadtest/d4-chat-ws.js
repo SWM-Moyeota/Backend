@@ -1,5 +1,5 @@
 // D4 - 채팅 WebSocket. 3명짜리 채팅방에 연결을 CONNS 개까지 올리며 전달 지연과 연결 한계를 본다.
-//   MODE=ws(기본): 앱의 채팅 화면 그대로 - 방 열기 3건 → 소켓 + 12초마다 메시지 + 읽음 + 폴링(첫 수신 전 3초, 후 20초) + 아래 깔린 21 의 상세 4초
+//   MODE=ws(기본): 앱의 채팅 화면 그대로 - 방 열기 3건 → 소켓 + 12초마다 메시지 + 읽음 + 폴링(첫 수신 전 3초, 후 20초). 방 변화는 SSE 로 받아 상세 폴링이 없다
 //   MODE=fallback: 소켓이 죽어 전원이 3초 폴링 + REST 전송으로 떨어진 상황 (서버 재시작 직후)
 //   k6 run -o experimental-prometheus-rw -e CONNS=150 loadtest/d4-chat-ws.js
 //   k6 run -o experimental-prometheus-rw -e CONNS=150 -e MODE=fallback loadtest/d4-chat-ws.js
@@ -8,7 +8,7 @@
 import { check, sleep } from 'k6';
 import { Trend, Counter } from 'k6/metrics';
 import { SharedArray } from 'k6/data';
-import { fillRoom, groupUsers, finishRoom, resolveChatRoomId, openChatRoom, pollChat, lastMessageId, roomDetail, sendChatRest } from './lib/api.js';
+import { fillRoom, groupUsers, disbandRoom, resolveChatRoomId, openChatRoom, pollChat, lastMessageId, sendChatRest } from './lib/api.js';
 import { chatSession } from './lib/stomp.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
@@ -57,11 +57,10 @@ export default function (data) {
   const opened = openChatRoom(me.token, room.chatRoomId);      // 방 열기: 첫 페이지 · 참여자 · 방 정보
   check(opened, { '채팅방 열기 200': (o) => o.status === 200 });
 
-  if (MODE === 'fallback') {                                   // 소켓 없이 3초 폴링 + REST 전송, 상세 4초 폴링은 그대로
+  if (MODE === 'fallback') {                                   // 소켓 없이 3초 폴링 + REST 전송
     let cursor = opened.cursor;
     for (let t = 0; t < HOLD; t++) {
       if (t % 3 === 0) { const res = pollChat(me.token, room.chatRoomId, cursor); check(res, { '폴링 200': (r) => r.status === 200 }); cursor = lastMessageId(res, cursor); }
-      if (t % 4 === 0) roomDetail(me.token, room.partyId);
       if (t % 12 === 0) sendChatRest(me.token, room.chatRoomId, `lt:${Date.now()}:vu${__VU}`);
       sleep(1);
     }
@@ -69,7 +68,7 @@ export default function (data) {
   }
 
   const { res } = chatSession(me.token, room.chatRoomId, `vu${__VU}`, {
-    holdSec: HOLD, sendEverySec: SEND_EVERY_SEC, cursor: opened.cursor, partyId: room.partyId,
+    holdSec: HOLD, sendEverySec: SEND_EVERY_SEC, cursor: opened.cursor,
     onConnected: () => connected.add(1),
     onLatency: (ms) => latency.add(ms),
     onInversion: () => inversions.add(1),
@@ -79,5 +78,5 @@ export default function (data) {
 }
 
 export function teardown(data) {
-  for (const g of Object.keys(data.rooms)) finishRoom(groupUsers(users, Number(g))[0].token, data.rooms[g].partyId);
+  for (const g of Object.keys(data.rooms)) disbandRoom(groupUsers(users, Number(g)), data.rooms[g].partyId);
 }

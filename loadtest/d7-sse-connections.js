@@ -22,7 +22,7 @@ import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import { Counter } from 'k6/metrics';
 import exec from 'k6/execution';
-import { leaveRoom, joinRoom, finishRoom, fillRoom, groupUsers, roomDetail, breakdown, openRoom, spotOf, userInfo } from './lib/api.js';
+import { leaveRoom, joinRoom, disbandRoom, fillRoom, groupUsers, roomDetail, breakdown, openRoom, spotOf, userInfo } from './lib/api.js';
 import {
   watchParty, newRoomView, follow, compareWithDetail, VIEW_CHECK_RESULTS, RESYNC_REASONS, RESYNC_RESULTS, propagationMs,
 } from './lib/sse.js';
@@ -207,8 +207,8 @@ export function propagation(data) {
 }
 
 export function teardown(data) {
-  for (const room of data.rooms) finishRoom(groupUsers(users, room.g)[0].token, room.partyId);
-  // 측정 방은 ACTIVE 라 finish 가 안 된다(PARTY_NOT_COMPLETED) - 남아 있는 prober 를 내보내고 방장이 나가 CANCELED 로 닫는다
+  for (const room of data.rooms) disbandRoom(groupUsers(users, room.g), room.partyId);   // churn 이 나갔다 들어온 뒤라 멤버 구성은 그대로다
+  // 측정 방 - 남아 있는 prober 를 내보내고 방장이 나가 CANCELED 로 닫는다
   for (const room of data.probes || []) {
     const { watcher, prober } = probeUsers(room.p);
     const d = roomDetail(watcher.token, room.partyId);

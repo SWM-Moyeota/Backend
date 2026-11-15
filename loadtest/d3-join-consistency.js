@@ -6,7 +6,7 @@
 import { check, sleep } from 'k6';
 import { Counter } from 'k6/metrics';
 import { SharedArray } from 'k6/data';
-import { openRoom, joinRoom, leaveRoom, roomDetail, finishRoom, myChatRooms, chatMembers, 판교역 } from './lib/api.js';
+import { openRoom, joinRoom, leaveRoom, roomDetail, myChatRooms, chatMembers, 판교역 } from './lib/api.js';
 
 const users = new SharedArray('users', () => JSON.parse(open('./users.json')));
 const ROOMS = Number(__ENV.ROOMS || 10);
@@ -52,8 +52,8 @@ export default function (data) {
   const k = Math.floor((__VU - 1) / ROOMS);
   const res = joinRoom(racer(room, k).token, data.rooms[room]);
   if (res.status === 200) joined.add(1);
-  // 정원이 찬 방은 PARTY_FULL, 그 직후 COMPLETED 로 바뀐 뒤에 닿으면 PARTY_CLOSED - 둘 다 정상 거절이다
-  else if (res.status === 409 && (res.body.includes('PARTY_FULL') || res.body.includes('PARTY_CLOSED'))) full.add(1);
+  // 정원이 찬 방은 PARTY_FULL 로 거절된다 (정원이 차도 방은 ACTIVE 그대로라 PARTY_CLOSED 는 나오지 않는다)
+  else if (res.status === 409 && res.body.includes('PARTY_FULL')) full.add(1);
   else { other.add(1); console.error(`방 ${room}: 예상 밖 응답 ${res.status} ${res.body}`); }
 }
 
@@ -63,7 +63,7 @@ export function teardown(data) {
     const host = users[i];
     const partyId = data.rooms[i];
     const detail = roomDetail(host.token, partyId);
-    check(detail, { '방 멤버는 정확히 3명': (r) => r.json('members').length === 3, 'COMPLETED': (r) => r.json('status') === 'COMPLETED' });
+    check(detail, { '방 멤버는 정확히 3명': (r) => r.json('members').length === 3, '정원이 차도 ACTIVE': (r) => r.json('status') === 'ACTIVE' });
     const partyIds = detail.json('members').map((m) => m.publicId).sort().join(',');
 
     const chatRoomId = latestChatRoomId(host.token);
@@ -73,7 +73,9 @@ export function teardown(data) {
       console.error(`방 ${i} 불일치 - 방 멤버 [${partyIds}] / 채팅방 멤버 [${cm.status === 200 ? activeIds(cm) : cm.status}] (chatRoomId=${chatRoomId})`);
     }
 
-    check(finishRoom(host.token, partyId), { '종료 204': (r) => r.status === 204 });
+    // 정리 - 누가 들어갔는지 모르므로 그 방의 경합자 전원이 나가기를 부른다(멤버가 아니면 403 - 무시). 방장이 마지막에 나가면 CANCELED
+    for (let k = 0; k < RACERS; k++) leaveRoom(racer(i, k).token, partyId);
+    check(leaveRoom(host.token, partyId), { '방장 나가기 204': (r) => r.status === 204 });
   }
 
   // 참여 직후 나가기 - Joined / Left 이벤트가 뒤집히면 "방에는 없는데 채팅방에는 있는" 사람이 남는다
