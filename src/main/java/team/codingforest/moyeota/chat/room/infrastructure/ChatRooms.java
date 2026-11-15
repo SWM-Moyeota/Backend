@@ -1,6 +1,7 @@
 package team.codingforest.moyeota.chat.room.infrastructure;
 
 import team.codingforest.moyeota.chat.room.domain.ChatRoom;
+import team.codingforest.moyeota.chat.room.domain.ChatRoomStatus;
 
 import java.time.Instant;
 import java.util.List;
@@ -38,4 +39,14 @@ public interface ChatRooms {
      * @return 1부터 1씩 증가하는 방별 순번. 방이 없으면 빈 값
      */
     Optional<Long> nextMessageSeq(Long chatRoomId);
+
+    /**
+     * 진행 중인 방만 끝난 상태로 바꿈. 방 전체를 저장하지 않아 출발지·순번을 옛값으로 덮어쓰지 않음
+     *
+     * @param partyId 닫힌 파티
+     * @param status FINISHED 또는 CANCELED
+     * @param now 바꾼 시각
+     * @return 바뀐 방 수. 방이 없거나 이미 끝났으면 0
+     */
+    int endByPartyId(Long partyId, ChatRoomStatus status, Instant now);
 }
