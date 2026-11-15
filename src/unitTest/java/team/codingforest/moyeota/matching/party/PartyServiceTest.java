@@ -344,10 +344,8 @@ class PartyServiceTest {
     }
 
     @Test
-    void 혼자_타는_방도_ACTIVE_다() {
-        PartyResult party = service.create(createParty(host, 1));
-
-        assertThat(service.getPartyDetail(party.id()).status()).isEqualTo("ACTIVE");
+    void 혼자_타는_방은_만들_수_없다() {
+        assertFails(() -> service.create(createParty(host, 1)), MatchingErrorCode.INVALID_CAPACITY);
     }
 
     @Test

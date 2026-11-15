@@ -23,6 +23,7 @@ public class Party {
 	public static final double RESERVATION_ARRIVAL_RADIUS_METERS = 400;
 	public static final Duration ARRIVAL_OPENS_BEFORE = Duration.ofMinutes(10);
 	public static final int MIN_MEMBERS_TO_DEPART = 2;
+	public static final int MIN_OPEN_CAPACITY = MIN_MEMBERS_TO_DEPART;   // 새로 만드는 방의 최소 정원 - 출발할 수 있는 인원이 들어올 자리는 있어야 한다
 	public static final List<Duration> DEPARTURE_REMINDER_OFFSETS = List.of(
 			Duration.ofMinutes(30), Duration.ofHours(1), Duration.ofHours(2), Duration.ofHours(4));
 
@@ -93,6 +94,12 @@ public class Party {
 	private static Party open(Long creatorId, Location departureLocation, Location destinationLocation, String departure, String destination,
 	                          Capacity capacity, Instant now, Integer estimatedFare, Integer estimatedTime, String route,
 	                          RoomType roomType, Instant departureAt) {
+		// 동승 방이라 함께 탈 자리가 있어야 한다. 정원 1 방은 확정·도착·출발이 모두 막혀 끝낼 수 없다
+		// (Capacity 자체는 1 을 받는다 - 이 규칙 전에 만들어진 정원 1 방을 DB 에서 읽어야 한다)
+		if (capacity.value() < MIN_OPEN_CAPACITY) {
+			throw new BusinessException(MatchingErrorCode.INVALID_CAPACITY);
+		}
+
 		Party party = new Party(null, departureLocation, destinationLocation, departure, destination, capacity, List.of(), creatorId, now,
 				PartyStatus.ACTIVE, estimatedFare, estimatedTime, route, 0L, roomType, departureAt);
 

@@ -51,13 +51,20 @@ class PartyTest {
         assertRejected(catchThrowable(() -> Party.create(HOST_ID, DEPARTURE, DESTINATION, DEPARTURE_PLACE, DESTINATION_PLACE, new Capacity(3), NOW, FARE, MINUTES, null)), MatchingErrorCode.INVALID_ROUTE_ESTIMATE);
     }
 
-    @DisplayName("create - 정원 1인 방도 만들자마자 ACTIVE 이고 정원이 찼다")
+    @DisplayName("create·reserve - 정원 1 방은 만들 수 없다(INVALID_CAPACITY). 동승 방이라 함께 탈 자리가 있어야 한다")
     @Test
-    void create_soloIsFullButActive() {
-        Party party = realtime(1);
+    void create_capacityBelowMinimum() {
+        assertRejected(catchThrowable(() -> Party.create(HOST_ID, DEPARTURE, DESTINATION, DEPARTURE_PLACE, DESTINATION_PLACE, new Capacity(1), NOW, FARE, MINUTES, ROUTE)), MatchingErrorCode.INVALID_CAPACITY);
+        assertRejected(catchThrowable(() -> Party.reserve(HOST_ID, DEPARTURE, DESTINATION, DEPARTURE_PLACE, DESTINATION_PLACE, new Capacity(1), NOW, RESERVED_AT)), MatchingErrorCode.INVALID_CAPACITY);
+    }
+
+    @DisplayName("create - 정원 2 방은 만들어지고 한 명이 더 들어올 자리가 있다")
+    @Test
+    void create_minimumCapacity() {
+        Party party = realtime(2);
 
         assertThat(party.getStatus()).isEqualTo(PartyStatus.ACTIVE);
-        assertThat(party.isFull()).isTrue();
+        assertThat(party.isFull()).isFalse();
     }
 
     // ───────────────────────── reserve ─────────────────────────
