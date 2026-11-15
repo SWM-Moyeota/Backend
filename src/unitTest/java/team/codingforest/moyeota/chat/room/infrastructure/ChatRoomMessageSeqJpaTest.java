@@ -42,6 +42,31 @@ class ChatRoomMessageSeqJpaTest {
     }
 
     @Test
+    void 출발지를_바꿔도_순번과_다른_방은_그대로다() {
+        Long roomId = newRoom(1L);
+        Long otherRoomId = newRoom(2L);
+        chatRooms.nextMessageSeq(roomId);
+        Instant later = NOW.plusSeconds(60);
+
+        int changed = chatRooms.changeDeparture(1L, "강남역 11번 출구", later);
+        em.flush();
+        em.clear();
+
+        assertThat(changed).isEqualTo(1);
+        ChatRoom room = chatRooms.findById(roomId).orElseThrow();
+        assertThat(room.getDeparturePlace()).isEqualTo("강남역 11번 출구");
+        assertThat(room.getDestinationPlace()).isEqualTo("판교역");
+        assertThat(room.getUpdatedAt()).isEqualTo(later);
+        assertThat(chatRooms.findById(otherRoomId).orElseThrow().getDeparturePlace()).isEqualTo("강남역");
+        assertThat(chatRooms.nextMessageSeq(roomId)).contains(2L);
+    }
+
+    @Test
+    void 방이_없는_파티의_출발지를_바꾸면_0을_돌려준다() {
+        assertThat(chatRooms.changeDeparture(99L, "강남역 11번 출구", NOW)).isZero();
+    }
+
+    @Test
     void 방을_통째로_저장해도_순번을_옛값으로_덮어쓰지_않는다() {
         Long roomId = newRoom(1L);
         ChatRoom loadedBeforeMessages = chatRooms.findById(roomId).orElseThrow();   // 순번 0 일 때 읽어 둔 방

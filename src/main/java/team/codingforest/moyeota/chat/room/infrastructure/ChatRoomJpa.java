@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.chat.room.domain.ChatRoom;
 import team.codingforest.moyeota.chat.room.infrastructure.entity.ChatRoomEntity;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,6 +48,11 @@ public class ChatRoomJpa implements ChatRooms {
     @Override
     public Optional<ChatRoom> findByPartyIdForUpdate(Long partyId) {
         return jpaRepository.findByPartyIdForUpdate(partyId).map(ChatRoomEntity::toDomain);
+    }
+
+    @Override
+    public int changeDeparture(Long partyId, String departure, Instant now) {
+        return jpaRepository.changeDeparture(partyId, departure, now);
     }
 
     @Override

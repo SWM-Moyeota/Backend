@@ -4,13 +4,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import team.codingforest.moyeota.chat.room.dto.ChatRoomResult;
-import team.codingforest.moyeota.chat.room.dto.CreateChatRoomCommand;
-import team.codingforest.moyeota.chat.room.domain.PartyProvider;
-import team.codingforest.moyeota.chat.room.domain.PartySnapshot;
 import team.codingforest.moyeota.chat.common.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.common.exception.ChatException;
 import team.codingforest.moyeota.chat.room.domain.ChatRoom;
+import team.codingforest.moyeota.chat.room.domain.PartyProvider;
+import team.codingforest.moyeota.chat.room.domain.PartySnapshot;
+import team.codingforest.moyeota.chat.room.dto.ChatRoomResult;
+import team.codingforest.moyeota.chat.room.dto.CreateChatRoomCommand;
 import team.codingforest.moyeota.chat.room.infrastructure.ChatRooms;
 
 import java.time.Instant;
@@ -57,6 +57,24 @@ public class ChatRoomService {
         validatePartyMember(userId, chatRoom.getPartyId());
 
         return ChatRoomResult.from(chatRoom);
+    }
+
+    /**
+     * 약속 확정으로 바뀐 만남 장소를 채팅방 출발지에 반영
+     * 방이 없으면 예외를 던짐. 참여 리스너가 방을 아직 커밋하지 않았을 수 있어 재발행돼 방이 생긴 뒤 반영됨
+     *
+     * @param partyId 약속을 확정한 파티
+     * @param departure 확정된 만남 장소 이름
+     */
+    @Transactional
+    public void changeDeparture(Long partyId, String departure) {
+        int changed = chatRooms.changeDeparture(partyId, departure, Instant.now());
+
+        if (changed == 0) {
+            throw new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND);
+        }
+
+        log.info("채팅방 출발지 변경 partyId={} departure={}", partyId, departure);
     }
 
     /**
