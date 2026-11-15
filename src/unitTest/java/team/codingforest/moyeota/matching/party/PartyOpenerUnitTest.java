@@ -106,29 +106,26 @@ class PartyOpenerUnitTest {
         verify(eventPublisher).publishEvent(eq(new PartyMemberJoinedEvent(PARTY_ID, HOST_ID)));
     }
 
-    @DisplayName("open - 혼자 타는 방(정원 1)도 정원이 찼다고 달리 처리하지 않고 ACTIVE 로 한 번 저장하고 참여 이벤트를 발행한다")
+    @DisplayName("open - 정원 1(혼자 타는 방)이면 INVALID_CAPACITY 이고 저장하지 않는다")
     @Test
-    void create_fullOnCreate() {
+    void create_capacityBelowMinimum() {
 
         /*
          * settings
          */
-        Party saved = party(PartyStatus.ACTIVE, 1);
-
         doReturn(false).when(parties).existsOngoingRealtimeByMemberId(eq(HOST_ID));
-        doReturn(saved).when(parties).save(any(Party.class));
 
         /*
          * test
          */
-        PartyResult result = partyOpener.open(createCommand(1), ESTIMATE);
+        Throwable thrown = catchThrowable(() -> partyOpener.open(createCommand(1), ESTIMATE));
 
         /*
          * verify
          */
-        assertThat(result.status()).isEqualTo("ACTIVE");
-        verify(parties, times(1)).save(any(Party.class));
-        verify(eventPublisher).publishEvent(eq(new PartyMemberJoinedEvent(PARTY_ID, HOST_ID)));
+        assertBusinessException(thrown, MatchingErrorCode.INVALID_CAPACITY);
+        verify(parties, never()).save(any());
+        verifyNoInteractions(eventPublisher);
     }
 
     /** 경로 조회는 트랜잭션 밖이라 PartyService 의 첫 검사와 저장 사이에 다른 방에 들어갈 수 있다 */
