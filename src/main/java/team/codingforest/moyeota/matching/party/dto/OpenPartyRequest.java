@@ -16,9 +16,9 @@ public record OpenPartyRequest(
 		@NotBlank(message = "도착지 이름은 필수입니다") @Schema(example = "판교역") String destination,
 
 		@NotNull(message = "정원은 필수입니다")
-		@Min(value = 1, message = "정원은 1명 이상입니다")
+		@Min(value = 2, message = "정원은 2명 이상입니다")
 		@Max(value = 4, message = "정원은 4명 이하입니다")
-		@Schema(description = "정원(생성자 포함) 1~4", example = "3") Integer capacity) {
+		@Schema(description = "정원(생성자 포함) 2~4", example = "3") Integer capacity) {
 
 	public OpenPartyCommand toCommand(Long creatorMemberId) {
 		return new OpenPartyCommand(creatorMemberId, departureLat, departureLng, destinationLat, destinationLng,
