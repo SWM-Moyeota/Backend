@@ -79,6 +79,24 @@ public class ChatRoomUserService {
         log.info("채팅방 참여 chatRoomId={} userID={}", command.chatRoomId(), command.userId());
     }
 
+    /**
+     * 사용자가 직접 채팅방을 나감. 진행 중인 합승의 멤버는 채팅방만 나갈 수 없음
+     * 합승을 나가면 MatchingChatRoomSteps 가 leave 로 채팅방도 정리하므로 그 길만 남김
+     *
+     * @param command 나갈 채팅방과 사용자
+     */
+    @Transactional
+    public void leaveByUser(ChatRoomCommand command) {
+        ChatRoom chatRoom = chatRooms.findById(command.chatRoomId())
+                .orElseThrow(() -> new ChatException(ChatErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        if (partyProvider.isActiveMember(command.userId(), chatRoom.getPartyId())) {
+            throw new ChatException(ChatErrorCode.CHAT_PARTY_IN_PROGRESS);
+        }
+
+        leave(command);
+    }
+
     @Transactional
     public void leave(ChatRoomCommand command) {
         ChatRoomUser chatRoomUser = getActiveUser(command.userId(), command.chatRoomId());

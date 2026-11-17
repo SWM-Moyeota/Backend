@@ -102,6 +102,32 @@ class ChatRoomServiceTest {
     }
 
     @Test
+    public void 파티가_같이_타고_끝나면_채팅방을_FINISHED_로_바꾼다() {
+        given(chatRooms.endByPartyId(eq(PARTY_ID), eq(ChatRoomStatus.FINISHED), any(Instant.class))).willReturn(1);
+
+        chatRoomService.end(PARTY_ID, "FINISHED");
+
+        then(chatRooms).should().endByPartyId(eq(PARTY_ID), eq(ChatRoomStatus.FINISHED), any(Instant.class));
+        then(chatRooms).should(never()).save(any(ChatRoom.class));   // 방을 통째로 저장하면 출발지를 옛값으로 덮어쓸 수 있다
+    }
+
+    @Test
+    public void 파티가_같이_타지_못하고_끝나면_채팅방을_CANCELED_로_바꾼다() {
+        given(chatRooms.endByPartyId(eq(PARTY_ID), eq(ChatRoomStatus.CANCELED), any(Instant.class))).willReturn(1);
+
+        chatRoomService.end(PARTY_ID, "CANCELED");
+
+        then(chatRooms).should().endByPartyId(eq(PARTY_ID), eq(ChatRoomStatus.CANCELED), any(Instant.class));
+    }
+
+    @Test
+    public void 진행_중인_채팅방이_없으면_종료는_예외_없이_넘어간다() {
+        given(chatRooms.endByPartyId(eq(PARTY_ID), eq(ChatRoomStatus.CANCELED), any(Instant.class))).willReturn(0);
+
+        chatRoomService.end(PARTY_ID, "CANCELED");   // 혼자 있다 취소된 파티이거나 같은 이벤트가 다시 온 경우
+    }
+
+    @Test
     public void 채팅방_닫기_성공() {
         ChatRoom chatRoom = room(ChatRoomStatus.ACTIVE);
         given(chatRooms.findById(ROOM_ID)).willReturn(Optional.of(chatRoom));

@@ -55,7 +55,7 @@ public class ChatRoom {
     }
 
     public void validateCanSend() {
-        if (status != ChatRoomStatus.ACTIVE) {
+        if (!status.canSend()) {
             throw new ChatException(ChatErrorCode.CHAT_ROOM_CLOSED);
         }
     }

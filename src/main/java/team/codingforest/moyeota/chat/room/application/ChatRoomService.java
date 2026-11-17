@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import team.codingforest.moyeota.chat.common.exception.ChatErrorCode;
 import team.codingforest.moyeota.chat.common.exception.ChatException;
 import team.codingforest.moyeota.chat.room.domain.ChatRoom;
+import team.codingforest.moyeota.chat.room.domain.ChatRoomStatus;
 import team.codingforest.moyeota.chat.room.domain.PartyProvider;
 import team.codingforest.moyeota.chat.room.domain.PartySnapshot;
 import team.codingforest.moyeota.chat.room.dto.ChatRoomResult;
@@ -75,6 +76,26 @@ public class ChatRoomService {
         }
 
         log.info("채팅방 출발지 변경 partyId={} departure={}", partyId, departure);
+    }
+
+    /**
+     * 파티가 닫히면 채팅방을 끝난 상태로 바꿈. 대화는 CLOSED 가 되기 전까지 계속 가능
+     * 방이 없거나(혼자 있다 취소된 파티) 이미 끝났으면(같은 이벤트 재발행) 할 일이 없음
+     *
+     * @param partyId 닫힌 파티
+     * @param partyStatus 파티의 닫힌 상태 이름(FINISHED 또는 CANCELED)
+     */
+    @Transactional
+    public void end(Long partyId, String partyStatus) {
+        ChatRoomStatus status = ChatRoomStatus.endedBy(partyStatus);
+        int changed = chatRooms.endByPartyId(partyId, status, Instant.now());
+
+        if (changed == 0) {
+            log.info("진행 중인 채팅방이 없어 종료 건너뜀 partyId={} status={}", partyId, status);
+            return;
+        }
+
+        log.info("채팅방 종료 partyId={} status={}", partyId, status);
     }
 
     /**

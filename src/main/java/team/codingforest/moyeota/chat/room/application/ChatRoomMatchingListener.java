@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
+import team.codingforest.moyeota.matching.api.dto.PartyClosedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyConfirmedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
@@ -38,5 +39,13 @@ public class ChatRoomMatchingListener {
     @ApplicationModuleListener(propagation = Propagation.NOT_SUPPORTED)
     public void on(PartyConfirmedEvent event) {
         chatRoomService.changeDeparture(event.partyId(), event.departure());
+    }
+
+    /**
+     * 합승이 끝나면 채팅방을 FINISHED 또는 CANCELED 로 바꿈. 대화는 계속 가능
+     */
+    @ApplicationModuleListener(propagation = Propagation.NOT_SUPPORTED)
+    public void on(PartyClosedEvent event) {
+        chatRoomService.end(event.partyId(), event.status());
     }
 }

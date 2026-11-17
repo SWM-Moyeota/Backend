@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import team.codingforest.moyeota.chat.room.domain.ChatRoom;
+import team.codingforest.moyeota.chat.room.domain.ChatRoomStatus;
 
 import java.time.Instant;
 
@@ -95,5 +96,32 @@ class ChatRoomMessageSeqJpaTest {
     @Test
     void 없는_방이면_빈_값() {
         assertThat(chatRooms.nextMessageSeq(999L)).isEmpty();
+    }
+
+    @Test
+    void 진행_중인_방만_끝난_상태로_바뀌고_출발지와_순번은_그대로다() {
+        Long roomId = newRoom(1L);
+        Long otherRoomId = newRoom(2L);
+        chatRooms.nextMessageSeq(roomId);
+        Instant later = NOW.plusSeconds(60);
+
+        int changed = chatRooms.endByPartyId(1L, ChatRoomStatus.FINISHED, later);
+        int again = chatRooms.endByPartyId(1L, ChatRoomStatus.CANCELED, later.plusSeconds(60));   // 이미 끝난 방은 바뀌지 않는다
+        em.flush();
+        em.clear();
+
+        assertThat(changed).isEqualTo(1);
+        assertThat(again).isZero();
+        ChatRoom room = chatRooms.findById(roomId).orElseThrow();
+        assertThat(room.getStatus()).isEqualTo(ChatRoomStatus.FINISHED);
+        assertThat(room.getUpdatedAt()).isEqualTo(later);
+        assertThat(room.getDeparturePlace()).isEqualTo("강남역");
+        assertThat(chatRooms.findById(otherRoomId).orElseThrow().getStatus()).isEqualTo(ChatRoomStatus.ACTIVE);
+        assertThat(chatRooms.nextMessageSeq(roomId)).contains(2L);
+    }
+
+    @Test
+    void 방이_없는_파티를_끝내면_0을_돌려준다() {
+        assertThat(chatRooms.endByPartyId(99L, ChatRoomStatus.CANCELED, NOW)).isZero();
     }
 }

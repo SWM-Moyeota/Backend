@@ -90,4 +90,34 @@ class ChatRoomTest {
                 .extracting("errorCode")
                 .isEqualTo(ChatErrorCode.CHAT_ROOM_CLOSED);
     }
+
+    @Test
+    void 합승이_끝난_방에서도_메시지를_보낼_수_있다() {
+        roomCreate(ChatRoomStatus.FINISHED).validateCanSend();
+        roomCreate(ChatRoomStatus.CANCELED).validateCanSend();
+    }
+
+    @Test
+    void 합승이_끝난_방에는_참여할_수_없다() {
+        assertThatThrownBy(roomCreate(ChatRoomStatus.FINISHED)::validateJoin)
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_ROOM_CLOSED);
+        assertThatThrownBy(roomCreate(ChatRoomStatus.CANCELED)::validateJoin)
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_ROOM_CLOSED);
+    }
+
+    @Test
+    void 닫힌_파티_상태를_채팅방_상태로_옮긴다() {
+        assertThat(ChatRoomStatus.endedBy("FINISHED")).isEqualTo(ChatRoomStatus.FINISHED);
+        assertThat(ChatRoomStatus.endedBy("CANCELED")).isEqualTo(ChatRoomStatus.CANCELED);
+    }
+
+    @Test
+    void 닫힌_파티_상태가_아니면_예외() {
+        assertThatThrownBy(() -> ChatRoomStatus.endedBy("COMPLETED"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }
