@@ -78,8 +78,9 @@ public class LocalUserService {
 
     @Transactional
     public AuthenticatedUser authenticate(UserLoginCommand command) {
-        LocalUser candidate = localUsers.findByLoginId(command.loginId());
-        User locked = users.findByIdForUpdate(candidate.getUserId());
+        // 잠그기 전에는 id 만 읽는다. 엔티티를 먼저 읽으면 아래 잠금 조회가 그 값을 그대로 돌려줘
+        // 비밀번호 재설정이 끝난 뒤에도 이전 비밀번호로 검사하게 된다.
+        User locked = users.findByIdForUpdate(localUsers.findUserIdByLoginId(command.loginId()));
         if (locked.isDeleted()) throw new UserException(UserErrorCode.LOGIN_FAILED);
         LocalUser localUser = localUsers.findByLoginIdForUpdate(command.loginId());
         if (!passwordHasher.matches(command.password(), localUser.getPassword())) {

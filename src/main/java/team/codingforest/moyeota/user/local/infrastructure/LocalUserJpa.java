@@ -20,9 +20,9 @@ public class LocalUserJpa implements LocalUsers {
     }
 
     @Override
-    public LocalUser findByLoginId(String loginId) {
-        return localUserRepository.findByLoginId(loginId)
-                .map(LocalUserEntity::toDomain).orElseThrow(() -> new UserException(UserErrorCode.LOGIN_FAILED));
+    public Long findUserIdByLoginId(String loginId) {
+        return localUserRepository.findIdByLoginId(loginId)
+                .orElseThrow(() -> new UserException(UserErrorCode.LOGIN_FAILED));
     }
 
     @Override
