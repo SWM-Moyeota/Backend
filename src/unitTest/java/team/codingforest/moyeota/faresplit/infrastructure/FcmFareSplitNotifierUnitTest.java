@@ -69,7 +69,7 @@ class FcmFareSplitNotifierUnitTest {
         assertApns(payload, "723456", "택시비를 나눠 내요", "6,240원을 보내 주세요. 받을 계좌는 앱에서 볼 수 있어요.");
     }
 
-    @DisplayName("requestTransfer - Android 우선순위와 data 키(type, partyId, amount)를 보낸다")
+    @DisplayName("requestTransfer - Android 우선순위와 data 키(type, partyId, amount, title, body)를 보낸다")
     @Test
     void requestTransfer_androidAndData() throws IOException {
 
@@ -152,7 +152,7 @@ class FcmFareSplitNotifierUnitTest {
         assertApns(payload, "723456", "택시비를 아직 보내지 않았어요", "12,000원을 보낸 뒤 보냈어요를 눌러 주세요.");
     }
 
-    @DisplayName("remindTransfer - Android 우선순위와 data 키(type, partyId, amount)를 보낸다")
+    @DisplayName("remindTransfer - Android 우선순위와 data 키(type, partyId, amount, title, body)를 보낸다")
     @Test
     void remindTransfer_androidAndData() throws IOException {
 
@@ -296,7 +296,20 @@ class FcmFareSplitNotifierUnitTest {
 
     private static void assertAndroidAndData(DocumentContext payload, Map<String, String> data) {
         assertThat(payload.<String>read("$.android.priority")).isEqualTo("high");
-        assertThat(payload.<Map<String, String>>read("$.data")).containsExactlyInAnyOrderEntriesOf(data);
+        assertThat(payload.<Map<String, String>>read("$.data")).containsExactlyInAnyOrderEntriesOf(withAlertText(payload, data));
+    }
+
+    /** Android 앱은 data 의 title·body 로 알림을 만든다 - iOS 가 표시하는 문구와 같아야 하고 비어 있으면 안 된다 */
+    private static Map<String, String> withAlertText(DocumentContext payload, Map<String, String> data) {
+        String title = payload.read("$.apns.payload.aps.alert.title");
+        String body = payload.read("$.apns.payload.aps.alert.body");
+        assertThat(title).isNotBlank();
+        assertThat(body).isNotBlank();
+
+        Map<String, String> expected = new HashMap<>(data);
+        expected.put("title", title);
+        expected.put("body", body);
+        return expected;
     }
 
     /** 보내는 사람마다 보낼 금액. 넘긴 순서 그대로다(같은 금액끼리 묶일 때 이 순서로 묶인다) */

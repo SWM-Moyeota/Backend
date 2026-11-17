@@ -68,7 +68,10 @@ public class FcmFareSplitNotifier implements FareSplitNotifier {
         recipientIdsByAmount.forEach((amount, recipientIds) -> send(push, partyId, recipientIds, amount));
     }
 
-    /** amount 는 금액을 싣는 알림(송금 요청·재요청)만 넘긴다 - Android 는 data 만 받아 앱이 문구를 만든다 */
+    /**
+     *  amount 는 금액을 싣는 알림(송금 요청·재요청)만 넘긴다.
+     *  Android 앱은 data 의 title·body 로 알림을 만든다 - 없으면 알림을 띄우지 않고 버린다
+     */
     private void send(Push push, Long partyId, List<Long> recipientIds, Integer amount) {
         Map<Long, String> tokens = userAccess.findFcmTokens(recipientIds);
 
@@ -82,6 +85,8 @@ public class FcmFareSplitNotifier implements FareSplitNotifier {
                 .setApnsConfig(apnsConfig(push, partyId, amount))
                 .putData("type", push.type)
                 .putData("partyId", String.valueOf(partyId))
+                .putData("title", push.title)
+                .putData("body", push.body(amount))
                 .addAllTokens(tokens.values());
 
         if(amount != null) builder.putData("amount", String.valueOf(amount));
