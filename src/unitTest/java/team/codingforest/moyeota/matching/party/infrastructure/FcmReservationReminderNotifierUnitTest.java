@@ -79,7 +79,7 @@ class FcmReservationReminderNotifierUnitTest {
         assertThat(payload.<String>read("$.apns.payload.aps.alert.body")).isEqualTo("00:05 출발이에요. 늦지 않게 출발지로 와 주세요.");
     }
 
-    @DisplayName("notifyDepartureSoon - APNs 를 더해도 Android 설정과 data 키는 그대로 보낸다")
+    @DisplayName("notifyDepartureSoon - Android 우선순위와 data 키(type, partyId, departureAt, title, body)를 보낸다")
     @Test
     void notifyDepartureSoon_keepAndroid() throws IOException {
 
@@ -95,7 +95,9 @@ class FcmReservationReminderNotifierUnitTest {
         assertThat(payload.<Map<String, String>>read("$.data")).containsExactlyInAnyOrderEntriesOf(Map.of(
                 "type", "RESERVATION_DEPARTURE_SOON",
                 "partyId", "10",
-                "departureAt", "2026-11-03T06:30:00Z"));
+                "departureAt", "2026-11-03T06:30:00Z",
+                "title", "곧 출발해요",
+                "body", "15:30 출발이에요. 늦지 않게 출발지로 와 주세요."));
     }
 
     /** 실제 전송되는 FCM JSON 으로 검증한다 - MulticastMessage 는 값을 꺼내는 공개 메서드가 없다 */

@@ -18,6 +18,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -60,7 +61,7 @@ class FcmMeetingNotifierUnitTest {
         assertApns(payload, "323456", "약속 시간이에요", "도착하면 도착 버튼을, 모두 모이면 출발 버튼을 눌러 주세요.");
     }
 
-    @DisplayName("notifyMeetingTime - Android 우선순위와 data 키(type, partyId)를 보낸다")
+    @DisplayName("notifyMeetingTime - Android 우선순위와 data 키(type, partyId, title, body)를 보낸다")
     @Test
     void notifyMeetingTime_androidAndData() throws IOException {
 
@@ -92,7 +93,7 @@ class FcmMeetingNotifierUnitTest {
         assertApns(payload, "423456", "출발하셨나요?", "모두 모였으면 출발 버튼을 눌러 주세요.");
     }
 
-    @DisplayName("remindDeparture - Android 우선순위와 data 키(type, partyId)를 보낸다")
+    @DisplayName("remindDeparture - Android 우선순위와 data 키(type, partyId, title, body)를 보낸다")
     @Test
     void remindDeparture_androidAndData() throws IOException {
 
@@ -157,9 +158,22 @@ class FcmMeetingNotifierUnitTest {
 
     private static void assertAndroidAndData(DocumentContext payload, String type) {
         assertThat(payload.<String>read("$.android.priority")).isEqualTo("high");
-        assertThat(payload.<Map<String, String>>read("$.data")).containsExactlyInAnyOrderEntriesOf(Map.of(
+        assertThat(payload.<Map<String, String>>read("$.data")).containsExactlyInAnyOrderEntriesOf(withAlertText(payload, Map.of(
                 "type", type,
-                "partyId", String.valueOf(PARTY_ID)));
+                "partyId", String.valueOf(PARTY_ID))));
+    }
+
+    /** Android 앱은 data 의 title·body 로 알림을 만든다 - iOS 가 표시하는 문구와 같아야 하고 비어 있으면 안 된다 */
+    private static Map<String, String> withAlertText(DocumentContext payload, Map<String, String> data) {
+        String title = payload.read("$.apns.payload.aps.alert.title");
+        String body = payload.read("$.apns.payload.aps.alert.body");
+        assertThat(title).isNotBlank();
+        assertThat(body).isNotBlank();
+
+        Map<String, String> expected = new HashMap<>(data);
+        expected.put("title", title);
+        expected.put("body", body);
+        return expected;
     }
 
     /** 실제 전송되는 FCM JSON 으로 검증한다 - MulticastMessage 는 값을 꺼내는 공개 메서드가 없다 */

@@ -54,6 +54,9 @@ public class FcmMeetingNotifier implements MeetingNotifier {
                 .setApnsConfig(apnsConfig(push, partyId))
                 .putData("type", push.type)
                 .putData("partyId", String.valueOf(partyId))
+                // Android 앱은 data 의 title·body 로 알림을 만든다 - 없으면 알림을 띄우지 않고 버린다
+                .putData("title", push.title)
+                .putData("body", push.body)
                 .addAllTokens(tokens.values())
                 .build();
 
