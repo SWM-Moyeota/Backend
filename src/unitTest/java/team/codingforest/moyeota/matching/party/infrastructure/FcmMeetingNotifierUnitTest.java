@@ -108,6 +108,38 @@ class FcmMeetingNotifierUnitTest {
         assertAndroidAndData(payload, "PARTY_DEPARTURE_REMINDER");
     }
 
+    // ───────────────────────── notifyCanceled ─────────────────────────
+
+    @DisplayName("notifyCanceled - iOS 시스템이 표시할 제목·내용·묶음 값을 APNs 로 보낸다")
+    @Test
+    void notifyCanceled_apns() throws IOException {
+
+        /*
+         * test
+         */
+        DocumentContext payload = send(n -> n.notifyCanceled(PARTY_ID, MEMBER_IDS));
+
+        /*
+         * verify
+         */
+        assertApns(payload, "523456", "약속이 취소됐어요", "같이 타기로 한 분이 나가서 방이 닫혔어요. 다시 같이 탈 사람을 찾아보세요.");
+    }
+
+    @DisplayName("notifyCanceled - Android 우선순위와 data 키(type, partyId, title, body)를 보낸다")
+    @Test
+    void notifyCanceled_androidAndData() throws IOException {
+
+        /*
+         * test
+         */
+        DocumentContext payload = send(n -> n.notifyCanceled(PARTY_ID, MEMBER_IDS));
+
+        /*
+         * verify
+         */
+        assertAndroidAndData(payload, "PARTY_CANCELED");
+    }
+
     // ───────────────────────── 공통 ─────────────────────────
 
     @DisplayName("notifyMeetingTime - collapse-id 는 partyId 를 10만으로 나눈 나머지를 쓴다")

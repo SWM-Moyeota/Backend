@@ -20,4 +20,9 @@ public class LoggingMeetingNotifier implements MeetingNotifier {
     public void remindDeparture(Long partyId, List<Long> memberIds) {
         log.info("[출발 재촉 알림] partyId={}, 받는 사람={}명", partyId, memberIds.size());
     }
+
+    @Override
+    public void notifyCanceled(Long partyId, List<Long> memberIds) {
+        log.info("[방 취소 알림] partyId={}, 받는 사람={}명", partyId, memberIds.size());
+    }
 }

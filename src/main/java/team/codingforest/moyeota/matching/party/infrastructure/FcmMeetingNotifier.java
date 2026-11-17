@@ -41,6 +41,11 @@ public class FcmMeetingNotifier implements MeetingNotifier {
         send(Push.DEPARTURE_REMINDER, partyId, memberIds);
     }
 
+    @Override
+    public void notifyCanceled(Long partyId, List<Long> memberIds) {
+        send(Push.CANCELED, partyId, memberIds);
+    }
+
     private void send(Push push, Long partyId, List<Long> memberIds) {
         Map<Long, String> tokens = userAccess.findFcmTokens(memberIds);
 
@@ -94,7 +99,8 @@ public class FcmMeetingNotifier implements MeetingNotifier {
     /** collapse-id 는 채팅(200000 + chatRoomId % 100000)과 겹치지 않게 종류마다 10만 단위 구간을 쓴다 */
     private enum Push {
         MEETING_TIME("PARTY_MEETING_TIME", "약속 시간이에요", "도착하면 도착 버튼을, 모두 모이면 출발 버튼을 눌러 주세요.", 300_000, "약속 시각 알림"),
-        DEPARTURE_REMINDER("PARTY_DEPARTURE_REMINDER", "출발하셨나요?", "모두 모였으면 출발 버튼을 눌러 주세요.", 400_000, "출발 재촉 알림");
+        DEPARTURE_REMINDER("PARTY_DEPARTURE_REMINDER", "출발하셨나요?", "모두 모였으면 출발 버튼을 눌러 주세요.", 400_000, "출발 재촉 알림"),
+        CANCELED("PARTY_CANCELED", "약속이 취소됐어요", "같이 타기로 한 분이 나가서 방이 닫혔어요. 다시 같이 탈 사람을 찾아보세요.", 500_000, "방 취소 알림");
 
         private final String type;
         private final String title;

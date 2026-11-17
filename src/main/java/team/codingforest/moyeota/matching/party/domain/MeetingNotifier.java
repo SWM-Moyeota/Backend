@@ -9,4 +9,7 @@ public interface MeetingNotifier {
 
     /** 출발 재촉 - 출발 버튼을 누르는 방장 id가 리스트로 들어온다. */
     void remindDeparture(Long partyId, List<Long> recipientIds);
+
+    /** 방 취소 - 약속을 확정한 방에서 다른 사람이 나가 방이 닫혔을 때 남은 멤버 */
+    void notifyCanceled(Long partyId, List<Long> recipientIds);
 }
