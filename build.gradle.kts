@@ -59,7 +59,7 @@ dependencies {
     // 운영: 문서·지표·스케줄러 분산 잠금
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.2.0")   // Boot 4 → springdoc 3.x
     implementation("io.micrometer:micrometer-registry-prometheus")                // 지표 수집
-    implementation("net.javacrumbs.shedlock:shedlock-spring:6.6.0")              // 서버가 여러 대여도 한 대만 돈다
+    implementation("net.javacrumbs.shedlock:shedlock-spring:7.11.0")              // 서버가 여러 대여도 한 대만 돈다
     implementation("net.javacrumbs.shedlock:shedlock-provider-redis-spring:7.11.0")
     implementation("org.springframework.modulith:spring-modulith-events-core")
 
