@@ -2,6 +2,7 @@ package team.codingforest.moyeota.matching.party;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import team.codingforest.moyeota.matching.party.infrastructure.LoggingMeetingNotifier;
 import team.codingforest.moyeota.matching.record.FakeRideRecords;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
@@ -38,7 +39,7 @@ class PartyControllerTest {
         PartyJpaTest parties = new PartyJpaTest();
         PartyService service = new PartyService(parties, events, routeService,
                 new FakeUserAccess(),
-                (name, task) -> task.run(), new PartyServiceTest.RecordingPartyChangeNotifier(),
+                (name, task) -> task.run(), new PartyServiceTest.RecordingPartyChangeNotifier(), new LoggingMeetingNotifier(),
                 new PartyServiceTest.FakeWalkRouteFinder(), new FakeRideRecords(new PartyJpaTest()),
                 new PartyOpener(parties, events));
 
