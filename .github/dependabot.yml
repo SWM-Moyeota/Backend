@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Seoul"
+    target-branch: "develop"     # PR 받을 브랜치 (없으면 기본 브랜치)
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:                       # 자잘한 업데이트는 PR 하나로 묶기
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"

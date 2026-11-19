@@ -1,8 +1,9 @@
-// D2 - 전체 여정(메인). VU 3개가 한 조로 방 생성 → 참여 → 대기 폴링 → 채팅(WebSocket) → 종료를 반복한다.
-//   VUS 는 3의 배수. users.json 에 VUS 명 이상 있어야 한다.
-//   k6 run -o experimental-prometheus-rw -e VUS=90 loadtest/d2-journey.js
+// D2 - 전체 여정(메인). VU 3개가 한 조로 방 생성 → 참여 → 대기(SSE) → 약속 확정 → 채팅(WebSocket) → 도착 → 출발을 반복한다.
+//   VUS 는 3의 배수. users.json 에 VUS 명 이상 있어야 한다. xk6-sse 가 든 k6 로 돌린다.
+//   약속 시간이 확정 5분 뒤라 한 바퀴가 5분 30초쯤이다 - 기본 유지 12분이면 조마다 두 바퀴를 돈다.
+//   ./k6 run -o experimental-prometheus-rw -e VUS=90 loadtest/d2-journey.js
 import { SharedArray } from 'k6/data';
-import { journey, USE_SSE, GIVE_UP_CAUSES } from './lib/journey.js';
+import { journey, GIVE_UP_CAUSES, FINISH_RESULTS } from './lib/journey.js';
 import { VIEW_CHECK_RESULTS, RESYNC_REASONS, RESYNC_RESULTS } from './lib/sse.js';
 import { breakdown } from './lib/api.js';
 
@@ -15,8 +16,8 @@ if (users.length < VUS) throw new Error(`users.json 에 ${users.length}명뿐이
 export const options = {
   scenarios: {
     journey: {
-      executor: 'ramping-vus', startVUs: 3, gracefulRampDown: '2m', gracefulStop: '2m',
-      stages: [{ target: VUS, duration: '2m' }, { target: VUS, duration: __ENV.HOLD || '6m' }, { target: 0, duration: '1m' }],
+      executor: 'ramping-vus', startVUs: 3, gracefulRampDown: '7m', gracefulStop: '7m',   // 돌던 방은 출발까지 가게 둔다(한 바퀴 5분 30초)
+      stages: [{ target: VUS, duration: '2m' }, { target: VUS, duration: __ENV.HOLD || '12m' }, { target: 0, duration: '1m' }],
     },
   },
   thresholds: {
@@ -29,11 +30,10 @@ export const options = {
     checks: ['rate>0.99'],
     // 측정만 - 태그별로 요약에 보이게 할 뿐 기준이 아니다. 권장 기준은 README(SSE 정합성)
     ...breakdown('journey_give_up', 'cause', GIVE_UP_CAUSES),
-    ...(USE_SSE ? {
-      ...breakdown('sse_view_check', 'result', VIEW_CHECK_RESULTS),
-      ...breakdown('sse_resync', 'reason', RESYNC_REASONS),
-      ...breakdown('sse_resync_result', 'result', RESYNC_RESULTS),
-    } : {}),
+    ...breakdown('journey_finished', 'result', FINISH_RESULTS),
+    ...breakdown('sse_view_check', 'result', VIEW_CHECK_RESULTS),
+    ...breakdown('sse_resync', 'reason', RESYNC_REASONS),
+    ...breakdown('sse_resync_result', 'result', RESYNC_RESULTS),
   },
 };
 

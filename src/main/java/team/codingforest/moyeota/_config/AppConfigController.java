@@ -15,15 +15,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 public class AppConfigController {
-    /** 기사 없이 승객끼리만 모이는 서비스라 늘 false. 출시 앱이 이 키로 화면을 가르므로 키는 남긴다 */
-    private static final boolean TAXI_ENABLED = false;
-
     private final AppProperties appProperties;
 
     @Operation(summary = "서버 설정 조회", description = """
             앱이 시작할 때 한 번 받는다. 인증은 필요 없다 - 앱의 업데이트 게이트가 로그인 화면보다 앞에 있어서 로그인하지 않은 사용자도 막혀야 한다.
 
-            - `taxiEnabled` 는 늘 false. 정원이 차도 택시 호출 없이 채팅으로 모인다. 출시 앱 호환을 위해 키를 유지한다
             - `minVersionCode` 미달인 앱은 빠져나갈 수 없는 업데이트 화면에서 멈춘다. **같은 값은 통과한다**(경계가 `<`)
             - `recommendedVersionCode` 미달이면 막지 않고 한 번 알린다
 
@@ -33,6 +29,6 @@ public class AppConfigController {
             """)
     @GetMapping("/config")
     public ResponseEntity<AppConfigResponse> config() {
-        return ResponseEntity.ok(AppConfigResponse.of(TAXI_ENABLED, appProperties));
+        return ResponseEntity.ok(AppConfigResponse.from(appProperties));
     }
 }

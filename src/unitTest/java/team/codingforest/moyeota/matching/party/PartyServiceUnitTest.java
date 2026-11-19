@@ -20,11 +20,13 @@ import team.codingforest.moyeota.common.exception.BusinessException;
 import team.codingforest.moyeota.common.exception.ErrorCode;
 import team.codingforest.moyeota.common.transaction.AfterCommitExecutor;
 import team.codingforest.moyeota.matching.api.dto.PartyClosedEvent;
+import team.codingforest.moyeota.matching.api.dto.PartyConfirmedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberJoinedEvent;
 import team.codingforest.moyeota.matching.api.dto.PartyMemberLeftEvent;
 import team.codingforest.moyeota.matching.exception.MatchingErrorCode;
 import team.codingforest.moyeota.matching.party.domain.Capacity;
 import team.codingforest.moyeota.matching.party.domain.Location;
+import team.codingforest.moyeota.matching.party.domain.MeetingNotifier;
 import team.codingforest.moyeota.matching.party.domain.MeetingPlan;
 import team.codingforest.moyeota.matching.party.domain.NearbyReservation;
 import team.codingforest.moyeota.matching.party.domain.Parties;
@@ -111,6 +113,7 @@ class PartyServiceUnitTest {
     private static final Instant BASE_TIME = Instant.parse("2026-10-01T00:00:00Z");
     private static final RouteEstimate ESTIMATE = new RouteEstimate(12000, 25, "encoded-path");
     private static final String SSE_TASK = "party.sse";
+    private static final String PUSH_TASK = "party.push";
 
     @Mock
     private Parties parties;
@@ -124,6 +127,8 @@ class PartyServiceUnitTest {
     private AfterCommitExecutor afterCommitExecutor;
     @Mock
     private PartyChangeNotifier partyChangeNotifier;
+    @Mock
+    private MeetingNotifier meetingNotifier;
     @Mock
     private WalkRouteFinder walkRouteFinder;
     @Mock
@@ -627,7 +632,7 @@ class PartyServiceUnitTest {
         verify(partyChangeNotifier).memberLeft(eq(PARTY_ID), eq(HOST_ID), eq(new MemberLeft(HOST_PUBLIC_ID, "ACTIVE", MEMBER_PUBLIC_ID, 1L)));
     }
 
-    @DisplayName("leave - 약속을 확정한 실시간 방에서도 나갈 수 있고 2명 이상 남으면 COMPLETED 그대로 퇴장 신호를 보낸다")
+    @DisplayName("leave - 약속을 확정한 실시간 방에서도 나갈 수 있고 2명 이상 남으면 COMPLETED 그대로 퇴장 신호를 보내고 취소 푸시는 보내지 않는다")
     @Test
     void leave_confirmedRealtime() {
 
@@ -656,9 +661,11 @@ class PartyServiceUnitTest {
         capturedAfterCommitTask().run();
         verify(partyChangeNotifier).memberLeft(eq(PARTY_ID), eq(MEMBER_ID), eq(new MemberLeft(MEMBER_PUBLIC_ID, "COMPLETED", HOST_PUBLIC_ID, 4L)));
         verify(partyChangeNotifier, never()).closed(any(), any());
+        verify(afterCommitExecutor, never()).execute(eq(PUSH_TASK), any());
+        verifyNoInteractions(meetingNotifier);
     }
 
-    @DisplayName("leave - 약속을 확정한 실시간 방에서 나가 혼자 남으면 CANCELED 로 닫히고 퇴장 신호 대신 closed 를 보낸다")
+    @DisplayName("leave - 약속을 확정한 실시간 방에서 나가 혼자 남으면 CANCELED 로 닫히고 퇴장 신호 대신 closed 를, 남은 사람에게 취소 푸시를 보낸다")
     @Test
     void leave_confirmedLeavesOneAlone() {
 
@@ -691,9 +698,17 @@ class PartyServiceUnitTest {
 
         verify(partyChangeNotifier).closed(eq(PARTY_ID), eq(new PartyClosed("CANCELED")));
         verify(partyChangeNotifier, never()).memberLeft(any(), any(), any());
+
+        // 남은 사람(방장)에게만 커밋 뒤에 취소 푸시가 나간다 - 나간 사람은 받지 않는다
+        ArgumentCaptor<Runnable> push = ArgumentCaptor.forClass(Runnable.class);
+        verify(afterCommitExecutor).execute(eq(PUSH_TASK), push.capture());
+        verifyNoInteractions(meetingNotifier);
+        push.getValue().run();
+
+        verify(meetingNotifier).notifyCanceled(eq(PARTY_ID), eq(List.of(HOST_ID)));
     }
 
-    @DisplayName("leave - 예약 방은 나갈 수 있고 혼자 남아도 ACTIVE 그대로 퇴장 신호를 보낸다")
+    @DisplayName("leave - 예약 방은 나갈 수 있고 혼자 남아도 ACTIVE 그대로 퇴장 신호를 보내고 취소 푸시는 보내지 않는다")
     @Test
     void leave_reservation() {
 
@@ -722,9 +737,11 @@ class PartyServiceUnitTest {
         capturedAfterCommitTask().run();
         verify(partyChangeNotifier).memberLeft(eq(PARTY_ID), eq(MEMBER_ID), eq(new MemberLeft(MEMBER_PUBLIC_ID, "ACTIVE", HOST_PUBLIC_ID, 2L)));
         verify(partyChangeNotifier, never()).closed(any(), any());
+        verify(afterCommitExecutor, never()).execute(eq(PUSH_TASK), any());
+        verifyNoInteractions(meetingNotifier);
     }
 
-    @DisplayName("leave - 마지막 멤버가 나가면 CANCELED 로 닫히고 퇴장 신호와 방장 조회 없이 closed 만 보낸다")
+    @DisplayName("leave - 마지막 멤버가 나가면 CANCELED 로 닫히고 퇴장 신호와 방장 조회 없이 closed 만 보내고 받을 사람이 없어 취소 푸시는 보내지 않는다")
     @Test
     void leave_lastMember() {
 
@@ -756,6 +773,8 @@ class PartyServiceUnitTest {
 
         verify(partyChangeNotifier).closed(eq(PARTY_ID), eq(new PartyClosed("CANCELED")));
         verify(partyChangeNotifier, never()).memberLeft(any(), any(), any());
+        verify(afterCommitExecutor, never()).execute(eq(PUSH_TASK), any());
+        verifyNoInteractions(meetingNotifier);
     }
 
     @DisplayName("leave - 나가는 사람의 유저 요약이 없으면 신호의 publicId 가 null 이다")
@@ -1303,7 +1322,8 @@ class PartyServiceUnitTest {
         order.verify(parties).save(eq(party));
         order.verify(afterCommitExecutor).execute(eq(SSE_TASK), any());
         verify(parties, never()).findById(any());
-        verifyNoInteractions(eventPublisher, rideRecords);
+        verify(eventPublisher).publishEvent(eq(new PartyConfirmedEvent(PARTY_ID, "강남역")));   // 채팅방 출발지를 맞추라는 모듈 이벤트
+        verifyNoInteractions(rideRecords);
 
         Runnable task = capturedAfterCommitTask();
         verifyNoInteractions(partyChangeNotifier);
@@ -1341,6 +1361,7 @@ class PartyServiceUnitTest {
         assertThat(party.getDestinationLocation()).isEqualTo(DESTINATION);
         assertThat(party.getVersion()).isEqualTo(3L);
         verify(parties).save(eq(party));
+        verify(eventPublisher).publishEvent(eq(new PartyConfirmedEvent(PARTY_ID, "강남역 2번 출구")));
 
         capturedAfterCommitTask().run();
         verify(partyChangeNotifier).confirmed(eq(PARTY_ID), eq(new PartyConfirmed("COMPLETED", departureAt, 37.4985, 127.0290, "강남역 2번 출구", 3L)));

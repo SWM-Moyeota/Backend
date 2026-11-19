@@ -2,16 +2,14 @@
 //   · CONNECT(Authorization 헤더, heartbeat 없음) → /sub/chat-rooms/{id} 와 /user/queue/errors 구독
 //   · 메시지는 소켓으로 보내고, 새 메시지를 받을 때마다 읽음 지점을 소켓으로 올린다(/pub/.../read)
 //   · 폴링 안전망: 소켓으로 메시지를 "한 번이라도 받기 전"에는 3초, 받은 뒤에는 20초
-//   · 채팅 화면은 대기 화면 위에 쌓인다. 폴링 앱은 그 아래에서 방 상세를 4초마다 폴링해 방이 닫혔는지 본다
-//     (SSE 앱은 SSE 로 받는다 - k6 는 소켓과 SSE 를 같이 못 붙잡으므로 partyId 를 주지 않는다)
+//   · 채팅 화면은 대기 화면 위에 쌓인다. 방 변화는 그 아래의 SSE 로 받는다 - 방 상세 폴링은 없다
+//     (k6 는 소켓과 SSE 를 같이 못 붙잡아 채팅하는 동안에는 SSE 를 들고 있지 않는다)
 import ws from 'k6/ws';
-import { BASE, pollChat, lastMessageId, roomDetail } from './api.js';
+import { BASE, pollChat, lastMessageId } from './api.js';
 
 const NUL = String.fromCharCode(0);   // STOMP 프레임 종료 문자
 const POLL_BEFORE_REALTIME = 3;       // ChatRoute.POLL_INTERVAL_MS
 const POLL_REALTIME = 20;             // ChatRoute.POLL_INTERVAL_REALTIME_MS
-const DETAIL_POLL = 4;                // MatchWaitingRoute.PARTY_POLL_INTERVAL_MS
-const CLOSED = ['FINISHED', 'CANCELED'];
 
 export function wsUrl() {
   return `${BASE.replace(/^http/, 'ws')}/ws-chat`;
@@ -26,17 +24,16 @@ function frame(command, headers, body = '') {
  * 채팅방 하나에 붙어 holdSec 동안 머문다.
  *   sendEverySec  메시지 전송 주기(0 이면 듣기만). 본문은 "lt:<보낸 시각 ms>:<보낸 사람>" - 보내는 쪽과 받는 쪽이 같은 장비라 시계가 같다
  *   cursor        채팅방을 열 때 읽은 마지막 메시지 id (openChatRoom 의 결과)
- *   partyId       주면 방 상세를 4초마다 폴링하고, FINISHED·CANCELED 를 보면 소켓을 닫는다(다른 사람이 합승 완료를 누른 경우)
  *   onInversion   소켓으로 받은 메시지 id 가 직전까지 받은 가장 큰 id 보다 작으면 호출 - 순서가 뒤집힌 것
- * 돌려주는 값: { res, closedBy } - closedBy 는 'timeout' | 'party-closed' | 'error'
+ * 돌려주는 값: { res, closedBy } - closedBy 는 'timeout' | 'error'
  */
 export function chatSession(token, chatRoomId, who, {
-  holdSec = 30, sendEverySec = 15, cursor = null, partyId = null, onLatency, onError, onConnected, onInversion,
+  holdSec = 30, sendEverySec = 15, cursor = null, onLatency, onError, onConnected, onInversion,
 } = {}) {
   let closedBy = 'timeout';
   const res = ws.connect(wsUrl(), { tags: { name: 'WS /ws-chat' } }, (socket) => {
     let realtimeAlive = false;      // 앱과 같다 - 소켓으로 메시지를 받아야 비로소 true
-    let sinceChatPoll = 0, sinceDetailPoll = 0;
+    let sinceChatPoll = 0;
     let lastSeenId = 0;             // 소켓으로 받은 가장 큰 메시지 id
 
     const markRead = (id) => {
@@ -81,17 +78,12 @@ export function chatSession(token, chatRoomId, who, {
       }
     });
 
-    // 1초 틱으로 두 폴링 루프를 흉내 낸다 (k6/ws 콜백 안에서는 http 호출이 된다)
+    // 1초 틱으로 채팅 폴링 안전망을 흉내 낸다 (k6/ws 콜백 안에서는 http 호출이 된다)
     socket.setInterval(() => {
-      sinceChatPoll++; sinceDetailPoll++;
+      sinceChatPoll++;
       if (sinceChatPoll >= (realtimeAlive ? POLL_REALTIME : POLL_BEFORE_REALTIME)) {
         sinceChatPoll = 0;
         markRead(lastMessageId(pollChat(token, chatRoomId, cursor), cursor));
-      }
-      if (partyId && sinceDetailPoll >= DETAIL_POLL) {
-        sinceDetailPoll = 0;
-        const detail = roomDetail(token, partyId);
-        if (detail.status === 200 && CLOSED.includes(detail.json('status'))) { closedBy = 'party-closed'; socket.close(); }
       }
     }, 1000);
 

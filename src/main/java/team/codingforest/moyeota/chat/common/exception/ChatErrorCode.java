@@ -13,6 +13,7 @@ public enum ChatErrorCode {
     CHAT_NOT_PARTICIPANT(HttpStatus.FORBIDDEN, "채팅방 참여자가 아닙니다."),
     CHAT_PARTY_NOT_FOUND(HttpStatus.NOT_FOUND, "파티 정보를 찾을 수 없습니다."),
     CHAT_NOT_PARTY_MEMBER(HttpStatus.FORBIDDEN, "파티 참여자가 아닙니다."),
+    CHAT_PARTY_IN_PROGRESS(HttpStatus.CONFLICT, "진행 중인 합승의 채팅방은 나갈 수 없습니다. 합승을 나가면 채팅방도 함께 나가집니다."),
     CHAT_LOCATION_SHARING_NOT_STARTED(HttpStatus.CONFLICT, "위치 공유가 시작되지 않았습니다."),
     CHAT_INVALID_COORDINATE(HttpStatus.BAD_REQUEST, "좌표 값이 올바르지 않습니다."),
 

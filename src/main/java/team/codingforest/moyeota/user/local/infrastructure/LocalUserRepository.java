@@ -12,6 +12,9 @@ public interface LocalUserRepository extends JpaRepository<LocalUserEntity, Long
     @Query("select u from LocalUserEntity u where u.loginId = :loginId")
     Optional<LocalUserEntity> findByLoginId(@Param("loginId") String loginId);
 
+    @Query("select u.id from LocalUserEntity u where u.loginId = :loginId")
+    Optional<Long> findIdByLoginId(@Param("loginId") String loginId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from LocalUserEntity u where u.id = :id")
     Optional<LocalUserEntity> findByIdForUpdate(@Param("id") Long id);

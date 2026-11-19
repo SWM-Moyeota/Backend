@@ -3,8 +3,10 @@ package team.codingforest.moyeota.chat.room.infrastructure;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import team.codingforest.moyeota.chat.room.domain.ChatRoom;
+import team.codingforest.moyeota.chat.room.domain.ChatRoomStatus;
 import team.codingforest.moyeota.chat.room.infrastructure.entity.ChatRoomEntity;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,10 +52,20 @@ public class ChatRoomJpa implements ChatRooms {
     }
 
     @Override
+    public int changeDeparture(Long partyId, String departure, Instant now) {
+        return jpaRepository.changeDeparture(partyId, departure, now);
+    }
+
+    @Override
     public Optional<Long> nextMessageSeq(Long chatRoomId) {
         if (jpaRepository.incrementLastSeq(chatRoomId) == 0) {
             return Optional.empty();
         }
         return Optional.of(jpaRepository.findLastSeq(chatRoomId));
+    }
+
+    @Override
+    public int endByPartyId(Long partyId, ChatRoomStatus status, Instant now) {
+        return jpaRepository.endByPartyId(partyId, status, now);
     }
 }

@@ -18,6 +18,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import team.codingforest.moyeota.user.api.UserAccess;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -60,7 +61,7 @@ class FcmMeetingNotifierUnitTest {
         assertApns(payload, "323456", "약속 시간이에요", "도착하면 도착 버튼을, 모두 모이면 출발 버튼을 눌러 주세요.");
     }
 
-    @DisplayName("notifyMeetingTime - Android 우선순위와 data 키(type, partyId)를 보낸다")
+    @DisplayName("notifyMeetingTime - Android 우선순위와 data 키(type, partyId, title, body)를 보낸다")
     @Test
     void notifyMeetingTime_androidAndData() throws IOException {
 
@@ -92,7 +93,7 @@ class FcmMeetingNotifierUnitTest {
         assertApns(payload, "423456", "출발하셨나요?", "모두 모였으면 출발 버튼을 눌러 주세요.");
     }
 
-    @DisplayName("remindDeparture - Android 우선순위와 data 키(type, partyId)를 보낸다")
+    @DisplayName("remindDeparture - Android 우선순위와 data 키(type, partyId, title, body)를 보낸다")
     @Test
     void remindDeparture_androidAndData() throws IOException {
 
@@ -105,6 +106,38 @@ class FcmMeetingNotifierUnitTest {
          * verify
          */
         assertAndroidAndData(payload, "PARTY_DEPARTURE_REMINDER");
+    }
+
+    // ───────────────────────── notifyCanceled ─────────────────────────
+
+    @DisplayName("notifyCanceled - iOS 시스템이 표시할 제목·내용·묶음 값을 APNs 로 보낸다")
+    @Test
+    void notifyCanceled_apns() throws IOException {
+
+        /*
+         * test
+         */
+        DocumentContext payload = send(n -> n.notifyCanceled(PARTY_ID, MEMBER_IDS));
+
+        /*
+         * verify
+         */
+        assertApns(payload, "523456", "약속이 취소됐어요", "같이 타기로 한 분이 나가서 방이 닫혔어요. 다시 같이 탈 사람을 찾아보세요.");
+    }
+
+    @DisplayName("notifyCanceled - Android 우선순위와 data 키(type, partyId, title, body)를 보낸다")
+    @Test
+    void notifyCanceled_androidAndData() throws IOException {
+
+        /*
+         * test
+         */
+        DocumentContext payload = send(n -> n.notifyCanceled(PARTY_ID, MEMBER_IDS));
+
+        /*
+         * verify
+         */
+        assertAndroidAndData(payload, "PARTY_CANCELED");
     }
 
     // ───────────────────────── 공통 ─────────────────────────
@@ -157,9 +190,22 @@ class FcmMeetingNotifierUnitTest {
 
     private static void assertAndroidAndData(DocumentContext payload, String type) {
         assertThat(payload.<String>read("$.android.priority")).isEqualTo("high");
-        assertThat(payload.<Map<String, String>>read("$.data")).containsExactlyInAnyOrderEntriesOf(Map.of(
+        assertThat(payload.<Map<String, String>>read("$.data")).containsExactlyInAnyOrderEntriesOf(withAlertText(payload, Map.of(
                 "type", type,
-                "partyId", String.valueOf(PARTY_ID)));
+                "partyId", String.valueOf(PARTY_ID))));
+    }
+
+    /** Android 앱은 data 의 title·body 로 알림을 만든다 - iOS 가 표시하는 문구와 같아야 하고 비어 있으면 안 된다 */
+    private static Map<String, String> withAlertText(DocumentContext payload, Map<String, String> data) {
+        String title = payload.read("$.apns.payload.aps.alert.title");
+        String body = payload.read("$.apns.payload.aps.alert.body");
+        assertThat(title).isNotBlank();
+        assertThat(body).isNotBlank();
+
+        Map<String, String> expected = new HashMap<>(data);
+        expected.put("title", title);
+        expected.put("body", body);
+        return expected;
     }
 
     /** 실제 전송되는 FCM JSON 으로 검증한다 - MulticastMessage 는 값을 꺼내는 공개 메서드가 없다 */

@@ -57,7 +57,7 @@ public class PartyController {
         return ResponseEntity.ok(partyService.join(partyId, memberId));
     }
 
-    @Operation(summary = "방 나가기", description = "닫히지 않은 방(ACTIVE/COMPLETED)이면 약속이 확정된 뒤에도, 예약 방에서도 언제든 나갈 수 있다. 방장이 나가면 남은 멤버 중 가장 먼저 합류한 사람이 승계한다. 마지막 멤버가 나가면 CANCELED. 약속을 확정한 실시간 방(COMPLETED)에서 나가 1명만 남아도 CANCELED - 더 모을 수 없고 혼자서는 출발할 수 없다. 예약 방은 혼자 남아도 출발 전까지 ACTIVE 로 다시 모은다")
+    @Operation(summary = "방 나가기", description = "닫히지 않은 방(ACTIVE/COMPLETED)이면 약속이 확정된 뒤에도, 예약 방에서도 언제든 나갈 수 있다. 방장이 나가면 남은 멤버 중 가장 먼저 합류한 사람이 승계한다. 마지막 멤버가 나가면 CANCELED. 약속을 확정한 실시간 방(COMPLETED)에서 나가 1명만 남아도 CANCELED - 더 모을 수 없고 혼자서는 출발할 수 없다. 예약 방은 혼자 남아도 ACTIVE 로 두고 출발 전까지 다시 모은다. 혼자인 방을 일찍 닫는 규칙은 없고, 끝까지 혼자면 약속 시각(약속이 없는 실시간 방은 만든 시각)에서 1일 뒤 서버가 CANCELED 로 정리한다")
     @ApiResponses({@ApiResponse(responseCode = "204", description = "나감"), @ApiResponse(responseCode = "403", description = "NOT_PARTY_MEMBER"), @ApiResponse(responseCode = "404", description = "PARTY_NOT_FOUND"), @ApiResponse(responseCode = "409", description = "PARTY_CLOSED - 이미 끝났거나 취소된 방")})
     @DeleteMapping("/matching/leave/{partyId}")
     public ResponseEntity<Void> leave(@PathVariable Long partyId, @CurrentUser Long memberId) {

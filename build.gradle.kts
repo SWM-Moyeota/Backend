@@ -2,7 +2,7 @@ import java.net.Socket
 
 plugins {
     java
-    id("org.springframework.boot") version "4.1.0"
+    id("org.springframework.boot") version "4.1.2"
     id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -27,7 +27,7 @@ repositories {
 
 dependencyManagement {
     imports {
-        mavenBom("org.springframework.modulith:spring-modulith-bom:2.0.1")
+        mavenBom("org.springframework.modulith:spring-modulith-bom:2.1.2")
     }
 }
 
@@ -51,22 +51,22 @@ dependencies {
     implementation("org.springframework.modulith:spring-modulith-starter-jpa")   // 아웃박스 패턴 - 이벤트 발행 기록을 JPA 로 저장
 
     // 인증·식별자
-    implementation("io.jsonwebtoken:jjwt-api:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
-    implementation("com.fasterxml.uuid:java-uuid-generator:5.1.0")               // UUID v7
+    implementation("io.jsonwebtoken:jjwt-api:0.13.0")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
+    implementation("com.fasterxml.uuid:java-uuid-generator:5.2.0")               // UUID v7
 
     // 운영: 문서·지표·스케줄러 분산 잠금
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0")   // Boot 4 → springdoc 3.x
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.2.0")   // Boot 4 → springdoc 3.x
     implementation("io.micrometer:micrometer-registry-prometheus")                // 지표 수집
-    implementation("net.javacrumbs.shedlock:shedlock-spring:6.6.0")              // 서버가 여러 대여도 한 대만 돈다
-    implementation("net.javacrumbs.shedlock:shedlock-provider-redis-spring:6.6.0")
+    implementation("net.javacrumbs.shedlock:shedlock-spring:7.11.0")              // 서버가 여러 대여도 한 대만 돈다
+    implementation("net.javacrumbs.shedlock:shedlock-provider-redis-spring:7.11.0")
     implementation("org.springframework.modulith:spring-modulith-events-core")
 
     // 외부 서비스
-    implementation("com.google.firebase:firebase-admin:9.10.0")                  // FCM
-    implementation("com.solapi:sdk:1.0.3")                              //SOLAPI
-    implementation("com.google.api-client:google-api-client:2.7.2")             // 구글 로그인 idToken 검증. firebase-admin 이 끌어오는 버전과 맞춤
+    implementation("com.google.firebase:firebase-admin:9.12.0")                  // FCM
+    implementation("com.solapi:sdk:1.2.0")                              //SOLAPI
+    implementation("com.google.api-client:google-api-client:2.9.2")             // 구글 로그인 idToken 검증. firebase-admin 이 끌어오는 버전과 맞춤
 
     // DB 드라이버
     implementation("org.flywaydb:flyway-database-postgresql")

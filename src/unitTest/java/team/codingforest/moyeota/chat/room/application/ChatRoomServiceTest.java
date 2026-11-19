@@ -22,6 +22,7 @@ import java.util.Optional;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
@@ -78,6 +79,52 @@ class ChatRoomServiceTest {
                 .isInstanceOf(ChatException.class)
                 .extracting("errorCode")
                 .isEqualTo(ChatErrorCode.CHAT_ROOM_ALREADY_EXISTS);
+    }
+
+    @Test
+    public void 약속_확정_장소를_채팅방_출발지로_바꾼다() {
+        given(chatRooms.changeDeparture(eq(PARTY_ID), eq("강남역 11번 출구"), any(Instant.class))).willReturn(1);
+
+        chatRoomService.changeDeparture(PARTY_ID, "강남역 11번 출구");
+
+        then(chatRooms).should().changeDeparture(eq(PARTY_ID), eq("강남역 11번 출구"), any(Instant.class));
+        then(chatRooms).should(never()).save(any(ChatRoom.class));   // 방을 통째로 저장하면 상태를 옛값으로 덮어쓸 수 있다
+    }
+
+    @Test
+    public void 채팅방이_아직_없으면_재발행되도록_출발지_변경은_예외() {
+        given(chatRooms.changeDeparture(eq(PARTY_ID), eq("강남역 11번 출구"), any(Instant.class))).willReturn(0);
+
+        assertThatThrownBy(() -> chatRoomService.changeDeparture(PARTY_ID, "강남역 11번 출구"))
+                .isInstanceOf(ChatException.class)
+                .extracting("errorCode")
+                .isEqualTo(ChatErrorCode.CHAT_ROOM_NOT_FOUND);
+    }
+
+    @Test
+    public void 파티가_같이_타고_끝나면_채팅방을_FINISHED_로_바꾼다() {
+        given(chatRooms.endByPartyId(eq(PARTY_ID), eq(ChatRoomStatus.FINISHED), any(Instant.class))).willReturn(1);
+
+        chatRoomService.end(PARTY_ID, "FINISHED");
+
+        then(chatRooms).should().endByPartyId(eq(PARTY_ID), eq(ChatRoomStatus.FINISHED), any(Instant.class));
+        then(chatRooms).should(never()).save(any(ChatRoom.class));   // 방을 통째로 저장하면 출발지를 옛값으로 덮어쓸 수 있다
+    }
+
+    @Test
+    public void 파티가_같이_타지_못하고_끝나면_채팅방을_CANCELED_로_바꾼다() {
+        given(chatRooms.endByPartyId(eq(PARTY_ID), eq(ChatRoomStatus.CANCELED), any(Instant.class))).willReturn(1);
+
+        chatRoomService.end(PARTY_ID, "CANCELED");
+
+        then(chatRooms).should().endByPartyId(eq(PARTY_ID), eq(ChatRoomStatus.CANCELED), any(Instant.class));
+    }
+
+    @Test
+    public void 진행_중인_채팅방이_없으면_종료는_예외_없이_넘어간다() {
+        given(chatRooms.endByPartyId(eq(PARTY_ID), eq(ChatRoomStatus.CANCELED), any(Instant.class))).willReturn(0);
+
+        chatRoomService.end(PARTY_ID, "CANCELED");   // 혼자 있다 취소된 파티이거나 같은 이벤트가 다시 온 경우
     }
 
     @Test

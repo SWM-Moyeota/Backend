@@ -695,11 +695,12 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         verifyNoInteractions(partyService);
     }
 
-    @DisplayName("POST /api/v1/matching/rooms - 정원이 1~4 밖이면 400 이고 서비스를 부르지 않는다")
+    @DisplayName("POST /api/v1/matching/rooms - 정원이 2~4 밖이면 400 이고 서비스를 부르지 않는다")
     @ParameterizedTest(name = "capacity={0}")
     @CsvSource({
-            "0, 정원은 1명 이상입니다",
-            "-1, 정원은 1명 이상입니다",
+            "0, 정원은 2명 이상입니다",
+            "-1, 정원은 2명 이상입니다",
+            "1, 정원은 2명 이상입니다",
             "5, 정원은 4명 이하입니다"
     })
     void create_capacityOutOfRange(int capacity, String message) throws Exception {
@@ -723,9 +724,9 @@ class PartyControllerUnitTest extends ControllerUnitTestSupport {
         verifyNoInteractions(partyService);
     }
 
-    @DisplayName("POST /api/v1/matching/rooms - 정원 경계값 1과 3은 서비스까지 간다")
+    @DisplayName("POST /api/v1/matching/rooms - 정원 경계값 2와 4는 서비스까지 간다")
     @ParameterizedTest(name = "capacity={0}")
-    @CsvSource({"1", "3"})
+    @CsvSource({"2", "4"})
     void create_capacityBoundary(int capacity) throws Exception {
 
         /*

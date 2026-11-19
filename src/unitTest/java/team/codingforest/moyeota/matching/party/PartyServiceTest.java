@@ -3,6 +3,7 @@ package team.codingforest.moyeota.matching.party;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
+import team.codingforest.moyeota.matching.party.infrastructure.LoggingMeetingNotifier;
 import team.codingforest.moyeota.matching.record.domain.RideRecord;
 import team.codingforest.moyeota.matching.record.FakeRideRecords;
 import team.codingforest.moyeota.common.exception.BusinessException;
@@ -78,7 +79,7 @@ class PartyServiceTest {
         RouteService routeService = new RouteService(
                 key -> new RouteEstimate(12000, 25, "_p~iF~ps|U_ulLnnqC"),   // RouteFinder 가짜 (네이버 미호출)
                 new RouteCacheTest());
-        return new PartyService(parties, events, routeService, userAccess, afterCommit, signals,
+        return new PartyService(parties, events, routeService, userAccess, afterCommit, signals, new LoggingMeetingNotifier(),
                 new FakeWalkRouteFinder(), rideRecords, new PartyOpener(parties, events));
     }
 
@@ -344,10 +345,8 @@ class PartyServiceTest {
     }
 
     @Test
-    void 혼자_타는_방도_ACTIVE_다() {
-        PartyResult party = service.create(createParty(host, 1));
-
-        assertThat(service.getPartyDetail(party.id()).status()).isEqualTo("ACTIVE");
+    void 혼자_타는_방은_만들_수_없다() {
+        assertFails(() -> service.create(createParty(host, 1)), MatchingErrorCode.INVALID_CAPACITY);
     }
 
     @Test

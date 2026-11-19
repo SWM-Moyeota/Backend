@@ -31,6 +31,7 @@ import java.util.Map;
 @ConditionalOnExpression("!'${fcm.service-account-path:}'.isEmpty()")
 @RequiredArgsConstructor
 public class FcmReservationReminderNotifier implements ReservationReminderNotifier {
+    private static final String TITLE = "곧 출발해요";
     private static final DateTimeFormatter DEPARTURE_TIME = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.of("Asia/Seoul"));
 
     private final FirebaseMessaging firebaseMessaging;
@@ -45,12 +46,18 @@ public class FcmReservationReminderNotifier implements ReservationReminderNotifi
             return;
         }
 
+        // 알림은 출발 30분 전 안쪽에서 나가 남은 시간이 매번 달라 남은 분 대신 출발 시각(한국 시각)을 쓴다
+        String body = DEPARTURE_TIME.format(departureAt) + " 출발이에요. 늦지 않게 출발지로 와 주세요.";
+
         MulticastMessage message = MulticastMessage.builder()
                 .setAndroidConfig(AndroidConfig.builder().setPriority(AndroidConfig.Priority.HIGH).build())
-                .setApnsConfig(apnsConfig(partyId, departureAt))
+                .setApnsConfig(apnsConfig(partyId, body))
                 .putData("type", "RESERVATION_DEPARTURE_SOON")
                 .putData("partyId", String.valueOf(partyId))
                 .putData("departureAt", departureAt.toString())
+                // Android 앱은 data 의 title·body 로 알림을 만든다 - 없으면 알림을 띄우지 않고 버린다
+                .putData("title", TITLE)
+                .putData("body", body)
                 .addAllTokens(tokens.values())
                 .build();
 
@@ -71,18 +78,14 @@ public class FcmReservationReminderNotifier implements ReservationReminderNotifi
 
     /**
      *  iOS 는 백그라운드에서 앱 코드가 돌지 않아 시스템이 이 값을 그대로 표시한다 - 없으면 iOS 에서는 이 알림이 보이지 않는다.
-     *  알림은 출발 30분 전 안쪽에서 나가 남은 시간이 매번 달라 남은 분 대신 출발 시각(한국 시각)을 쓴다
      */
-    private ApnsConfig apnsConfig(Long partyId, Instant departureAt) {
+    private ApnsConfig apnsConfig(Long partyId, String body) {
         return ApnsConfig.builder()
                 .putHeader("apns-push-type", "alert")
                 .putHeader("apns-priority", "10")
                 .putHeader("apns-collapse-id", String.valueOf(600_000 + partyId % 100_000))
                 .setAps(Aps.builder()
-                        .setAlert(ApsAlert.builder()
-                                .setTitle("곧 출발해요")
-                                .setBody(DEPARTURE_TIME.format(departureAt) + " 출발이에요. 늦지 않게 출발지로 와 주세요.")
-                                .build())
+                        .setAlert(ApsAlert.builder().setTitle(TITLE).setBody(body).build())
                         .setSound("default")
                         .setThreadId("party-" + partyId)
                         .build())

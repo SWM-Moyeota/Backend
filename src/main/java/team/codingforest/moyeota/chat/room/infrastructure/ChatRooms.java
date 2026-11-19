@@ -1,7 +1,9 @@
 package team.codingforest.moyeota.chat.room.infrastructure;
 
 import team.codingforest.moyeota.chat.room.domain.ChatRoom;
+import team.codingforest.moyeota.chat.room.domain.ChatRoomStatus;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -20,6 +22,16 @@ public interface ChatRooms {
     Optional<ChatRoom> findByPartyIdForUpdate(Long partyId);
 
     /**
+     * 방의 출발지만 바꿈. 방 전체를 저장하지 않아 상태·순번을 옛값으로 덮어쓰지 않음
+     *
+     * @param partyId 출발지가 바뀐 파티
+     * @param departure 새 출발지 이름
+     * @param now 바꾼 시각
+     * @return 바뀐 방 수. 방이 아직 없으면 0
+     */
+    int changeDeparture(Long partyId, String departure, Instant now);
+
+    /**
      * 방 행을 잠그고 다음 메시지 순번을 받음. 트랜잭션이 끝날 때까지 같은 방의 다른 전송은 기다림
      * 그래서 같은 방 안에서는 순번 순서와 커밋 순서가 같음
      *
@@ -27,4 +39,14 @@ public interface ChatRooms {
      * @return 1부터 1씩 증가하는 방별 순번. 방이 없으면 빈 값
      */
     Optional<Long> nextMessageSeq(Long chatRoomId);
+
+    /**
+     * 진행 중인 방만 끝난 상태로 바꿈. 방 전체를 저장하지 않아 출발지·순번을 옛값으로 덮어쓰지 않음
+     *
+     * @param partyId 닫힌 파티
+     * @param status FINISHED 또는 CANCELED
+     * @param now 바꾼 시각
+     * @return 바뀐 방 수. 방이 없거나 이미 끝났으면 0
+     */
+    int endByPartyId(Long partyId, ChatRoomStatus status, Instant now);
 }

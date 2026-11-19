@@ -1,6 +1,7 @@
-// D1 - 읽기 폴링. 동시 접속 CONCURRENT 명이 앱의 화면별 주기로 폴링할 때의 요청을 재현한다 (frontend develop 기준).
+// D1 - 읽기 폴링(옛 앱 기준선). 대기 화면이 SSE 로 바뀌기 전 앱의 화면별 폴링을 재현한다 - 지금 앱의 읽기 부하는 d1-polling-sse.js 다.
+//   SSE 전환 전후를 비교할 때만 돌린다.
 //   17 합승 탭(40%)            목록 4초                          → 0.25 RPS
-//   21 대기(30%)               상세 4초 (COMPLETED 에서도 계속)   → 0.25 RPS
+//   21 대기(30%)               상세 4초                          → 0.25 RPS
 //   채팅 열어 둠(30%)          상세 4초(아래 깔린 21) + 새 메시지 20초 → 0.30 RPS
 //   탭 이동·앱 복귀             /chat-rooms/me, 상세 1회           → 전체의 약 3%
 //   → 1인당 약 0.27 RPS. CONCURRENT=100 이면 27 RPS.   ※ 1차 배포에선 /chat-rooms/me 10초 폴링이 돌지 않는다(대기 단계에선 건너뜀)
@@ -8,7 +9,7 @@
 import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 import {
-  listRooms, roomDetail, myChatRooms, pollChat, sendChatRest, openRoom, joinRoom, leaveRoom, finishRoom,
+  listRooms, roomDetail, myChatRooms, pollChat, sendChatRest, openRoom, joinRoom, disbandRoom,
   fillRoom, groupUsers, resolveChatRoomId, 판교역, spotOf, viewportAround,
 } from './lib/api.js';
 
@@ -72,9 +73,5 @@ export default function (data) {
 }
 
 export function teardown(data) {
-  for (const grp of data.groups) {
-    const [host, a] = groupUsers(users, grp.g);
-    if (grp.full) finishRoom(host.token, grp.partyId);
-    else { leaveRoom(a.token, grp.partyId); leaveRoom(host.token, grp.partyId); }
-  }
+  for (const grp of data.groups) disbandRoom(groupUsers(users, grp.g).slice(0, grp.members), grp.partyId);
 }

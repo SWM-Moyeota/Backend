@@ -42,7 +42,6 @@ class AppConfigVersionGateUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.taxiEnabled").value(false))
                 .andExpect(jsonPath("$.minVersionCode").value(26110501))
                 .andExpect(jsonPath("$.recommendedVersionCode").value(26110502));
     }
