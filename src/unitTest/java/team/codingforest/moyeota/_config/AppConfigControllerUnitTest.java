@@ -27,7 +27,7 @@ class AppConfigControllerUnitTest extends ControllerUnitTestSupport {
     static class Properties {
     }
 
-    @DisplayName("GET /api/v1/config - 토큰 없이 taxiEnabled false 를 키와 함께 준다")
+    @DisplayName("GET /api/v1/config - 토큰 없이 받을 수 있고 택시 플래그(taxiEnabled)는 주지 않는다")
     @Test
     void config() throws Exception {
 
@@ -40,8 +40,7 @@ class AppConfigControllerUnitTest extends ControllerUnitTestSupport {
          * verify
          */
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasKey("taxiEnabled")))
-                .andExpect(jsonPath("$.taxiEnabled").value(false));
+                .andExpect(jsonPath("$", not(hasKey("taxiEnabled"))));
     }
 
     @DisplayName("GET /api/v1/config - 버전 기준을 설정하지 않으면 두 키가 아예 빠진다")
