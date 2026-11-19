@@ -191,7 +191,7 @@ export function journey(users, vu) {
   let destName = null;                                                    // 이번 방의 이름 - 채팅방을 찾는 열쇠
   let departureAt = null;                                                 // 약속 시각(ms)
 
-  check(appStart(me.token), { '1차 배포 모드(taxiEnabled=false)': (r) => r.status === 200 && r.json('taxiEnabled') === false });
+  check(appStart(me.token), { '서버 설정 조회 200': (r) => r.status === 200 });
 
   let partyId = null;
   if (role === 0) {

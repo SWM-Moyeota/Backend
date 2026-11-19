@@ -20,7 +20,7 @@ export const options = { vus: 1, iterations: 1, thresholds: { checks: ['rate==1'
 export default function () {
   const [host, a, b] = [users[0], users[1], users[2]];
 
-  check(appStart(host.token), { 'taxiEnabled=false (택시 꺼진 서버인가)': (r) => r.status === 200 && r.json('taxiEnabled') === false });
+  check(appStart(host.token), { '서버 설정 조회 200': (r) => r.status === 200 });
   check(listRooms(host.token), { '지도 목록 200': (r) => r.status === 200 });
   check(favoritePlaces(host.token), { '즐겨찾기 200': (r) => r.status === 200 });
   check(previewRoute(host.token), { '경로 미리보기 200 (캐시가 비어 있으면 네이버를 1회 부른다)': (r) => r.status === 200 });

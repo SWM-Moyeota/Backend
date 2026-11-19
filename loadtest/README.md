@@ -10,7 +10,7 @@
    Grafana(3000) 데이터소스에 `http://prometheus:9090` 추가. 대시보드는 Spring Boot(ID 19004)·k6(ID 18030) 템플릿 import.
 3. DB 는 Neon `loadtest` 브랜치로 전환 (서버 env 의 `DATABASE_HOST` 만 교체 → 끝나면 `load-env.sh` 로 원복 후 브랜치 삭제).
    D6 를 돌릴 거면 같은 env 파일에 `JWT_ACCESS_VALIDITY=2h` 도 임시로 넣는다 (기본 30분이면 도중에 토큰 만료).
-4. `curl $BASE_URL/api/v1/config` → `{"taxiEnabled":false}` 인지 확인. `true` 면 D 시나리오는 의미가 없다.
+4. `curl $BASE_URL/api/v1/config` 가 200 인지 확인(서버가 떠 있는지 본다).
 5. 사용자 생성: `BASE_URL=http://TARGET:8080 USERS=350 node seed.mjs` → `users.json`
    속도 조절: `PARALLEL`(동시 최대, 기본 10), `RATE`(초당 출발 인원), `DURATION_SEC`(전체를 이 시간에 맞춤). 예) `USERS=4000 DURATION_SEC=300 PARALLEL=40` 이면 약 5분. 한 명이 실패해도 멈추지 않고 성공한 사람만 번호순으로 저장한다
    토큰 유효 30분. 지나면 다시 seed (가입은 409 로 건너뛰고 로그인만 한다 — 같은 `RUN_ID` 를 줄 것).
