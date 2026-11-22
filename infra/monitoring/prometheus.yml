@@ -29,7 +29,7 @@ scrape_configs:
         labels: { env: dev, role: target, instance_name: dev-api-c }
       - targets: ['172.16.1.25:9100']
         labels: { env: prod, role: target, instance_name: prod-api-a }
-      - targets: ['172.16.1.21:9100']
+      - targets: ['172.16.1.21:9100']         # k6 서버. 부하 테스트 때만 켠다 - 꺼져 있으면 down 으로만 보인다
         labels: { env: dev, role: loadgen, instance_name: k6-1 }
 
   # exporter 는 ElastiCache 를 본다 - 같은 환경의 서버는 같은 Redis 라 환경마다 한 대만 긁는다

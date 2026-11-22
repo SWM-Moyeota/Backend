@@ -6,7 +6,7 @@
 
 ## 준비
 1. 대상 서버: `micrometer-registry-prometheus` 추가, `exposure.include` 에 `prometheus`, prod 는 `management.server.port: 9091` (CloudFront VPC origin 이 8080 을 통째로 전달하므로 관리 포트를 분리해야 인터넷에 안 노출됨). actuator base-path 가 `/` 라 지표는 `http://IP:9091/prometheus`.
-2. k6 서버: `infra/monitoring/prometheus.yml` 의 대상 IP 확인(dev 서버 A 172.16.1.30, C 172.16.1.46) → 레포 루트에서 `docker compose -f infra/monitoring/docker-compose.yml up -d`
+2. 모니터링 스택(admin 서버 172.16.1.17 에서 상시 가동): `infra/monitoring/prometheus.yml` 의 대상 IP 확인(dev 서버 A 172.16.1.30, C 172.16.1.46). 스택을 올리는 방법은 `infra/monitoring/up.sh` 머리말 참고
    Grafana(3000) 데이터소스에 `http://prometheus:9090` 추가. 대시보드는 Spring Boot(ID 19004)·k6(ID 18030) 템플릿 import.
 3. DB 는 Neon `loadtest` 브랜치로 전환 (서버 env 의 `DATABASE_HOST` 만 교체 → 끝나면 `load-env.sh` 로 원복 후 브랜치 삭제).
    D6 를 돌릴 거면 같은 env 파일에 `JWT_ACCESS_VALIDITY=2h` 도 임시로 넣는다 (기본 30분이면 도중에 토큰 만료).

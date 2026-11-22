@@ -41,7 +41,7 @@ services:
     volumes:
       - ./loki.yml:/etc/loki/loki.yml:ro
       - loki-data:/loki
-    ports: [ "172.16.1.21:3100:3100" ]      # ec2가 push할 수 있도록 구성
+    ports: [ "172.16.1.17:3100:3100" ]      # 운영 EC2의 Alloy가 push. 주소는 이 스택이 도는 admin 서버의 사설 IP
     restart: unless-stopped
 
   tempo:
@@ -50,7 +50,7 @@ services:
     volumes:
       - ./tempo.yaml:/etc/tempo.yaml:ro
       - tempo-data:/var/tempo
-    ports: [ "172.16.1.21:4318:4318" ]       # 운영 EC2의 Alloy가 push
+    ports: [ "172.16.1.17:4318:4318" ]       # 운영 EC2의 Alloy가 push
     restart: unless-stopped
 
 volumes:
