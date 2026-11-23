@@ -2,7 +2,7 @@ import java.net.Socket
 
 plugins {
     java
-    id("org.springframework.boot") version "4.1.2"
+    id("org.springframework.boot") version "4.2.0"
     id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -27,7 +27,7 @@ repositories {
 
 dependencyManagement {
     imports {
-        mavenBom("org.springframework.modulith:spring-modulith-bom:2.1.2")
+        mavenBom("org.springframework.modulith:spring-modulith-bom:2.2.0")
     }
 }
 
